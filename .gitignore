@@ -22,3 +22,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Helper worktrees made by Claude Code sessions
+/.claude/worktrees/
