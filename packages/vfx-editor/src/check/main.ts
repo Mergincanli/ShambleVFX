@@ -1,0 +1,138 @@
+/**
+ * The colour check page. It draws sprites tinted by palette roles on the game ground, with the real runtime,
+ * so a headless browser can read the pixels back and compare them with the palette hexes.
+ * Open /check.html (WebGPU when the browser has it) or /check.html?backend=webgl (WebGL 2).
+ */
+import { Color, Mesh, MeshBasicNodeMaterial, NoColorSpace, PlaneGeometry, RenderTarget, RGBAFormat, Scene, UnsignedByteType, Vector3, WebGPURenderer } from 'three/webgpu';
+import paletteJson from '@shamble/vfx-format/palette.json';
+import { newEffect, newSpriteLayer, resolveRole } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Palette, SpriteLayer } from '@shamble/vfx-format';
+import { VfxRenderer } from '@shamble/vfx-runtime';
+import { cameraGround, makeGameCamera } from '../preview/camera';
+import data from '../preview/scene-data.json';
+
+const palette = paletteJson as Palette;
+const params = new URLSearchParams(location.search);
+const forceWebGL = params.get('backend') === 'webgl';
+const faction = (params.get('faction') ?? 'allies') as FactionId;
+// Off-screen: render into a texture and read it back. Headless browsers here cannot show a WebGPU canvas,
+// but they can render WebGPU off-screen, so the check reads the real WebGPU output this way.
+const offscreen = params.get('offscreen') === '1';
+
+interface Probe { label: string; x: number; y: number; expect: string }
+
+async function main(): Promise<void> {
+  const renderer = new WebGPURenderer({ antialias: false, forceWebGL });
+  renderer.setPixelRatio(1);
+  renderer.setSize(1920, 1080);
+  await renderer.init();
+  let target: RenderTarget | null = null;
+  let shown: HTMLCanvasElement | null = null;
+  if (offscreen) {
+    // A plain 8-bit target: the renderer's output pass writes sRGB values into it once, as it would to the screen.
+    target = new RenderTarget(1920, 1080, { type: UnsignedByteType, format: RGBAFormat, colorSpace: NoColorSpace, depthBuffer: true });
+    renderer.setOutputRenderTarget(target);
+    shown = document.createElement('canvas');
+    shown.width = 1920; shown.height = 1080;
+    document.body.appendChild(shown);
+  } else {
+    document.body.appendChild(renderer.domElement);
+  }
+
+  const scene = new Scene();
+  scene.background = new Color(data.ground.sun);
+  const ground = new Mesh(new PlaneGeometry(200, 200), new MeshBasicNodeMaterial({ color: new Color(data.ground.sun) }));
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+  const camera = makeGameCamera();
+
+  // Atlas: an opaque white square and a half-transparent white square.
+  const atlasCanvas = document.createElement('canvas');
+  atlasCanvas.width = 64; atlasCanvas.height = 32;
+  const g = atlasCanvas.getContext('2d')!;
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 32, 32);
+  g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(32, 0, 32, 32);
+
+  const vfx = new VfxRenderer(palette);
+  vfx.setAtlas({ image: atlasCanvas, width: 64, height: 32, rects: { 'white.png': { x: 2, y: 2, w: 28, h: 28 }, 'half.png': { x: 34, y: 2, w: 28, h: 28 } } });
+  scene.add(vfx.mesh);
+
+  const roles = ['heat.1', 'heat.2', 'heat.3', 'heat.4', 'ink', 'team', 'glow', 'gunword.top', 'dust'];
+  const fx: EffectFile = newEffect('colour_check', 'Colour check');
+  const probes: Probe[] = [];
+  const spots: Vector3[] = [];
+  roles.forEach((role, i) => {
+    const spot = cameraGround(-8 + i * 2, 2.5);
+    spots.push(spot);
+    const l: SpriteLayer = { ...newSpriteLayer(`r${i}`, role, 'white.png'), sizeM: [1.2, 1.2], tint: { mode: 'multiply', role }, at: { input: 'origin', offset: [0, 0, 0] } };
+    fx.layers.push(l);
+  });
+  // Half-transparent heat.1 over the ground, and a sprite centred on the ground (the ground must not cut it).
+  const halfSpot = cameraGround(-3, -2.5);
+  const groundSpot = cameraGround(3, -2.5);
+
+  const draw = () => {
+    vfx.begin(camera);
+    fx.layers.forEach((l, i) => {
+      const one: EffectFile = { ...fx, layers: [l] };
+      vfx.draw(one, { seed: 1, timeMs: 0, inputs: { origin: spots[i]!.toArray() as [number, number, number], target: spots[i]!.toArray() as [number, number, number] }, faction });
+    });
+    const half: EffectFile = { ...fx, layers: [{ ...newSpriteLayer('half', 'Half', 'half.png'), sizeM: [1.2, 1.2], tint: { mode: 'multiply', role: 'heat.1' } }] };
+    vfx.draw(half, { seed: 1, timeMs: 0, inputs: { origin: halfSpot.toArray() as [number, number, number], target: halfSpot.toArray() as [number, number, number] }, faction });
+    const onGround: EffectFile = { ...fx, layers: [{ ...newSpriteLayer('g', 'On the ground', 'white.png'), sizeM: [1.2, 1.2], tint: { mode: 'multiply', role: 'ink' } }] };
+    vfx.draw(onGround, { seed: 1, timeMs: 0, inputs: { origin: groundSpot.toArray() as [number, number, number], target: groundSpot.toArray() as [number, number, number] }, faction });
+    vfx.end();
+    renderer.render(scene, camera);
+  };
+  draw();
+  if (target && shown) {
+    const px = (await renderer.readRenderTargetPixelsAsync(target, 0, 0, 1920, 1080)) as Uint8Array;
+    const rows = new Uint8ClampedArray(1920 * 1080 * 4);
+    // WebGL reads rows from the bottom up; WebGPU from the top down.
+    const bottomUp = (renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true;
+    for (let y = 0; y < 1080; y++) {
+      const src = (bottomUp ? 1079 - y : y) * 1920 * 4;
+      rows.set(px.subarray(src, src + 1920 * 4), y * 1920 * 4);
+    }
+    const img = new ImageData(rows, 1920, 1080);
+    shown.getContext('2d')!.putImageData(img, 0, 0);
+  }
+
+  const toPx = (v: Vector3): [number, number] => {
+    const p = v.clone().project(camera);
+    return [Math.round(((p.x + 1) / 2) * 1920), Math.round(((1 - p.y) / 2) * 1080)];
+  };
+  roles.forEach((role, i) => {
+    const [x, y] = toPx(spots[i]!);
+    probes.push({ label: role, x, y, expect: resolveRole(palette, role, faction)! });
+  });
+  const [hx, hy] = toPx(halfSpot);
+  const heat1 = resolveRole(palette, 'heat.1', faction)!;
+  probes.push({ label: 'half heat.1 over ground', x: hx, y: hy, expect: canvasBlend(heat1, data.ground.sun, 128 / 255) });
+  // The sprite on the ground: probe its lower part (below the anchor), which the ground would cut without the depth pull.
+  const low = groundSpot.clone().addScaledVector(camera.up, -0.4);
+  const [lx, ly] = toPx(low);
+  probes.push({ label: 'lower half of a sprite centred on the ground', x: lx, y: ly, expect: resolveRole(palette, 'ink', faction)! });
+
+  (window as unknown as { __check: unknown }).__check = {
+    ready: true,
+    backend: (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2',
+    probes,
+    redraw: draw,
+    offscreen,
+  };
+}
+
+/** What Canvas 2D (the drawing board) shows: blending in sRGB values. */
+function canvasBlend(top: string, under: string, alpha: number): string {
+  const a = new Color(top), b = new Color(under);
+  const t = a.getHex(), u = b.getHex();
+  const ch = (h: number, s: number) => (h >> s) & 255;
+  const out = [16, 8, 0].map((s) => Math.round(ch(t, s) * alpha + ch(u, s) * (1 - alpha)));
+  return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+main().catch((e) => {
+  (window as unknown as { __check: unknown }).__check = { ready: true, error: String(e?.stack ?? e) };
+  throw e;
+});

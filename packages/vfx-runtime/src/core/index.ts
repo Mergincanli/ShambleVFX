@@ -12,3 +12,5 @@ export type { QuadRecord } from './sink';
 export { hash32, random01, hashText } from './random';
 export { shotFrame, frameOffset } from './math';
 export type { ShotFrame } from './math';
+export { EffectPlayer } from './player';
+export type { PlayingEffect, EffectLookup } from './player';

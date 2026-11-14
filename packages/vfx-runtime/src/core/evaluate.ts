@@ -39,6 +39,11 @@ export interface EvalContext {
   camera: CameraBasis;
   /** Finds an image in the atlas. Undefined when the atlas does not have it. */
   imageRect(name: string): UvRect | undefined;
+  /**
+   * How to write tint colours: 'linear' (three.js colour management on, the default) or 'srgb'
+   * (colour management off, as the legacy game did). The three.js side sets this from the renderer's setup.
+   */
+  colourSpace?: 'linear' | 'srgb';
 }
 
 export interface EvalResult {
@@ -97,7 +102,9 @@ function roleColour(role: string, ctx: EvalContext, c: ResolvedControls, cache: 
     const hex = resolveRole(ctx.palette, name, ctx.faction);
     // An unknown role draws white (untinted). The checker names it.
     const [r, g, b] = hex ? parseHex(hex) : [255, 255, 255];
-    col = [srgbToLinear(r / 255), srgbToLinear(g / 255), srgbToLinear(b / 255)];
+    col = ctx.colourSpace === 'srgb'
+      ? [r / 255, g / 255, b / 255]
+      : [srgbToLinear(r / 255), srgbToLinear(g / 255), srgbToLinear(b / 255)];
     cache.set(name, col);
   }
   return col;
