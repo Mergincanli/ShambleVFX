@@ -1,0 +1,96 @@
+{
+  "format": "shamble-vfx",
+  "version": 1,
+  "id": "rifle_shot",
+  "name": "Rifle shot (demo)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "glow"
+  },
+  "layers": [
+    {
+      "id": "bullet",
+      "name": "Bullet",
+      "type": "projectile",
+      "start": { "ms": 0 },
+      "timing": { "mode": "smooth" },
+      "from": { "input": "origin", "offset": [0, 0, 0] },
+      "to": { "input": "target", "offset": [0, 0, 0] },
+      "speedMps": 800,
+      "stretch": 1,
+      "spinDegPerS": 0
+    },
+    {
+      "id": "tracer",
+      "name": "Tracer",
+      "type": "sprite",
+      "start": { "ms": 0 },
+      "timing": { "mode": "smooth" },
+      "at": { "layer": "bullet" },
+      "image": "tracer_body.png",
+      "pivot": [1, 0.5],
+      "sizeM": [9, 0.11],
+      "tint": { "mode": "multiply", "role": "main" },
+      "facing": "path",
+      "durationMs": 110
+    },
+    {
+      "id": "tracer_core",
+      "name": "Tracer core",
+      "type": "sprite",
+      "start": { "ms": 0 },
+      "timing": { "mode": "smooth" },
+      "at": { "layer": "bullet" },
+      "image": "tracer_core.png",
+      "pivot": [1, 0.5],
+      "sizeM": [9, 0.11],
+      "tint": { "mode": "keep" },
+      "facing": "path",
+      "durationMs": 80
+    },
+    {
+      "id": "flash",
+      "name": "Muzzle flash",
+      "type": "sprite",
+      "start": { "ms": 0 },
+      "timing": { "mode": "steps", "perSecond": 24 },
+      "at": { "input": "origin", "offset": [0, 0, 0] },
+      "image": "muzzle_flash.png",
+      "flipbook": { "cols": 2, "rows": 2, "frames": 4, "loop": false },
+      "pivot": [0.16, 0.5],
+      "sizeM": [1.2, 1.2],
+      "tint": { "mode": "keep" },
+      "facing": "path"
+    },
+    {
+      "id": "hit",
+      "name": "Hit spark",
+      "type": "sprite",
+      "start": { "arrivalOf": "bullet", "ms": 0 },
+      "timing": { "mode": "steps", "perSecond": 12 },
+      "at": { "input": "target", "offset": [0, 0, 0] },
+      "image": "hit_star.png",
+      "pivot": [0.5, 0.5],
+      "sizeM": [0.55, 0.55],
+      "tint": { "mode": "multiply", "role": "main" },
+      "facing": "camera",
+      "durationMs": 120
+    },
+    {
+      "id": "dust",
+      "name": "Dust at the hit",
+      "type": "sprite",
+      "start": { "arrivalOf": "bullet", "ms": 40 },
+      "timing": { "mode": "steps", "perSecond": 12 },
+      "at": { "input": "target", "offset": [0, 0, 0] },
+      "image": "dust_puff.png",
+      "flipbook": { "cols": 3, "rows": 1, "frames": 3, "loop": false },
+      "pivot": [0.5, 0.75],
+      "sizeM": [0.8, 0.8],
+      "tint": { "mode": "multiply", "role": "dust" },
+      "facing": "camera"
+    }
+  ]
+}
