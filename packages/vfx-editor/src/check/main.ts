@@ -5,7 +5,7 @@
  */
 import { BoxGeometry, Color, Mesh, MeshBasicNodeMaterial, NoColorSpace, PlaneGeometry, RenderTarget, RGBAFormat, Scene, UnsignedByteType, Vector3, WebGPURenderer } from 'three/webgpu';
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { newEffect, newSpriteLayer, resolveRole } from '@shamble/vfx-format';
+import { newEffect, newProjectileLayer, newSpriteLayer, resolveRole } from '@shamble/vfx-format';
 import type { EffectFile, FactionId, Palette, SpriteLayer } from '@shamble/vfx-format';
 import { VfxRenderer } from '@shamble/vfx-runtime';
 import { cameraGround, makeGameCamera } from '../preview/camera';
@@ -79,6 +79,13 @@ async function main(): Promise<void> {
   scene.add(wall);
   const behindSpot = cameraGround(7, -1.7);
   const controlSpot = cameraGround(4.6, -1.7); // the same distance, with no wall in front: must show
+  // A 1 m square riding a projectile that spins 90 degrees a second, shown at 500 ms: turned 45 degrees.
+  const spinSpot = cameraGround(-7, -2.5).add(new Vector3(0, 0.8, 0));
+  const spinFx: EffectFile = newEffect('spin_check', 'Spin check');
+  const spinP = newProjectileLayer('p', 'P');
+  spinP.spinDegPerS = 90;
+  spinP.timing = { mode: 'smooth' };
+  spinFx.layers = [spinP, { ...newSpriteLayer('r', 'R', 'white.png'), at: { layer: 'p' }, sizeM: [1, 1], tint: { mode: 'multiply', role: 'ink' }, durationMs: 2000 }];
 
   const draw = () => {
     vfx.begin(camera);
@@ -93,6 +100,7 @@ async function main(): Promise<void> {
     const behind: EffectFile = { ...fx, layers: [{ ...newSpriteLayer('b', 'Behind the wall', 'white.png'), sizeM: [0.8, 0.8], tint: { mode: 'multiply', role: 'ink' } }] };
     vfx.draw(behind, { seed: 1, timeMs: 0, inputs: { origin: behindSpot.toArray() as [number, number, number], target: behindSpot.toArray() as [number, number, number] }, faction });
     vfx.draw(behind, { seed: 1, timeMs: 0, inputs: { origin: controlSpot.toArray() as [number, number, number], target: controlSpot.toArray() as [number, number, number] }, faction });
+    vfx.draw(spinFx, { seed: 1, timeMs: 500, inputs: { origin: spinSpot.toArray() as [number, number, number], target: spinSpot.toArray() as [number, number, number] }, faction });
     vfx.end();
     renderer.render(scene, camera);
   };
@@ -127,6 +135,14 @@ async function main(): Promise<void> {
   probes.push({ label: 'lower half of a sprite centred on the ground', x: lx, y: ly, expect: resolveRole(palette, 'ink', faction)! });
   const [bx, by] = toPx(behindSpot);
   probes.push({ label: 'a sprite 1.5 m behind a wall stays hidden', x: bx, y: by, expect: WALL });
+  // Turned 45 degrees: a point 0.62 m to the right is inside the diamond (not inside the square it was);
+  // a point 0.42 m right and 0.42 m up is inside the square it was, not inside the diamond.
+  const [sx1, sy1] = toPx(spinSpot.clone().addScaledVector(camera.getWorldDirection(new Vector3()).cross(camera.up).normalize(), 0.62));
+  probes.push({ label: 'a spinning sprite has turned 45 degrees (diamond tip shows)', x: sx1, y: sy1, expect: resolveRole(palette, 'ink', faction)! });
+  const right = camera.getWorldDirection(new Vector3()).cross(camera.up).normalize();
+  const upv = right.clone().cross(camera.getWorldDirection(new Vector3())).normalize();
+  const [sx2, sy2] = toPx(spinSpot.clone().addScaledVector(right, 0.42).addScaledVector(upv, 0.42));
+  probes.push({ label: 'a spinning sprite has turned 45 degrees (old corner is empty)', x: sx2, y: sy2, expect: data.ground.sun });
   const [cx2, cy2] = toPx(controlSpot);
   probes.push({ label: 'the same sprite with no wall in front shows', x: cx2, y: cy2, expect: resolveRole(palette, 'ink', faction)! });
 

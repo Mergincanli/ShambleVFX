@@ -205,6 +205,23 @@ describe('evaluate', () => {
     expect(flashWidth()).toBeCloseTo(3, 6);
   });
 
+  it('turns a riding sprite by the projectile\'s spin, in the view plane', () => {
+    const fx = newEffect('spin', 'Spin');
+    const p = newProjectileLayer('p', 'P');
+    p.spinDegPerS = 90;
+    const r: SpriteLayer = { ...newSpriteLayer('r', 'R', 'a.png'), at: { layer: 'p' }, sizeM: [1, 1], durationMs: 2000 };
+    fx.layers = [p, r];
+    const still = ctx(500, { inputs: { origin: [0, 0, 0], target: [0, 0, 0] } });
+    const q = run(fx, still).quads[0]!;
+    // 500 ms at 90 degrees a second: a quarter turn of a quarter turn, 45 degrees. x axis = right cos45 + up sin45.
+    const c = Math.SQRT1_2;
+    for (let k = 0; k < 3; k++) expect(q.axisX[k]).toBeCloseTo(cam.right[k]! * c + cam.up[k]! * c, 5);
+    for (let k = 0; k < 3; k++) expect(q.axisY[k]).toBeCloseTo(cam.up[k]! * c - cam.right[k]! * c, 5);
+    // At 0 ms it has not turned.
+    const q0 = run(fx, ctx(0, { inputs: { origin: [0, 0, 0], target: [0, 0, 0] } })).quads[0]!;
+    for (let k = 0; k < 3; k++) expect(q0.axisX[k]).toBeCloseTo(cam.right[k]!, 6);
+  });
+
   it('grows the sink when it runs out of room', () => {
     const fx = newEffect('many', 'Many');
     fx.layers = Array.from({ length: 40 }, (_, i) => newSpriteLayer(`s${i}`, `S${i}`, 'a.png'));

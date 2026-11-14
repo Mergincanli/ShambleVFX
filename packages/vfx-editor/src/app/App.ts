@@ -62,6 +62,7 @@ export class App implements AppApi {
   };
   private factionCtl!: ReturnType<typeof segmented<FactionId>>;
   private viewCtl!: ReturnType<typeof segmented<ViewMode>>;
+  private closeCtl!: ReturnType<typeof segmented<'origin' | 'target'>>;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
 
@@ -233,10 +234,12 @@ export class App implements AppApi {
       onChange: (f) => { this.faction = f; this.preview.setFaction(f); this.factionCtl.set(f); this.inspector.refresh(); }, small: true });
     this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen' }, { value: 'game', label: 'Game size' }, { value: 'close', label: 'Close-up' }],
       value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
+    this.closeCtl = segmented<'origin' | 'target'>({ label: 'Close-up on', options: [{ value: 'origin', label: 'Muzzle' }, { value: 'target', label: 'Target' }], value: 'target',
+      onChange: (v) => { this.preview.setCloseOn(v); this.closeCtl.set(v); }, small: true });
     const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the stand-in to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
     const stats = h('span', { class: 'stats' });
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar' }, fire, this.factionCtl.el, this.viewCtl.el, stats);
+    const vbar = h('div', { class: 'vbar' }, fire, this.factionCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
 
     const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
@@ -346,7 +349,8 @@ export class App implements AppApi {
       const copy = await this.store.copy(this.project.id, 'projects', name);
       const doc = this.history.doc;
       this.project = await this.store.open(copy.id);
-      this.effectsOnDisk = new Set();
+      // The copy holds every effect file the original had, deleted ones too: list them, so saving removes those.
+      this.effectsOnDisk = new Set(this.project.effects.map((f) => f.replace(/\.vfx\.json$/, '')));
       await this.writeEffects(copy.id);
       try { localStorage.setItem(LAST_PROJECT, copy.id); } catch { /* ignore */ }
       this.history.reset(doc);
@@ -493,6 +497,8 @@ export class App implements AppApi {
 
   private step(dir: number): void {
     this.playing = false;
+    // After Fire, the playhead is not on the timeline (only fired effects were playing): start from 0.
+    if (!Number.isFinite(this.mainTime)) { this.mainTime = 0; this.player.clear(); }
     const stepMs = 1000 / 12;
     const n = Math.round(this.mainTime / stepMs) + dir;
     this.mainTime = Math.max(0, Math.min(this.timeline()?.lengthMs ?? 0, n * stepMs));
@@ -518,7 +524,8 @@ export class App implements AppApi {
   }
 
   private async frame(now: number): Promise<void> {
-    const dt = Math.min(50, now - this.lastFrame);
+    // Real time since the last frame, capped so a hidden tab coming back does not jump the effect.
+    const dt = Math.min(100, Math.max(0, now - this.lastFrame));
     this.lastFrame = now;
     const fx = this.effect();
     const len = this.timeline()?.lengthMs ?? 0;
@@ -619,7 +626,13 @@ export class App implements AppApi {
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.history.redo(); return; }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void this.save(); return; }
       if (typing || mod || this.els.dialog.open) return;
-      if (e.key === ' ') { e.preventDefault(); this.togglePlay(); }
+      if (tag === 'BUTTON' && e.key === 'Enter') return;
+      if (e.key === ' ') {
+        // A button clicked with the mouse keeps focus; Space would click it again on key-up. Take the focus away.
+        e.preventDefault();
+        if ((e.target as HTMLElement).tagName === 'BUTTON') (e.target as HTMLElement).blur();
+        this.togglePlay();
+      }
       else if (e.key === 'f' || e.key === 'F') this.fire();
       else if (e.key === 'ArrowLeft') { e.preventDefault(); this.step(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); this.step(1); }
@@ -638,6 +651,24 @@ export class App implements AppApi {
     this.seed = seed;
     this.player.clear();
     await this.frame(performance.now());
+  }
+
+  /** For the browser check: let realMs of real time pass in 40 ms frames, without waiting for the screen. */
+  async tickForChecks(realMs: number): Promise<void> {
+    (window as unknown as { __vfxManual?: boolean }).__vfxManual = true;
+    for (let t = 0; t < realMs; t += 40) await this.frame(this.lastFrame + 40);
+  }
+
+  /** For the browser check: hand the clock back to the screen's frames. */
+  resumeForChecks(): void {
+    (window as unknown as { __vfxManual?: boolean }).__vfxManual = false;
+    this.lastFrame = performance.now();
+    requestAnimationFrame((t) => void this.frame(t));
+  }
+
+  /** For the browser check: the playback state. */
+  debugState(): { playing: boolean; mainTime: number; speed: number; playingCount: number; effects: string[] } {
+    return { playing: this.playing, mainTime: this.mainTime, speed: this.speed, playingCount: this.player.count, effects: this.history.doc.effects.map((e) => e.id) };
   }
 
   /** For the browser check: pick an effect by id. */

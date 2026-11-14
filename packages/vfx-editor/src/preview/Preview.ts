@@ -144,9 +144,14 @@ export class Preview {
     this.resize();
   }
 
+  /** What the close-up centres on: the muzzle or the target. */
+  setCloseOn(v: 'origin' | 'target'): void {
+    this.closeOn = v;
+    this.updateView();
+  }
+
   /** Draw one frame. `drawEffects` adds the effects to show (vfx.draw calls) between begin and end. */
   async render(drawEffects: (vfx: VfxRenderer) => void): Promise<void> {
-    if (this.view === 'game' || this.view === 'close') this.updateView();
     this.orderActors();
     this.vfx.begin(this.camera);
     drawEffects(this.vfx);
@@ -260,7 +265,9 @@ export class Preview {
     const vw = w / k, vh = h / k;
     let cx = SCREEN_W / 2, cy = SCREEN_H / 2;
     if (this.view === 'game' || this.view === 'close') {
-      // Centre on the action: the middle of shooter and target for game size, the target for the close-up.
+      // Centre on the action: the middle of shooter and target for game size, the muzzle or the target for the
+      // close-up. Worked out when the view changes and after a drag, never during one (the ground must stay
+      // under the cursor while you drag).
       const focus = this.view === 'game' ? this.origin.clone().lerp(this.target, 0.5) : this.closeOn === 'origin' ? this.origin : this.target.clone();
       this.camera.clearViewOffset();
       const v = focus.project(this.camera);
@@ -315,7 +322,10 @@ export class Preview {
       const p = groundAt(e);
       if (p) this.moveTo(dragging, p);
     });
-    const stop = () => { dragging = null; };
+    const stop = () => {
+      if (dragging && (this.view === 'game' || this.view === 'close')) this.updateView();
+      dragging = null;
+    };
     el.addEventListener('pointerup', stop);
     el.addEventListener('pointercancel', stop);
   }

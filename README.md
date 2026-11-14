@@ -21,7 +21,7 @@ npm run dev
 The editor opens in your browser at http://127.0.0.1:5173. Stop it with Ctrl+C in the terminal.
 
 - It uses the **WebGPU** renderer when your browser has it, and the **WebGL 2** fallback otherwise. The badge at the top right says which. To try the fallback on purpose, open http://127.0.0.1:5173/?backend=webgl.
-- It works in Brave too. Projects are saved through the editor's own local server, so Brave's blocked folder picker does not matter.
+- Saving goes through the editor's own local server, not the browser's folder picker (which Brave blocks by default). Brave on Windows is not tested yet; if the preview stays empty, use the address with `?backend=webgl`.
 
 ## What to click
 
@@ -74,7 +74,7 @@ This runs a headless browser check. It works on WebGPU and on WebGL 2:
 - every palette role must read back as its exact hex;
 - the ground must not cut a sprite, and a wall must hide one;
 - the editor must draw;
-- it tries undo, Fire and Save as;
+- it tries the transport (play, pause, Space, steps, scrubbing, ¼ speed), undo and redo, Fire, dragging the target in every view, and Save as (then opens the saved project again);
 - it saves 1920 × 1080 screenshots to `out/screenshots/`;
 - it checks that the runtime holds no editor code.
 
@@ -114,6 +114,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Intensity scales flashes, hits and landings, and the stretch of streaks. It never makes anything see-through.
   - Duration stretches the effect's own times, not flight time and not the step rate.
   - Colour picks the main role.
+  - On a flipbook, duration holds each frame for whole steps (2× holds each frame two steps), so the comic step rate stays 12 a second. Below 1.5× it does not change a flipbook, and it never makes one shorter.
 - **Depth pull.** A sprite is pulled towards the camera by as much as it reaches below its anchor, so the ground (or the wall it sits on) never cuts it. A sprite less than about its own size behind a wall can show through.
 - **"Stretch along the path"** is a length factor. A riding streak never reaches back past the start of the path or past its end.
 - **Projectile offsets** are given in the "shot frame": right, up, and forward towards the target.

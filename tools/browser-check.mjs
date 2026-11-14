@@ -9,7 +9,7 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, Save as into projects/ (deleted again after).
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
-import { mkdirSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer } from 'vite';
@@ -78,8 +78,8 @@ for (const backend of ['webgpu', 'webgl']) {
   const startError = await p.evaluate(() => window.__vfx.error);
   ok(`[${label}] editor starts`, !startError, startError || '');
   if (startError) { await p.close(); continue; }
-  const shot = async (effect, ms, name, view = 'whole') => {
-    await p.evaluate(async ([id, t, v]) => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect(id); a.previewForChecks.setView(v); await a.showAt(t, 7); await a.showAt(t, 7); document.querySelector('.status')?.classList.remove('show'); }, [effect, ms, view]);
+  const shot = async (effect, ms, name, view = 'whole', closeOn = 'target') => {
+    await p.evaluate(async ([id, t, v, on]) => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect(id); a.previewForChecks.setCloseOn(on); a.previewForChecks.setView(v); await a.showAt(t, 7); await a.showAt(t, 7); document.querySelector('.status')?.classList.remove('show'); }, [effect, ms, view, closeOn]);
     await p.waitForTimeout(250);
     await p.waitForTimeout(120);
     return PNG.sync.read(await p.screenshot({ path: join(shots, `${name}-${backend}.png`) }));
@@ -97,13 +97,14 @@ for (const backend of ['webgpu', 'webgl']) {
   ok(`[${label}] editor preview draws the muzzle flash`, orange > 10, `${orange} samples of heat.1 / heat.2`);
   await shot('shell_flight', 300, 'editor-shell-flight');
   await shot('shell_flight', 620, 'editor-shell-landing');
-  await shot('rifle_shot', 20, 'closeup-rifle-flash', 'close');
+  await shot('rifle_shot', 20, 'closeup-rifle-flash', 'close', 'origin');
+  await shot('shell_flight', 640, 'closeup-shell-landing', 'close', 'target');
   ok(`[${label}] editor has no errors`, ed.errors.length === 0, ed.errors.slice(0, 2).join(' | '));
   await p.close();
 
   // -- the game screen only, at its real size
   const fr = await open(`${base}/?offscreen=1&frame=1${q}&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
-  for (const [effect, ms, name] of [['rifle_shot', 20, 'game-rifle-flash'], ['rifle_shot', 60, 'game-rifle-hit'], ['shell_flight', 300, 'game-shell-flight'], ['shell_flight', 620, 'game-shell-landing']]) {
+  for (const [effect, ms, name] of [['rifle_shot', 20, 'game-rifle-flash'], ['rifle_shot', 60, 'game-rifle-hit'], ['shell_flight', 300, 'game-shell-flight'], ['shell_flight', 620, 'game-shell-landing'], ['shell_flight', 760, 'game-shell-burst']]) {
     await fr.page.evaluate(async ([id, t]) => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect(id); a.previewForChecks.setView('frame'); await a.showAt(t, 7); await a.showAt(t, 7); }, [effect, ms]);
     await fr.page.waitForTimeout(100);
     const img = PNG.sync.read(await fr.page.screenshot({ path: join(shots, `${name}-${backend}.png`) }));
@@ -114,14 +115,19 @@ for (const backend of ['webgpu', 'webgl']) {
   await fr.page.close();
 }
 
-// ---------------------------------------------------------------- 3. driving the editor (WebGL 2)
+// ---------------------------------------------------------------- 3. driving the editor (WebGL 2), with the clock running
 {
   const { page: p, errors } = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+  p.on('dialog', (d) => d.accept());
+  const st = () => p.evaluate(() => window.__vfx.app.debugState());
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+
+  // -- an edit, undo, redo
   await p.click('text=Rifle shot (demo)');
   const sizeBox = p.locator('.bigcontrols .row.big').first().locator('input.num');
   await sizeBox.fill('2');
   await sizeBox.press('Enter');
-  await p.locator('body').click({ position: { x: 5, y: 1075 } });
+  await p.locator('.timeline').click({ position: { x: 60, y: 8 } });
   const after = await p.evaluate(() => window.__vfx.app.effect().controls.size);
   await p.keyboard.press('Control+z');
   const undone = await p.evaluate(() => window.__vfx.app.effect().controls.size);
@@ -129,19 +135,86 @@ for (const backend of ['webgpu', 'webgl']) {
   await p.keyboard.press('Control+Shift+z');
   const redone = await p.evaluate(() => window.__vfx.app.effect().controls.size);
   ok('redo', redone === 2, `after redo ${redone}`);
+
+  // -- the transport, on the tank shell (about 1 s long)
+  await p.click('text=Tank shell flight (demo)');
+  await p.click('.transport .play');
+  await p.waitForTimeout(250);
+  let s1 = await st();
+  ok('Play (mouse) moves the time', s1.playing && s1.mainTime > 50, `playing ${s1.playing}, ${s1.mainTime.toFixed(0)} ms`);
+  await p.keyboard.press(' ');
+  s1 = await st();
+  await p.waitForTimeout(250);
+  const s2 = await st();
+  ok('Space after a mouse click on Play pauses once (not twice)', !s1.playing && !s2.playing, `playing ${s1.playing} then ${s2.playing}`);
+  ok('Pause holds the time', s1.mainTime === s2.mainTime, `${s1.mainTime.toFixed(1)} -> ${s2.mainTime.toFixed(1)} ms`);
+  await p.keyboard.press('ArrowRight');
+  const s3 = await st();
+  const stepMs = 1000 / 12;
+  ok('→ steps to the next 1/12 s', near(s3.mainTime, (Math.round(s2.mainTime / stepMs) + 1) * stepMs, 0.01), `${s2.mainTime.toFixed(1)} -> ${s3.mainTime.toFixed(1)} ms`);
+  await p.keyboard.press('ArrowLeft');
+  const s4 = await st();
+  ok('← steps back', near(s4.mainTime, s3.mainTime - stepMs, 0.01), `${s3.mainTime.toFixed(1)} -> ${s4.mainTime.toFixed(1)} ms`);
+  // A timeline drag scrubs and pauses.
+  const ruler = await p.locator('.tl-ruler').boundingBox();
+  await p.mouse.move(ruler.x + ruler.width * 0.2, ruler.y + 10);
+  await p.mouse.down();
+  await p.mouse.move(ruler.x + ruler.width * 0.5, ruler.y + 10, { steps: 6 });
+  const mid = await st();
+  await p.mouse.up();
+  const span = await p.evaluate(() => Math.max(400, Math.ceil((window.__vfx.app.timeline().lengthMs * 1.08) / 100) * 100));
+  ok('a timeline drag scrubs (and pauses)', !mid.playing && near(mid.mainTime, span * 0.5, span * 0.02), `${mid.mainTime.toFixed(0)} ms of ${span}`);
+  // ¼ speed: a quarter of the real time passes on the effect's clock (driven with explicit frame times, so a slow
+  // headless browser does not change the answer).
+  await p.click('.transport >> text=¼×');
+  await p.evaluate(async () => { const a = window.__vfx.app; await a.showAt(0, 1); });
+  await p.keyboard.press(' ');
+  await p.evaluate(() => window.__vfx.app.tickForChecks(600));
+  const q = await st();
+  ok('¼× runs the clock at a quarter of real time', near(q.mainTime, 150, 1), `${q.mainTime.toFixed(1)} ms after 600 ms of real time`);
+  await p.keyboard.press(' ');
+  await p.evaluate(() => window.__vfx.app.resumeForChecks());
+  await p.click('.transport >> text=1×');
+  // Fire, then a step while the fired effect plays.
   await p.keyboard.press('f');
-  await p.waitForTimeout(150);
-  const firing = await p.textContent('.time');
-  ok('Fire starts the effect from the stand-in to the target', /playing/.test(firing ?? ''), firing ?? '');
-  // Save as: a copy of the example in projects/, then delete it again.
+  await p.waitForTimeout(120);
+  const fired = await st();
+  ok('Fire starts the effect from the stand-in to the target', fired.playingCount === 1 && fired.playing, `${fired.playingCount} playing`);
+  await p.keyboard.press('ArrowRight');
+  const afterFire = await st();
+  ok('→ while a fired effect plays steps from the start', Number.isFinite(afterFire.mainTime) && near(afterFire.mainTime, stepMs, 0.01) && !afterFire.playing, `${afterFire.mainTime} ms`);
+
+  // -- dragging the target keeps it under the cursor, in every view
+  for (const view of ['Whole screen', 'Game size', 'Close-up']) {
+    await p.click(`.vbar >> text=${view}`);
+    await p.waitForTimeout(100);
+    const where = () => p.evaluate(() => { const pv = window.__vfx.app.previewForChecks; const r = document.querySelector('.viewport').getBoundingClientRect(); const [x, y] = pv.toCanvas(pv.target); return [r.x + x, r.y + y]; });
+    const [tx, ty] = await where();
+    await p.mouse.move(tx, ty);
+    await p.mouse.down();
+    const gx = tx - 140, gy = ty + 70;
+    await p.mouse.move(gx, gy, { steps: 12 });
+    const [nx, ny] = await where();
+    await p.mouse.up();
+    ok(`[${view}] dragging the target keeps it under the cursor`, near(nx, gx, 3) && near(ny, gy, 3), `cursor ${gx.toFixed(0)},${gy.toFixed(0)}; target ${nx.toFixed(0)},${ny.toFixed(0)}`);
+  }
+  await p.click('.vbar >> text=Whole screen');
+
+  // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
+  await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
+  await p.waitForTimeout(100);
   const name = `browser-check-${Date.now()}`;
   await p.click('.topbar >> text=Save as…');
   await p.fill('dialog input.text', name);
   await p.click('dialog >> text=OK');
-  await p.waitForFunction(() => !document.querySelector('.project-name')?.textContent?.includes('•') && document.querySelector('.project-name')?.textContent?.toLowerCase().includes('browser-check'), null, { timeout: 15000 }).catch(() => {});
+  await p.waitForFunction(() => document.querySelector('.project-name')?.textContent?.toLowerCase().includes('browser-check') && !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
   const dir = join(repo, 'projects', name);
-  const saved = existsSync(join(dir, 'effects', 'rifle_shot.vfx.json')) ? JSON.parse(readFileSync(join(dir, 'effects', 'rifle_shot.vfx.json'), 'utf8')) : null;
-  ok('Save as writes the project folder, with the edit in it', saved?.controls?.size === 2, saved ? `size ${saved.controls.size}` : 'no file');
+  const files = existsSync(join(dir, 'effects')) ? readdirSync(join(dir, 'effects')) : [];
+  ok('Save as leaves out an effect deleted before saving', files.length === 1 && files[0] === 'rifle_shot.vfx.json', files.join(', ') || 'no files');
+  const savedPage = await open(`${base}/?backend=webgl&project=projects/${name}`, () => window.__vfx && window.__vfx.ready);
+  const reopened = await savedPage.page.evaluate(() => ({ effects: window.__vfx.app.debugState().effects, size: window.__vfx.app.effect()?.controls.size, name: document.querySelector('.project-name')?.textContent }));
+  ok('the saved project opens again, with the edit in it', reopened.effects.join() === 'rifle_shot' && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, size ${reopened.size}`);
+  await savedPage.page.close();
   ok('the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'rifle_shot.vfx.json'), 'utf8')).controls.size === 1);
   rmSync(dir, { recursive: true, force: true });
   ok('editor (driven) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
