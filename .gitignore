@@ -1,0 +1,24 @@
+# Mustafa's files (style guide, sheets, drawing board). Never commit them.
+/style-guide/
+
+# Mustafa's effect projects. They may hold his art. Never commit them.
+/projects/
+
+# Screenshots, reports and other output made by the checks.
+/out/
+
+# Build and tool output
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+coverage/
+test-results/
+playwright-report/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
