@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "about": "The only place where effect colours have hex values. Effect files name roles only. 'from' says whose value it is: mustafa = his decision; art-lead = the Art lead's working value (instruction of 2026-11-14); board-v7 = the Art lead's proposal on the VFX drawing board v7; derived = computed by Shamble VFX from those values with the board's own formula; assumed = Shamble VFX's guess, waiting for a decision.",
+  "factions": {
+    "soviets": {
+      "name": "Soviets",
+      "roles": {
+        "team": { "hex": "#D41414", "from": "mustafa" },
+        "glow": { "hex": "#FF2E63", "from": "art-lead" },
+        "team.dark": { "hex": "#940E0E", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+      }
+    },
+    "allies": {
+      "name": "Allies",
+      "roles": {
+        "team": { "hex": "#1F6FF0", "from": "mustafa" },
+        "glow": { "hex": "#8AE0FF", "from": "art-lead" },
+        "team.dark": { "hex": "#164EA8", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+      }
+    },
+    "empire": {
+      "name": "Empire",
+      "roles": {
+        "team": { "hex": "#890089", "from": "mustafa" },
+        "glow": { "hex": "#C24BFF", "from": "art-lead" },
+        "team.dark": { "hex": "#600060", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+      }
+    }
+  },
+  "roles": {
+    "heat.1": { "hex": "#F47A1C", "from": "art-lead", "note": "orange: the outside of fire and blasts" },
+    "heat.2": { "hex": "#FFB02E", "from": "art-lead", "note": "amber" },
+    "heat.3": { "hex": "#FFE27A", "from": "art-lead", "note": "yellow" },
+    "heat.4": { "hex": "#FFF4D6", "from": "art-lead", "note": "white-hot core" },
+    "heat.dark": { "hex": "#B85207", "from": "board-v7", "note": "burnt orange: shaded side of fire; a heavy gun's outer blast. Never red." },
+    "heat.deep": { "hex": "#6C2D08", "from": "board-v7", "note": "ember: the darkest fire tone" },
+    "ink": { "hex": "#11121A", "from": "art-lead", "note": "black ink line" },
+    "white": { "hex": "#FFFFFF", "from": "board-v7", "note": "top of a comic word; flash cores" },
+    "gunword.top": { "hex": "#F6F3E9", "from": "art-lead", "note": "a small gun's word, upper tone, every team" },
+    "gunword.bottom": { "hex": "#D6D0C0", "from": "art-lead", "note": "a small gun's word, lower tone, every team" },
+    "smoke": { "hex": "#4A4642", "from": "board-v7", "note": "fire smoke (flame pit)" },
+    "gunsmoke": { "hex": "#CFBFA2", "from": "derived", "note": "gun smoke #CFC8BC in sunlight (board v7 draws it lit)" },
+    "dust": { "hex": "#DCC8A0", "from": "derived", "note": "stone #D0C2A2 mixed with 25 % white, in sunlight (board v7's hit dust)" },
+    "debris": { "hex": "#6F614B", "from": "derived", "note": "debris #6F6557 in sunlight (board v7)" }
+  }
+}

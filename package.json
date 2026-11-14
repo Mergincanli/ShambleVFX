@@ -1,0 +1,29 @@
+{
+  "name": "shamble-vfx",
+  "private": true,
+  "description": "Shamble VFX: the effects editor for Shamble Frontlines, and the runtime that plays its effects.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "workspaces": [
+    "packages/vfx-format",
+    "packages/vfx-runtime",
+    "packages/vfx-editor"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@shamble/vfx-editor",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/vfx-format && tsc -p packages/vfx-runtime && tsc -p packages/vfx-editor",
+    "images": "node tools/make-placeholder-images.mjs",
+    "check:browser": "node tools/browser-check.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "playwright": "1.63.0",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

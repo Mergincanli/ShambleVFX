@@ -1,0 +1,17 @@
+{
+  "name": "@shamble/vfx-format",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The effect file: its types, the version number, the palette, and (in ./validate) the schema, the checker and the upgrades.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./validate": "./src/validate/index.ts",
+    "./palette.json": "./palette/palette.json"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

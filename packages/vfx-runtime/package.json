@@ -1,0 +1,27 @@
+{
+  "name": "@shamble/vfx-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plays Shamble VFX effect files on three.js (WebGPU renderer and its WebGL 2 fallback). No editor code: this is what ships in the game.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts"
+  },
+  "dependencies": {
+    "@shamble/vfx-format": "*"
+  },
+  "peerDependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.187.0",
+    "three": "0.187.0",
+    "vite": "8.3.8"
+  },
+  "scripts": {
+    "build": "vite build"
+  }
+}
