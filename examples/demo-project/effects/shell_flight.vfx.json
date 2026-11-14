@@ -18,7 +18,7 @@
       "timing": { "mode": "steps", "perSecond": 12 },
       "from": { "input": "origin", "offset": [0, 0, 0] },
       "to": { "input": "target", "offset": [0, 0, 0] },
-      "speedMps": 14,
+      "speedMps": 12,
       "stretch": 1,
       "spinDegPerS": 0
     },

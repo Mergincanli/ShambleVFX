@@ -1,0 +1,653 @@
+/**
+ * The editor: one window with the layers on the left, the live preview in the middle (with the transport and the
+ * timeline under it), and one panel on the right. Effects play through vfx-runtime, the code the game ships.
+ */
+import paletteJson from '@shamble/vfx-format/palette.json';
+import { FACTION_IDS, newEffect } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Layer, Palette, Vec3 } from '@shamble/vfx-format';
+import { checkEffect } from '@shamble/vfx-format/validate';
+import type { Problem } from '@shamble/vfx-format/validate';
+import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
+import type { Timeline } from '@shamble/vfx-runtime';
+import { drawAtlas } from '../atlas/pack';
+import type { AtlasImage } from '../atlas/pack';
+import {
+  addEffect, addLayer, duplicateLayer, effectById, freeEffectId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
+  replaceLayer as replaceLayerIn, setEffectValue, setLayerValue,
+} from '../doc/edits';
+import type { Path } from '../doc/edits';
+import { History } from '../doc/history';
+import { DevServerStore, StoreError, effectPath, imagePath, readJson, writeJson } from '../io/store';
+import type { ProjectContents, ProjectStore } from '../io/store';
+import { Preview } from '../preview/Preview';
+import type { ViewMode } from '../preview/Preview';
+import type { AppApi, EditOptions } from './api';
+import { h, icon, segmented } from './dom';
+import { buildInspector } from './inspector';
+import { buildTimeline } from './timeline';
+import type { TimelineView } from './timeline';
+
+const palette = paletteJson as Palette;
+const SPEEDS = [1, 0.5, 0.25, 0.1];
+const LOOP_REST_MS = 300;
+const LAST_PROJECT = 'vfx-last-project';
+
+export class App implements AppApi {
+  readonly palette = palette;
+  faction: FactionId = 'soviets';
+  private store: ProjectStore = new DevServerStore();
+  private history = new History({ effects: [] });
+  private project: ProjectContents | null = null;
+  private images = new Map<string, { bitmap: ImageBitmap; url: string }>();
+  private effectsOnDisk = new Set<string>();
+  private selEffect: string | null = null;
+  private selLayer: string | null = null;
+  private preview!: Preview;
+  private inspector!: ReturnType<typeof buildInspector>;
+  private timelineView!: TimelineView;
+  private player = new EffectPlayer();
+  private playing = false;
+  private loop = true;
+  private speed = 1;
+  private mainTime = 0;
+  private clock = 0;
+  private seed = 1;
+  private lastFrame = 0;
+  private timelineCache: { fx: EffectFile; where: string; tl: Timeline } | null = null;
+  private problemCache: { fx: EffectFile | undefined; images: number; list: Problem[] } | null = null;
+  private els!: {
+    root: HTMLElement; projectName: HTMLElement; save: HTMLButtonElement; undo: HTMLButtonElement; redo: HTMLButtonElement;
+    effects: HTMLElement; layers: HTMLElement; viewport: HTMLElement; play: HTMLButtonElement; time: HTMLElement; stats: HTMLElement;
+    backend: HTMLElement; status: HTMLElement; dialog: HTMLDialogElement;
+  };
+  private factionCtl!: ReturnType<typeof segmented<FactionId>>;
+  private viewCtl!: ReturnType<typeof segmented<ViewMode>>;
+  private speedCtl!: ReturnType<typeof segmented<number>>;
+  private loopBtn!: HTMLButtonElement;
+
+  static async start(root: HTMLElement): Promise<App> {
+    const app = new App();
+    await app.boot(root);
+    return app;
+  }
+
+  // ---------------------------------------------------------------- AppApi
+
+  effect(): EffectFile | undefined {
+    return this.selEffect ? effectById(this.history.doc, this.selEffect) : undefined;
+  }
+
+  layer(): Layer | undefined {
+    return this.effect()?.layers.find((l) => l.id === this.selLayer);
+  }
+
+  selectLayer(id: string | null): void {
+    this.selLayer = id;
+    this.renderLayers();
+    this.inspector.refresh();
+    this.timelineView.refresh();
+  }
+
+  imageNames(): string[] {
+    return [...this.images.keys()].sort();
+  }
+
+  imageUrl(name: string): string | undefined {
+    return this.images.get(name)?.url;
+  }
+
+  editEffect(path: Path, value: unknown, opts: EditOptions = {}): void {
+    if (!this.selEffect) return;
+    this.history.apply(opts.label ?? 'Edit', setEffectValue(this.history.doc, this.selEffect, path, value), { mergeKey: opts.mergeKey && `${this.selEffect}:${opts.mergeKey}` });
+  }
+
+  editLayer(path: Path, value: unknown, opts: EditOptions = {}): void {
+    if (!this.selEffect || !this.selLayer) return;
+    this.history.apply(opts.label ?? 'Edit', setLayerValue(this.history.doc, this.selEffect, this.selLayer, path, value), { mergeKey: opts.mergeKey && `${this.selEffect}:${this.selLayer}:${opts.mergeKey}` });
+  }
+
+  replaceLayer(layer: Layer, label: string): void {
+    if (!this.selEffect) return;
+    this.history.apply(label, replaceLayerIn(this.history.doc, this.selEffect, layer));
+  }
+
+  commit(): void {
+    this.history.endGesture();
+  }
+
+  timeline(): Timeline | undefined {
+    const fx = this.effect();
+    if (!fx) return undefined;
+    const o = this.preview.origin, t = this.preview.target;
+    const where = [o.x, o.y, o.z, t.x, t.z].join('|');
+    // Effects are never changed in place, so the same object means the same effect.
+    if (this.timelineCache?.fx !== fx || this.timelineCache.where !== where) {
+      this.timelineCache = { fx, where, tl: resolveTimeline(fx, this.inputs(), applyControls(fx.controls)) };
+    }
+    return this.timelineCache.tl;
+  }
+
+  problems(): Problem[] {
+    const fx = this.effect();
+    if (this.problemCache && this.problemCache.fx === fx && this.problemCache.images === this.images.size) return this.problemCache.list;
+    const r = fx ? checkEffect(fx, { palette, images: this.images.keys() }) : null;
+    const list = r && !r.ok ? r.problems : [];
+    this.problemCache = { fx, images: this.images.size, list };
+    return list;
+  }
+
+  async importImages(): Promise<void> {
+    if (!this.project) return;
+    if (!this.project.writable) {
+      this.say('This is an example project, so it cannot change. Use "Save as" to make your own copy first.', true);
+      return;
+    }
+    const input = h('input', { attrs: { type: 'file', accept: 'image/png', multiple: '' } });
+    input.addEventListener('change', async () => {
+      const files = [...(input.files ?? [])];
+      for (const f of files) {
+        const name = f.name.replace(/[^A-Za-z0-9 _.-]/g, '_');
+        try {
+          await this.store.write(this.project!.id, imagePath(name.endsWith('.png') ? name : `${name}.png`), f);
+        } catch (e) {
+          this.say(`Could not add ${f.name}: ${(e as Error).message}`, true);
+        }
+      }
+      await this.loadImages();
+      this.say(`Added ${files.length} image${files.length === 1 ? '' : 's'}.`);
+    });
+    input.click();
+  }
+
+  // ---------------------------------------------------------------- start up
+
+  private async boot(root: HTMLElement): Promise<void> {
+    const params = new URLSearchParams(location.search);
+    this.buildShell(root);
+    this.preview = await Preview.create({
+      container: this.els.viewport, palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
+    });
+    this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); };
+    this.els.backend.textContent = this.preview.backendName;
+    this.els.backend.title = this.preview.backendName === 'WebGPU'
+      ? 'Drawing with the WebGPU renderer. Add ?backend=webgl to the address to try the WebGL 2 fallback.'
+      : 'Drawing with the WebGL 2 fallback of the WebGPU renderer.';
+    this.inspector = buildInspector(this);
+    root.querySelector('.right')!.append(this.inspector.el);
+    this.timelineView = buildTimeline(this, (ms, done) => this.scrub(ms, done));
+    root.querySelector('.timeline-slot')!.append(this.timelineView.el);
+    this.history.subscribe((why) => this.onDocChange(why));
+    this.bindKeys();
+    window.addEventListener('beforeunload', (e) => { if (this.history.dirty) e.preventDefault(); });
+
+    let opened = false;
+    const want = params.get('project') ?? (() => { try { return localStorage.getItem(LAST_PROJECT); } catch { return null; } })();
+    try {
+      if (want) opened = await this.openProject(want, true);
+      if (!opened) opened = await this.openProject('examples/demo-project', true);
+    } catch (e) {
+      this.say(`Could not open a project: ${(e as Error).message}`, true);
+    }
+    const fxParam = params.get('effect');
+    if (fxParam && effectById(this.history.doc, fxParam)) this.selectEffect(fxParam);
+    this.lastFrame = performance.now();
+    requestAnimationFrame((t) => this.frame(t));
+  }
+
+  private buildShell(root: HTMLElement): void {
+    const projectName = h('span', { class: 'project-name' });
+    const save = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Save (Ctrl+S)', text: 'Save', on: { click: () => void this.save() } });
+    const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, title: 'Undo (Ctrl+Z)', on: { click: () => this.history.undo() } }, icon('undo'));
+    const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, title: 'Redo (Ctrl+Shift+Z)', on: { click: () => this.history.redo() } }, icon('redo'));
+    const backend = h('span', { class: 'badge' });
+    const status = h('div', { class: 'status', attrs: { role: 'status', 'aria-live': 'polite' } });
+    const dialog = h('dialog', { class: 'dlg' });
+    const top = h('header', { class: 'topbar' },
+      h('div', { class: 'brand' }, h('b', { text: 'Shamble' }), h('span', { text: 'VFX' })),
+      h('div', { class: 'project' }, projectName,
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Projects…', on: { click: () => void this.projectsDialog() } }),
+        save,
+        h('button', { class: 'tb save-as', attrs: { type: 'button' }, text: 'Save as…', on: { click: () => void this.saveAsDialog() } })),
+      h('div', { class: 'tools' }, undo, redo, backend,
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Keys', title: 'Keyboard shortcuts', on: { click: () => this.keysDialog() } })));
+
+    const effects = h('div', { class: 'list effects-list' });
+    const layers = h('div', { class: 'list layers-list' });
+    const left = h('aside', { class: 'left' },
+      h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
+        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'New effect', on: { click: () => this.newEffect() } }, icon('plus'), 'New')), effects),
+      h('section', { class: 'card grow' }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
+        h('div', { class: 'layer-tools' },
+          h('button', { class: 'mini', attrs: { type: 'button' }, title: 'Add a sprite layer', on: { click: () => this.addLayer('sprite') } }, icon('sprite'), 'Sprite'),
+          h('button', { class: 'mini', attrs: { type: 'button' }, title: 'Add a projectile layer', on: { click: () => this.addLayer('projectile') } }, icon('projectile'), 'Projectile')),
+        layers,
+        h('div', { class: 'layer-tools' },
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move up' }, title: 'Move up (draws over more)', on: { click: () => this.moveSelected(1) } }, icon('up')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move down' }, title: 'Move down', on: { click: () => this.moveSelected(-1) } }, icon('down')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, title: 'Duplicate', on: { click: () => this.duplicateSelected() } }, icon('copy')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, title: 'Delete layer (Del)', on: { click: () => this.deleteSelected() } }, icon('trash')))));
+
+    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', options: FACTION_IDS.map((f) => ({ value: f, label: palette.factions[f].name })), value: this.faction,
+      onChange: (f) => { this.faction = f; this.preview.setFaction(f); this.factionCtl.set(f); this.inspector.refresh(); }, small: true });
+    this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen' }, { value: 'game', label: 'Game size' }, { value: 'close', label: 'Close-up' }],
+      value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
+    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the stand-in to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
+    const stats = h('span', { class: 'stats' });
+    const viewport = h('div', { class: 'viewport' });
+    const vbar = h('div', { class: 'vbar' }, fire, this.factionCtl.el, this.viewCtl.el, stats);
+    const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
+
+    const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
+    this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, title: 'Loop (L)', on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
+    this.speedCtl = segmented<number>({ label: 'Speed', options: SPEEDS.map((s) => ({ value: s, label: s === 1 ? '1×' : s === 0.5 ? '½×' : s === 0.25 ? '¼×' : '⅒×' })), value: 1,
+      onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true });
+    const time = h('span', { class: 'time' });
+    const transport = h('div', { class: 'transport' },
+      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step back' }, title: 'One step back (←)', on: { click: () => this.step(-1) } }, icon('step-back')),
+      play,
+      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step forward' }, title: 'One step forward (→)', on: { click: () => this.step(1) } }, icon('step-fwd')),
+      this.loopBtn, this.speedCtl.el, time);
+
+    const centre = h('main', { class: 'centre' }, vbar, h('div', { class: 'viewport-wrap' }, viewport, hint), transport, h('div', { class: 'timeline-slot' }));
+    const right = h('div', { class: 'right' });
+    root.append(top, h('div', { class: 'workspace' }, left, centre, right), status, dialog);
+    this.els = { root, projectName, save, undo, redo, effects, layers, viewport, play, time, stats, backend, status, dialog };
+  }
+
+  // ---------------------------------------------------------------- projects
+
+  private async openProject(id: string, quiet = false): Promise<boolean> {
+    if (this.history.dirty && !confirm('You have changes that are not saved. Open another project anyway?')) return false;
+    let contents: ProjectContents;
+    try {
+      contents = await this.store.open(id);
+    } catch (e) {
+      if (!quiet) this.say(`Could not open the project: ${(e as Error).message}`, true);
+      return false;
+    }
+    this.project = contents;
+    try { localStorage.setItem(LAST_PROJECT, id); } catch { /* ignore */ }
+    await this.loadImages();
+    const effects: EffectFile[] = [];
+    const bad: string[] = [];
+    for (const file of contents.effects) {
+      try {
+        const raw = await readJson(this.store, id, `effects/${file}`);
+        const r = checkEffect(raw, { palette, images: this.images.keys() });
+        if (r.ok) effects.push(r.effect);
+        else {
+          // Keep a file that parses but has problems (for example a missing image), so it can be fixed here.
+          const schemaOk = !r.problems.some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
+          if (schemaOk) effects.push(raw as EffectFile);
+          bad.push(`${file}: ${r.problems.map((p) => `${p.path} ${p.message}`).slice(0, 3).join('; ')}`);
+        }
+      } catch (e) {
+        bad.push(`${file}: ${(e as Error).message}`);
+      }
+    }
+    this.effectsOnDisk = new Set(effects.map((e) => e.id));
+    this.history.reset({ effects });
+    this.player.clear();
+    this.selEffect = effects[0]?.id ?? null;
+    this.selLayer = null;
+    this.mainTime = 0;
+    this.renderAll();
+    this.say(bad.length ? `Opened ${contents.name}, with problems: ${bad.join(' | ')}` : `Opened ${contents.name}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0);
+    return true;
+  }
+
+  private async loadImages(): Promise<void> {
+    if (!this.project) return;
+    const listing = await this.store.open(this.project.id);
+    this.project = listing;
+    for (const v of this.images.values()) URL.revokeObjectURL(v.url);
+    this.images.clear();
+    for (const im of listing.images) {
+      try {
+        const blob = await this.store.read(listing.id, imagePath(im.name));
+        const bitmap = await createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+        this.images.set(im.name, { bitmap, url: URL.createObjectURL(blob) });
+      } catch (e) {
+        this.say(`Could not read ${im.name}: ${(e as Error).message}`, true);
+      }
+    }
+    const list: AtlasImage[] = [...this.images].map(([name, v]) => ({ name, image: v.bitmap, width: v.bitmap.width, height: v.bitmap.height }));
+    if (list.length) this.preview.setAtlas(drawAtlas(list));
+    this.problemCache = null;
+    this.inspector?.refresh();
+  }
+
+  private async save(): Promise<void> {
+    if (!this.project) return;
+    if (!this.project.writable) { await this.saveAsDialog(); return; }
+    await this.writeEffects(this.project.id);
+  }
+
+  private async writeEffects(projectId: string): Promise<void> {
+    try {
+      const doc = this.history.doc;
+      for (const fx of doc.effects) await writeJson(this.store, projectId, effectPath(fx.id), fx);
+      for (const id of this.effectsOnDisk) if (!doc.effects.some((e) => e.id === id)) await this.store.remove(projectId, effectPath(id));
+      this.effectsOnDisk = new Set(doc.effects.map((e) => e.id));
+      this.history.markSaved();
+      this.say(`Saved ${doc.effects.length} effect${doc.effects.length === 1 ? '' : 's'} to ${projectId}.`);
+    } catch (e) {
+      this.say(`Saving failed: ${(e as Error).message}`, true);
+    }
+  }
+
+  private async saveAsDialog(): Promise<void> {
+    if (!this.project) return;
+    const name = await this.ask('Save as', 'A name for your copy of this project. It goes in the projects folder (kept out of git).', `${this.project.name} copy`);
+    if (!name) return;
+    try {
+      const copy = await this.store.copy(this.project.id, 'projects', name);
+      const doc = this.history.doc;
+      this.project = await this.store.open(copy.id);
+      this.effectsOnDisk = new Set();
+      await this.writeEffects(copy.id);
+      try { localStorage.setItem(LAST_PROJECT, copy.id); } catch { /* ignore */ }
+      this.history.reset(doc);
+      this.history.markSaved();
+      this.renderAll();
+      this.say(`Saved as ${copy.name} in projects/.`);
+    } catch (e) {
+      this.say(`Save as failed: ${(e as Error).message}`, true);
+    }
+  }
+
+  private async projectsDialog(): Promise<void> {
+    let listing;
+    try { listing = await this.store.list(); } catch (e) { this.say((e as Error).message, true); return; }
+    const d = this.els.dialog;
+    const rows = listing.projects.map((p) => h('li', {},
+      h('button', { class: 'linkish', attrs: { type: 'button' }, text: p.name, on: { click: () => { d.close(); void this.openProject(p.id); } } }),
+      h('span', { class: 'hint', text: ` ${p.id}${p.writable ? '' : ' · example, read-only'}` })));
+    d.replaceChildren(
+      h('h2', { text: 'Projects' }),
+      h('ul', { class: 'plist' }, ...rows),
+      h('div', { class: 'dlg-buttons' },
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'New project…', on: { click: async () => {
+          d.close();
+          const name = await this.ask('New project', 'A name for the project. It goes in the projects folder (kept out of git).', 'My effects');
+          if (!name) return;
+          try { const p = await this.store.create('projects', name); await this.openProject(p.id); } catch (e) { this.say((e as Error).message, true); }
+        } } }),
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
+    d.showModal();
+  }
+
+  private ask(title: string, text: string, value: string): Promise<string | null> {
+    const d = this.els.dialog;
+    return new Promise((resolve) => {
+      const input = h('input', { class: 'text', attrs: { type: 'text', value, maxlength: '60' } });
+      const done = (v: string | null) => { d.close(); resolve(v); };
+      d.replaceChildren(h('h2', { text: title }), h('p', { text }), input,
+        h('div', { class: 'dlg-buttons' },
+          h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'OK', on: { click: () => done(input.value.trim() || null) } }),
+          h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Cancel', on: { click: () => done(null) } })));
+      d.onkeydown = (e) => { if (e.key === 'Enter') done(input.value.trim() || null); };
+      d.showModal();
+      input.select();
+    });
+  }
+
+  private keysDialog(): void {
+    const d = this.els.dialog;
+    const keys: [string, string][] = [
+      ['Space', 'Play or pause'], ['F', 'Fire from the stand-in to the target'], ['← / →', 'One step back or forward (1/12 s)'],
+      ['L', 'Loop on or off'], ['1 / 2 / 3', 'Whole screen / game size / close-up'], ['Ctrl+Z', 'Undo'], ['Ctrl+Shift+Z or Ctrl+Y', 'Redo'],
+      ['Ctrl+S', 'Save'], ['Delete', 'Delete the selected layer'], ['Drag on the ground', 'Move the target'], ['Shift + drag', 'Move the stand-in'],
+    ];
+    d.replaceChildren(h('h2', { text: 'Keys' }), h('table', { class: 'keys' }, ...keys.map(([k, v]) => h('tr', {}, h('td', {}, h('kbd', { text: k })), h('td', { text: v })))),
+      h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
+    d.showModal();
+  }
+
+  // ---------------------------------------------------------------- effects and layers
+
+  private selectEffect(id: string): void {
+    this.selEffect = id;
+    this.selLayer = null;
+    this.mainTime = 0;
+    this.renderAll();
+  }
+
+  private newEffect(): void {
+    const id = freeEffectId(this.history.doc, 'new_effect');
+    const fx = newEffect(id, 'New effect');
+    this.history.apply('New effect', addEffect(this.history.doc, fx));
+    this.selectEffect(id);
+  }
+
+  private addLayer(kind: 'sprite' | 'projectile'): void {
+    const fx = this.effect();
+    if (!fx) return;
+    const image = this.imageNames().find((n) => n !== 'white.png') ?? this.imageNames()[0] ?? 'white.png';
+    const layer = kind === 'sprite' ? newSprite(fx, image) : newProjectile(fx);
+    this.history.apply(kind === 'sprite' ? 'Add sprite' : 'Add projectile', addLayer(this.history.doc, fx.id, layer, this.selLayer ?? undefined));
+    this.selectLayer(layer.id);
+  }
+
+  private moveSelected(delta: number): void {
+    if (this.selEffect && this.selLayer) this.history.apply('Move layer', moveLayer(this.history.doc, this.selEffect, this.selLayer, delta));
+  }
+
+  private duplicateSelected(): void {
+    if (!this.selEffect || !this.selLayer) return;
+    const r = duplicateLayer(this.history.doc, this.selEffect, this.selLayer);
+    this.history.apply('Duplicate layer', r.doc);
+    if (r.id) this.selectLayer(r.id);
+  }
+
+  private deleteSelected(): void {
+    if (!this.selEffect || !this.selLayer) return;
+    const fx = this.effect()!;
+    const i = fx.layers.findIndex((l) => l.id === this.selLayer);
+    this.history.apply('Delete layer', removeLayer(this.history.doc, this.selEffect, this.selLayer));
+    const after = this.effect()!.layers;
+    this.selectLayer(after[Math.min(i, after.length - 1)]?.id ?? null);
+  }
+
+  private deleteEffect(id: string): void {
+    if (!confirm('Delete this effect? (Undo brings it back until you leave.)')) return;
+    this.history.apply('Delete effect', removeEffect(this.history.doc, id));
+    this.selEffect = this.history.doc.effects[0]?.id ?? null;
+    this.selLayer = null;
+    this.renderAll();
+  }
+
+  private onDocChange(why: 'edit' | 'undo' | 'redo' | 'reset'): void {
+    // Undo can bring back or take away the selected effect or layer.
+    if (this.selEffect && !this.effect()) this.selEffect = this.history.doc.effects[0]?.id ?? null;
+    if (this.selLayer && !this.layer()) this.selLayer = null;
+    this.problemCache = null;
+    this.renderEffects();
+    this.renderLayers();
+    this.inspector.refresh();
+    this.timelineView.refresh();
+    this.renderTopbar();
+    if (why === 'undo' || why === 'redo') this.say(`${why === 'undo' ? 'Undid' : 'Redid'}.`);
+  }
+
+  // ---------------------------------------------------------------- playback
+
+  private inputs(): { origin: Vec3; target: Vec3 } {
+    const o = this.preview.origin, t = this.preview.target;
+    return { origin: [o.x, o.y, o.z], target: [t.x, t.y, t.z] };
+  }
+
+  private togglePlay(): void {
+    const len = this.timeline()?.lengthMs ?? 0;
+    if (!this.playing && this.mainTime >= len) this.mainTime = 0;
+    this.playing = !this.playing;
+    this.renderTransport();
+  }
+
+  private setLoop(v: boolean): void {
+    this.loop = v;
+    this.loopBtn.setAttribute('aria-pressed', String(v));
+  }
+
+  private step(dir: number): void {
+    this.playing = false;
+    const stepMs = 1000 / 12;
+    const n = Math.round(this.mainTime / stepMs) + dir;
+    this.mainTime = Math.max(0, Math.min(this.timeline()?.lengthMs ?? 0, n * stepMs));
+    this.renderTransport();
+  }
+
+  /** Scrub: pause and show the moment ms (done = the drag ended). */
+  private scrub(ms: number, done: boolean): void {
+    if (done) return;
+    this.playing = false;
+    this.mainTime = ms;
+    this.renderTransport();
+  }
+
+  /** Fire: start the effect from the stand-in to the target, as the game would on a shot. */
+  private fire(): void {
+    const fx = this.effect();
+    if (!fx) return;
+    this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+    this.player.start(fx.id, { seed: this.seed, inputs: this.inputs(), faction: this.faction, nowMs: this.clock });
+    if (!this.playing) { this.playing = true; this.mainTime = Number.POSITIVE_INFINITY; }
+    this.renderTransport();
+  }
+
+  private async frame(now: number): Promise<void> {
+    const dt = Math.min(50, now - this.lastFrame);
+    this.lastFrame = now;
+    const fx = this.effect();
+    const len = this.timeline()?.lengthMs ?? 0;
+    if (this.playing) {
+      this.clock += dt * this.speed;
+      if (Number.isFinite(this.mainTime)) {
+        this.mainTime += dt * this.speed;
+        if (this.mainTime >= len) {
+          if (this.loop) this.mainTime = -LOOP_REST_MS;
+          else { this.mainTime = len; this.playing = this.player.count > 0; }
+        }
+      } else if (this.player.count === 0) {
+        // Only fired effects were playing, and they are done.
+        this.playing = false;
+        this.mainTime = 0;
+      }
+    }
+    const lookup = (id: string) => effectById(this.history.doc, id);
+    await this.preview.render((vfx) => {
+      if (fx && Number.isFinite(this.mainTime) && this.mainTime >= 0) {
+        vfx.draw(fx, { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction });
+      }
+      vfx.drawPlaying(this.player, this.clock, lookup);
+    });
+    const s = this.preview.vfx.stats;
+    this.els.stats.textContent = `${s.quads} sprite${s.quads === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`;
+    this.renderTime(len);
+    if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
+  }
+
+  // ---------------------------------------------------------------- drawing the panels
+
+  private renderAll(): void {
+    this.renderTopbar();
+    this.renderEffects();
+    this.renderLayers();
+    this.inspector?.rebuild();
+    this.timelineView?.refresh();
+    this.renderTransport();
+  }
+
+  private renderTopbar(): void {
+    const p = this.project;
+    this.els.projectName.textContent = p ? `${p.name}${this.history.dirty ? ' •' : ''}` : 'No project';
+    this.els.projectName.title = p ? `${p.id}${p.writable ? '' : ' (example, read-only)'}` : '';
+    this.els.save.textContent = p && !p.writable ? 'Save as…' : 'Save';
+    this.els.save.disabled = !!p && p.writable && !this.history.dirty;
+    (this.els.root.querySelector('.save-as') as HTMLElement).style.display = p && !p.writable ? 'none' : '';
+    this.els.undo.disabled = !this.history.canUndo;
+    this.els.redo.disabled = !this.history.canRedo;
+    this.els.undo.title = this.history.canUndo ? `Undo ${this.history.undoLabel} (Ctrl+Z)` : 'Nothing to undo';
+    this.els.redo.title = this.history.canRedo ? `Redo ${this.history.redoLabel} (Ctrl+Shift+Z)` : 'Nothing to redo';
+  }
+
+  private renderEffects(): void {
+    const list = this.els.effects;
+    list.replaceChildren(...this.history.doc.effects.map((fx) => h('div', { class: fx.id === this.selEffect ? 'item sel' : 'item' },
+      h('button', { class: 'item-main', title: `${fx.name} (file ${fx.id}.vfx.json)`, attrs: { type: 'button' }, on: { click: () => this.selectEffect(fx.id) } }, h('span', { text: fx.name })),
+      h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': `Delete ${fx.name}` }, title: 'Delete effect', on: { click: () => this.deleteEffect(fx.id) } }, icon('trash')))));
+  }
+
+  private renderLayers(): void {
+    const fx = this.effect();
+    const list = this.els.layers;
+    if (!fx) { list.replaceChildren(h('p', { class: 'empty', text: 'No effect.' })); return; }
+    // Shown top of the drawing order first.
+    list.replaceChildren(...[...fx.layers].reverse().map((l) => h('button', {
+      class: l.id === this.selLayer ? 'item layer-item sel' : 'item layer-item', attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
+    }, icon(l.type === 'projectile' ? 'projectile' : 'sprite'), h('span', { text: l.name }), h('code', { text: l.type === 'sprite' ? l.image.replace(/\.png$/, '') : `${l.speedMps} m/s` }))));
+    if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
+  }
+
+  private renderTransport(): void {
+    this.els.play.replaceChildren(icon(this.playing ? 'pause' : 'play'), this.playing ? 'Pause' : 'Play');
+  }
+
+  private renderTime(len: number): void {
+    const t = Number.isFinite(this.mainTime) ? Math.max(0, this.mainTime) : -1;
+    const step = t >= 0 ? Math.floor((t * 12) / 1000 + 1e-9) : 0;
+    this.els.time.textContent = t >= 0 ? `${t.toFixed(0)} / ${len.toFixed(0)} ms · step ${step}` : `firing · ${this.player.count} playing`;
+    this.timelineView.setPlayhead(t);
+  }
+
+  private say(text: string, bad = false): void {
+    const s = this.els.status;
+    s.textContent = text;
+    s.className = bad ? 'status bad show' : 'status show';
+    clearTimeout((s as unknown as { _t?: number })._t);
+    (s as unknown as { _t?: number })._t = window.setTimeout(() => s.classList.remove('show'), bad ? 9000 : 3500);
+  }
+
+  private bindKeys(): void {
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) this.history.redo(); else this.history.undo(); return; }
+      if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.history.redo(); return; }
+      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void this.save(); return; }
+      if (typing || mod || this.els.dialog.open) return;
+      if (e.key === ' ') { e.preventDefault(); this.togglePlay(); }
+      else if (e.key === 'f' || e.key === 'F') this.fire();
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); this.step(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); this.step(1); }
+      else if (e.key === 'l' || e.key === 'L') this.setLoop(!this.loop);
+      else if (e.key === '1' || e.key === '2' || e.key === '3') { const v = (['whole', 'game', 'close'] as const)[+e.key - 1]!; this.preview.setView(v); this.viewCtl.set(v); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') this.deleteSelected();
+    });
+  }
+
+  // ---------------------------------------------------------------- for the browser check
+
+  /** Pause and show the current effect at time ms, with a seed. Used by tools/browser-check.mjs. */
+  async showAt(ms: number, seed = 1): Promise<void> {
+    this.playing = false;
+    this.mainTime = ms;
+    this.seed = seed;
+    this.player.clear();
+    await this.frame(performance.now());
+  }
+
+  /** For the browser check: pick an effect by id. */
+  pickEffect(id: string): boolean {
+    if (!effectById(this.history.doc, id)) return false;
+    this.selectEffect(id);
+    return true;
+  }
+
+  get previewForChecks(): Preview {
+    return this.preview;
+  }
+}
+
+export { StoreError };

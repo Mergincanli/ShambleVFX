@@ -1,17 +1,26 @@
-import "./style.css";
-// Temporary: the preview alone, to judge the scene. The editor UI replaces this.
-import paletteJson from '@shamble/vfx-format/palette.json';
-import type { FactionId, Palette } from '@shamble/vfx-format';
-import { Preview } from './preview/Preview';
+/**
+ * Shamble VFX editor: start-up.
+ */
+import '@fontsource/big-shoulders-display/700';
+import '@fontsource/big-shoulders-display/800';
+import '@fontsource/ibm-plex-sans/400';
+import '@fontsource/ibm-plex-sans/500';
+import '@fontsource/ibm-plex-sans/600';
+import '@fontsource/ibm-plex-mono/400';
+import '@fontsource/ibm-plex-mono/500';
+import './style.css';
+import { App } from './app/App';
 
-const params = new URLSearchParams(location.search);
-const app = document.getElementById('app')!;
-app.style.cssText = 'position:fixed;inset:0;';
-const preview = await Preview.create({ container: app, palette: paletteJson as Palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1' });
-preview.setFaction((params.get('faction') ?? 'soviets') as FactionId);
-if (params.get('on')) preview.closeOn = params.get('on') as 'origin' | 'target';
-if (params.get('view')) preview.setView(params.get('view') as 'whole' | 'game' | 'close');
-await preview.render(() => {});
-(window as unknown as { __ready: boolean }).__ready = true;
-const loop = async () => { await preview.render(() => {}); requestAnimationFrame(loop); };
-if (!params.get('offscreen')) requestAnimationFrame(loop);
+const root = document.getElementById('app')!;
+App.start(root)
+  .then((app) => {
+    (window as unknown as { __vfx: unknown }).__vfx = { app, ready: true };
+  })
+  .catch((e: unknown) => {
+    root.innerHTML = '';
+    const p = document.createElement('pre');
+    p.className = 'fatal';
+    p.textContent = `Shamble VFX could not start.\n\n${(e as Error)?.stack ?? String(e)}`;
+    root.append(p);
+    (window as unknown as { __vfx: unknown }).__vfx = { ready: true, error: String(e) };
+  });
