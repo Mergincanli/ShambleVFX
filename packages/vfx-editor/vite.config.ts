@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
-import { projectFiles } from './server/project-files';
+import { projectFiles } from './server/project-files.ts';
 
 export default defineConfig({
   plugins: [projectFiles()],
