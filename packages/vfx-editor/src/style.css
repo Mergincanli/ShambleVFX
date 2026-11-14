@@ -177,3 +177,12 @@ kbd { border: 2px solid var(--ink); background: var(--white); padding: 1px 5px; 
   .workspace { grid-template-columns: 230px minmax(0, 1fr) 330px; }
   .timeline { --tl-name: 150px; }
 }
+
+/* ?frame=1: only the game screen, at its real size (screenshots). */
+.frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
+.frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .transport, .frame-only .timeline-slot,
+.frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-label { display: none !important; }
+.frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
+.frame-only .centre { grid-template-rows: minmax(0, 1fr); }
+.frame-only .viewport-wrap { margin: 0; border: 0; }
+.frame-only .frame-guide { outline: 0; box-shadow: none; }

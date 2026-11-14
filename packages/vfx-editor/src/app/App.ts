@@ -168,6 +168,8 @@ export class App implements AppApi {
       container: this.els.viewport, palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
     });
     this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); };
+    // ?frame=1 shows only the game screen at its real size: for screenshots of what a player sees.
+    if (params.get('frame') === '1') { document.body.classList.add('frame-only'); this.preview.setView('frame'); }
     this.els.backend.textContent = this.preview.backendName;
     this.els.backend.title = this.preview.backendName === 'WebGPU'
       ? 'Drawing with the WebGPU renderer. Add ?backend=webgl to the address to try the WebGL 2 fallback.'

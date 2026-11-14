@@ -8,6 +8,8 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: false,
+    // Open the editor in the browser on `npm run dev` (set VFX_NO_OPEN=1 to stop that).
+    open: !process.env.VFX_NO_OPEN,
   },
   build: {
     target: 'es2022',

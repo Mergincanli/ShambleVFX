@@ -3,7 +3,7 @@
  * so a headless browser can read the pixels back and compare them with the palette hexes.
  * Open /check.html (WebGPU when the browser has it) or /check.html?backend=webgl (WebGL 2).
  */
-import { Color, Mesh, MeshBasicNodeMaterial, NoColorSpace, PlaneGeometry, RenderTarget, RGBAFormat, Scene, UnsignedByteType, Vector3, WebGPURenderer } from 'three/webgpu';
+import { BoxGeometry, Color, Mesh, MeshBasicNodeMaterial, NoColorSpace, PlaneGeometry, RenderTarget, RGBAFormat, Scene, UnsignedByteType, Vector3, WebGPURenderer } from 'three/webgpu';
 import paletteJson from '@shamble/vfx-format/palette.json';
 import { newEffect, newSpriteLayer, resolveRole } from '@shamble/vfx-format';
 import type { EffectFile, FactionId, Palette, SpriteLayer } from '@shamble/vfx-format';
@@ -70,6 +70,15 @@ async function main(): Promise<void> {
   // Half-transparent heat.1 over the ground, and a sprite centred on the ground (the ground must not cut it).
   const halfSpot = cameraGround(-3, -2.5);
   const groundSpot = cameraGround(3, -2.5);
+  // A 2 m wall facing the camera, and a sprite on the ground 1.5 m behind it: the wall must hide the sprite.
+  const WALL = '#D0BA8C';
+  const wallSpot = cameraGround(7, -3.2);
+  const wall = new Mesh(new BoxGeometry(2.4, 2, 0.3), new MeshBasicNodeMaterial({ color: new Color(WALL) }));
+  wall.position.set(wallSpot.x, 1, wallSpot.z);
+  wall.rotation.y = Math.PI / 4;
+  scene.add(wall);
+  const behindSpot = cameraGround(7, -1.7);
+  const controlSpot = cameraGround(4.6, -1.7); // the same distance, with no wall in front: must show
 
   const draw = () => {
     vfx.begin(camera);
@@ -81,6 +90,9 @@ async function main(): Promise<void> {
     vfx.draw(half, { seed: 1, timeMs: 0, inputs: { origin: halfSpot.toArray() as [number, number, number], target: halfSpot.toArray() as [number, number, number] }, faction });
     const onGround: EffectFile = { ...fx, layers: [{ ...newSpriteLayer('g', 'On the ground', 'white.png'), sizeM: [1.2, 1.2], tint: { mode: 'multiply', role: 'ink' } }] };
     vfx.draw(onGround, { seed: 1, timeMs: 0, inputs: { origin: groundSpot.toArray() as [number, number, number], target: groundSpot.toArray() as [number, number, number] }, faction });
+    const behind: EffectFile = { ...fx, layers: [{ ...newSpriteLayer('b', 'Behind the wall', 'white.png'), sizeM: [0.8, 0.8], tint: { mode: 'multiply', role: 'ink' } }] };
+    vfx.draw(behind, { seed: 1, timeMs: 0, inputs: { origin: behindSpot.toArray() as [number, number, number], target: behindSpot.toArray() as [number, number, number] }, faction });
+    vfx.draw(behind, { seed: 1, timeMs: 0, inputs: { origin: controlSpot.toArray() as [number, number, number], target: controlSpot.toArray() as [number, number, number] }, faction });
     vfx.end();
     renderer.render(scene, camera);
   };
@@ -113,6 +125,10 @@ async function main(): Promise<void> {
   const low = groundSpot.clone().addScaledVector(camera.up, -0.4);
   const [lx, ly] = toPx(low);
   probes.push({ label: 'lower half of a sprite centred on the ground', x: lx, y: ly, expect: resolveRole(palette, 'ink', faction)! });
+  const [bx, by] = toPx(behindSpot);
+  probes.push({ label: 'a sprite 1.5 m behind a wall stays hidden', x: bx, y: by, expect: WALL });
+  const [cx2, cy2] = toPx(controlSpot);
+  probes.push({ label: 'the same sprite with no wall in front shows', x: cx2, y: cy2, expect: resolveRole(palette, 'ink', faction)! });
 
   (window as unknown as { __check: unknown }).__check = {
     ready: true,

@@ -17,7 +17,8 @@ import { CAM, cameraGround, makeGameCamera } from './camera';
 import { flat, inShadeBand, shadowOffsetPerMetre } from './materials';
 import data from './scene-data.json';
 
-export type ViewMode = 'whole' | 'game' | 'close';
+/** whole: the 1080p screen fitted with a frame guide; game: 100 %; close: 200 %; frame: exactly the game screen (for screenshots). */
+export type ViewMode = 'whole' | 'game' | 'close' | 'frame';
 
 export interface PreviewOptions {
   container: HTMLElement;
@@ -145,7 +146,7 @@ export class Preview {
 
   /** Draw one frame. `drawEffects` adds the effects to show (vfx.draw calls) between begin and end. */
   async render(drawEffects: (vfx: VfxRenderer) => void): Promise<void> {
-    if (this.view !== 'whole') this.updateView();
+    if (this.view === 'game' || this.view === 'close') this.updateView();
     this.orderActors();
     this.vfx.begin(this.camera);
     drawEffects(this.vfx);
@@ -254,11 +255,11 @@ export class Preview {
 
   private updateView(): void {
     const { x: w, y: h } = this.size;
-    const k = this.view === 'whole' ? Math.min(w / SCREEN_W, h / SCREEN_H) * 0.94 : this.view === 'game' ? 1 : 2;
+    const k = this.view === 'whole' ? Math.min(w / SCREEN_W, h / SCREEN_H) * 0.94 : this.view === 'frame' ? Math.min(w / SCREEN_W, h / SCREEN_H) : this.view === 'game' ? 1 : 2;
     this.scale = k;
     const vw = w / k, vh = h / k;
     let cx = SCREEN_W / 2, cy = SCREEN_H / 2;
-    if (this.view !== 'whole') {
+    if (this.view === 'game' || this.view === 'close') {
       // Centre on the action: the middle of shooter and target for game size, the target for the close-up.
       const focus = this.view === 'game' ? this.origin.clone().lerp(this.target, 0.5) : this.closeOn === 'origin' ? this.origin : this.target.clone();
       this.camera.clearViewOffset();
