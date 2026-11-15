@@ -1,6 +1,6 @@
 /**
- * Draws effects with three.js: every quad of every playing effect in one instanced mesh with one atlas texture.
- * Runs on the WebGPU renderer and on its WebGL 2 backend. No compute: the core writes the quads on the CPU,
+ * Draws effects with three.js: every triangle of every playing effect, one mesh per blend group, one atlas texture.
+ * Runs on the WebGPU renderer and on its WebGL 2 backend. No compute: the core builds the triangles on the CPU,
  * the vertex stage places them.
  *
  * Use, per frame:
@@ -8,14 +8,18 @@
  */
 import {
   BufferAttribute,
+  BufferGeometry,
+  InterleavedBuffer,
+  InterleavedBufferAttribute,
   CanvasTexture,
   ColorManagement,
+  DataTexture,
   DynamicDrawUsage,
-  InstancedBufferAttribute,
-  InstancedBufferGeometry,
+  Group,
   LinearFilter,
   Mesh,
   NoColorSpace,
+  RGBAFormat,
   SRGBColorSpace,
   Texture,
 } from 'three/webgpu';
@@ -24,12 +28,13 @@ import type { EffectFile, FactionId, Palette } from '@shamble/vfx-format';
 import { evaluate } from '../core/evaluate';
 import type { CameraBasis, EvalResult, UvRect } from '../core/evaluate';
 import type { EffectLookup, EffectPlayer } from '../core/player';
-import { QuadSink } from '../core/sink';
+import { BLEND_GROUPS, DrawSink } from '../core/sink';
+import type { BlendGroup, TriBuffer } from '../core/sink';
 import type { EffectInputs } from '../core/timeline';
 import { atlasLookup } from './atlas';
 import type { Atlas } from './atlas';
-import { createSpriteMaterial } from './tsl';
-import type { SpriteMaterial } from './tsl';
+import { createEffectMaterial } from './tsl';
+import type { BlendMode, EffectMaterial } from './tsl';
 
 export interface DrawParams {
   seed: number;
@@ -39,42 +44,60 @@ export interface DrawParams {
 }
 
 export interface VfxStats {
-  /** Quads drawn this frame. */
-  quads: number;
-  /** Draw calls the effects cost this frame. */
+  /** Triangles drawn this frame. */
+  triangles: number;
+  /** Draw calls the effects cost this frame (one per blend group in use). */
   drawCalls: number;
   /** Effects drawn this frame. */
   effects: number;
 }
 
-const ATTRS = ['iCentre', 'iAxisX', 'iAxisY', 'iUv', 'iColour'] as const;
+const BLEND_OF: Record<BlendGroup, BlendMode> = {
+  'ground-multiply': 'multiply', 'ground-normal': 'normal', 'ground-screen': 'screen', 'top-normal': 'normal', 'top-add': 'add',
+};
+
+interface GroupMesh {
+  mesh: Mesh;
+  geometry: BufferGeometry;
+  material: EffectMaterial;
+  generation: number;
+}
 
 export class VfxRenderer {
-  readonly mesh: Mesh;
-  readonly sink: QuadSink;
+  /** Add this to the scene. It holds one mesh per blend group. */
+  readonly object = new Group();
+  readonly sink: DrawSink;
   palette: Palette;
-  private geometry: InstancedBufferGeometry;
-  private sprite: SpriteMaterial;
+  private meshes: Record<BlendGroup, GroupMesh>;
   private texture: Texture;
-  private generation = -1;
   private lookup: (name: string) => UvRect | undefined = () => undefined;
+  private whiteUv: [number, number] = [0.5, 0.5];
   private basis: CameraBasis = { right: [1, 0, 0], up: [0, 1, 0], forward: [0, 0, -1] };
   private effectsThisFrame = 0;
   private colourSpace: 'linear' | 'srgb' = 'linear';
 
-  constructor(palette: Palette, opts: { renderOrder?: number; capacity?: number } = {}) {
+  /** renderOrder: the ground groups draw at renderOrder .. +2, the top groups at renderOrder + 10 and + 11. */
+  constructor(palette: Palette, opts: { renderOrder?: number; vertices?: number } = {}) {
     this.palette = palette;
-    this.sink = new QuadSink(opts.capacity ?? 512);
-    this.texture = blankTexture();
-    this.sprite = createSpriteMaterial(this.texture);
-    this.geometry = this.makeGeometry();
-    this.mesh = new Mesh(this.geometry, this.sprite.material);
-    this.mesh.name = 'shamble-vfx';
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = opts.renderOrder ?? 100;
+    this.sink = new DrawSink(opts.vertices ?? 2048);
+    this.texture = whiteTexture();
+    const base = opts.renderOrder ?? 100;
+    const order: Record<BlendGroup, number> = { 'ground-multiply': base, 'ground-normal': base + 1, 'ground-screen': base + 2, 'top-normal': base + 10, 'top-add': base + 11 };
+    this.meshes = Object.fromEntries(BLEND_GROUPS.map((g) => {
+      const material = createEffectMaterial(this.texture, BLEND_OF[g]);
+      const geometry = makeGeometry(this.sink.groups[g]);
+      const mesh = new Mesh(geometry, material.material);
+      mesh.name = `shamble-vfx ${g}`;
+      mesh.frustumCulled = false;
+      mesh.renderOrder = order[g];
+      mesh.visible = false;
+      this.object.add(mesh);
+      return [g, { mesh, geometry, material, generation: this.sink.groups[g].generation }];
+    })) as unknown as Record<BlendGroup, GroupMesh>;
+    this.object.name = 'shamble-vfx';
   }
 
-  /** Use a new atlas (after images were added or changed). */
+  /** Use a new atlas (after images were added or changed). The atlas should hold a white block named "__white". */
   setAtlas(atlas: Atlas): void {
     const tex = atlas.image instanceof HTMLCanvasElement ? new CanvasTexture(atlas.image) : new Texture(atlas.image as TexImageSource);
     tex.flipY = false; // atlas v is measured from the top
@@ -83,10 +106,17 @@ export class VfxRenderer {
     tex.magFilter = LinearFilter;
     tex.colorSpace = ColorManagement.enabled ? SRGBColorSpace : NoColorSpace;
     tex.needsUpdate = true;
-    this.sprite.setMap(tex);
+    for (const g of BLEND_GROUPS) this.meshes[g].material.setMap(tex);
     this.texture.dispose();
     this.texture = tex;
     this.lookup = atlasLookup(atlas);
+    const w = this.lookup('__white');
+    this.whiteUv = w ? [(w.u0 + w.u1) / 2, (w.v0 + w.v1) / 2] : [0.5, 0.5];
+  }
+
+  /** The atlas point that is plain white: shapes are drawn with it. */
+  get white(): [number, number] {
+    return this.whiteUv;
   }
 
   /** Start a frame. */
@@ -115,6 +145,7 @@ export class VfxRenderer {
       camera: this.basis,
       imageRect: this.lookup,
       colourSpace: this.colourSpace,
+      white: this.whiteUv,
     }, this.sink);
   }
 
@@ -126,54 +157,69 @@ export class VfxRenderer {
     }
   }
 
-  /** Hand this frame's quads to the GPU. Call before renderer.render(). */
+  /** Hand this frame's triangles to the GPU. Call before renderer.render(). */
   end(): void {
-    const s = this.sink;
-    if (s.generation !== this.generation) {
-      this.geometry.dispose();
-      this.geometry = this.makeGeometry();
-      this.mesh.geometry = this.geometry;
-    } else {
-      for (const name of ATTRS) {
-        const a = this.geometry.getAttribute(name) as InstancedBufferAttribute;
-        a.clearUpdateRanges();
-        a.addUpdateRange(0, s.count * 4);
-        a.needsUpdate = true;
+    for (const g of BLEND_GROUPS) {
+      const buf = this.sink.groups[g];
+      const m = this.meshes[g];
+      if (buf.generation !== m.generation) {
+        m.geometry.dispose();
+        m.geometry = makeGeometry(buf);
+        m.mesh.geometry = m.geometry;
+        m.generation = buf.generation;
+      } else if (buf.icount > 0) {
+        const ib = (m.geometry.getAttribute('position') as InterleavedBufferAttribute).data;
+        ib.clearUpdateRanges();
+        ib.addUpdateRange(0, buf.vcount * 4);
+        ib.needsUpdate = true;
+        for (const [name, size] of [['vUv', 2], ['vCol', 4]] as const) {
+          const a = m.geometry.getAttribute(name) as BufferAttribute;
+          a.clearUpdateRanges();
+          a.addUpdateRange(0, buf.vcount * size);
+          a.needsUpdate = true;
+        }
+        const index = m.geometry.getIndex()!;
+        index.clearUpdateRanges();
+        index.addUpdateRange(0, buf.icount);
+        index.needsUpdate = true;
       }
+      m.geometry.setDrawRange(0, buf.icount);
+      m.mesh.visible = buf.icount > 0;
     }
-    this.geometry.instanceCount = s.count;
-    this.mesh.visible = s.count > 0;
   }
 
   get stats(): VfxStats {
-    return { quads: this.sink.count, drawCalls: this.sink.count > 0 ? 1 : 0, effects: this.effectsThisFrame };
+    return { triangles: this.sink.triangles, drawCalls: this.sink.drawCalls, effects: this.effectsThisFrame };
   }
 
   dispose(): void {
-    this.geometry.dispose();
-    this.sprite.material.dispose();
+    for (const g of BLEND_GROUPS) {
+      this.meshes[g].geometry.dispose();
+      this.meshes[g].material.material.dispose();
+    }
     this.texture.dispose();
-  }
-
-  private makeGeometry(): InstancedBufferGeometry {
-    const s = this.sink;
-    const g = new InstancedBufferGeometry();
-    g.setAttribute('position', new BufferAttribute(new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]), 3));
-    g.setIndex([0, 1, 2, 0, 2, 3]);
-    const arrays = [s.centre, s.axisX, s.axisY, s.uv, s.colour];
-    ATTRS.forEach((name, i) => {
-      const a = new InstancedBufferAttribute(arrays[i]!, 4);
-      a.setUsage(DynamicDrawUsage);
-      g.setAttribute(name, a);
-    });
-    g.instanceCount = s.count;
-    this.generation = s.generation;
-    return g;
   }
 }
 
-function blankTexture(): Texture {
-  const t = new Texture();
+function makeGeometry(buf: TriBuffer): BufferGeometry {
+  const g = new BufferGeometry();
+  // x, y, z and the depth pull sit side by side in one buffer: "position" reads the first three, "vPull" the fourth.
+  const ib = new InterleavedBuffer(buf.pos, 4); ib.setUsage(DynamicDrawUsage);
+  const uv = new BufferAttribute(buf.uv, 2); uv.setUsage(DynamicDrawUsage);
+  const col = new BufferAttribute(buf.col, 4); col.setUsage(DynamicDrawUsage);
+  g.setAttribute('position', new InterleavedBufferAttribute(ib, 3, 0));
+  g.setAttribute('vPull', new InterleavedBufferAttribute(ib, 1, 3));
+  g.setAttribute('vUv', uv);
+  g.setAttribute('vCol', col);
+  const idx = new BufferAttribute(buf.idx, 1); idx.setUsage(DynamicDrawUsage);
+  g.setIndex(idx);
+  g.setDrawRange(0, buf.icount);
+  return g;
+}
+
+function whiteTexture(): Texture {
+  const t = new DataTexture(new Uint8Array(4 * 4 * 4).fill(255), 4, 4, RGBAFormat);
   t.flipY = false;
+  t.needsUpdate = true;
   return t;
 }

@@ -91,7 +91,7 @@ export class Preview {
     this.targetMarker = new Mesh(ring, flat(data.ink.hex, { writeDepth: false, offset: 2 }));
     this.targetMarker.renderOrder = -4;
     this.scene.add(this.targetMarker);
-    this.scene.add(this.vfx.mesh);
+    this.scene.add(this.vfx.object);
 
     if (opts.offscreen) {
       this.offscreenTarget = new RenderTarget(16, 16, { type: UnsignedByteType, format: RGBAFormat, colorSpace: NoColorSpace, depthBuffer: true, samples: 4 });

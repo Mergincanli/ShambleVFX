@@ -54,8 +54,8 @@ async function main(): Promise<void> {
   g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(32, 0, 32, 32);
 
   const vfx = new VfxRenderer(palette);
-  vfx.setAtlas({ image: atlasCanvas, width: 64, height: 32, rects: { 'white.png': { x: 2, y: 2, w: 28, h: 28 }, 'half.png': { x: 34, y: 2, w: 28, h: 28 } } });
-  scene.add(vfx.mesh);
+  vfx.setAtlas({ image: atlasCanvas, width: 64, height: 32, rects: { 'white.png': { x: 2, y: 2, w: 28, h: 28 }, 'half.png': { x: 34, y: 2, w: 28, h: 28 }, __white: { x: 10, y: 10, w: 8, h: 8 } } });
+  scene.add(vfx.object);
 
   const roles = ['heat.1', 'heat.2', 'heat.3', 'heat.4', 'ink', 'team', 'glow', 'gunword.top', 'dust'];
   const fx: EffectFile = newEffect('colour_check', 'Colour check');

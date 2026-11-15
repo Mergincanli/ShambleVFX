@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import paletteJson from '../../vfx-format/palette/palette.json';
 import { newEffect, newProjectileLayer, newSpriteLayer, parseHex, srgbToLinear } from '@shamble/vfx-format';
 import type { EffectFile, Palette, SpriteLayer, Vec3 } from '@shamble/vfx-format';
-import { QuadSink, applyControls, evaluate, hash32, random01, resolveTimeline, stepIndex } from '../src/core/index';
+import { DrawSink, applyControls, evaluate, hash32, random01, readQuads, resolveTimeline, stepIndex } from '../src/core/index';
 import type { CameraBasis, EvalContext } from '../src/core/index';
 
 const palette = paletteJson as Palette;
@@ -47,9 +47,9 @@ function demo(): EffectFile {
 }
 
 function run(fx: EffectFile, c: EvalContext) {
-  const sink = new QuadSink(4);
+  const sink = new DrawSink(16);
   const r = evaluate(fx, c, sink);
-  return { r, sink, quads: sink.read() };
+  return { r, sink, quads: readQuads(sink.groups['top-normal']) };
 }
 
 describe('steps', () => {
@@ -103,11 +103,12 @@ describe('timeline', () => {
 describe('evaluate', () => {
   it('gives the same picture for the same seed and time, in any order', () => {
     const fx = demo();
-    const sink = new QuadSink(2);
+    const sink = new DrawSink(8);
     const snap = (t: number) => {
       sink.clear();
       evaluate(fx, ctx(t), sink);
-      return Buffer.from(sink.centre.buffer.slice(0, sink.count * 16)).toString('hex') + Buffer.from(sink.uv.buffer.slice(0, sink.count * 16)).toString('hex');
+      const b = sink.groups['top-normal'];
+      return Buffer.from(b.pos.buffer.slice(0, b.vcount * 16)).toString('hex') + Buffer.from(b.uv.buffer.slice(0, b.vcount * 8)).toString('hex') + Buffer.from(b.idx.buffer.slice(0, b.icount * 4)).toString('hex');
     };
     const a = snap(300);
     snap(100);
@@ -225,10 +226,10 @@ describe('evaluate', () => {
   it('grows the sink when it runs out of room', () => {
     const fx = newEffect('many', 'Many');
     fx.layers = Array.from({ length: 40 }, (_, i) => newSpriteLayer(`s${i}`, `S${i}`, 'a.png'));
-    const sink = new QuadSink(1);
-    expect(evaluate(fx, ctx(0), sink).quads).toBe(40);
-    expect(sink.capacity).toBeGreaterThanOrEqual(40);
-    expect(sink.generation).toBeGreaterThan(0);
+    const sink = new DrawSink(4);
+    expect(evaluate(fx, ctx(0), sink).triangles).toBe(80);
+    expect(sink.groups['top-normal'].vcount).toBe(160);
+    expect(sink.groups['top-normal'].generation).toBeGreaterThan(0);
   });
 });
 

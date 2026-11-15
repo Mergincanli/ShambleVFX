@@ -317,7 +317,7 @@ export class App implements AppApi {
       }
     }
     const list: AtlasImage[] = [...this.images].map(([name, v]) => ({ name, image: v.bitmap, width: v.bitmap.width, height: v.bitmap.height }));
-    if (list.length) this.preview.setAtlas(drawAtlas(list));
+    this.preview.setAtlas(drawAtlas(list));
     this.problemCache = null;
     this.inspector?.refresh();
   }
@@ -551,7 +551,7 @@ export class App implements AppApi {
       vfx.drawPlaying(this.player, this.clock, lookup);
     });
     const s = this.preview.vfx.stats;
-    this.els.stats.textContent = `${s.quads} sprite${s.quads === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`;
+    this.els.stats.textContent = `${s.triangles} triangle${s.triangles === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`;
     this.renderTime(len);
     if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
   }

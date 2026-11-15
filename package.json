@@ -18,7 +18,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p packages/vfx-format && tsc -p packages/vfx-runtime && tsc -p packages/vfx-editor",
     "images": "node tools/make-placeholder-images.mjs",
-    "check:browser": "node tools/browser-check.mjs"
+    "check:browser": "node tools/browser-check.mjs",
+    "compare": "node tools/compare-board.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

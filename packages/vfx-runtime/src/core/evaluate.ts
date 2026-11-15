@@ -8,7 +8,7 @@ import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, Timi
 import { applyControls } from './controls';
 import type { ResolvedControls } from './controls';
 import { clamp, cross, length, lerp, normalize, sub } from './math';
-import type { QuadSink } from './sink';
+import type { DrawSink } from './sink';
 import { holdSteps, inputPoint, resolveTimeline, stepMs } from './timeline';
 import type { EffectInputs, LayerSpan, Timeline } from './timeline';
 
@@ -44,11 +44,13 @@ export interface EvalContext {
    * (colour management off, as the legacy game did). The three.js side sets this from the renderer's setup.
    */
   colourSpace?: 'linear' | 'srgb';
+  /** The atlas point that is plain white, for shapes drawn without an image. */
+  white?: [number, number];
 }
 
 export interface EvalResult {
-  /** Quads this call added to the sink. */
-  quads: number;
+  /** Triangles this call added to the sink. */
+  triangles: number;
   /** Images the effect names that the atlas does not have (those layers were skipped). */
   missingImages: string[];
   /** When the effect's last layer ends, for these inputs. */
@@ -68,10 +70,10 @@ export function shownTime(localMs: number, t: Timing): number {
 
 const DEG = Math.PI / 180;
 
-export function evaluate(fx: EffectFile, ctx: EvalContext, sink: QuadSink, timeline?: Timeline): EvalResult {
+export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timeline?: Timeline): EvalResult {
   const c = applyControls(fx.controls);
   const tl = timeline ?? resolveTimeline(fx, ctx.inputs, c);
-  const before = sink.count;
+  const before = sink.triangles;
   const missing: string[] = [];
   const colours = new Map<string, [number, number, number]>();
   const cam = ctx.camera;
@@ -92,7 +94,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: QuadSink, timel
     }
     drawSprite(fx, l, i, span, tau, rect, ctx, c, tl, sink, colours, pullPerMetre);
   }
-  return { quads: sink.count - before, missingImages: missing, lengthMs: tl.lengthMs };
+  return { triangles: sink.triangles - before, missingImages: missing, lengthMs: tl.lengthMs };
 }
 
 function roleColour(role: string, ctx: EvalContext, c: ResolvedControls, cache: Map<string, [number, number, number]>): [number, number, number] {
@@ -112,7 +114,7 @@ function roleColour(role: string, ctx: EvalContext, c: ResolvedControls, cache: 
 
 function drawSprite(
   fx: EffectFile, l: SpriteLayer, index: number, span: LayerSpan, tau: number, rect: UvRect,
-  ctx: EvalContext, c: ResolvedControls, tl: Timeline, sink: QuadSink,
+  ctx: EvalContext, c: ResolvedControls, tl: Timeline, sink: DrawSink,
   colours: Map<string, [number, number, number]>, pullPerMetre: number,
 ): void {
   const cam = ctx.camera;
@@ -218,13 +220,13 @@ function drawSprite(
   const pull = reach * pullPerMetre + 0.02;
 
   const col = l.tint.mode === 'multiply' ? roleColour(l.tint.role, ctx, c, colours) : WHITE;
-  sink.push(
-    cx, cy, cz, pull,
+  sink.groups['top-normal'].quad(
+    cx, cy, cz,
     ax[0] * W, ax[1] * W, ax[2] * W,
     ay[0] * H, ay[1] * H, ay[2] * H,
     uL, fv0, uR, fv1,
     col[0], col[1], col[2], 1,
-    index,
+    pull, index,
   );
 }
 
