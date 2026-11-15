@@ -1,16 +1,18 @@
 /**
  * The colours each layer asks the palette for, beyond the examples: no example uses a gradient, and they do not try every
  * edge, ink width or timing. Made-up layers of every kind, drawn by the real runtime and compared with the format's
- * static list, as the example tests do (colours-used.ts). Every made-by; one faction and one tier, since those change
- * no request (the example tests sweep all of them).
+ * static list, as the example tests do (colours-used.ts). Every made-by; one faction, since the faction changes no request
+ * (the example tests sweep all three); each layer in the first tier it shows in, as everywhere in these tests. The last
+ * test holds the runtime to what that rests on: a layer draws the same in each tier it shows in.
  *
  * The named roles below avoid ink, white and heat.rim where they can, so a request for those comes from what the kind
  * draws without naming them.
  */
-import { describe, it } from 'vitest';
-import { EDGES, newBurstLayer, newEffect, newProjectileLayer, newShapeLayer, newSpriteLayer, newWordLayer } from '@shamble/vfx-format';
+import { describe, expect, it } from 'vitest';
+import { EDGES, FACTION_IDS, newBurstLayer, newEffect, newProjectileLayer, newShapeLayer, newSpriteLayer, newWordLayer } from '@shamble/vfx-format';
 import type { BurstLayer, EffectFile, Layer, Palette, ParticleLook, ShapeLayer, ShapeSpec, WordLayer } from '@shamble/vfx-format';
-import { RELATIONS, builtIn, checkEffectColours } from './colours-used';
+import { applyControls, resolveTimeline } from '../src/core/index';
+import { RELATIONS, builtIn, checkEffectColours, exampleEffects, layerPicture, samePicture } from './colours-used';
 import type { Extra, Sweep } from './colours-used';
 
 const palette: Palette = {
@@ -25,7 +27,7 @@ const palette: Palette = {
 };
 /** Gradients the palette has; test.missing is named by layers but not in the palette (they fall back to their roles). */
 const IN_PALETTE = new Set(Object.keys(palette.gradients));
-const sweep: Sweep = { factions: ['soviets'], tiers: ['high'], relations: RELATIONS, seeds: [1] };
+const sweep: Sweep = { factions: ['soviets'], relations: RELATIONS, seeds: [1] };
 
 function effect(id: string, layers: Layer[]): EffectFile {
   const fx = newEffect(id, id);
@@ -190,4 +192,25 @@ describe('the colours made-up layers of every kind ask the palette for', () => {
     fx.controls.colour = 'glow.hot';
     checkEffectColours(fx, palette, sweep, []);
   }, 120_000);
+});
+
+describe('what the one-tier sweep rests on', () => {
+  it('every example layer draws the same, to the bit, in each tier it shows in (a tier only leaves whole layers out)', () => {
+    let compared = 0, drawnSomething = 0;
+    for (const { project, file, fx } of exampleEffects()) {
+      const len = resolveTimeline(fx, { origin: [-4, 1.5, 3], target: [3, 0.8, -2] }, applyControls(fx.controls)).lengthMs;
+      fx.layers.forEach((l, i) => {
+        if (l.type === 'projectile' || l.tiers.length < 2) return;
+        for (const k of [0.1, 0.35, 0.6, 0.85]) for (const relation of RELATIONS) {
+          const faction = FACTION_IDS[compared % FACTION_IDS.length]!;
+          const [first, ...others] = l.tiers.map((t) => layerPicture(fx, i, k * len, t, relation, faction));
+          for (const o of others) expect(samePicture(o, first!), `${project}/${file} "${l.id}" at ${Math.round(k * len)} ms`).toBe(true);
+          if (first!.some((x) => x.length)) drawnSomething++;
+          compared++;
+        }
+      });
+    }
+    expect(compared).toBeGreaterThan(300);
+    expect(drawnSomething).toBeGreaterThan(100);
+  });
 });

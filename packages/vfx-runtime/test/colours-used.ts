@@ -5,6 +5,9 @@
  * Each layer is drawn on its own: the others are left out of every tier, which changes no timing (a tier only leaves
  * layers out). That is how each request is put down to its layer: within one evaluate() call the runtime asks for a
  * colour once, whichever layer needs it first.
+ *
+ * Each layer is drawn in one tier: the first tier it shows in. A tier only leaves whole layers out (the runtime reads the
+ * tier nowhere else), so a layer draws the same in every tier it shows in; a test below holds the runtime to that.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -12,10 +15,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../../vfx-format/palette/palette.json';
 import { TIER_NAMES } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Palette, PaletteEntry, TierName, Vec3 } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Palette, PaletteEntry, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import { layerColours } from '@shamble/vfx-format/validate';
 import type { ColourList } from '@shamble/vfx-format/validate';
-import { DrawSink, applyControls, evaluate, resolveTimeline } from '../src/core/index';
+import { BLEND_GROUPS, DrawSink, applyControls, evaluate, resolveTimeline } from '../src/core/index';
 import type { CameraBasis, EvalContext, Relation } from '../src/core/index';
 
 export const builtIn = paletteJson as Palette;
@@ -33,11 +36,13 @@ function gameCamera(): CameraBasis {
 const camera = gameCamera();
 const inputs = { origin: [-4, 1.5, 3] as Vec3, target: [3, 0.8, -2] as Vec3 };
 
-/** What the runtime asked the palette for while drawing one layer, and how many triangles it drew in all. */
+/** What the runtime asked the palette for while drawing one layer, how many triangles it drew in all, and in which tier. */
 export interface Asked {
   roles: Set<string>;
   gradients: Set<string>;
   triangles: number;
+  /** The tier the layer was drawn in (none for a projectile, which never draws). */
+  tier?: TierName;
 }
 
 /** The palette, noting every role and every gradient looked up in it. */
@@ -54,14 +59,33 @@ function noting(base: Palette, asked: Asked): Palette {
 
 export interface Sweep {
   factions: readonly FactionId[];
-  tiers: readonly TierName[];
   relations: readonly Relation[];
   seeds: readonly number[];
 }
 
+/** The tier a layer is drawn in for the sweep: the first one it shows in (low, then medium, then high). */
+export function sweepTier(l: VisibleLayer): TierName | undefined {
+  return TIER_NAMES.find((t) => l.tiers.includes(t));
+}
+
+/** The context the sweep draws with at one moment. */
+function sweepContext(timeMs: number, faction: FactionId, relation: Relation, tier: TierName, seed: number, palette: Palette): EvalContext {
+  return {
+    seed, timeMs, inputs, faction, relation, tier, palette, camera,
+    // As the editor's atlas: every image found, a white block and the round halftone dot.
+    imageRect: () => ({ u0: 0, v0: 0, u1: 0.25, v1: 0.25 }), white: [0.9, 0.9], dot: { u0: 0.5, v0: 0.5, u1: 0.6, v1: 0.6 },
+  };
+}
+
+/** The effect with only layer i drawn (in the tiers it has): every other visible layer is left out of every tier. */
+function onlyLayer(fx: EffectFile, i: number): EffectFile {
+  return { ...fx, layers: fx.layers.map((m, j) => (j === i || m.type === 'projectile' ? m : { ...m, tiers: [] })) };
+}
+
 /**
- * Draw every visible layer of an effect on its own at 60 frames a second over the effect's whole length, for every
- * faction, tier, made-by and seed of the sweep, and note what the runtime asked the palette for.
+ * Draw every visible layer of an effect on its own, in the first tier it shows in, at 60 frames a second over the
+ * effect's whole length, for every faction, made-by and seed of the sweep, and note what the runtime asked the palette
+ * for.
  */
 export function askedByLayer(fx: EffectFile, palette: Palette, sweep: Sweep): Asked[] {
   const tl = resolveTimeline(fx, inputs, applyControls(fx.controls));
@@ -69,21 +93,39 @@ export function askedByLayer(fx: EffectFile, palette: Palette, sweep: Sweep): As
   return fx.layers.map((l, i) => {
     const asked: Asked = { roles: new Set(), gradients: new Set(), triangles: 0 };
     if (l.type === 'projectile') return asked;
-    const only: EffectFile = { ...fx, layers: fx.layers.map((m, j) => (j === i || m.type === 'projectile' ? m : { ...m, tiers: [] })) };
+    const tier = sweepTier(l);
+    if (!tier) return asked;
+    asked.tier = tier;
+    const only = onlyLayer(fx, i);
     const pal = noting(palette, asked);
-    for (const faction of sweep.factions) for (const tier of sweep.tiers) for (const relation of sweep.relations) for (const seed of sweep.seeds) {
+    for (const faction of sweep.factions) for (const relation of sweep.relations) for (const seed of sweep.seeds) {
       for (let k = 0; (k * 1000) / 60 <= tl.lengthMs; k++) {
         sink.clear();
-        const ctx: EvalContext = {
-          seed, timeMs: (k * 1000) / 60, inputs, faction, relation, tier, palette: pal, camera,
-          // As the editor's atlas: every image found, a white block and the round halftone dot.
-          imageRect: () => ({ u0: 0, v0: 0, u1: 0.25, v1: 0.25 }), white: [0.9, 0.9], dot: { u0: 0.5, v0: 0.5, u1: 0.6, v1: 0.6 },
-        };
-        asked.triangles += evaluate(only, ctx, sink, tl).triangles;
+        asked.triangles += evaluate(only, sweepContext((k * 1000) / 60, faction, relation, tier, seed, pal), sink, tl).triangles;
       }
     }
     return asked;
   });
+}
+
+/** What a layer drew at one moment: every vertex (position and colour) and every index, in order, group by group. */
+export type Picture = number[][];
+const pictureSink = new DrawSink(4096);
+
+/** What layer i draws at one moment in one tier. Used to show that a layer draws the same in each tier it shows in. */
+export function layerPicture(fx: EffectFile, i: number, timeMs: number, tier: TierName, relation: Relation, faction: FactionId): Picture {
+  const tl = resolveTimeline(fx, inputs, applyControls(fx.controls));
+  pictureSink.clear();
+  evaluate(onlyLayer(fx, i), sweepContext(timeMs, faction, relation, tier, 1, builtIn), pictureSink, tl);
+  return BLEND_GROUPS.flatMap((g) => {
+    const b = pictureSink.groups[g];
+    return [Array.from(b.pos.subarray(0, b.vcount * 4)), Array.from(b.col.subarray(0, b.vcount * 4)), Array.from(b.idx.subarray(0, b.icount))];
+  });
+}
+
+/** True when two pictures are the same to the bit. */
+export function samePicture(a: Picture, b: Picture): boolean {
+  return a.length === b.length && a.every((x, k) => x.length === b[k]!.length && x.every((v, j) => Object.is(v, b[k]![j])));
 }
 
 /** One colour in the static list that the runtime never asked for, with why that is fine. */
@@ -101,8 +143,12 @@ export interface Extra {
 export function checkEffectColours(fx: EffectFile, palette: Palette, sweep: Sweep, expected: readonly Extra[], neverDrawn: readonly string[] = []): void {
   const asked = askedByLayer(fx, palette, sweep);
   const extras: string[] = [];
+  // Every visible layer was drawn, in a tier it shows in.
+  const visible = fx.layers.filter((l) => l.type !== 'projectile') as VisibleLayer[];
+  expect(asked.filter((a) => a.tier !== undefined).length, `${fx.id}: layers drawn`).toBe(visible.length);
   fx.layers.forEach((l, i) => {
     if (l.type === 'projectile') return;
+    expect(l.tiers, `"${l.id}" was drawn in a tier it shows in`).toContain(asked[i]!.tier);
     const list: ColourList = layerColours(l, { index: i, main: fx.controls.colour, palette });
     const roles = new Set(list.colours.flatMap((c) => (c.role === undefined ? [] : [c.role])));
     const a = asked[i]!;
@@ -139,8 +185,8 @@ export function exampleEffects(): { project: string; file: string; fx: EffectFil
 export function exampleSuite(faction: FactionId): void {
   describe(`the colours each example layer asks the palette for, for the ${faction}`, () => {
     for (const { project, file, fx } of exampleEffects()) {
-      it(`${project}/${file}: every made-by and tier, 60 frames a second`, () => {
-        checkEffectColours(fx, builtIn, { factions: [faction], tiers: TIER_NAMES, relations: RELATIONS, seeds: [1] }, []);
+      it(`${project}/${file}: every made-by, each layer in a tier it shows in, 60 frames a second`, () => {
+        checkEffectColours(fx, builtIn, { factions: [faction], relations: RELATIONS, seeds: [1] }, []);
       }, 120_000);
     }
   });
