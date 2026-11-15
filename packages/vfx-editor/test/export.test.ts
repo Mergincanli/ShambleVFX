@@ -148,6 +148,49 @@ describe('export refusals', () => {
   });
 });
 
+describe('a project with its own colours', () => {
+  it('exports with its palette.json, a new colour included, and import gives it back', async () => {
+    const dir = join(tmp, 'own-colours');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    const pal = JSON.parse(read(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json')));
+    pal.roles['heat.blue'] = { hex: '#3A7BFF', from: 'mustafa' };
+    pal.factions.soviets.roles.team.hex = '#C01010';
+    writeFileSync(join(dir, 'palette.json'), toJson(pal));
+    const fx = json(join(dir, 'effects', 'rifle_shot.vfx.json')) as { controls: { colour: string } };
+    fx.controls.colour = 'heat.blue';
+    writeFileSync(join(dir, 'effects', 'rifle_shot.vfx.json'), toJson(fx));
+    const out = join(tmp, 'own-colours-export');
+    const r = await exportProject(dir, out);
+    expect(r.errors).toEqual([]);
+    expect(json(join(out, 'palette.json'))).toEqual(pal);
+    const back = join(tmp, 'own-colours-back');
+    expect((await importExport(out, back)).ok).toBe(true);
+    expect(read(join(back, 'palette.json'))).toBe(read(join(out, 'palette.json')));
+  });
+
+  it('names a broken palette.json and exports nothing', async () => {
+    const dir = join(tmp, 'bad-colours');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    writeFileSync(join(dir, 'palette.json'), toJson({ version: 1, factions: {}, roles: { ink: { hex: 'black', from: 'mustafa' } } }));
+    const out = join(tmp, 'bad-colours-export');
+    const r = await exportProject(dir, out);
+    expect(r.ok).toBe(false);
+    expect(r.errors.join('\n')).toMatch(/palette\.json: /);
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it('refuses a colour the project palette does not have', async () => {
+    const dir = join(tmp, 'unknown-colour');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    const fx = json(join(dir, 'effects', 'rifle_shot.vfx.json')) as { controls: { colour: string } };
+    fx.controls.colour = 'heat.blue';
+    writeFileSync(join(dir, 'effects', 'rifle_shot.vfx.json'), toJson(fx));
+    const r = await exportProject(dir, join(tmp, 'unknown-colour-export'));
+    expect(r.ok).toBe(false);
+    expect(r.errors).toContain('effects/rifle_shot.vfx.json: controls.colour: "heat.blue" is not a role in the palette');
+  });
+});
+
 describe('import refusals', () => {
   it('never writes into a folder that has files', async () => {
     const out = join(tmp, 'for-import');

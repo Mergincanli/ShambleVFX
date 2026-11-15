@@ -8,6 +8,7 @@
  *   project.json             {"format":"shamble-vfx-project","version":1,"name":"..."}
  *   effects/<id>.vfx.json    one file per effect
  *   images/<name>.png        the images the effects use
+ *   palette.json             the project's colours (optional: without it the built-in palette is used)
  *
  * Roots (folders that hold project folders):
  *   examples/   in the repo, read-only, so tracked files are never changed by accident ("Save as" copies one out)
@@ -72,7 +73,7 @@ export interface ProjectFilesOptions {
 const ROOT_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const NAME = '[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}';
 const FOLDER = new RegExp(`^${NAME}$`);
-const PROJECT_PATH = new RegExp(`^(project\\.json|effects/${NAME}\\.vfx\\.json|images/${NAME}\\.png)$`);
+const PROJECT_PATH = new RegExp(`^(project\\.json|palette\\.json|effects/${NAME}\\.vfx\\.json|images/${NAME}\\.png)$`);
 const EFFECT_FILE = new RegExp(`^${NAME}\\.vfx\\.json$`);
 const IMAGE_FILE = new RegExp(`^${NAME}\\.png$`);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -322,10 +323,12 @@ async function projectContents(p: Project) {
   const meta = await readMeta(p.dir);
   const effects = (await listFiles(join(p.dir, 'effects'), EFFECT_FILE)).map((f) => f.name);
   const images = await listFiles(join(p.dir, 'images'), IMAGE_FILE);
+  const palette = await fs.stat(join(p.dir, 'palette.json')).then((s) => s.isFile(), () => false);
   return {
     id: `${p.root.id}/${p.folder}`,
     name: meta?.name ?? p.folder,
     writable: p.root.writable,
+    palette,
     effects,
     images: images.map((f) => ({ name: f.name, bytes: f.bytes })),
   };
@@ -392,6 +395,9 @@ async function copyProject(roots: ProjectRoot[], fromId: string, rootId: string,
   const made = await makeProjectFolder(root, name);
   try {
     await writeAtomic(join(made.dir, 'project.json'), projectJson(made.name));
+    // The project's own colours come along (never through a link out of the source project).
+    const pal = join(from.dir, 'palette.json');
+    if (await fs.stat(pal).then((s) => s.isFile(), () => false) && (await realInside(pal, from.dir))) await fs.copyFile(pal, join(made.dir, 'palette.json'));
     for (const [sub, pattern] of [['effects', EFFECT_FILE], ['images', IMAGE_FILE]] as const) {
       await fs.mkdir(join(made.dir, sub));
       for (const f of await listFiles(join(from.dir, sub), pattern)) {
@@ -478,6 +484,12 @@ async function writeProjectFile(p: Project, path: string, body: Buffer): Promise
       const j = parsed as { format?: unknown; name?: unknown } | null;
       if (!j || typeof j !== 'object' || j.format !== PROJECT_FORMAT || typeof j.name !== 'string' || !j.name.trim()) {
         throw new ApiError(400, `project.json must be an object with "format": "${PROJECT_FORMAT}" and a "name"`);
+      }
+    }
+    if (path === 'palette.json') {
+      const j = parsed as { version?: unknown; factions?: unknown; roles?: unknown } | null;
+      if (!j || typeof j !== 'object' || typeof j.version !== 'number' || !j.factions || typeof j.factions !== 'object' || !j.roles || typeof j.roles !== 'object') {
+        throw new ApiError(400, 'palette.json must be an object with a "version", "factions" and "roles"');
       }
     }
   }

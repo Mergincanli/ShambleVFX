@@ -6,11 +6,13 @@
  * Undo puts "before" back; redo puts "after" back. Dragging a slider makes many small edits; they merge
  * into one command, so one drag is one undo step.
  */
-import type { EffectFile } from '@shamble/vfx-format';
+import type { EffectFile, Palette } from '@shamble/vfx-format';
 
 export interface EditorDoc {
   /** The project's effects, in the order shown. */
   effects: readonly EffectFile[];
+  /** The project's colours (its palette.json, or a copy of the built-in palette). Colour edits are undone like any edit. */
+  palette: Palette;
 }
 
 interface Command {

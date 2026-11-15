@@ -132,7 +132,7 @@ describe('projects', () => {
   it('tells what a project holds, ignoring files that are not effects or PNGs', async () => {
     const r = await call('GET', `project?${q('examples/demo')}`);
     expect(r.status).toBe(200);
-    expect(r.json()).toEqual({ id: 'examples/demo', name: 'Demo project', writable: false, effects: ['shot.vfx.json'], images: [{ name: 'flash.png', bytes: PNG.length }] });
+    expect(r.json()).toEqual({ id: 'examples/demo', name: 'Demo project', writable: false, palette: false, effects: ['shot.vfx.json'], images: [{ name: 'flash.png', bytes: PNG.length }] });
     expect((await call('GET', `project?${q('examples/not-a-project')}`)).status).toBe(404);
   });
 
@@ -141,11 +141,28 @@ describe('projects', () => {
     expect(r.status).toBe(201);
     expect(r.json().id).toBe('projects/demo-copy');
     const c = await call('GET', `project?${q('projects/demo-copy')}`);
-    expect(c.json()).toEqual({ id: 'projects/demo-copy', name: 'Demo copy', writable: true, effects: ['shot.vfx.json'], images: [{ name: 'flash.png', bytes: PNG.length }] });
+    expect(c.json()).toEqual({ id: 'projects/demo-copy', name: 'Demo copy', writable: true, palette: false, effects: ['shot.vfx.json'], images: [{ name: 'flash.png', bytes: PNG.length }] });
     expect(existsSync(join(tmp, 'projects', 'demo-copy', 'effects', 'notes.txt'))).toBe(false);
     expect(existsSync(join(tmp, 'projects', 'demo-copy', 'images', 'photo.jpg'))).toBe(false);
     expect((await call('POST', 'copy', json({ from: 'examples/demo', root: 'projects', name: 'Demo copy' }))).status).toBe(409);
     expect((await call('POST', 'copy', json({ from: 'examples/demo', root: 'examples', name: 'Again' }))).status).toBe(403);
+  });
+});
+
+describe('the project palette', () => {
+  const palette = JSON.stringify({ version: 1, factions: {}, roles: {} });
+  it('writes palette.json when it is a palette, and refuses anything else under that name', async () => {
+    await call('POST', 'projects', json({ root: 'projects', name: 'With colours' }));
+    const put = (body: string) => call('PUT', `file?${q('projects/with-colours', 'palette.json')}`, { headers: { 'content-type': 'application/json' }, body });
+    expect((await put(palette)).status).toBe(200);
+    expect((await call('GET', `project?${q('projects/with-colours')}`)).json().palette).toBe(true);
+    expect((await put('{"hello":1}')).status).toBe(400);
+    expect((await put('[1,2]')).status).toBe(400);
+  });
+  it('copies palette.json on Save as', async () => {
+    const r = await call('POST', 'copy', json({ from: 'projects/with-colours', root: 'projects', name: 'Colours copy' }));
+    expect(r.status).toBe(201);
+    expect(readFileSync(join(tmp, 'projects', 'colours-copy', 'palette.json'), 'utf8')).toBe(palette);
   });
 });
 

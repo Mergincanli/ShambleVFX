@@ -3,7 +3,7 @@
  * timeline under it), and one panel on the right. Effects play through vfx-runtime, the code the game ships.
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { EVENT_NAME, FACTION_IDS, TIER_NAMES, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
+import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
 import type { EffectFile, FactionId, Layer, Palette, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import type { Problem } from '@shamble/vfx-format/validate';
@@ -30,7 +30,8 @@ import { buildInspector } from './inspector';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
 
-const palette = paletteJson as Palette;
+/** The built-in palette: a project without its own palette.json uses it (the examples do). */
+const builtInPalette = paletteJson as Palette;
 const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
@@ -42,10 +43,11 @@ const SHAPE_TEXT: Record<ShapeKind, string> = {
 };
 
 export class App implements AppApi {
-  readonly palette = palette;
   faction: FactionId = 'soviets';
   private store: ProjectStore = new DevServerStore();
-  private history = new History({ effects: [] });
+  private history = new History({ effects: [], palette: builtInPalette });
+  /** The palette as last read from or written to the project's palette.json (or the built-in one). */
+  private paletteOnDisk: Palette = builtInPalette;
   private project: ProjectContents | null = null;
   private images = new Map<string, { bitmap: ImageBitmap; url: string }>();
   private effectsOnDisk = new Set<string>();
@@ -63,7 +65,7 @@ export class App implements AppApi {
   private seed = 1;
   private lastFrame = 0;
   private timelineCache: { fx: EffectFile; where: string; tl: Timeline } | null = null;
-  private problemCache: { fx: EffectFile | undefined; images: number; list: Problem[] } | null = null;
+  private problemCache: { fx: EffectFile | undefined; images: number; list: Problem[]; palette: Palette } | null = null;
   private els!: {
     root: HTMLElement; projectName: HTMLElement; save: HTMLButtonElement; undo: HTMLButtonElement; redo: HTMLButtonElement;
     effects: HTMLElement; layers: HTMLElement; viewport: HTMLElement; play: HTMLButtonElement; time: HTMLElement; stats: HTMLElement;
@@ -101,6 +103,11 @@ export class App implements AppApi {
   }
 
   // ---------------------------------------------------------------- AppApi
+
+  /** The project's colours: its palette.json, or the built-in palette. */
+  get palette(): Palette {
+    return this.history.doc.palette;
+  }
 
   effect(): EffectFile | undefined {
     return this.selEffect ? effectById(this.history.doc, this.selEffect) : undefined;
@@ -158,10 +165,11 @@ export class App implements AppApi {
 
   problems(): Problem[] {
     const fx = this.effect();
-    if (this.problemCache && this.problemCache.fx === fx && this.problemCache.images === this.images.size) return this.problemCache.list;
-    const r = fx ? checkEffect(fx, { palette, images: this.images.keys() }) : null;
+    const pal = this.palette;
+    if (this.problemCache && this.problemCache.fx === fx && this.problemCache.images === this.images.size && this.problemCache.palette === pal) return this.problemCache.list;
+    const r = fx ? checkEffect(fx, { palette: pal, images: this.images.keys() }) : null;
     const list = r && !r.ok ? r.problems : [];
-    this.problemCache = { fx, images: this.images.size, list };
+    this.problemCache = { fx, images: this.images.size, list, palette: pal };
     return list;
   }
 
@@ -277,7 +285,7 @@ export class App implements AppApi {
     this.inspector.refresh();
     try {
       const report = await measureCost({
-        ...this.costConditions(), effect: fx, palette, atlas: this.atlas, camera: makeGameCamera(),
+        ...this.costConditions(), effect: fx, palette: this.palette, atlas: this.atlas, camera: makeGameCamera(),
         onProgress: (t) => { this.measuring = t; this.inspector.refresh(); },
       });
       this.costReports.set(fx.id, report);
@@ -310,7 +318,7 @@ export class App implements AppApi {
     const params = new URLSearchParams(location.search);
     this.buildShell(root);
     this.preview = await Preview.create({
-      container: this.els.viewport, palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
+      container: this.els.viewport, palette: this.palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
     });
     this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); this.distanceBox.set(this.preview.viewerDistanceM); };
     this.distanceBox.set(this.preview.viewerDistanceM);
@@ -385,7 +393,7 @@ export class App implements AppApi {
           h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, title: 'Duplicate', on: { click: () => this.duplicateSelected() } }, icon('copy')),
           h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, title: 'Delete layer (Del)', on: { click: () => this.deleteSelected() } }, icon('trash')))));
 
-    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', options: FACTION_IDS.map((f) => ({ value: f, label: palette.factions[f].name })), value: this.faction,
+    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', options: FACTION_IDS.map((f) => ({ value: f, label: builtInPalette.factions[f].name })), value: this.faction,
       onChange: (f) => { this.faction = f; this.preview.setFaction(f); this.factionCtl.set(f); this.inspector.refresh(); }, small: true });
     this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen' }, { value: 'game', label: 'Game size' }, { value: 'close', label: 'Close-up' }],
       value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
@@ -441,10 +449,23 @@ export class App implements AppApi {
     await this.loadImages();
     const effects: EffectFile[] = [];
     const bad: string[] = [];
+    // The project's own colours, or the built-in palette.
+    let projectPalette = builtInPalette;
+    if (contents.palette) {
+      try {
+        const raw = (await readJson(this.store, id, 'palette.json')) as Palette;
+        const wrong = checkPalette(raw);
+        if (wrong.length) bad.push(`palette.json: ${wrong.slice(0, 2).join('; ')} (the built-in palette is used instead)`);
+        else projectPalette = raw;
+      } catch (e) {
+        bad.push(`palette.json: ${(e as Error).message} (the built-in palette is used instead)`);
+      }
+    }
+    this.paletteOnDisk = projectPalette;
     for (const file of contents.effects) {
       try {
         const raw = await readJson(this.store, id, `effects/${file}`);
-        const r = checkEffect(raw, { palette, images: this.images.keys() });
+        const r = checkEffect(raw, { palette: projectPalette, images: this.images.keys() });
         if (r.ok && r.effect) effects.push(r.effect);
         else {
           // Keep a file that parses but has problems (for example a missing image), so it can be fixed here.
@@ -457,7 +478,8 @@ export class App implements AppApi {
       }
     }
     this.effectsOnDisk = new Set(effects.map((e) => e.id));
-    this.history.reset({ effects });
+    this.history.reset({ effects, palette: projectPalette });
+    this.preview.vfx.palette = projectPalette;
     this.player.clear();
     this.selEffect = effects[0]?.id ?? null;
     this.selLayer = null;
@@ -547,6 +569,11 @@ export class App implements AppApi {
       for (const fx of doc.effects) await writeJson(this.store, projectId, effectPath(fx.id), fx);
       for (const id of this.effectsOnDisk) if (!doc.effects.some((e) => e.id === id)) await this.store.remove(projectId, effectPath(id));
       this.effectsOnDisk = new Set(doc.effects.map((e) => e.id));
+      // Changed colours go into the project's own palette.json (the built-in palette is never written).
+      if (doc.palette !== this.paletteOnDisk) {
+        await writeJson(this.store, projectId, 'palette.json', doc.palette);
+        this.paletteOnDisk = doc.palette;
+      }
       if (this.metaDirty || projectId !== this.project?.id) {
         const preview: Record<string, { scene: string }> = {};
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
@@ -610,7 +637,7 @@ export class App implements AppApi {
       const items: HTMLElement[] = [];
       for (const file of contents.effects) {
         let fx: EffectFile | undefined;
-        try { fx = checkEffect(await readJson(this.store, p.id, `effects/${file}`), { palette }).effect; } catch { fx = undefined; }
+        try { fx = checkEffect(await readJson(this.store, p.id, `effects/${file}`), { palette: builtInPalette }).effect; } catch { fx = undefined; }
         if (!fx) continue;
         const preset = fx, scene = scenes[fx.id]?.scene;
         items.push(h('li', {}, h('button', { class: 'linkish', attrs: { type: 'button' }, text: fx.name, on: { click: () => { d.close(); this.addFromPreset(preset, scene); } } }),
@@ -849,6 +876,7 @@ export class App implements AppApi {
     if (this.selEffect && !this.effect()) this.selEffect = this.history.doc.effects[0]?.id ?? null;
     if (this.selLayer && !this.layer()) this.selLayer = null;
     this.problemCache = null;
+    if (this.preview.vfx.palette !== this.palette) this.preview.vfx.palette = this.palette;
     this.renderEffects();
     this.renderLayers();
     this.inspector.refresh();

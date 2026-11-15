@@ -30,6 +30,8 @@ export interface ProjectContents {
   id: string;
   name: string;
   writable: boolean;
+  /** Whether the project has its own palette.json (else the built-in palette is used). */
+  palette: boolean;
   /** File names in effects/, e.g. "rifle_shot.vfx.json". */
   effects: string[];
   /** File names in images/ with their size in bytes. */

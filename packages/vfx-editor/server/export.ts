@@ -10,14 +10,15 @@ import { promises as fs } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { FORMAT_VERSION } from '@shamble/vfx-format';
+import { FORMAT_VERSION, checkPalette } from '@shamble/vfx-format';
 import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { checkEffect, checkEvents, checkExport, EXPORT_FORMAT, EXPORT_VERSION, problemLines } from '@shamble/vfx-format/validate';
 import type { AtlasMap, ExportManifest } from '@shamble/vfx-format/validate';
 import { atlasLayout, composeAtlas, cutFromAtlas, DOT_BLOCK, WHITE_BLOCK } from '../src/atlas/pack';
 import type { Pixels } from '../src/atlas/pack';
 
-const palette = paletteJson as Palette;
+/** The built-in palette, for a project without its own palette.json. */
+const builtInPalette = paletteJson as Palette;
 /** The project's own way of writing JSON (the editor writes the same). */
 export const toJson = (v: unknown): string => JSON.stringify(v, null, 2) + '\n';
 
@@ -111,6 +112,15 @@ export async function exportProject(projectDir: string, outDir: string): Promise
   const meta = ((await readJsonFile(join(projectDir, 'project.json')).catch(() => ({}))) ?? {}) as ProjectMeta;
   const name = typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : 'Shamble VFX export';
   const imageFiles = await listFiles(join(projectDir, 'images'), '.png');
+  // The project's own colours when it has them, else the built-in palette. The export carries the one it used.
+  let palette = builtInPalette;
+  const own = await readJsonFile(join(projectDir, 'palette.json')).catch((e: NodeJS.ErrnoException) => (e.code === 'ENOENT' ? undefined : e));
+  if (own instanceof Error) errors.push(`palette.json: is not readable JSON (${own.message})`);
+  else if (own !== undefined) {
+    const wrong = checkPalette(own as Palette);
+    if (wrong.length) errors.push(...wrong.map((w) => `palette.json: ${w}`));
+    else palette = own as Palette;
+  }
 
   // Read and check every effect (upgraded to the current version).
   const effects: { file: string; fx: EffectFile; text: string }[] = [];
@@ -169,7 +179,7 @@ export async function exportProject(projectDir: string, outDir: string): Promise
   // Write: a fresh folder every time.
   const files: [string, string | Buffer][] = [
     ['manifest.json', toJson(manifest)],
-    ['palette.json', toJson(paletteJson)],
+    ['palette.json', toJson(palette)],
     ['atlas.json', toJson(atlasMap)],
     ['atlas.png', PNG.sync.write(atlasPng, { colorType: 6 })],
     ['editor.json', toJson(editor)],
@@ -209,9 +219,9 @@ export async function readExport(dir: string) {
     } catch { /* reported as missing */ }
   }
   const atlas = await readJsonFile(join(dir, manifest?.atlas?.map ?? 'atlas.json')).catch(() => undefined);
-  const pal = (await readJsonFile(join(dir, manifest?.palette ?? 'palette.json')).catch(() => palette)) as Palette;
+  const pal = (await readJsonFile(join(dir, manifest?.palette ?? 'palette.json')).catch(() => builtInPalette)) as Palette;
   const check = checkExport({ manifest, atlas, files, palette: pal });
-  return { manifest, atlas: atlas as AtlasMap | undefined, files, texts, check };
+  return { manifest, atlas: atlas as AtlasMap | undefined, files, texts, check, palette: pal };
 }
 
 export interface ImportReport {
@@ -258,5 +268,7 @@ export async function importExport(exportDir: string, projectDir: string, name?:
     ...(editor.budgets && typeof editor.budgets === 'object' ? { budgets: editor.budgets } : {}),
   };
   await fs.writeFile(join(projectDir, 'project.json'), toJson(project));
+  // The export's colours become the project's own palette.json.
+  await fs.writeFile(join(projectDir, 'palette.json'), toJson(ex.palette));
   return { ok: true, errors: [], effects: ex.manifest.effects.length, images };
 }
