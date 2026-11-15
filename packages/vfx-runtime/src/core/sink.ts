@@ -20,6 +20,11 @@ export class TriBuffer {
   icount = 0;
   /** Bumps whenever the arrays are replaced by bigger ones. */
   generation = 0;
+  /**
+   * Separate items drawn this frame: each sprite, particle, dot, letter, flame tongue, smoke puff, line, bead and shape
+   * counts once, however many triangles and outlines it takes (the cost panel's "sprites alive").
+   */
+  items = 0;
   /** x, y, z in world metres, then the depth pull towards the camera in metres. */
   pos!: Float32Array;
   /** Atlas coordinates, v measured from the top. */
@@ -41,6 +46,7 @@ export class TriBuffer {
   clear(): void {
     this.vcount = 0;
     this.icount = 0;
+    this.items = 0;
   }
 
   /** Add a vertex; returns its index. */
@@ -117,6 +123,13 @@ export class DrawSink {
   get triangles(): number {
     let n = 0;
     for (const g of BLEND_GROUPS) n += this.groups[g].icount / 3;
+    return n;
+  }
+
+  /** Items drawn in all groups this frame (see TriBuffer.items). */
+  get items(): number {
+    let n = 0;
+    for (const g of BLEND_GROUPS) n += this.groups[g].items;
     return n;
   }
 

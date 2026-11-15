@@ -2,9 +2,10 @@
  * The right panel: the effect's big controls on top, the selected layer's details folded below.
  * Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
  */
-import { MAIN_ROLE, PHASE_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
-import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, Vec3, VisibleLayer } from '@shamble/vfx-format';
+import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
+import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import type { AppApi } from './api';
+import { costCard } from './costcard';
 import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
 import { specForm, structureOf } from './specform';
 
@@ -32,7 +33,9 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
     el.append(bigControls(app, parts));
     if (layer) el.append(layerDetails(app, layer, parts));
     else el.append(h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
-    el.append(checks(app, parts));
+    const cost = costCard(app);
+    parts.push(cost);
+    el.append(cost.el, checks(app, parts));
   };
   const refresh = () => {
     const fx = app.effect();
@@ -74,11 +77,61 @@ function bigControls(app: AppApi, parts: Refresher[]): HTMLElement {
     name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration); drawSwatches();
     windup.set(ph().windupMs); peak.set(ph().peakMs); fadeF.set(ph().fadeMs);
   } });
+  const events = eventsField(app, parts);
   return h('section', { class: 'card bigcontrols' },
-    h('h2', { text: 'Effect' }), name.el, size.el, intensity.el, duration.el,
+    h('h2', { text: 'Effect' }), name.el, events, size.el, intensity.el, duration.el,
     h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'layers can start with a phase or last until one ends' })),
       h('div', { class: 'fieldrow' }, windup.el, peak.el, fadeF.el)),
     h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), h('span', { class: 'hint', text: 'the main role; layers tinted "main" use it' })), swatches));
+}
+
+/** The game events the effect answers: names the game starts it by, such as rifle.shot. Checked as you type. */
+function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
+  const box = h('input', { class: 'text', attrs: { type: 'text', 'aria-label': 'Game events', placeholder: 'such as rifle.shot', spellcheck: 'false' } });
+  const problems = h('ul', { class: 'problems event-problems' });
+  const parse = (v: string) => v.split(/[\s,]+/).filter(Boolean);
+  box.addEventListener('input', () => app.setEvents(parse(box.value)));
+  box.addEventListener('change', () => { box.value = app.events().join(', '); });
+  const draw = () => {
+    if (document.activeElement !== box) box.value = app.events().join(', ');
+    problems.replaceChildren(...app.eventProblems().map((p) => h('li', { text: p })));
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return h('div', { class: 'field wide events' },
+    h('span', { class: 'flab', text: 'Game events it answers' }), box, problems,
+    h('span', { class: 'hint', text: 'The names the game starts this effect by, separated by commas. One event plays one effect. The names are proposals until the game settles them.' }));
+}
+
+const TIER_TEXT: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
+
+/** In which quality tiers the layer shows. The last tier cannot be unticked: the layer would never draw. */
+function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
+  const V = () => app.layer() as VisibleLayer;
+  const boxes = TIER_NAMES.map((t) => {
+    const box = h('input', { attrs: { type: 'checkbox', 'aria-label': `Shows in ${TIER_TEXT[t]}` } });
+    box.addEventListener('change', () => {
+      const now = new Set(V().tiers);
+      if (box.checked) now.add(t); else now.delete(t);
+      if (!now.size) { box.checked = true; return; }
+      app.editLayer(['tiers'], TIER_NAMES.filter((x) => now.has(x)), { label: 'Tiers' });
+      app.commit();
+    });
+    return { t, box, el: h('label', { class: 'check tier' }, box, h('span', { text: TIER_TEXT[t] })) };
+  });
+  const draw = () => {
+    const on = V().tiers;
+    for (const b of boxes) {
+      b.box.checked = on.includes(b.t);
+      // The only tier left stays: a layer in no tier would never be drawn.
+      b.box.disabled = on.length === 1 && b.box.checked;
+      b.el.title = b.box.disabled ? 'A layer must show in at least one tier' : '';
+    }
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return h('div', { class: 'row tiers' }, h('div', { class: 'lab' }, h('span', { text: 'Shows in' }), h('span', { class: 'hint', text: 'Low drops extras but must stay readable' })),
+    h('div', { class: 'tier-boxes' }, ...boxes.map((b) => b.el)));
 }
 
 // ---------------------------------------------------------------- the layer's details
@@ -90,6 +143,7 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElemen
   parts.push({ refresh: () => name.set(L().name) });
   const title = { sprite: 'Sprite layer', projectile: 'Projectile layer', shape: 'Shape layer', burst: 'Burst layer', word: 'Word layer' }[layer.type];
   box.append(h('h2', { text: title }), name.el);
+  if (layer.type !== 'projectile') box.append(tierFields(app, parts));
   if (layer.type === 'sprite') box.append(...spriteFields(app, parts));
   else if (layer.type === 'projectile') box.append(...projectileFields(app, parts));
   else {

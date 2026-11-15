@@ -81,7 +81,10 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
       } else bar.title += ' · smooth';
       const name = h('button', { class: 'tl-name', attrs: { type: 'button', 'aria-pressed': String(l.id === sel) }, on: { click: () => app.selectLayer(l.id) } },
         icon(l.type), h('span', { text: l.name }));
-      rows.append(h('div', { class: l.id === sel ? 'tl-row sel' : 'tl-row' }, name, h('div', { class: 'tl-lane' }, bar)));
+      // A layer the preview's tier leaves out is shown faded.
+      const off = l.type !== 'projectile' && !l.tiers.includes(app.previewTier());
+      if (off) bar.title += ` · not drawn in the ${app.previewTier()} tier`;
+      rows.append(h('div', { class: `tl-row${l.id === sel ? ' sel' : ''}${off ? ' off' : ''}` }, name, h('div', { class: 'tl-lane' }, bar)));
     });
   };
 

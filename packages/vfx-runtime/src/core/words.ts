@@ -110,6 +110,7 @@ export function drawWord(l: WordLayer, ctx: DrawCtx & { viewerDistanceM: number 
       if (lower.length >= 6) ctx.p.poly(lower, bottom);
     }
   }
+  ctx.p.item(items.length);
   void clamp01;
 }
 

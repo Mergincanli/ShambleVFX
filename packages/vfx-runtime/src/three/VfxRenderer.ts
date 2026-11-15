@@ -53,6 +53,8 @@ export interface VfxStats {
   triangles: number;
   /** Draw calls the effects cost this frame (one per blend group in use). */
   drawCalls: number;
+  /** Separate items drawn this frame: each sprite, particle, dot, letter, flame tongue and shape counts once. */
+  items: number;
   /** Effects drawn this frame. */
   effects: number;
 }
@@ -108,7 +110,9 @@ export class VfxRenderer {
    * hold a round white dot named "__dot" (16 px, radius 7): halftone dots then cost two triangles each.
    */
   setAtlas(atlas: Atlas): void {
-    const tex = atlas.image instanceof HTMLCanvasElement ? new CanvasTexture(atlas.image) : new Texture(atlas.image as TexImageSource);
+    // (A worker or a test has no HTMLCanvasElement.)
+    const canvas = typeof HTMLCanvasElement !== 'undefined' && atlas.image instanceof HTMLCanvasElement;
+    const tex = canvas ? new CanvasTexture(atlas.image as HTMLCanvasElement) : new Texture(atlas.image as TexImageSource);
     tex.flipY = false; // atlas v is measured from the top
     tex.generateMipmaps = false;
     tex.minFilter = LinearFilter;
@@ -203,7 +207,7 @@ export class VfxRenderer {
   }
 
   get stats(): VfxStats {
-    return { triangles: this.sink.triangles, drawCalls: this.sink.drawCalls, effects: this.effectsThisFrame };
+    return { triangles: this.sink.triangles, drawCalls: this.sink.drawCalls, items: this.sink.items, effects: this.effectsThisFrame };
   }
 
   dispose(): void {

@@ -46,6 +46,7 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
     const py = Math.max(floor, (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s);
     const size = pick(l.sizeM, r(3)) * curveAt(l.sizeOverLife, age / life) * ctx.s;
     if (size <= 0) continue;
+    ctx.p.item();
     if (l.streak && travel > 1e-4) {
       // The streak runs back along the way the piece came (never past where it started), widest at the piece.
       const back = Math.min(l.streak.lengthM * ctx.s, travel * ctx.s);

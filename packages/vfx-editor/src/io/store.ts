@@ -36,6 +36,26 @@ export interface ProjectContents {
   images: { name: string; bytes: number }[];
 }
 
+/** An export folder in exports/. */
+export interface ExportSummary {
+  folder: string;
+  name: string;
+  effects: number;
+  events: number;
+}
+
+/** What an export did. On errors nothing was written. */
+export interface ExportResult {
+  ok: boolean;
+  /** "exports/<folder>" */
+  folder: string;
+  errors: string[];
+  warnings: string[];
+  files: string[];
+  effects: number;
+  events: number;
+}
+
 export interface ProjectStore {
   list(): Promise<ProjectListing>;
   /** Make a new, empty project in a writable root. */
@@ -46,6 +66,12 @@ export interface ProjectStore {
   read(id: string, path: string): Promise<Blob>;
   write(id: string, path: string, data: Blob): Promise<void>;
   remove(id: string, path: string): Promise<void>;
+  /** The export folders in exports/. */
+  listExports(): Promise<ExportSummary[]>;
+  /** Export a project, as saved on disk, to exports/<its folder>/. */
+  exportProject(id: string): Promise<ExportResult>;
+  /** Make a new project in a writable root from an export folder. */
+  importExport(folder: string, root: string, name: string): Promise<{ ok: boolean; errors: string[]; project?: ProjectSummary; effects: number; images: number }>;
 }
 
 /** What went wrong, in plain words, with the HTTP status when there was one. */
@@ -101,6 +127,36 @@ export class DevServerStore implements ProjectStore {
 
   async remove(id: string, path: string): Promise<void> {
     await this.call('DELETE', fileUrl(id, path));
+  }
+
+  async listExports(): Promise<ExportSummary[]> {
+    return (await this.json<{ exports: ExportSummary[] }>('GET', 'exports')).exports;
+  }
+
+  async exportProject(id: string): Promise<ExportResult> {
+    return this.report<ExportResult>('export', { id });
+  }
+
+  async importExport(folder: string, root: string, name: string) {
+    const r = await this.report<{ ok: boolean; errors?: string[]; id?: string; name?: string; root?: string; writable?: boolean; effects?: number; images?: number }>('import', { export: folder, root, name });
+    return {
+      ok: r.ok, errors: r.errors ?? [], effects: r.effects ?? 0, images: r.images ?? 0,
+      ...(r.ok && r.id ? { project: { id: r.id, name: r.name ?? folder, root: r.root ?? root, writable: r.writable ?? true } } : {}),
+    };
+  }
+
+  /** A POST whose refusal (422) still carries a report with the problems in it. */
+  private async report<T>(route: string, body: unknown): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.base}/${route}`, { method: 'POST', headers: { 'X-Shamble-VFX': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' });
+    } catch {
+      throw new StoreError('Cannot reach the editor\'s local server. Is "npm run dev" still running?', 0);
+    }
+    if (res.status === 422 || res.ok) return (await res.json()) as T;
+    let message = `The local server said ${res.status}`;
+    try { const j = (await res.json()) as { error?: string }; if (j.error) message = j.error; } catch { /* keep the status */ }
+    throw new StoreError(message, res.status);
   }
 
   private async json<T>(method: string, route: string, body?: unknown): Promise<T> {

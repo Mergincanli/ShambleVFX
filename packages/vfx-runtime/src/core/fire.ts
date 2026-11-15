@@ -111,7 +111,7 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
           const d = Math.hypot(x - cx, y - cy) / q.rx;
           if (d >= 1 || !insideLumps(x, y, near)) continue;
           const r = dot * (1 - d * 0.85);
-          if (r > step * 0.06) ctx.p.dot(x, y, r, next);
+          if (r > step * 0.06) { ctx.p.dot(x, y, r, next); ctx.p.item(); }
         }
       }
       if (ctx.rnd(60 + k + boil, q.i) > 0.45) hatch(ctx, q, next, near, boil);
@@ -261,6 +261,7 @@ export function drawFlames(sp: FlamesShape, ctx: DrawCtx): void {
     // The fire area races out at the start; tongues outside it wait. They go out one by one as it cools.
     if (Math.hypot(tg.x, tg.z) > sp.radiusM * reach * 0.98) continue;
     if (ctx.rnd(99, tg.i) < fadeK * 1.15) continue;
+    ctx.p.item();
     // Each tongue stretches over its cycle (easing out), snaps back on the last step as a lick lets go, and starts again.
     const q = (((frame + tg.offset) % tg.cycle) + tg.cycle) % tg.cycle;
     const released = q === tg.cycle - 1;
@@ -288,6 +289,7 @@ export function drawFlames(sp: FlamesShape, ctx: DrawCtx): void {
     if (sp.licks && big) {
       const age = released ? 0 : q < 2 ? q + 1 : -1;
       if (age >= 0) {
+        ctx.p.item();
         const tipX = r.cx[r.N]!, tipY = r.cy[r.N]!;
         const sz = 0.19 * (1 - 0.22 * age) * tg.h * hk * ctx.s;
         const lx = tipX + 0.05 * (1 + age) * tg.h * ctx.s, ly = tipY + (0.06 + 0.1 * age) * tg.h * ctx.s;

@@ -43,6 +43,11 @@ export class Painter {
     else this.disc(x, y, r, r, c, 6);
   }
 
+  /** Count items drawn (see TriBuffer.items): the generators call this once per particle, dot, letter, tongue or shape. */
+  item(n = 1): void {
+    this.buf.items += n;
+  }
+
   /** Change the frame (for a part drawn at another place or angle). */
   setFrame(frame: Frame3): void {
     this.f = frame;

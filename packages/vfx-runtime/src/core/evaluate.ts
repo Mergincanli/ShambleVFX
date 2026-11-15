@@ -406,6 +406,7 @@ function drawSprite(
   const col = l.tint.mode === 'multiply' ? rgbOf(l.tint.role) : WHITE;
   const alpha = l.alpha ? scaleAt(l.alpha, n, tau / (span.endMs - span.startMs)) : 1;
   if (alpha <= 0) return;
+  buf.items++;
   buf.quad(
     cx, cy, cz,
     ax[0] * W, ax[1] * W, ax[2] * W,

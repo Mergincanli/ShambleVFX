@@ -207,3 +207,43 @@ kbd { border: 2px solid var(--ink); background: var(--white); padding: 1px 5px; 
 .inspector .optional { border-left: 3px solid var(--rule); padding-left: 8px; margin: 4px 0; }
 .inspector .sub { display: flex; flex-direction: column; gap: 4px; }
 .inspector .tone-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: 6px; align-items: end; margin-bottom: 4px; }
+
+/* Quality tiers: layers the preview's tier leaves out are faded, in the list and on the timeline. */
+.layer-item.off span, .layer-item.off .icon { opacity: 0.42; }
+.layer-item.off code { color: var(--bad); }
+.tl-row.off .tl-bar { opacity: 0.3; }
+.tl-row.off .tl-name { color: var(--sub); }
+.row.tiers { margin: 6px 0 2px; }
+.tier-boxes { display: flex; gap: 16px; }
+.tier-boxes .check { margin: 2px 0; }
+.tier-boxes input:disabled { cursor: not-allowed; }
+.events .problems { color: var(--bad); margin: 4px 0 0; }
+.events .problems:empty { display: none; }
+.events .hint { margin-top: 2px; }
+
+/* The cost card. */
+.costcard .card-head { align-items: center; }
+.costcard .cost-status { margin: 2px 0 8px; }
+.costcard .cost-status.bad { color: var(--bad); font-weight: 600; }
+table.cost { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+table.cost th { text-align: left; font-weight: 600; padding: 4px 4px 4px 0; vertical-align: top; }
+table.cost thead th { font: 700 13px/1 var(--display); letter-spacing: 0.6px; text-transform: uppercase; border-bottom: 2px solid var(--ink); }
+table.cost tbody th { width: 92px; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+table.cost td { padding: 4px 3px; border-top: 1px solid var(--rule); vertical-align: top; }
+table.cost .cv { font: 600 13px/1.25 var(--mono); }
+table.cost .cs { font: 10.5px/1.25 var(--mono); color: var(--sub); min-height: 0; }
+table.cost .cs:empty { display: none; }
+table.cost input.budget { width: 100%; margin-top: 3px; padding: 1px 3px; border: 1px solid var(--rule); background: var(--white); font: 11.5px/1.3 var(--mono); text-align: right; }
+table.cost input.budget::placeholder { color: #A3A29B; }
+table.cost td.over { background: #F4D6D3; }
+table.cost td.over .cv { color: var(--bad); }
+table.cost td.within { background: #DCEBD8; }
+table.cost td.within .cv { color: var(--good); }
+table.cost.stale .cv, table.cost.stale .cs { color: #A3A29B; }
+.costcard .cost-cond { font-size: 11.5px; }
+
+/* Export and import. */
+.dlg h3 { margin: 14px 0 2px; font: 700 15px/1 var(--display); letter-spacing: 0.6px; text-transform: uppercase; }
+.dlg .problems { color: var(--bad); max-height: 40vh; overflow: auto; }
+.dlg .problems.warn { color: var(--sub); }
+.dlg code { background: var(--white); border: 1px solid var(--rule); padding: 0 4px; }

@@ -17,7 +17,16 @@ import { flightPoint } from './timeline';
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
 
+/** Shapes drawn as one item. The others count their own items: each smoke puff, dot, line, bead and flame tongue. */
+const ONE_ITEM: ReadonlySet<ShapeSpec['kind']> = new Set(['shards', 'flash', 'cloud', 'ring', 'scorch', 'glow', 'trail', 'band', 'bed']);
+
 export function drawShape(spec: ShapeSpec, ctx: DrawCtx): void {
+  const before = ctx.p.target.icount;
+  drawKind(spec, ctx);
+  if (ONE_ITEM.has(spec.kind) && ctx.p.target.icount > before) ctx.p.item();
+}
+
+function drawKind(spec: ShapeSpec, ctx: DrawCtx): void {
   switch (spec.kind) {
     case 'shards': return drawShards(spec, ctx);
     case 'flash': return drawFlash(spec, ctx);
@@ -102,7 +111,7 @@ function halftoneIn(ctx: DrawCtx, pts: number[], h: HalftoneFill, R: number, exc
       if (!insidePolygon(x, y, pts) || (exclude && insidePolygon(x, y, exclude))) continue;
       const along = (x * dx + y * dy) / R; // -1 .. 1 towards the fade side
       const r = r0 * clamp01(0.55 - along * 0.5);
-      if (r > step * 0.06) ctx.p.dot(x, y, r, c);
+      if (r > step * 0.06) { ctx.p.dot(x, y, r, c); ctx.p.item(); }
     }
   }
 }
@@ -188,6 +197,7 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
     const g = curveAt([[0, sp.grow[0]], [0.78, sp.grow[1]], [1, sp.grow[2]]], it.age);
     const R = sp.radiusM * ctx.s * g;
     if (R < ctx.px(1.5)) continue;
+    ctx.p.item();
     // Drift: right, and forward (away from the camera on the ground, which shows up the screen by the camera's tilt).
     const cx = sp.driftM[0] * it.age, cy = sp.riseM * it.age + sp.driftM[1] * it.age * awayOnScreen(ctx);
     const parts = sp.style === 'puff'
@@ -203,7 +213,7 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
       const step = Math.max(ctx.px(5), R * 0.16);
       for (let j = 0; j < 4; j++) for (let i = -3; i <= 3; i++) {
         const x = cx + (i + (j & 1) * 0.5) * step, y = cy - R * 0.25 - j * step * 0.8;
-        if (parts.some(([px, py, pr]) => Math.hypot(x - px, y - py) < pr * 0.85)) ctx.p.dot(x, y, step * 0.22 * (1 - j / 5), dot);
+        if (parts.some(([px, py, pr]) => Math.hypot(x - px, y - py) < pr * 0.85)) { ctx.p.dot(x, y, step * 0.22 * (1 - j / 5), dot); ctx.p.item(); }
       }
     }
   }
@@ -304,7 +314,7 @@ function drawDots(sp: DotsShape, ctx: DrawCtx): void {
       const d = Math.hypot(x, y / sq);
       if (d >= R || d < inner) continue;
       const r = sp.edgeM > 0 ? r0 * clamp01((R - d) / (sp.edgeM * ctx.s)) : r0 * (1 - (d / R) * 0.85);
-      if (r > step * 0.05) ctx.p.dot(x, y, r, c);
+      if (r > step * 0.05) { ctx.p.dot(x, y, r, c); ctx.p.item(); }
     }
   }
 }
@@ -347,6 +357,7 @@ function drawLines(sp: LinesShape, ctx: DrawCtx): void {
     const r0 = pick(sp.innerM, ctx.rnd(42, i)) * ctx.s * (1 + sp.spread * k);
     const len = pick(sp.lengthM, ctx.rnd(43, i)) * ctx.s * (1 - k);
     if (len <= 0) continue;
+    ctx.p.item();
     const ca = Math.cos(a), sa = Math.sin(a);
     ctx.p.stroke([ca * r0, sa * r0, ca * (r0 + len), sa * (r0 + len)], false, ctx.px(pick(sp.widthPx, ctx.rnd(44, i))), c);
   }
@@ -467,6 +478,7 @@ function drawBeads(sp: BeadsShape, ctx: DrawCtx): void {
   for (let i = 0; i < sp.count; i++) {
     const ub = (i / sp.count + held / sp.periodMs) % 1;
     if (ub < 0.04 || ub > 0.94) continue;
+    ctx.p.item();
     const x = A[0] + dx * ub, y = A[1] + dy * ub;
     if (sp.glowRole) ctx.p.softDisc(x, y, hl * 1.75, hl * 1.75, ctx.rgba(sp.glowRole, 0.6));
     ctx.p.poly([x + d[0]! * hl, y + d[1]! * hl, x + n[0]! * hw, y + n[1]! * hw, x - d[0]! * hl * 1.6, y - d[1]! * hl * 1.6, x - n[0]! * hw, y - n[1]! * hw], ctx.rgba(sp.role));

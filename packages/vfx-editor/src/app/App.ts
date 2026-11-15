@@ -3,13 +3,15 @@
  * timeline under it), and one panel on the right. Effects play through vfx-runtime, the code the game ships.
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { FACTION_IDS, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Layer, Palette, ShapeKind, ShapeLayer, Vec3 } from '@shamble/vfx-format';
+import { EVENT_NAME, FACTION_IDS, TIER_NAMES, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Layer, Palette, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
-import type { Relation, Timeline } from '@shamble/vfx-runtime';
+import type { Atlas, Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
+import { measureCost, readBudgets } from '../cost/measure';
+import type { Budgets, CostConditions, CostMetric, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
 import {
   addEffect, addLayer, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
@@ -18,7 +20,8 @@ import {
 import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
 import { DevServerStore, StoreError, effectPath, imagePath, readJson, writeJson } from '../io/store';
-import type { ProjectContents, ProjectStore } from '../io/store';
+import type { ExportResult, ExportSummary, ProjectContents, ProjectStore } from '../io/store';
+import { makeGameCamera } from '../preview/camera';
 import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
@@ -31,6 +34,7 @@ const palette = paletteJson as Palette;
 const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
+const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const SHAPE_KINDS: ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
 const SHAPE_TEXT: Record<ShapeKind, string> = {
   shards: 'star of shards', flash: 'muzzle flash', cloud: 'cloud blast', smoke: 'smoke', ring: 'ring', dots: 'halftone dots', scorch: 'scorch mark',
@@ -77,6 +81,18 @@ export class App implements AppApi {
   private metaDirty = false;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
+  private tierCtl!: ReturnType<typeof segmented<TierName>>;
+  /** The quality tier the preview draws. */
+  private tier: TierName = 'high';
+  /** The game events each effect answers (project.json "events"). Deleted effects keep theirs here, so undo brings them back. */
+  private eventsValue: Record<string, string[]> = {};
+  /** Budgets typed for this project, per tier (project.json "budgets"). */
+  private budgetsValue: Budgets = {};
+  private costReports = new Map<string, CostReport>();
+  /** While measuring: what is being measured (the preview waits). */
+  private measuring: string | null = null;
+  /** The atlas the preview draws with (the cost panel measures with it too). */
+  private atlas: Atlas | null = null;
 
   static async start(root: HTMLElement): Promise<App> {
     const app = new App();
@@ -172,6 +188,115 @@ export class App implements AppApi {
     input.click();
   }
 
+  previewTier(): TierName {
+    return this.tier;
+  }
+
+  events(): string[] {
+    return this.selEffect ? [...(this.eventsValue[this.selEffect] ?? [])] : [];
+  }
+
+  setEvents(list: string[]): void {
+    const id = this.selEffect;
+    if (!id) return;
+    const clean = [...new Set(list.map((e) => e.trim()).filter(Boolean))];
+    if (clean.join('\n') === (this.eventsValue[id] ?? []).join('\n')) return;
+    if (clean.length) this.eventsValue[id] = clean;
+    else delete this.eventsValue[id];
+    this.metaDirty = true;
+    this.renderTopbar();
+    this.inspector.refresh();
+  }
+
+  eventProblems(): string[] {
+    const id = this.selEffect;
+    if (!id) return [];
+    const out: string[] = [];
+    for (const ev of this.eventsValue[id] ?? []) {
+      if (!EVENT_NAME.test(ev)) out.push(`"${ev}" is not an event name: lowercase words joined by dots, such as "rifle.shot".`);
+      const other = this.history.doc.effects.find((fx) => fx.id !== id && (this.eventsValue[fx.id] ?? []).includes(ev));
+      if (other) out.push(`"${ev}" is already answered by "${other.name}": one event plays one effect.`);
+    }
+    return out;
+  }
+
+  costReport(): CostReport | undefined {
+    return this.selEffect ? this.costReports.get(this.selEffect) : undefined;
+  }
+
+  costStale(): boolean {
+    const r = this.costReport();
+    if (!r) return false;
+    if (r.effect !== this.effect()) return true;
+    const a = r.conditions, b = this.costConditions();
+    const key = (c: CostConditions) => JSON.stringify([c.scene, c.origin, c.target, c.faction, c.relation, c.viewerDistanceM]);
+    return key(a) !== key(b);
+  }
+
+  costProgress(): string | null {
+    return this.measuring;
+  }
+
+  measureCost(): void {
+    void this.runMeasure();
+  }
+
+  budgets(): Budgets {
+    return this.budgetsValue;
+  }
+
+  setBudget(tier: TierName, metric: CostMetric, value: number | undefined): void {
+    const b: Budgets = structuredClone(this.budgetsValue);
+    if (value === undefined) {
+      delete b[tier]?.[metric];
+      if (b[tier] && !Object.keys(b[tier]!).length) delete b[tier];
+    } else (b[tier] ??= {})[metric] = value;
+    this.budgetsValue = b;
+    this.metaDirty = true;
+    this.renderTopbar();
+    this.inspector.refresh();
+  }
+
+  private costConditions(): CostConditions {
+    const i = this.inputs();
+    return {
+      scene: this.preview.scene.id, sceneName: this.preview.scene.name, origin: i.origin, target: i.target, seed: 1,
+      faction: this.faction, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM,
+    };
+  }
+
+  /** Measure the current effect's cost in every tier. The preview waits meanwhile, so it does not share the computer. */
+  private async runMeasure(): Promise<void> {
+    const fx = this.effect();
+    if (!fx || this.measuring) return;
+    if (this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version')) {
+      this.say('This effect has errors (see Checks): fix them, then measure.', true);
+      return;
+    }
+    this.measuring = 'Starting…';
+    this.inspector.refresh();
+    try {
+      const report = await measureCost({
+        ...this.costConditions(), effect: fx, palette, atlas: this.atlas, camera: makeGameCamera(),
+        onProgress: (t) => { this.measuring = t; this.inspector.refresh(); },
+      });
+      this.costReports.set(fx.id, report);
+    } catch (e) {
+      this.say(`Measuring failed: ${(e as Error).message}`, true);
+    } finally {
+      this.measuring = null;
+    }
+    this.inspector.refresh();
+  }
+
+  private setTier(t: TierName): void {
+    this.tier = t;
+    this.preview.vfx.tier = t;
+    this.tierCtl.set(t);
+    this.renderLayers();
+    this.timelineView.refresh();
+  }
+
   // ---------------------------------------------------------------- start up
 
   private async boot(root: HTMLElement): Promise<void> {
@@ -223,7 +348,8 @@ export class App implements AppApi {
       h('div', { class: 'project' }, projectName,
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Projects…', on: { click: () => void this.projectsDialog() } }),
         save,
-        h('button', { class: 'tb save-as', attrs: { type: 'button' }, text: 'Save as…', on: { click: () => void this.saveAsDialog() } })),
+        h('button', { class: 'tb save-as', attrs: { type: 'button' }, text: 'Save as…', on: { click: () => void this.saveAsDialog() } }),
+        h('button', { class: 'tb export', attrs: { type: 'button' }, text: 'Export…', title: 'Write the folder the game loads: a manifest, one file per effect, one packed atlas', on: { click: () => void this.exportDialog() } })),
       h('div', { class: 'tools' }, undo, redo, backend,
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Keys', title: 'Keyboard shortcuts', on: { click: () => this.keysDialog() } })));
 
@@ -263,10 +389,13 @@ export class App implements AppApi {
       options: [{ value: 'enemy', label: 'Enemy', title: 'An enemy made it: comic outlines in ink' }, { value: 'team', label: 'Your team', title: 'Your team made it: thin broken outlines' }, { value: 'self', label: 'You', title: 'You made it: your own words show' }],
       onChange: (r) => { this.preview.setRelation(r); this.relationCtl.set(r); } });
     this.distanceBox = distanceControl((m) => { this.preview.setDistance(m); this.timelineView.refresh(); });
+    this.tierCtl = segmented<TierName>({ label: 'Tier', small: true, value: 'high',
+      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
+      onChange: (t) => this.setTier(t) });
     const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
     const stats = h('span', { class: 'stats' });
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.viewCtl.el, this.closeCtl.el, stats);
+    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
 
     const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
@@ -333,10 +462,13 @@ export class App implements AppApi {
     return true;
   }
 
-  /** project.json: the name, and which preview scene each effect is shown in. */
+  /** project.json: the name, the scene each effect is shown in, the game events each answers, and the budgets. */
   private async readProjectMeta(): Promise<void> {
     this.projectMeta = {};
     this.previewScenes = {};
+    this.eventsValue = {};
+    this.budgetsValue = {};
+    this.costReports.clear();
     this.metaDirty = false;
     try {
       const meta = await readJson(this.store, this.project!.id, 'project.json');
@@ -347,6 +479,8 @@ export class App implements AppApi {
           if (v && typeof v.scene === 'string' && SCENES.some((x) => x.id === v.scene)) this.previewScenes[fx] = v.scene;
         }
       }
+      this.eventsValue = readEvents(this.projectMeta.events);
+      this.budgetsValue = readBudgets(this.projectMeta.budgets);
     } catch { /* a project without a readable project.json still opens */ }
   }
 
@@ -385,7 +519,9 @@ export class App implements AppApi {
       }
     }
     const list: AtlasImage[] = [...this.images].map(([name, v]) => ({ name, image: v.bitmap, width: v.bitmap.width, height: v.bitmap.height }));
-    this.preview.setAtlas(drawAtlas(list));
+    this.atlas = drawAtlas(list);
+    this.preview.setAtlas(this.atlas);
+    this.costReports.clear();
     this.problemCache = null;
     this.inspector?.refresh();
   }
@@ -407,7 +543,11 @@ export class App implements AppApi {
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
         const name = projectId === this.project?.id ? (this.projectMeta.name ?? this.project?.name) : undefined;
         const current = projectId === this.project?.id ? this.projectMeta : await readJson(this.store, projectId, 'project.json').catch(() => ({}));
-        const meta = { ...(current as Record<string, unknown>), ...(name ? { name } : {}), preview };
+        const events: Record<string, string[]> = {};
+        for (const fx of doc.effects) if (this.eventsValue[fx.id]?.length) events[fx.id] = [...this.eventsValue[fx.id]!];
+        const meta: Record<string, unknown> = { ...(current as Record<string, unknown>), ...(name ? { name } : {}), events, preview };
+        if (Object.keys(this.budgetsValue).length) meta.budgets = this.budgetsValue;
+        else delete meta.budgets;
         await writeJson(this.store, projectId, 'project.json', meta);
         if (projectId === this.project?.id) this.projectMeta = meta;
         this.metaDirty = false;
@@ -477,6 +617,8 @@ export class App implements AppApi {
   private addFromPreset(preset: EffectFile, scene?: string): void {
     const id = freeEffectId(this.history.doc, preset.id);
     const fx: EffectFile = { ...structuredClone(preset), id, name: id === preset.id ? preset.name : `${preset.name} (copy)` };
+    // A preset's game events stay with the preset: one event plays one effect.
+    if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
     this.history.apply('New from preset', addEffect(this.history.doc, fx));
     if (scene && SCENES.some((x) => x.id === scene)) { this.previewScenes[id] = scene; this.metaDirty = true; }
     this.selectEffect(id);
@@ -490,9 +632,17 @@ export class App implements AppApi {
     const rows = listing.projects.map((p) => h('li', {},
       h('button', { class: 'linkish', attrs: { type: 'button' }, text: p.name, on: { click: () => { d.close(); void this.openProject(p.id); } } }),
       h('span', { class: 'hint', text: ` ${p.id}${p.writable ? '' : ' · example, read-only'}` })));
+    let exportsList: ExportSummary[] = [];
+    try { exportsList = await this.store.listExports(); } catch { /* no exports to show */ }
+    const importRows = exportsList.map((e) => h('li', {},
+      h('button', { class: 'linkish', attrs: { type: 'button' }, text: e.name, on: { click: () => { d.close(); void this.importDialog(e); } } }),
+      h('span', { class: 'hint', text: ` exports/${e.folder} · ${e.effects} effect${e.effects === 1 ? '' : 's'}, ${e.events} event${e.events === 1 ? '' : 's'}` })));
     d.replaceChildren(
       h('h2', { text: 'Projects' }),
       h('ul', { class: 'plist' }, ...rows),
+      h('h3', { text: 'Import an export' }),
+      h('p', { class: 'hint', text: 'Makes a new project from an export folder: the effects as they are, each image cut back out of the atlas, the game events, scenes and budgets.' }),
+      importRows.length ? h('ul', { class: 'plist imports' }, ...importRows) : h('p', { class: 'hint', text: 'No exports yet: Export… writes one into exports/.' }),
       h('div', { class: 'dlg-buttons' },
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'New project…', on: { click: async () => {
           d.close();
@@ -502,6 +652,84 @@ export class App implements AppApi {
         } } }),
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
     d.showModal();
+  }
+
+  /** Export the project as saved on disk. Unsaved changes are named first: the export never holds what was not saved. */
+  private async exportDialog(): Promise<void> {
+    const p = this.project;
+    if (!p) return;
+    if (this.history.dirty || this.metaDirty) {
+      const choice = p.writable
+        ? await this.choose('Export', 'You have changes that are not saved. Export writes the project as it is saved on disk.',
+          [['save', 'Save, then export'], ['disk', 'Export what is saved'], ['cancel', 'Cancel']])
+        : await this.choose('Export', 'This example has changes that are not saved. Export writes the example as it is on disk. To export your changes, use Save as first, then Export.',
+          [['disk', 'Export the example as it is'], ['cancel', 'Cancel']]);
+      if (!choice || choice === 'cancel') return;
+      if (choice === 'save') {
+        await this.writeEffects(p.id);
+        if (this.history.dirty || this.metaDirty) return;
+      }
+    }
+    const r = await this.exportNow();
+    if (r) this.showExportReport(r);
+  }
+
+  /** Export the open project (as saved). Used by the Export button and the browser check. */
+  async exportNow(): Promise<ExportResult | null> {
+    if (!this.project) return null;
+    this.say('Exporting…');
+    try {
+      const r = await this.store.exportProject(this.project.id);
+      this.say(r.ok ? `Exported to ${r.folder}/.` : 'Not exported: see the problems.', !r.ok);
+      return r;
+    } catch (e) {
+      this.say(`Export failed: ${(e as Error).message}`, true);
+      return null;
+    }
+  }
+
+  private showExportReport(r: ExportResult): void {
+    const d = this.els.dialog;
+    const body: HTMLElement[] = [h('h2', { text: r.ok ? 'Exported' : 'Not exported' })];
+    if (r.ok) {
+      body.push(h('p', { text: `${r.effects} effect${r.effects === 1 ? '' : 's'} answering ${r.events} game event${r.events === 1 ? '' : 's'} went to ${r.folder}/: a manifest, one file per effect, one packed atlas with its map, and the palette.` }));
+      body.push(h('p', {}, 'To play it as the game would: run ', h('code', { text: 'npm run testpage' }), ' in the repo, and pick this export.'));
+    } else {
+      body.push(h('p', { text: 'Nothing was written. The export checker found:' }), h('ul', { class: 'problems' }, ...r.errors.map((e) => h('li', { text: e }))));
+    }
+    if (r.warnings.length) body.push(h('p', { text: 'Worth a look:' }), h('ul', { class: 'problems warn' }, ...r.warnings.map((w) => h('li', { text: w }))));
+    d.replaceChildren(...body, h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
+    d.classList.add('export-report');
+    d.addEventListener('close', () => d.classList.remove('export-report'), { once: true });
+    d.showModal();
+  }
+
+  private async importDialog(e: ExportSummary): Promise<void> {
+    const name = await this.ask('Import', `A name for the new project made from exports/${e.folder}. It goes in the projects folder (kept out of git).`, `${e.name} (imported)`.slice(0, 60));
+    if (!name) return;
+    let r;
+    try { r = await this.store.importExport(e.folder, 'projects', name); } catch (err) { this.say(`Import failed: ${(err as Error).message}`, true); return; }
+    if (!r.ok || !r.project) {
+      const d = this.els.dialog;
+      d.replaceChildren(h('h2', { text: 'Not imported' }), h('p', { text: 'Nothing was made. The export checker found:' }), h('ul', { class: 'problems' }, ...r.errors.map((x) => h('li', { text: x }))),
+        h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
+      d.showModal();
+      return;
+    }
+    if (await this.openProject(r.project.id)) this.say(`Imported ${r.effects} effect${r.effects === 1 ? '' : 's'} and ${r.images} image${r.images === 1 ? '' : 's'} as "${r.project.name}".`);
+  }
+
+  /** A question with a few answers; null when the dialog is closed. */
+  private choose(title: string, text: string, answers: [string, string][]): Promise<string | null> {
+    const d = this.els.dialog;
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v: string | null) => { if (done) return; done = true; d.close(); resolve(v); };
+      d.replaceChildren(h('h2', { text: title }), h('p', { text }),
+        h('div', { class: 'dlg-buttons' }, ...answers.map(([v, label], i) => h('button', { class: i === 0 ? 'tb primary' : 'tb', attrs: { type: 'button', 'data-answer': v }, text: label, on: { click: () => finish(v) } }))));
+      d.addEventListener('close', () => finish(null), { once: true });
+      d.showModal();
+    });
   }
 
   private ask(title: string, text: string, value: string): Promise<string | null> {
@@ -549,6 +777,7 @@ export class App implements AppApi {
   private newEffect(): void {
     const id = freeEffectId(this.history.doc, 'new_effect');
     const fx = newEffect(id, 'New effect');
+    if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
     this.history.apply('New effect', addEffect(this.history.doc, fx));
     this.selectEffect(id);
   }
@@ -670,6 +899,11 @@ export class App implements AppApi {
     // Real time since the last frame, capped so a hidden tab coming back does not jump the effect.
     const dt = Math.min(100, Math.max(0, now - this.lastFrame));
     this.lastFrame = now;
+    if (this.measuring) {
+      // The cost panel is timing the effect: the preview waits, so it does not share the computer.
+      if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
+      return;
+    }
     const fx = this.effect();
     const len = this.timeline()?.lengthMs ?? 0;
     if (this.playing) {
@@ -738,9 +972,13 @@ export class App implements AppApi {
     const list = this.els.layers;
     if (!fx) { list.replaceChildren(h('p', { class: 'empty', text: 'No effect.' })); return; }
     // Shown top of the drawing order first.
-    list.replaceChildren(...[...fx.layers].reverse().map((l) => h('button', {
-      class: l.id === this.selLayer ? 'item layer-item sel' : 'item layer-item', attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
-    }, icon(l.type), h('span', { text: l.name }), h('code', { text: layerTag(l) }))));
+    list.replaceChildren(...[...fx.layers].reverse().map((l) => {
+      const hidden = l.type !== 'projectile' && !l.tiers.includes(this.tier);
+      return h('button', {
+        class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
+        title: hidden ? `Not drawn in the ${TIER_LABEL[this.tier]} tier` : '',
+      }, icon(l.type), h('span', { text: l.name }), h('code', { text: hidden ? `not in ${TIER_LABEL[this.tier]}` : layerTag(l) }));
+    }));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }
 
@@ -837,12 +1075,36 @@ export class App implements AppApi {
     return true;
   }
 
+  /** For the browser check: measure the current effect now and hand back the report. */
+  async measureForChecks(): Promise<CostReport | undefined> {
+    await this.runMeasure();
+    return this.costReport();
+  }
+
+  /** For the browser check: draw the preview in a tier. */
+  setTierForChecks(t: TierName): void {
+    this.setTier(t);
+  }
+
   get previewForChecks(): Preview {
     return this.preview;
   }
 }
 
 export { StoreError };
+
+/** The game events from project.json: effect id to a list of event names (anything else is left out). */
+function readEvents(v: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [id, list] of Object.entries(v as Record<string, unknown>)) {
+    if (Array.isArray(list)) {
+      const names = list.filter((e): e is string => typeof e === 'string' && e.trim() !== '');
+      if (names.length) out[id] = names;
+    }
+  }
+  return out;
+}
 
 /** A few words after a layer's name in the list: its image, its flight, its shape, its word. */
 function layerTag(l: Layer): string {

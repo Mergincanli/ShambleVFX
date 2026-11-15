@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import paletteJson from '../../vfx-format/palette/palette.json';
-import { WORD_LETTERS, newBurstLayer, newEffect, newProjectileLayer, newShapeLayer, newWordLayer, parseHex, resolveRole, srgbToLinear } from '@shamble/vfx-format';
+import { WORD_LETTERS, newBurstLayer, newEffect, newProjectileLayer, newShapeLayer, newSpriteLayer, newWordLayer, parseHex, resolveRole, srgbToLinear } from '@shamble/vfx-format';
 import type { BedShape, EffectFile, FlamesShape, Palette, ShapeLayer, Vec3 } from '@shamble/vfx-format';
 import { BLEND_GROUPS, DrawSink, applyControls, evaluate, resolveTimeline } from '../src/core/index';
 import type { CameraBasis, EvalContext } from '../src/core/index';
@@ -505,5 +505,51 @@ describe('quality tiers', () => {
     // The timeline does not depend on the tier.
     const lowLen = drawn(fx, ctx(100, { tier: 'low' })).r.lengthMs, highLen = drawn(fx, ctx(100, { tier: 'high' })).r.lengthMs;
     expect(lowLen).toBe(highLen);
+  });
+});
+
+describe('items drawn (the cost panel\'s "sprites alive")', () => {
+  it('counts a burst of 10 pieces with ink edges and streaks as 10', () => {
+    const fx = newEffect('t', 'T');
+    const b = newBurstLayer('b', 'B');
+    b.count = 10;
+    b.lifeMs = [400, 400];
+    b.look = { kind: 'diamond', role: 'heat.1', inkPx: 3, edge: 'ink' };
+    b.streak = { role: 'glow', lengthM: 0.5, widthPx: 3 };
+    fx.layers = [b];
+    const { sink } = drawn(fx, ctx(150));
+    expect(sink.triangles).toBeGreaterThan(30);
+    expect(sink.items).toBe(10);
+  });
+
+  it('counts a word by its letters, a sprite as one, and a star with its halftone dots', () => {
+    const word = newEffect('w', 'W');
+    word.layers = [{ ...newWordLayer('w', 'W'), words: ['BOOM'] }];
+    expect(drawn(word, ctx(40, { relation: 'self' })).sink.items).toBe(4);
+
+    const sprite = newEffect('s', 'S');
+    sprite.layers = [{ ...newSpriteLayer('s', 'S', 'flash.png'), durationMs: 500 }];
+    expect(drawn(sprite, ctx(10)).sink.items).toBe(1);
+
+    const star = oneShape('shards');
+    expect(drawn(star, ctx(10)).sink.items).toBe(1);
+  });
+
+  it('counts each dot of a halftone field, each puff, line and flame tongue', () => {
+    // With the atlas's round dot, every dot is one square of two triangles.
+    const dots = oneShape('dots');
+    const { sink } = drawn(dots, ctx(200, { dot: { u0: 0.6, v0: 0.6, u1: 0.7, v1: 0.7 } }));
+    expect(sink.items).toBeGreaterThan(100);
+    expect(sink.items).toBe(sink.triangles / 2);
+    const lines = oneShape('lines', (l) => { if (l.shape.kind === 'lines') l.shape.count = 9; });
+    expect(drawn(lines, ctx(10)).sink.items).toBe(9);
+  });
+
+  it('starts from nothing every frame', () => {
+    const fx = oneShape('shards');
+    const sink = new DrawSink(64);
+    evaluate(fx, ctx(10), sink);
+    sink.clear();
+    expect(sink.items).toBe(0);
   });
 });
