@@ -70,13 +70,18 @@ async function open(url, ready) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  // A page opened while another editor page is still drawing can take about 30 s to start here (measured: its modules load
-  // in under half a second, then nothing is pending for about 25 s before the page's start-up ends). Likely, not proven:
-  // this headless browser draws in software, and the new page waits for it. So the load gets as long as the app gets to be
-  // ready.
+  // Why 60 s for the load, not Playwright's 30 s: this headless browser draws in software (SwiftShader), in one GPU process
+  // for all its pages, and an editor page redraws its preview every frame, even when paused. Here one such frame takes
+  // the GPU process 0.3 to 0.75 s (4 to 9 frames in 3 s; the editor's own JavaScript is about 2 ms of it), and a page
+  // opened meanwhile waits for it. Measured on 2026-11-15, the saved project's page below, opened while the first editor
+  // page was paused but redrawing: 6 s just to make its WebGL 2 context (8 ms otherwise), 27 to 28 s to load, 60 to 63 s
+  // to be ready. With the first page's frame loop stopped, or the page closed, the same page was ready in 0.5 s. It was
+  // so before Part A (commit 209ee25: 16 s to load, 38 s to be ready), so nothing of ours that is new causes it.
+  const t0 = Date.now();
   await page.goto(url, { timeout: 60000 });
+  const loadedMs = Date.now() - t0;
   await page.waitForFunction(ready, null, { timeout: 60000 });
-  return { page, errors };
+  return { page, errors, loadedMs, readyMs: Date.now() - t0 };
 }
 
 let webgpu = true;
@@ -525,6 +530,7 @@ if (webgpu) {
   const files = existsSync(join(dir, 'effects')) ? readdirSync(join(dir, 'effects')).sort() : [];
   ok('Save as leaves out an effect deleted before saving', files.join() === kept.map((id) => `${id}.vfx.json`).join() && !files.includes('shell_flight.vfx.json'), files.join(', ') || 'no files');
   const savedPage = await open(`${base}/?backend=webgl&project=projects/${name}`, () => window.__vfx && window.__vfx.ready);
+  note('a second editor page, opened while the first one redraws', `loaded in ${(savedPage.loadedMs / 1000).toFixed(1)} s, ready in ${(savedPage.readyMs / 1000).toFixed(1)} s (see open() for why it is slow here)`);
   const reopened = await savedPage.page.evaluate(() => {
     const a = window.__vfx.app;
     a.pickEffect('board_shell');
