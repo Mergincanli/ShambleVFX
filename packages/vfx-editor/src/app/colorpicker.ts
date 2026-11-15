@@ -34,7 +34,9 @@ export class ColourPicker {
   private gesture = 0;
   private harmonyKind: Harmony = 'analogous';
   private paletteKey = '';
-  private anchor: HTMLElement | null = null;
+  /** Where the swatch was when the picker opened, and the left edge of the right panel (the swatches are redrawn on every edit, so the element itself does not stay). */
+  private anchorRect: { left: number; top: number } | null = null;
+  private panelLeft: number | null = null;
   private parts!: {
     chip: HTMLElement; title: HTMLElement; scope: HTMLElement; note: HTMLElement; source: HTMLElement; factions: HTMLElement;
     canvas: HTMLCanvasElement; hex: HTMLInputElement; slidersBtn: HTMLButtonElement; sliders: HTMLElement;
@@ -64,7 +66,9 @@ export class ColourPicker {
 
   /** Open on a role, next to the swatch that was clicked. */
   open(role: string, anchor: HTMLElement): void {
-    this.anchor = anchor;
+    const a = anchor.getBoundingClientRect();
+    this.anchorRect = { left: a.left, top: a.top };
+    this.panelLeft = anchor.closest('.right')?.getBoundingClientRect().left ?? null;
     if (!this.isOpen) this.el.showPopover();
     this.show(role);
     this.place();
@@ -288,11 +292,10 @@ export class ColourPicker {
 
   /** Put the picker next to the swatch, left of the right panel, inside the window. */
   private place(): void {
-    const a = this.anchor?.getBoundingClientRect();
+    const a = this.anchorRect;
     if (!a) return;
-    const panel = this.anchor!.closest('.right')?.getBoundingClientRect();
     const w = this.el.offsetWidth, hh = this.el.offsetHeight;
-    let left = (panel ? panel.left : a.left) - w - 10;
+    let left = (this.panelLeft ?? a.left) - w - 10;
     if (left < 8) left = Math.min(window.innerWidth - w - 8, a.left);
     const top = Math.max(8, Math.min(window.innerHeight - hh - 8, a.top - 120));
     this.el.style.left = `${Math.round(left)}px`;

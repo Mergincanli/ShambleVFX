@@ -1,8 +1,9 @@
-# The effect file, version 3
+# The effect file, version 4
 
-One effect is one JSON file: `effects/<id>.vfx.json` in a project folder, next to `images/` (PNG files) and `project.json`.
-The exact schema is `packages/vfx-format/schema/effect.v3.schema.json`; the types are `packages/vfx-format/src/types.ts`.
-Files of versions 1 and 2 open unchanged: the checker upgrades them (see the end).
+One effect is one JSON file: `effects/<id>.vfx.json` in a project folder, next to `images/` (PNG files), `project.json` and,
+when the project has its own colours, `palette.json`.
+The exact schema is `packages/vfx-format/schema/effect.v4.schema.json`; the types are `packages/vfx-format/src/types.ts`.
+Files of versions 1, 2 and 3 open unchanged: the checker upgrades them (see the end).
 
 What the game loads is an **export folder** made from a project: see [export.md](export.md).
 
@@ -10,7 +11,8 @@ What the game loads is an **export folder** made from a project: see [export.md]
 
 - **Times in milliseconds, sizes in metres.** Line widths and letter heights are in px on a 1080p screen (names end in `Px`).
 - **Colours are role names**, such as `heat.2`, `team` or `glow`. A hex colour is never stored in an effect file; the checker
-  refuses one anywhere. The hexes live in the palette (`packages/vfx-format/palette/palette.json`). `team`, `team.dark`, `glow`
+  refuses one anywhere. The hexes live in the palette: the project's own `palette.json`, or the built-in one
+  (`packages/vfx-format/palette/palette.json`) for a project without one (see [colours.md](colours.md)). `team`, `team.dark`, `glow`
   and `glow.hot` follow the faction that made the effect; the others are the same for everyone. `main` means the effect's
   main colour (its colour control).
 - **Everything random comes from the seed** the game passes in. Same seed and same time give the same picture.
@@ -87,7 +89,7 @@ A comic shape drawn in code: `shape` holds its kind and settings, `seed` its own
 | `dots` | A field of halftone dots (light, soft edges) | `radiusM`, `innerM`, `edgeM`, `stepPx`, `dotPx`, `role`, `alpha`, `growFrom`, `growMs`, `flickerM`, optional `squash`, `breakUp` |
 | `scorch` | A stain (multiply it) | `style` (`oval`, `splat`), `radiusM`, `role`, `coreScale`, `coreRole`, `lobes`, `growMs` |
 | `lines` | Thin radial lines (speed lines, ticks) | `count`, `innerM`, `lengthM`, `widthPx`, `role`, `until`, `spread` |
-| `glow` | A soft round glow or a flat disc of light | `radiusM`, `role`, `alpha`, `soft`, `grow`, `flicker` |
+| `glow` | A soft round glow or a flat disc of light | `radiusM`, `role`, `alpha`, `soft`, `grow`, `flicker`, optional `gradient` (a gradient in the palette, from the middle to the rim; with it, the glow's colours come from the gradient, times `alpha`) |
 | `trail` | The last part of a projectile's path behind it | `length` (share of the path), `widthPx`, `role`, `head`, `core`, `inkPx`, `edge`, `breakUp`, `dashes` |
 | `band` | A beam from one point to another | `from`, `to`, `widthM`, `role`, `alpha`, `soft`, `edge`, `flicker`, optional `find` and `letGo` phases |
 | `beads` | Bright beads running along a beam | `from`, `to`, `count`, `periodMs`, `sizeM`, `role`, `glowRole` |
@@ -115,6 +117,13 @@ optional `separation` (a thin line between two black outlines), `tiltDeg` (range
 from the player looking, and `minPx` under which it is not drawn), `visibleTo` (`everyone`, or `shooter` for a gun's word),
 `seed`, `perPlay`.
 
+## The palette (`palette.json`, version 2)
+
+`factions` (per faction: its `name` and the roles that change with it: `team`, `team.dark`, `glow`, `glow.hot`, and any added
+per faction), `roles` (shared by everyone), and `gradients`. Each role is `{ "hex", "from", "note"? }`: `from` says whose value
+it is (`mustafa`, `art-lead`, `board-v7`, `derived`, `assumed`). A gradient is `{ "kind": "smooth" | "banded", "stops", "from" }`;
+each stop is `{ "at": 0..1, "role" or "hex", "alpha"? }`. Version 1 palettes (no gradients) are read as version 2.
+
 ## The project file (`project.json`)
 
 Not part of an effect, but the editor keeps these next to the effects: `name`; `events` (effect id → the game events it
@@ -129,6 +138,8 @@ The checker upgrades an old file when it reads it, one version at a time. Save t
   `"flight": { "mode": "speed", "mps": 40 }, "arcM": 0`.
 - **2 → 3**: every visible layer gets `"tiers": ["low", "medium", "high"]`, so an old effect looks the same in every tier
   until someone decides what Low drops.
+- **3 → 4**: nothing in the file changes but its number. Version 4 lets a glow name a gradient; the new number makes an older
+  runtime refuse an effect it could not draw.
 
 Note: a few optional fields were added to version 2 after its first push, before anyone used it (`alpha`, `liftM`, `areaM`,
 `streak`, `inkRole`, the `spike` piece, `squash` on rings and dots). They are optional, so every version 2 file stays valid;

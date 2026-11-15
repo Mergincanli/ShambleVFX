@@ -370,6 +370,60 @@ if (webgpu) {
   ok('a typed budget colours the cell when the effect goes over it', over === 1, `${over} cell(s) over`);
   await p.screenshot({ path: join(shots, 'editor-cost-panel.png') });
 
+  // -- the colour picker: a typed colour, a drag on the wheel and its undo, a new colour, Revert
+  await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_beam'); a.selectLayer('emitter_glow'); });
+  await p.locator('.swatch', { hasText: /^dust$/ }).first().click();
+  const pickerOpen = await p.locator('.cpick').evaluate((el) => el.matches(':popover-open'));
+  await p.locator('.cp-hex').fill('#3a7bff');
+  await p.locator('.cp-hex').press('Enter');
+  const dust = await p.evaluate(() => window.__vfx.app.palette.roles.dust);
+  ok('a palette swatch opens the colour picker, and a typed colour changes the role as yours', pickerOpen && dust.hex === '#3A7BFF' && dust.from === 'mustafa', JSON.stringify(dust));
+  await p.locator('.cp-pchip[aria-label^="Change glow ("]').first().click();
+  // The picker grows (a faction row) and may move to stay in the window: measure the wheel once it has settled.
+  let wheel = await p.locator('.cp-wheel').boundingBox();
+  for (let k = 0; k < 20; k++) {
+    await p.waitForTimeout(50);
+    const again = await p.locator('.cp-wheel').boundingBox();
+    if (again && wheel && Math.abs(again.x - wheel.x) < 0.5 && Math.abs(again.y - wheel.y) < 0.5) break;
+    wheel = again;
+  }
+  const glowBefore = await p.evaluate(() => window.__vfx.app.palette.factions.soviets.roles.glow.hex);
+  await p.mouse.move(wheel.x + wheel.width / 2, wheel.y + wheel.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(wheel.x + wheel.width / 2 - 25, wheel.y + wheel.height / 2 + 20, { steps: 8 });
+  await p.mouse.up();
+  const dragged = await p.evaluate(() => ({ hex: window.__vfx.app.palette.factions.soviets.roles.glow.hex, preview: window.__vfx.app.previewForChecks.vfx.palette.factions.soviets.roles.glow.hex, undo: window.__vfx.app.history.undoLabel }));
+  await p.locator('.cp-actions button', { hasText: 'Revert' }).click();
+  const reverted = await p.evaluate(() => window.__vfx.app.palette.factions.soviets.roles.glow);
+  ok('a drag on the wheel changes the colour and the preview at once; Revert puts it back as it was', dragged.hex !== glowBefore && dragged.preview === dragged.hex && dragged.undo === 'Colour glow' && reverted.hex === glowBefore && reverted.from === 'art-lead',
+    `${glowBefore} -> ${dragged.hex} -> ${reverted.hex} (${reverted.from})`);
+  await p.locator('.cp-new summary').click();
+  await p.locator('.cp-new input.text').fill('fire.blue');
+  await p.locator('.cp-new button', { hasText: 'Add colour' }).click();
+  const newRole = await p.evaluate(() => ({ role: window.__vfx.app.palette.roles['fire.blue'], inList: [...document.querySelectorAll('.inspector select option')].some((o) => o.value === 'fire.blue') }));
+  ok('New colour adds a role every colour list offers', !!newRole.role && newRole.role.from === 'mustafa' && newRole.inList, JSON.stringify(newRole));
+
+  // -- gradients: a ready-made one, put on a glow
+  await p.locator('.cp-section.gr > summary').click();
+  await p.locator('.gr-tile', { hasText: 'Radial ramp' }).click();
+  await p.locator('.gr-body button', { hasText: 'Use on the selected glow' }).click();
+  // Close it with its own button (Escape depends on where the focus is).
+  await p.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+  await p.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+  const grad = await p.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; await a.showAt(1000, 7); window.__vfxManual = false; a.resumeForChecks();
+    return { names: Object.keys(a.palette.gradients), layer: a.layer()?.shape?.gradient, problems: a.problems().length }; });
+  ok('a ready-made gradient goes into the palette and onto the selected glow', grad.names.join() === 'glow.ramp' && grad.layer === 'glow.ramp' && grad.problems === 0, JSON.stringify(grad));
+
+  // -- night mode: panels go dark, the preview keeps the game's colours
+  await p.locator('.topbar button.theme-toggle').click();
+  const night = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, pressed: document.querySelector('.theme-toggle').getAttribute('aria-pressed'), stored: localStorage.getItem('vfx-theme') }));
+  await p.screenshot({ path: join(shots, 'editor-night-mode.png') });
+  await p.locator('.topbar button.theme-toggle').click();
+  const day = await p.evaluate(() => document.documentElement.dataset.theme);
+  ok('Night mode turns the panels dark (#1F1F21) and is remembered; it turns off again', night.theme === 'dark' && night.bg === 'rgb(31, 31, 33)' && night.pressed === 'true' && night.stored === 'dark' && day === 'light', JSON.stringify(night));
+  const insignia = await p.evaluate(() => [...document.querySelectorAll('.vbar [aria-label="Faction that fired"] button')].map((b) => `${b.querySelector('svg')?.getAttribute('class')}|${b.textContent}`));
+  ok('the faction buttons show each faction\'s marking and its name', insignia.join() === 'icon icon-faction-soviets|Soviets,icon icon-faction-allies|Allies,icon icon-faction-empire|Empire', insignia.join(', '));
+
   // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
   const kept = (await st()).effects.filter((id) => id !== 'shell_flight').sort();
   await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
@@ -393,6 +447,11 @@ if (webgpu) {
   ok('the saved project opens again, with the edit in it', reopened.effects.join() === kept.join() && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, rifle_shot size ${reopened.size}`);
   ok('the saved copy has its own name and keeps each effect\'s scene', (reopened.name ?? '').toLowerCase().includes('browser-check') && reopened.scene === 'board-shell', `${reopened.name}, board_shell in ${reopened.scene}`);
   const meta = JSON.parse(readFileSync(join(dir, 'project.json'), 'utf8'));
+  const savedPalette = existsSync(join(dir, 'palette.json')) ? JSON.parse(readFileSync(join(dir, 'palette.json'), 'utf8')) : null;
+  const savedBeam = JSON.parse(readFileSync(join(dir, 'effects', 'board_beam.vfx.json'), 'utf8'));
+  ok('the saved copy keeps its colours and gradients in its own palette.json', savedPalette?.version === 2 && savedPalette.roles.dust.hex === '#3A7BFF' && !!savedPalette.roles['fire.blue'] && !!savedPalette.gradients['glow.ramp']
+    && savedBeam.layers.find((l) => l.id === 'emitter_glow').shape.gradient === 'glow.ramp', savedPalette ? `dust ${savedPalette.roles.dust.hex}, gradients ${Object.keys(savedPalette.gradients).join(', ')}` : 'no palette.json');
+  ok('the built-in palette and the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json'), 'utf8')).roles.dust.hex === '#DCC8A0' && !existsSync(join(repo, 'examples', 'demo-project', 'palette.json')));
   ok('the saved copy keeps the game events and the budgets', meta.events?.board_shell?.join() === 'tank.shot,tank.shell.check' && meta.events?.board_muzzle?.join() === 'rifle.shot' && !meta.events?.shell_flight && meta.budgets?.high?.draws === 1,
     JSON.stringify({ events: meta.events?.board_shell, budgets: meta.budgets }));
 
@@ -408,6 +467,8 @@ if (webgpu) {
   }, name);
   const importDir = imported.body?.id ? join(repo, 'projects', imported.body.id.split('/')[1]) : null;
   const sameFiles = importDir && kept.every((id) => readFileSync(join(importDir, 'effects', `${id}.vfx.json`), 'utf8') === readFileSync(join(dir, 'effects', `${id}.vfx.json`), 'utf8'));
+  ok('Export and Import carry the project\'s palette.json', !!importDir && readFileSync(join(exportDir, 'palette.json'), 'utf8') === readFileSync(join(importDir, 'palette.json'), 'utf8')
+    && JSON.parse(readFileSync(join(exportDir, 'palette.json'), 'utf8')).gradients['glow.ramp'] !== undefined);
   ok('Import gives back the same effects, byte for byte, with their events', imported.status === 201 && !!sameFiles && JSON.parse(readFileSync(join(importDir, 'project.json'), 'utf8')).events?.board_shell?.join() === 'tank.shot,tank.shell.check',
     `${imported.status} ${imported.body?.id ?? JSON.stringify(imported.body)}`);
   await savedPage.page.close();
@@ -511,6 +572,32 @@ if (webgpu) {
     ok('test page (hits) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     await page.close();
   }
+  // A glow coloured by a banded gradient (flat colours, so they read back exactly), through export and the test page.
+  {
+    const dir = join(repo, 'out', '_check-gradient-project');
+    rmSync(dir, { recursive: true, force: true });
+    cpSync(join(repo, 'examples', 'hits-collection'), dir, { recursive: true });
+    const pal = JSON.parse(readFileSync(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json'), 'utf8'));
+    pal.gradients['check.bands'] = { kind: 'banded', from: 'mustafa', stops: [{ at: 0, hex: '#00FF00' }, { at: 0.5, hex: '#0000FF' }] };
+    writeFileSync(join(dir, 'palette.json'), JSON.stringify(pal, null, 2) + '\n');
+    const file = join(dir, 'effects', 'hit_energy_pulse.vfx.json');
+    const fx = JSON.parse(readFileSync(file, 'utf8'));
+    fx.layers = fx.layers.filter((l) => l.id === 'glow').map((l) => ({ ...l, blend: 'normal', alpha: undefined, shape: { ...l.shape, gradient: 'check.bands', alpha: 1, flicker: 0, grow: [1, 1] } }));
+    writeFileSync(file, JSON.stringify(fx, null, 2) + '\n');
+    const out = join(repo, 'exports', '_check-gradient');
+    const r = await exporter.exportProject(dir, out);
+    ok('a glow coloured by a gradient exports', r.ok, r.errors.slice(0, 2).join(' | '));
+    const g = await open(`${tpBase}/?export=_check-gradient&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
+    const res = await g.page.evaluate(() => window.__test.renderAt('hit.energy.pulse', 150));
+    const png = decode(await g.page.evaluate(() => window.__test.snapshot()));
+    let green = 0, blue = 0;
+    for (let y = 0; y < png.height; y += 2) for (let x = 0; x < png.width; x += 2) { const c = hex(png, x, y); if (diff(c, '#00FF00') <= 2) green++; if (diff(c, '#0000FF') <= 2) blue++; }
+    ok('the test page draws the glow from the export\'s gradient: both bands, in their exact colours', res.triangles > 0 && green > 50 && blue > 50, `${green} green and ${blue} blue samples`);
+    writeFileSync(join(shots, 'testpage-gradient-glow.png'), PNG.sync.write(png));
+    await g.page.close();
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(out, { recursive: true, force: true });
+  }
   // The version guard and a missing export, in plain words.
   {
     const old = join(repo, 'exports', '_check-old-effects');
@@ -520,7 +607,7 @@ if (webgpu) {
     writeFileSync(join(old, 'manifest.json'), JSON.stringify(m, null, 2) + '\n');
     const g1 = await open(`${tpBase}/?export=_check-old-effects&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
     const e1 = await g1.page.evaluate(() => window.__test.error ?? '');
-    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 3: export them again/.test(e1), e1);
+    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 4: export them again/.test(e1), e1);
     await g1.page.close();
     rmSync(old, { recursive: true, force: true });
     const g2 = await open(`${tpBase}/?export=_check-missing&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);

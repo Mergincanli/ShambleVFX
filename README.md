@@ -4,9 +4,9 @@ The effects editor for **Shamble Frontlines**, and the small runtime that plays 
 
 You make an effect, see it exactly as the game will show it (same camera, same code, same data), and save files the game loads unchanged.
 
-Status: **milestone 3**: cost per effect, quality tiers, and the export folder the game loads, with a test page that plays
-it using only the runtime. Milestones 1 and 2 built the editor, the comic shapes and words, the drawing board's four effects
-and a collection of comic hits. See [What works now](#what-works-now).
+Status: **milestone 3**, and a round of editor work after it: a colour picker that edits the project's palette, gradients,
+night mode and a new set of icons. Milestone 3 brought cost per effect, quality tiers, and the export folder the game loads,
+with a test page that plays it using only the runtime. See [What works now](#what-works-now).
 
 ## Run it
 
@@ -65,7 +65,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 10. **Cost** (lower in the right panel; the triangle count above the preview jumps there): press **Measure** for draws, sprites
     alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers. See [docs/cost.md](docs/cost.md).
 11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one.
-12. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
+12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
+    under **Gradients** start from a ready-made gradient or make your own; a glow can use one. See [docs/colours.md](docs/colours.md).
+13. **Night mode** in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
+14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
     never goes to this public repo.
 
 Keys: press **Keys** in the top bar.
@@ -82,7 +85,8 @@ Keys: press **Keys** in the top bar.
 How the runtime works, in one line: give it an effect, a seed, a time and the inputs (origin, target, faction), and it draws that moment. It keeps no hidden state, so the same seed and time always give the same picture.
 
 The effect file format is described in plain words in [docs/format.md](docs/format.md), the export folder in
-[docs/export.md](docs/export.md), and the cost numbers in [docs/cost.md](docs/cost.md).
+[docs/export.md](docs/export.md), the cost numbers in [docs/cost.md](docs/cost.md), and colours and gradients in
+[docs/colours.md](docs/colours.md).
 
 ## Checks
 
@@ -90,7 +94,8 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (210): the format, the checker and the upgrades from versions 1 and 2; the palette; same-seed playback;
+The unit tests (227): the format, the checker and the upgrades from versions 1, 2 and 3; palettes with gradients and their
+upgrade; colour edits and their undo; glows drawn from gradients; the palette; same-seed playback;
 steps, phases, flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind
 "sprites alive"; the letters; the fire's layout; every example effect drawn all through; undo and redo; the project file
 server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
@@ -100,11 +105,13 @@ its version guard; the screen-area count and the cost measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (125 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (136 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before
 leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version
-guard) and its bundle (no checker, no editor code). It saves screenshots to `out/screenshots/`.
+guard, a glow drawn from an exported gradient in its exact colours) and its bundle (no checker, no editor code); the colour
+picker (a typed colour, a drag and Revert, a new colour), a ready-made gradient on a glow, night mode, the faction markings,
+and Save as, Export and Import carrying the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
 
 ```bash
@@ -128,7 +135,10 @@ These write pictures to `out/` (kept out of git):
 
 ## What works now
 
-- **Effect files, version 3** ([docs/format.md](docs/format.md)), with upgrades from versions 1 and 2.
+- **Effect files, version 4** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2 and 3.
+  - **Colours per project**: the project's own `palette.json` (version 2, with gradients), edited with the colour picker;
+    the built-in palette for projects without one ([docs/colours.md](docs/colours.md)).
+  - **Gradients**: smooth or banded ramps in the palette; a glow can use one from its middle to its rim.
   - **Quality tiers**: every visible layer says in which tiers it shows (Low, Medium, High). The game picks one tier; the
     timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
@@ -152,8 +162,12 @@ These write pictures to `out/` (kept out of git):
   schema errors. Importing an export gives back the same effects.
 - **The test page**: loads only the runtime and an export folder and plays an effect by event name, on WebGPU or WebGL 2.
 
+- **The editor's look**: night mode, and icons drawn in code for every button (with the words kept); the faction buttons
+  show each faction's marking from sheet 16.
+
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
-layer (such as tones in a star), not only whole layers.
+layer (such as tones in a star), not only whole layers; gradients on anything but glows; renaming or removing colours and
+gradients.
 
 ## Assumptions
 
@@ -187,6 +201,20 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **"Sprites alive"** counts items (each sprite, particle, dot, letter, flame tongue and shape once), since the runtime draws
   triangles, not sprites. A halftone field counts each dot.
 - **The test page** repeats the board's camera numbers and the rifle scene's positions; the game brings its own.
+- **Board data in the repo**: the tank blockout, scene positions, preset sizes and timings, layouts and formulas stay in this
+  public repo (Mustafa's yes, 2026-11-15).
+- **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; gradients only on glows
+  so far; `team.dark` and `glow.hot` worked out again only when asked; the night mode's greys; the icons.
+
+## Claude skills
+
+`.claude/skills/ui-sdk` is Vercel Labs' UI SDK skill (Apache 2.0), copied unchanged from github.com/vercel-labs/ui. It guides
+building interfaces with the `@ui-sdk` library. The library itself is not installed: installing it was blocked in the cloud
+session. To add it on your computer:
+
+```bash
+npm install --workspace=@shamble/vfx-editor @ui-sdk/web @ui-sdk/core
+```
 
 ## Folders kept out of git
 

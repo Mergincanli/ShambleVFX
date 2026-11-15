@@ -123,7 +123,9 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       else if (key === 'phase' || key === 'find' || key === 'letGo') options = PHASE_NAMES.map((x) => ({ value: x, label: x }));
       if (options) {
         const c = selectField({ label, options, value: v, onChange: (x) => edit(p, x, label) });
-        parts.push({ refresh: () => c.set(get(p) as string) });
+        // Colour lists follow the palette: a colour added in the picker shows up at once.
+        const roleList = isRoleKey(key, parent);
+        parts.push({ refresh: () => { if (roleList) c.setOptions(roles()); c.set(get(p) as string); } });
         return c.el;
       }
       const c = textField({ label, value: v, onChange: (x) => edit(p, x, label) });
@@ -180,7 +182,7 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
         const rows = (v as Record<string, unknown>[]).map((t, i) => {
           const role = selectField({ label: `Tone ${i + 1}`, options: roles(), value: t.role as string, onChange: (x) => edit([...p, i, 'role'], x, 'Tone colour') });
           const sc = numberField({ label: 'Scale', value: t.scale as number, step: 0.01, onChange: (x) => edit([...p, i, 'scale'], x, 'Tone scale') });
-          parts.push({ refresh: () => { const q = (get(p) as Record<string, unknown>[])[i]; if (q) { role.set(q.role as string); sc.set(q.scale as number); } } });
+          parts.push({ refresh: () => { const q = (get(p) as Record<string, unknown>[])[i]; if (q) { role.setOptions(roles()); role.set(q.role as string); sc.set(q.scale as number); } } });
           const del = h('button', { class: 'mini', attrs: { type: 'button' }, text: 'Remove', on: { click: () => {
             const list = (get(p) as unknown[]).filter((_, k) => k !== i);
             if (list.length) edit(p, list, 'Remove tone');
