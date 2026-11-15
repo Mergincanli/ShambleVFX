@@ -136,6 +136,18 @@ describe('the export checker', () => {
     expect(l).toContain('atlas.rects.flash.png: lies outside the atlas page');
   });
 
+  it('keeps every path inside the export folder', () => {
+    const ex = goodExport();
+    ex.manifest.palette = '../palette.json';
+    ex.manifest.effects[0]!.file = '../../shot_a.vfx.json';
+    ex.files['../../shot_a.vfx.json'] = ex.files['effects/shot_a.vfx.json'];
+    ex.atlas.rects['../../evil.png'] = { x: 0, y: 0, w: 2, h: 2 };
+    const l = lines(ex);
+    expect(l).toContain('manifest.palette: "../palette.json" must be a plain file name in the export folder');
+    expect(l).toContain('manifest.effects[0].file: "../../shot_a.vfx.json" must be "effects/shot_a.vfx.json"');
+    expect(l).toContain('atlas.rects.../../evil.png: is not an image file name (a .png name without folders)');
+  });
+
   it('names a broken manifest instead of failing', () => {
     expect(lines({ ...goodExport(), manifest: { format: 'something-else' } })[0]).toMatch(/^manifest\.format: /);
     expect(lines({ ...goodExport(), manifest: undefined })[0]).toMatch(/^manifest\.\(file\): /);

@@ -417,6 +417,28 @@ if (webgpu) {
   rmSync(dir, { recursive: true, force: true });
   ok('editor (driven) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await p.close();
+
+  // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.
+  // (This headless browser never shows the leave-page dialog, so the check sends the leave event itself and reads whether
+  // the editor held it back.)
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const leaveHeld = () => g.page.evaluate(() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+    const heldBefore = await leaveHeld();
+    await g.page.evaluate(() => window.__vfx.app.pickEffect('board_beam'));
+    await g.page.locator('.events input').click();
+    await g.page.locator('.events input').fill('hammer.leech, hammer.leech.check');
+    const asked = await g.page.evaluate(async () => {
+      const said = [];
+      window.confirm = (m) => { said.push(m); return false; };
+      const opened = await window.__vfx.app.openProject('examples/hits-collection');
+      return { opened, said, still: window.__vfx.app.debugState().effects.includes('board_beam') };
+    });
+    ok('typed game events are unsaved changes: opening another project asks first', asked.opened === false && asked.said.length === 1 && asked.still, JSON.stringify(asked));
+    const heldAfter = await leaveHeld();
+    ok('typed game events are unsaved changes: leaving the page asks first', !heldBefore && heldAfter, `held back before typing: ${heldBefore}, after: ${heldAfter}`);
+    await g.page.close();
+  }
 }
 
 // ---------------------------------------------------------------- 4. the game-side test page, on both backends

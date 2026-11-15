@@ -12,6 +12,12 @@ import type { AtlasMap, ExportManifest } from '../export';
 import type { Palette } from '../palette';
 import { checkEffect } from './check';
 import type { Problem } from './check';
+import { idSchema, imageNameSchema } from './schema';
+
+/** A plain file name at the top of the export folder (the palette, the atlas and its map): no folders, no "..". */
+const TOP_FILE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
+/** The runtime's own blocks in the atlas, next to the images. */
+const RUNTIME_BLOCKS = new Set(['__white', '__dot']);
 
 export { EXPORT_FORMAT, EXPORT_VERSION, EVENT_NAME } from '../export';
 export type { AtlasMap, ExportManifest, ManifestEffect } from '../export';
@@ -57,6 +63,14 @@ export function checkExport(input: { manifest: unknown; atlas: unknown; files: R
     return { ok: false, problems, effects };
   }
   const manifest = m.data as ExportManifest;
+  // Paths stay inside the folder: plain names at the top, effects at effects/<id>.vfx.json.
+  for (const [path, v] of [['manifest.palette', manifest.palette], ['manifest.atlas.image', manifest.atlas.image], ['manifest.atlas.map', manifest.atlas.map]] as const) {
+    if (!TOP_FILE.test(v) || v.includes('..')) err(path, `"${v}" must be a plain file name in the export folder`);
+  }
+  manifest.effects.forEach((e, i) => {
+    if (!idSchema.safeParse(e.id).success) err(`manifest.effects[${i}].id`, `"${e.id}" is not an effect id`);
+    else if (e.file !== `effects/${e.id}.vfx.json`) err(`manifest.effects[${i}].file`, `"${e.file}" must be "effects/${e.id}.vfx.json"`);
+  });
   if (manifest.effectVersion !== FORMAT_VERSION) {
     err('manifest.effectVersion', `the effects are version ${manifest.effectVersion}; this Shamble VFX reads version ${FORMAT_VERSION}`);
   }
@@ -70,6 +84,7 @@ export function checkExport(input: { manifest: unknown; atlas: unknown; files: R
     err('atlas', `the map says ${atlas.width} x ${atlas.height}, the manifest ${manifest.atlas.width} x ${manifest.atlas.height}`);
   }
   for (const [name, r] of Object.entries(atlas.rects)) {
+    if (!RUNTIME_BLOCKS.has(name) && !imageNameSchema.safeParse(name).success) err(`atlas.rects.${name}`, 'is not an image file name (a .png name without folders)');
     if (r.x + r.w > atlas.width || r.y + r.h > atlas.height) err(`atlas.rects.${name}`, 'lies outside the atlas page');
   }
   const images = Object.keys(atlas.rects);

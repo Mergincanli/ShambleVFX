@@ -90,7 +90,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (208): the format, the checker and the upgrades from versions 1 and 2; the palette; same-seed playback;
+The unit tests (210): the format, the checker and the upgrades from versions 1 and 2; the palette; same-seed playback;
 steps, phases, flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind
 "sprites alive"; the letters; the fire's layout; every example effect drawn all through; undo and redo; the project file
 server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
@@ -100,10 +100,10 @@ its version guard; the screen-area count and the cost measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (123 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (125 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
-the generated forms, the add menu, phase starts, New from preset, tiers, game events, the cost panel and budgets, Save as,
-Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version
+the generated forms, the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before
+leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version
 guard) and its bundle (no checker, no editor code). It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
 

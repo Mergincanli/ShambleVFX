@@ -161,6 +161,20 @@ describe('import refusals', () => {
     expect(read(join(target, 'project.json'))).toBe('{}');
   });
 
+  it('never writes outside the new project, even from a doctored export', async () => {
+    const out = join(tmp, 'doctored');
+    await exportProject(join(repo, 'examples', 'demo-project'), out);
+    const map = json(join(out, 'atlas.json')) as { rects: Record<string, unknown> };
+    map.rects['../../escaped.png'] = map.rects['burst.png'];
+    writeFileSync(join(out, 'atlas.json'), toJson(map));
+    const target = join(tmp, 'doctored-target', 'project');
+    const r = await importExport(out, target);
+    expect(r.ok).toBe(false);
+    expect(r.errors.join('\n')).toMatch(/is not an image file name/);
+    expect(existsSync(join(tmp, 'doctored-target', 'escaped.png'))).toBe(false);
+    expect(existsSync(target)).toBe(false);
+  });
+
   it('names what is wrong with a broken export', async () => {
     const out = join(tmp, 'broken-export');
     await exportProject(join(repo, 'examples', 'hits-collection'), out);

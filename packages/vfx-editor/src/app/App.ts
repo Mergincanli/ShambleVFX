@@ -326,7 +326,8 @@ export class App implements AppApi {
     root.querySelector('.timeline-slot')!.append(this.timelineView.el);
     this.history.subscribe((why) => this.onDocChange(why));
     this.bindKeys();
-    window.addEventListener('beforeunload', (e) => { if (this.history.dirty) e.preventDefault(); });
+    // Unsaved means effects, or what project.json holds (scenes, game events, budgets).
+    window.addEventListener('beforeunload', (e) => { if (this.history.dirty || this.metaDirty) e.preventDefault(); });
 
     let opened = false;
     const want = params.get('project') ?? (() => { try { return localStorage.getItem(LAST_PROJECT); } catch { return null; } })();
@@ -426,7 +427,7 @@ export class App implements AppApi {
   // ---------------------------------------------------------------- projects
 
   private async openProject(id: string, quiet = false): Promise<boolean> {
-    if (this.history.dirty && !confirm('You have changes that are not saved. Open another project anyway?')) return false;
+    if ((this.history.dirty || this.metaDirty) && !confirm('You have changes that are not saved. Open another project anyway?')) return false;
     let contents: ProjectContents;
     try {
       contents = await this.store.open(id);

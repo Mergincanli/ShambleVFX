@@ -242,6 +242,8 @@ export async function importExport(exportDir: string, projectDir: string, name?:
   let images = 0;
   for (const [img, r] of Object.entries(ex.atlas.rects)) {
     if (img === WHITE_BLOCK || img === DOT_BLOCK) continue;
+    // The checker refuses other names already; never write outside images/ all the same.
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}\.png$/.test(img) || img.includes('..')) continue;
     const out = new PNG({ width: r.w, height: r.h, colorType: 6 });
     out.data = Buffer.from(cutFromAtlas({ width: page.width, height: page.height, data: page.data }, r));
     await fs.writeFile(join(projectDir, 'images', img), PNG.sync.write(out, { colorType: 6 }));

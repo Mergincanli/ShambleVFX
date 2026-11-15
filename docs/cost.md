@@ -24,8 +24,9 @@ triangles.
 Under the table: the three layers with the most triangles in High, at its busiest moment. They are where to look first when
 deciding what Low drops.
 
-The counts and areas are the same on every press and on both backends (the browser check measures twice and compares). Only
-the milliseconds depend on the computer.
+The counts and areas are the same on every press (the browser check measures twice and compares). They never touch the GPU
+(they are counted from the triangles the runtime builds), so the backend does not change them. Only the milliseconds depend
+on the computer.
 
 ## Budgets
 
@@ -37,5 +38,4 @@ Assumed (tell us if wrong): **one set of budgets per project**, shown on every e
 is a small change.
 
 For reference only, not used anywhere: the game's research notes (the ADR 0003 draft) suggest ≤ 2 ms at the 99th percentile
-in Low and ≤ 1 ms in High, for **all effects together**, on the game's own machines. The panel measures one effect at a time,
-on this computer.
+in Low and ≤ 1 ms in High, for **all effects together**. The panel measures one effect at a time, on this computer.
