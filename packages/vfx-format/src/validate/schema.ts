@@ -134,11 +134,11 @@ const shapeSchema = z.discriminatedUnion('kind', [
     kind: z.literal('ring'), radiusM: pos().max(100), widthPx: pos().max(100), inkPx: px, role: roleSchema,
     style: z.enum(['auto-zigzag', 'auto-teeth', 'solid', 'dashed', 'zigzag', 'teeth']),
     teeth: z.int().min(0).max(128), teethM: metres(10), growFrom: unit, growMs: num.min(0).max(60000), dashAt: unit.optional(), breakUp: breakUpSchema.optional(),
-    closing: z.strictObject({ count: z.int().min(1).max(16), periodMs: pos(), fromM: metres(), toM: metres() }).optional(),
+    squash: num.min(0.05).max(4).optional(), closing: z.strictObject({ count: z.int().min(1).max(16), periodMs: pos(), fromM: metres(), toM: metres() }).optional(),
   }),
   z.strictObject({
     kind: z.literal('dots'), radiusM: pos().max(100), innerM: metres(), edgeM: metres(), stepPx: pos().max(200), dotPx: pos().max(100), role: roleSchema, alpha: unit,
-    growFrom: unit, growMs: num.min(0).max(60000), flickerM: num.min(0).max(10), breakUp: breakUpSchema.optional(),
+    growFrom: unit, growMs: num.min(0).max(60000), flickerM: num.min(0).max(10), squash: num.min(0.05).max(4).optional(), breakUp: breakUpSchema.optional(),
   }),
   z.strictObject({
     kind: z.literal('scorch'), style: z.enum(['oval', 'splat']), radiusM: pos().max(100), role: roleSchema, coreScale: unit, coreRole: roleSchema,
@@ -181,7 +181,7 @@ const seedFields = { seed: z.int().min(0).max(0xffffffff), perPlay: z.boolean() 
 export const shapeLayerSchema = z.strictObject({ ...visible, type: z.literal('shape'), shape: shapeSchema, ...seedFields });
 
 const lookSchema = z.union([
-  z.strictObject({ kind: z.enum(['diamond', 'chip', 'spark', 'dot', 'shard', 'speck', 'puff', 'streak']), role: roleSchema, inkPx: px, edge, inkRole: roleSchema.optional() }),
+  z.strictObject({ kind: z.enum(['diamond', 'chip', 'spark', 'dot', 'shard', 'speck', 'puff', 'streak', 'spike']), role: roleSchema, inkPx: px, edge, inkRole: roleSchema.optional() }),
   z.strictObject({ kind: z.literal('image'), image: imageNameSchema, tint: tintSchema }),
 ]);
 
@@ -194,6 +194,7 @@ export const burstLayerSchema = z.strictObject({
   direction: z.enum(['up', 'out', 'path']),
   spreadDeg: num.min(0).max(180),
   startRadiusM: range(0, 100),
+  areaM: vec2.optional(),
   gravityMps2: num.min(-100).max(100),
   drag: num.min(0).max(100),
   sizeM: range(0, 20),

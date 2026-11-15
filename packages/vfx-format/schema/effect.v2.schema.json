@@ -1685,6 +1685,11 @@
                           }
                         ]
                       },
+                      "squash": {
+                        "type": "number",
+                        "minimum": 0.05,
+                        "maximum": 4
+                      },
                       "closing": {
                         "type": "object",
                         "properties": {
@@ -1786,6 +1791,11 @@
                         "type": "number",
                         "minimum": 0,
                         "maximum": 10
+                      },
+                      "squash": {
+                        "type": "number",
+                        "minimum": 0.05,
+                        "maximum": 4
                       },
                       "breakUp": {
                         "anyOf": [
@@ -3127,6 +3137,20 @@
                 "minItems": 2,
                 "maxItems": 2
               },
+              "areaM": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
               "gravityMps2": {
                 "type": "number",
                 "minimum": -100,
@@ -3211,7 +3235,8 @@
                           "shard",
                           "speck",
                           "puff",
-                          "streak"
+                          "streak",
+                          "spike"
                         ]
                       },
                       "role": {

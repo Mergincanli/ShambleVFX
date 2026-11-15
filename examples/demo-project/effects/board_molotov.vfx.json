@@ -1,0 +1,790 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "board_molotov",
+  "name": "Molotov flame pit (board)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "heat.1"
+  },
+  "phases": {
+    "windupMs": 250,
+    "peakMs": 4000,
+    "fadeMs": 800
+  },
+  "layers": [
+    {
+      "id": "splat",
+      "name": "Burnt splat",
+      "type": "shape",
+      "start": {
+        "ms": 75
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "multiply",
+      "untilPhaseEnd": "fade",
+      "alpha": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.8392,
+            1
+          ],
+          [
+            1,
+            0.78
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "scorch",
+        "style": "splat",
+        "radiusM": 2.266,
+        "role": "scorch.splat",
+        "coreScale": 0,
+        "coreRole": "scorch.splat",
+        "lobes": 9,
+        "growMs": 175
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "light_dots",
+      "name": "Light on the ground",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 4850,
+      "shape": {
+        "kind": "dots",
+        "radiusM": 3.45,
+        "innerM": 1.54,
+        "edgeM": 1.25,
+        "stepPx": 15.5,
+        "dotPx": 7.1,
+        "role": "fire.light",
+        "alpha": 1,
+        "growFrom": 0,
+        "growMs": 250,
+        "flickerM": 0.12,
+        "squash": 0.578,
+        "breakUp": {
+          "lastMs": 600
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "fire_ring",
+      "name": "Edge of the fire area",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 4890,
+      "shape": {
+        "kind": "ring",
+        "radiusM": 2.2,
+        "widthPx": 6.5,
+        "inkPx": 11.25,
+        "role": "team",
+        "style": "auto-teeth",
+        "teeth": 24,
+        "teethM": 0.34,
+        "growFrom": 0,
+        "growMs": 250,
+        "dashAt": 0.4,
+        "breakUp": {
+          "phase": "fade"
+        },
+        "squash": 0.578
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "bed",
+      "name": "Bed",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "bed",
+        "radiusM": 2.2,
+        "tones": [
+          "heat.dark",
+          "heat.1",
+          "heat.2",
+          "heat.3"
+        ],
+        "lumps": 14,
+        "detailRole": "heat.deep",
+        "inkPx": 4.25,
+        "edge": "auto",
+        "boilSteps": 2,
+        "growMs": 250,
+        "breakUp": {
+          "phase": "fade"
+        },
+        "part": "lumps"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "bed_detail",
+      "name": "Bed detail: halftone and brush strokes",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "bed",
+        "radiusM": 2.2,
+        "tones": [
+          "heat.dark",
+          "heat.1",
+          "heat.2",
+          "heat.3"
+        ],
+        "lumps": 14,
+        "detailRole": "heat.deep",
+        "inkPx": 4.25,
+        "edge": "auto",
+        "boilSteps": 2,
+        "growMs": 250,
+        "breakUp": {
+          "phase": "fade"
+        },
+        "part": "detail"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "flames",
+      "name": "Tongues",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "flames",
+        "radiusM": 2.2,
+        "count": 22,
+        "depth": "all",
+        "tallM": [
+          0.5,
+          3.0
+        ],
+        "widthM": [
+          0.16,
+          0.4
+        ],
+        "lean": 0.15,
+        "sway": 0.12,
+        "cycleSteps": [
+          5,
+          8
+        ],
+        "tones": [
+          "heat.1",
+          "heat.2",
+          "heat.3",
+          "heat.4"
+        ],
+        "shadeRole": "heat.dark",
+        "inkPx": 4.25,
+        "edge": "auto",
+        "licks": true,
+        "growMs": 250,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "spikes",
+      "name": "Spikes thrown out",
+      "type": "burst",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 11,
+      "lifeMs": [
+        250,
+        250
+      ],
+      "speedMps": [
+        18,
+        18
+      ],
+      "direction": "out",
+      "spreadDeg": 180,
+      "startRadiusM": [
+        0.5,
+        0.5
+      ],
+      "gravityMps2": 0,
+      "drag": 20,
+      "sizeM": [
+        0.3,
+        0.87
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          0
+        ],
+        [
+          0.25,
+          0.75
+        ],
+        [
+          0.5,
+          1
+        ],
+        [
+          0.6,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 8,
+      "perPlay": true,
+      "untilPhaseEnd": "windup",
+      "shiftM": [
+        0,
+        0.286
+      ],
+      "look": {
+        "kind": "spike",
+        "role": "heat.1",
+        "inkPx": 3.4,
+        "edge": "enemy"
+      }
+    },
+    {
+      "id": "ignition_star",
+      "name": "Bursting star",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "windup",
+      "shiftM": [
+        0,
+        0.286
+      ],
+      "scale": {
+        "life": [
+          [
+            0,
+            0.3
+          ],
+          [
+            0.25,
+            0.83
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            0.6,
+            1
+          ],
+          [
+            0.8,
+            0.7
+          ],
+          [
+            1,
+            0.4
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 1.0,
+        "points": 10,
+        "inner": 0.44,
+        "jitter": 0.22,
+        "squash": 0.8,
+        "rotationDeg": 11,
+        "tones": [
+          {
+            "role": "heat.3",
+            "scale": 1
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.52
+          }
+        ],
+        "inkPx": 4.25,
+        "edge": "auto",
+        "whiteFirstStep": false,
+        "boilDeg": 0,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "ignition_lines",
+      "name": "Burst lines",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "windup",
+      "shiftM": [
+        0,
+        0.286
+      ],
+      "shape": {
+        "kind": "lines",
+        "count": 12,
+        "innerM": [
+          1.5,
+          1.8
+        ],
+        "lengthM": [
+          0.4,
+          0.8
+        ],
+        "widthPx": [
+          2.35,
+          2.35
+        ],
+        "role": "ink",
+        "until": 0.7,
+        "spread": 0.3
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "smoke",
+      "name": "Smoke billows",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.45,
+        2.213
+      ],
+      "shape": {
+        "kind": "smoke",
+        "style": "billow",
+        "radiusM": 0.97,
+        "role": "fire.smoke",
+        "lightRole": "fire.smoke.light",
+        "rimRole": "fire.smoke.line",
+        "inkPx": 3.0,
+        "grow": [
+          0.18,
+          0.9,
+          0
+        ],
+        "riseM": 2.122,
+        "driftM": [
+          1.35,
+          0
+        ],
+        "loop": {
+          "count": 3,
+          "lifeMs": 1600
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "sparks",
+      "name": "Sparks",
+      "type": "burst",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 6,
+      "lifeMs": [
+        640,
+        900
+      ],
+      "speedMps": [
+        3.3,
+        4.7
+      ],
+      "direction": "up",
+      "spreadDeg": 12,
+      "startRadiusM": [
+        0,
+        0
+      ],
+      "gravityMps2": 0,
+      "drag": 0,
+      "sizeM": [
+        0.05,
+        0.05
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0.45
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": true,
+      "groundStop": false,
+      "seed": 11,
+      "perPlay": true,
+      "durationMs": 4480,
+      "shiftM": [
+        0,
+        0.571
+      ],
+      "areaM": [
+        1.65,
+        0.55
+      ],
+      "look": {
+        "kind": "diamond",
+        "role": "glow",
+        "inkPx": 0.75,
+        "edge": "enemy"
+      }
+    },
+    {
+      "id": "sparks_hot",
+      "name": "Sparks, white-hot",
+      "type": "burst",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 3,
+      "lifeMs": [
+        640,
+        900
+      ],
+      "speedMps": [
+        3.3,
+        4.7
+      ],
+      "direction": "up",
+      "spreadDeg": 12,
+      "startRadiusM": [
+        0,
+        0
+      ],
+      "gravityMps2": 0,
+      "drag": 0,
+      "sizeM": [
+        0.05,
+        0.05
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0.45
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": true,
+      "groundStop": false,
+      "seed": 12,
+      "perPlay": true,
+      "durationMs": 4480,
+      "shiftM": [
+        0,
+        0.571
+      ],
+      "areaM": [
+        1.65,
+        0.55
+      ],
+      "look": {
+        "kind": "diamond",
+        "role": "heat.4",
+        "inkPx": 0.75,
+        "edge": "enemy"
+      }
+    },
+    {
+      "id": "word",
+      "name": "FWOOSH",
+      "type": "word",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "words": [
+        "FWOOSH"
+      ],
+      "letterPx": 47,
+      "colours": {
+        "top": "white",
+        "bottom": "glow",
+        "back": "team.dark"
+      },
+      "tiltDeg": [
+        9,
+        9
+      ],
+      "sizeJitter": 0,
+      "ramp": 0.2,
+      "bounce": 0.35,
+      "turnDeg": 4,
+      "slantDeg": 9,
+      "pop": {
+        "scale": 1.15,
+        "steps": 2
+      },
+      "breakSteps": 0,
+      "riseM": 0,
+      "distance": {
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            100,
+            1
+          ]
+        ],
+        "minPx": 14
+      },
+      "visibleTo": "everyone",
+      "seed": 5,
+      "perPlay": true,
+      "durationMs": 710,
+      "shiftM": [
+        -2.5,
+        1.748
+      ],
+      "scale": {
+        "steps": [
+          0.62,
+          1
+        ]
+      }
+    }
+  ]
+}

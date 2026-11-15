@@ -1,5 +1,19 @@
 {
   "format": "shamble-vfx-project",
   "version": 1,
-  "name": "Demo project"
+  "name": "Demo project",
+  "preview": {
+    "board_shell": {
+      "scene": "board-shell"
+    },
+    "board_muzzle": {
+      "scene": "board-muzzle"
+    },
+    "board_beam": {
+      "scene": "board-beam"
+    },
+    "board_molotov": {
+      "scene": "board-molotov"
+    }
+  }
 }

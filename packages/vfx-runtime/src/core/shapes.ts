@@ -230,7 +230,7 @@ function drawRing(sp: RingShape, ctx: DrawCtx): void {
     for (let q = 0; q < c.count; q++) {
       const rp = (((ctx.tau + (q * c.periodMs) / c.count) % c.periodMs) + c.periodMs) % c.periodMs / c.periodMs;
       const r = (c.fromM + (c.toM - c.fromM) * rp) * ctx.s;
-      const pts = ovalPoints(0, 0, r, r, 64);
+      const pts = ovalPoints(0, 0, r, r * (sp.squash ?? 1), 64);
       const a = 0.3 + 0.7 * rp, wq = w * (0.7 + 0.7 * rp);
       if (style === 'dashed') ctx.p.stroke(pts, true, wq, ctx.rgba(sp.role, a), [ctx.px(13.5), ctx.px(13.5)]);
       else {
@@ -242,7 +242,8 @@ function drawRing(sp: RingShape, ctx: DrawCtx): void {
   }
   const grow = sp.growMs > 0 ? Math.min(1, sp.growFrom + ((1 - sp.growFrom) * ctx.tau) / sp.growMs) : 1;
   const R = sp.radiusM * ctx.s * grow;
-  const circle = ovalPoints(0, 0, R, R, 72);
+  const sq = sp.squash ?? 1;
+  const circle = ovalPoints(0, 0, R, R * sq, 72);
   if (style === 'dashed') {
     ctx.p.stroke(circle, true, w, col, [w * 3, w * 2.4]);
   } else if (style === 'zigzag') {
@@ -251,7 +252,7 @@ function drawRing(sp: RingShape, ctx: DrawCtx): void {
     const inner = Math.max(0.05, 1 - sp.teethM / Math.max(R, 1e-6));
     for (let i = 0; i < m; i++) {
       const a = (TAU * i) / m, f = i % 2 ? inner : 1;
-      zz.push(Math.cos(a) * R * f, Math.sin(a) * R * f);
+      zz.push(Math.cos(a) * R * f, Math.sin(a) * R * f * sq);
     }
     if (ink > 0) ctx.p.stroke(zz, true, ink, black);
     ctx.p.stroke(zz, true, w, col);
@@ -263,7 +264,7 @@ function drawRing(sp: RingShape, ctx: DrawCtx): void {
       const hw = 0.085, r0 = R - sp.teethM * ctx.s;
       for (let i = 0; i < sp.teeth; i++) {
         const a = (TAU * i) / sp.teeth + 0.05;
-        const tri = [Math.cos(a - hw) * R, Math.sin(a - hw) * R, Math.cos(a + hw) * R, Math.sin(a + hw) * R, Math.cos(a) * r0, Math.sin(a) * r0];
+        const tri = [Math.cos(a - hw) * R, Math.sin(a - hw) * R * sq, Math.cos(a + hw) * R, Math.sin(a + hw) * R * sq, Math.cos(a) * r0, Math.sin(a) * r0 * sq];
         ctx.p.stroke(tri, true, ctx.px(1.95) * 2, black);
         ctx.p.poly(tri, col);
       }
@@ -279,11 +280,12 @@ function drawDots(sp: DotsShape, ctx: DrawCtx): void {
   const inner = sp.innerM * grow * ctx.s;
   const step = ctx.px(sp.stepPx), r0 = ctx.px(sp.dotPx) * (1 - k);
   const c = ctx.rgba(sp.role, sp.alpha);
-  const nx = Math.ceil(R / step) + 1, ny = Math.ceil(R / (step * 0.866)) + 1;
+  const sq = sp.squash ?? 1;
+  const nx = Math.ceil(R / step) + 1, ny = Math.ceil((R * sq) / (step * 0.866)) + 1;
   for (let j = -ny; j <= ny; j++) {
     for (let i = -nx; i <= nx; i++) {
       const x = (i + (j & 1) * 0.5) * step, y = j * step * 0.866;
-      const d = Math.hypot(x, y);
+      const d = Math.hypot(x, y / sq);
       if (d >= R || d < inner) continue;
       const r = sp.edgeM > 0 ? r0 * clamp01((R - d) / (sp.edgeM * ctx.s)) : r0 * (1 - (d / R) * 0.85);
       if (r > step * 0.05) ctx.p.disc(x, y, r, r, c, 6);
@@ -401,6 +403,10 @@ function drawTrail(sp: TrailShape, ctx: DrawCtx): void {
 }
 
 function drawBand(sp: BandShape, ctx: DrawCtx): void {
+  // Edge: ink = always solid, broken = always dashed, auto = solid for an enemy's and dashed for your own team's,
+  // enemy = solid for an enemy's and not drawn for your own team's, none = not drawn.
+  const look = edgeLook(sp.edge, ctx.relation);
+  if (look === 'none') return;
   const A = local(ctx, ctx.point(sp.from.input, sp.from.offset));
   const B = local(ctx, ctx.point(sp.to.input, sp.to.offset));
   if (sp.find) {
@@ -417,7 +423,7 @@ function drawBand(sp: BandShape, ctx: DrawCtx): void {
   const x0 = B[0] + (A[0] - B[0]) * pl, y0 = B[1] + (A[1] - B[1]) * pl;
   const wA = sp.widthM[0] * th * ctx.s, wB = sp.widthM[1] * th * ctx.s;
   const w0 = wB + (wA - wB) * pl;
-  if (edgeLook(sp.edge, ctx.relation) === 'broken') {
+  if (look === 'broken') {
     ctx.p.stroke([x0, y0, A[0], A[1]], false, Math.max(wA, wB) * 0.9, ctx.rgba(sp.role, sp.alpha), [0.5 * ctx.s, 0.26 * ctx.s], false);
     return;
   }

@@ -298,6 +298,8 @@ export interface RingShape {
   breakUp?: BreakUp;
   /** Rings that close in on the centre, again and again (a lock-on). */
   closing?: { count: number; periodMs: number; fromM: number; toM: number };
+  /** The ring's height as a share of its width (a ring facing the camera drawn as if it lay on the ground). Default 1. */
+  squash?: number;
 }
 
 /**
@@ -318,6 +320,8 @@ export interface DotsShape {
   growMs: number;
   /** The outer edge breathes by this many metres every other step. */
   flickerM: number;
+  /** The field's height as a share of its width (round dots on a ground-shaped field: the sine of the camera's tilt). */
+  squash?: number;
   breakUp?: BreakUp;
 }
 
@@ -390,7 +394,10 @@ export interface BandShape {
   role: RoleName;
   alpha: number;
   soft: boolean;
-  /** "auto": broken (dashed) for your own team, solid for an enemy's. */
+  /**
+   * ink: always solid. broken: always a dashed line. auto: solid for an enemy's, dashed for your own team's.
+   * enemy: solid for an enemy's, not drawn for your own team's (the beam's white core). none: not drawn.
+   */
   edge: Edge;
   /** Every other step it is this much wider (flicker). */
   flicker: number;
@@ -466,7 +473,7 @@ export interface ShapeLayer extends VisibleCommon {
 
 export type ParticleLook =
   | {
-    kind: 'diamond' | 'chip' | 'spark' | 'dot' | 'shard' | 'speck' | 'puff' | 'streak'; role: RoleName; inkPx: number; edge: Edge;
+    kind: 'diamond' | 'chip' | 'spark' | 'dot' | 'shard' | 'speck' | 'puff' | 'streak' | 'spike'; role: RoleName; inkPx: number; edge: Edge;
     /** The colour of the "ink" edge, when it should not be black (a stone chip's darker rim). Default ink. */
     inkRole?: RoleName;
   }
@@ -483,6 +490,8 @@ export interface BurstLayer extends VisibleCommon {
   spreadDeg: number;
   /** Starting distance from the anchor, in metres. */
   startRadiusM: Range;
+  /** Pieces start anywhere in a box this big round the anchor, [half width, half height] in metres (sparks over a fire). */
+  areaM?: Vec2;
   gravityMps2: number;
   /** Slows the pieces down: 0 = none; 3 = they lose most of their speed in a third of a second. */
   drag: number;

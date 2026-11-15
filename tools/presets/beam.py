@@ -28,8 +28,8 @@ L.append(shape("closing_rings", "Rings closing on the target", "ring",
 def band(id, name, w, role, alpha, blend, edge, **kw):
     return shape(id, name, "band", {"from": O, "to": T, "widthM": w, "role": role, "alpha": alpha, "soft": False, "edge": edge, "flicker": 0.1, "letGo": "fade", **kw.pop("spec", {})},
                  blend=blend, untilPhaseEnd="fade", **kw)
-L.append(band("beam_glow_wide", "Beam glow, wide", [0.52, 0.36], "glow", 0.2, "add", "none", start=PEAK))
-L.append(band("beam_glow", "Beam glow", [0.3, 0.2], "glow", 0.45, "add", "none", start=PEAK))
+L.append(band("beam_glow_wide", "Beam glow, wide", [0.52, 0.36], "glow", 0.2, "add", "ink", start=PEAK))
+L.append(band("beam_glow", "Beam glow", [0.3, 0.2], "glow", 0.45, "add", "ink", start=PEAK))
 L.append(band("beam_core", "Beam, hot core", [0.17, 0.12], "glow.hot", 1, "normal", "auto", spec={"find": "windup"}))
 L.append(band("beam_white", "Beam, white core", [0.07, 0.05], "white", 1, "normal", "enemy", start=PEAK))
 # ---- beads run from the target to the Hammer: the way the drain goes

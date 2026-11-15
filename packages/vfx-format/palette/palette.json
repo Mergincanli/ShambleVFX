@@ -202,6 +202,26 @@
       "hex": "#897B5C",
       "from": "derived",
       "note": "stone x 0.66: the rim of a dust puff (board v7)"
+    },
+    "fire.light": {
+      "hex": "#DFC77E",
+      "from": "derived",
+      "note": "sunlit ground mixed 55 % with heat.3: the fire's light on the ground, as halftone dots (board v7)"
+    },
+    "fire.smoke": {
+      "hex": "#514D49",
+      "from": "derived",
+      "note": "smoke x 1.1: a fire's smoke billow (board v7)"
+    },
+    "fire.smoke.light": {
+      "hex": "#867F79",
+      "from": "derived",
+      "note": "smoke mixed half with #C2BBB0: the lit top of a smoke billow (board v7)"
+    },
+    "fire.smoke.line": {
+      "hex": "#211F1E",
+      "from": "derived",
+      "note": "smoke x 0.45: the line round your own team's smoke billow (board v7)"
     }
   }
 }

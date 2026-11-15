@@ -115,6 +115,50 @@ for (const backend of ['webgpu', 'webgl']) {
   await fr.page.close();
 }
 
+// ---------------------------------------------------------------- 2b. the board presets look the same on WebGPU as on WebGL 2
+// WebGL 2 is the backend the side-by-side comparisons with the drawing board check by eye. Here the same moments are
+// drawn on both backends and must match: draw order (sparks over the white frame), added light (the beam's glows),
+// light on the ground (screen) and stains (multiply) all go through the WebGPU path too.
+if (webgpu) {
+  const cases = [['board_shell', 'board-shell', 600, 'sparks over the white frame'], ['board_shell', 'board-shell', 1300, 'burst, scorch and ring'],
+    ['board_beam', 'board-beam', 1000, 'beam and added glows'], ['board_muzzle', 'board-muzzle', 45, 'flash, tracer and light on the ground']];
+  const pages = {};
+  for (const b of ['webgpu', 'webgl']) {
+    pages[b] = await open(`${base}/?offscreen=1&frame=1${b === 'webgl' ? '&backend=webgl' : ''}&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+  }
+  for (const [effect, scene, ms, what] of cases) {
+    const img = {};
+    for (const b of ['webgpu', 'webgl']) {
+      const pg = pages[b].page;
+      await pg.evaluate(async ([effect, scene, ms]) => {
+        const a = window.__vfx.app;
+        window.__vfxManual = true;
+        await a.setupForChecks({ effect, scene, faction: 'soviets', relation: 'enemy', distance: 4 });
+        a.previewForChecks.setView('frame');
+        await a.showAt(ms, 7);
+        await a.showAt(ms, 7);
+        document.querySelector('.status')?.classList.remove('show');
+      }, [effect, scene, ms]);
+      await pg.waitForTimeout(100);
+      img[b] = PNG.sync.read(await pg.screenshot({ path: join(shots, `backends-${effect}-${ms}-${b}.png`) }));
+    }
+    // Count pixels that differ by more than 40 levels in any channel (edges differ a little between the backends).
+    let off = 0, effectPx = 0;
+    const A = img.webgpu.data, B = img.webgl.data;
+    for (let i = 0; i < A.length; i += 4) {
+      const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
+      if (d > 40) off++;
+      if (Math.abs(B[i] - 0xb8) + Math.abs(B[i + 1] - 0xa6) + Math.abs(B[i + 2] - 0x83) > 30) effectPx++;
+    }
+    const share = off / (A.length / 4);
+    ok(`board preset ${effect} at ${ms} ms looks the same on WebGPU and WebGL 2 (${what})`, share < 0.004, `${(share * 100).toFixed(3)} % of pixels differ, ${effectPx} pixels not plain ground`);
+  }
+  for (const b of ['webgpu', 'webgl']) {
+    ok(`[${b}] board presets draw without errors`, pages[b].errors.length === 0, pages[b].errors.slice(0, 2).join(' | '));
+    await pages[b].page.close();
+  }
+}
+
 // ---------------------------------------------------------------- 3. driving the editor (WebGL 2), with the clock running
 {
   const { page: p, errors } = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);

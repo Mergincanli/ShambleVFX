@@ -36,8 +36,9 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
     const v = pick(l.speedMps, r(1));
     const travel = l.drag > 0 ? (v * (1 - Math.exp(-l.drag * sec))) / l.drag : v * sec;
     const r0 = pick(l.startRadiusM, r(2));
-    const px = (dx * (r0 + travel)) * ctx.s;
-    const py = (dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s;
+    const ax = l.areaM ? (r(6) * 2 - 1) * l.areaM[0] : 0, ay = l.areaM ? (r(7) * 2 - 1) * l.areaM[1] : 0;
+    const px = (ax + dx * (r0 + travel)) * ctx.s;
+    const py = (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s;
     const size = pick(l.sizeM, r(3)) * curveAt(l.sizeOverLife, age / life) * ctx.s;
     if (size <= 0) continue;
     const spin = r(4) * TAU + pick(l.spinDegPerS, r(5)) * DEG * sec;
@@ -63,6 +64,10 @@ function drawPiece(ctx: DrawCtx, kind: string, x: number, y: number, s: number, 
       break;
     case 'shard':
       pts = [...rot(s * 1.3, 0, spin), ...rot(-s * 0.7, s * 0.8, spin), ...rot(-s * 0.5, -s * 0.9, spin)];
+      break;
+    case 'spike':
+      // A long thin spike thrown out: its foot at the piece's place, its point 3 sizes further out.
+      pts = [...rot(0, s * 0.17, heading), ...rot(s * 3, 0, heading), ...rot(0, -s * 0.17, heading)];
       break;
     case 'streak': {
       const [ax, ay] = rot(-s * 2.5, 0, heading), [bx, by] = rot(s * 2.5, 0, heading);

@@ -308,7 +308,7 @@
         "role": "glow",
         "alpha": 0.2,
         "soft": false,
-        "edge": "none",
+        "edge": "ink",
         "flicker": 0.1,
         "letGo": "fade"
       },
@@ -363,7 +363,7 @@
         "role": "glow",
         "alpha": 0.45,
         "soft": false,
-        "edge": "none",
+        "edge": "ink",
         "flicker": 0.1,
         "letGo": "fade"
       },
