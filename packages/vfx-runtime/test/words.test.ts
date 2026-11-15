@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../../vfx-format/palette/palette.json';
-import { newEffect, newWordLayer, wordShares } from '@shamble/vfx-format';
+import { newEffect, newWordLayer, parseHex, resolveRole, wordShares } from '@shamble/vfx-format';
 import type { EffectFile, Palette, SoundWord, Vec3, WordLayer } from '@shamble/vfx-format';
-import { DrawSink, evaluate, hashText, pickWord, random01 } from '../src/index';
+import { BLEND_GROUPS, DrawSink, evaluate, hashText, pickWord, random01 } from '../src/index';
+import { WORD_SPACE } from '../src/core/words';
 import type { CameraBasis, EvalContext } from '../src/index';
 
 const palette = paletteJson as Palette;
@@ -104,5 +105,82 @@ describe('the word a play shows', () => {
   it('never shows a word with a 0 % chance, nor one left with nothing', () => {
     const l = layer([{ text: 'A', chance: 0 }, { text: 'BO', chance: 100 }, { text: 'ZAP' }]);
     for (let seed = 1; seed <= 500; seed++) expect(pickWord(l, seed)).toBe(1);
+  });
+});
+
+describe('a space in a word', () => {
+  const cam = gameCamera();
+  /** Upright letters (no tilt or slant) of one size (no size jitter); turn, bounce and growth along the word as given. */
+  const word = (text: string, over: Partial<WordLayer> = {}): WordLayer =>
+    layer([{ text }], { tiltDeg: [0, 0], slantDeg: 0, sizeJitter: 0, turnDeg: 0, bounce: 0, ramp: 0, colours: { top: 'heat.4', bottom: 'heat.2', back: 'team.dark' }, ...over });
+  /** Every vertex of one play, across and up the screen (metres), with its colour as "r,g,b" in sRGB. */
+  const picture = (l: WordLayer) => {
+    const sink = new DrawSink(64);
+    evaluate({ ...newEffect('w', 'W'), layers: [l] }, { ...ctx(1), colourSpace: 'srgb' }, sink);
+    const out: { x: number; y: number; c: string }[] = [];
+    for (const g of BLEND_GROUPS) {
+      const b = sink.groups[g];
+      for (let i = 0; i < b.vcount; i++) {
+        const p = [b.pos[i * 4]!, b.pos[i * 4 + 1]!, b.pos[i * 4 + 2]!];
+        out.push({ x: p[0]! * cam.right[0] + p[1]! * cam.right[1] + p[2]! * cam.right[2], y: p[0]! * cam.up[0] + p[1]! * cam.up[1] + p[2]! * cam.up[2], c: [b.col[i * 4], b.col[i * 4 + 1], b.col[i * 4 + 2]].map((v) => v!.toFixed(3)).join(',') });
+      }
+    }
+    return out;
+  };
+  const toneColours = new Set(['heat.4', 'heat.2'].map((r) => parseHex(resolveRole(palette, r, 'soviets')!).map((v) => (v / 255).toFixed(3)).join(',')));
+  /** Where the letters' two flat tones lie across the screen, in letter units (the cap height is 7), sorted. */
+  const tonesAcross = (l: WordLayer, unit: number) => picture(l).filter((v) => toneColours.has(v.c)).map((v) => v.x / unit).sort((a, b) => a - b);
+  /** One letter unit in metres: a lone I is 1.9 units wide. */
+  const unit = (() => { const xs = tonesAcross(word('I'), 1); return (xs[xs.length - 1]! - xs[0]!) / 1.9; })();
+  const widestGap = (xs: number[]) => xs.slice(1).reduce((m, x, i) => Math.max(m, x - xs[i]!), 0);
+
+  // Vertex positions are kept as 32-bit floats: a hundred-thousandth of a letter unit is as close as they read.
+  it('puts the letters around it 0.5 + 2.4 + 0.5 units apart, against 0.5 between letters', () => {
+    expect(WORD_SPACE).toBe(2.4);
+    expect(widestGap(tonesAcross(word('KA BOOM'), unit))).toBeCloseTo(3.4, 4);
+    // Without the space no gap comes near that (the widest is inside a letter).
+    expect(widestGap(tonesAcross(word('KABOOM'), unit))).toBeLessThan(1.6);
+    // The word grows by the space and the spacing after it, and stays centred.
+    const a = tonesAcross(word('KABOOM'), unit), b = tonesAcross(word('KA BOOM'), unit);
+    expect(b[b.length - 1]! - b[0]! - (a[a.length - 1]! - a[0]!)).toBeCloseTo(2.9, 4);
+    expect(b[b.length - 1]! + b[0]!).toBeCloseTo(a[a.length - 1]! + a[0]!, 4);
+  });
+
+  it('leaves about an I of ground between the two words once the outline and the pushed-back copy are drawn', () => {
+    // Everything drawn (outlines, the pushed-back copy, the tones) across the screen: the widest gap is the ground between
+    // the words. 32 px letters, where the outline is 6.2 % of the height.
+    const across = picture(word('WHAM BAM', { letterPx: 32 })).map((v) => v.x / unit).sort((a, b) => a - b);
+    const ground = widestGap(across);
+    expect(ground).toBeGreaterThan(1.7);
+    expect(ground).toBeLessThan(2.1);
+  });
+
+  it('adds one gap per space; spaces before the first letter or after the last add nothing', () => {
+    expect(widestGap(tonesAcross(word('KA  BOOM'), unit))).toBeCloseTo(0.5 + 2 * 2.9, 4);
+    expect(picture(word(' KABOOM  '))).toEqual(picture(word('KABOOM')));
+    // A character that is not drawn is left out; the spaces round it stay.
+    expect(widestGap(tonesAcross(word('KA # BOOM'), unit))).toBeCloseTo(0.5 + 2 * 2.9, 4);
+  });
+
+  it('only moves the letters apart: each letter keeps its own turn, bounce and size along the word', () => {
+    // As a new word layer has them: turned and bounced letters that grow along the word.
+    const over = { turnDeg: 4, bounce: 0.35, ramp: 0.2 };
+    const a = picture(word('KABOOM', over)), b = picture(word('KA BOOM', over));
+    expect(b).toHaveLength(a.length);
+    // The gap takes the size of the letter before it (the A, second of six letters, at 1 + 0.2 x (1/5 - 0.5)).
+    const half = (1.45 * (1 + 0.2 * (1 / 5 - 0.5))) * unit;
+    let left = 0, right = 0;
+    a.forEach((v, i) => {
+      expect(b[i]!.c).toBe(v.c);
+      expect(Math.abs(b[i]!.y - v.y)).toBeLessThan(2e-6);
+      const dx = b[i]!.x - v.x;
+      if (Math.abs(dx + half) < 2e-6) left++;
+      else if (Math.abs(dx - half) < 2e-6) right++;
+      else throw new Error(`vertex ${i} moved by ${dx}, not by ${half} either way`);
+    });
+    // K and A move left, B, O, O and M right: one word, now two.
+    expect(left).toBeGreaterThan(0);
+    expect(right).toBeGreaterThan(left);
+    expect(drawn(word('KA BOOM', over), 1).letters).toBe(6);
   });
 });

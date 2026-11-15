@@ -16,6 +16,14 @@ import { layerSeed, random01 } from './random';
 const DEG = Math.PI / 180;
 
 /**
+ * A space between two letters: 2.4 of the letters' 7 units, on top of the 0.5 that follows every letter (and itself), so
+ * the letters on either side are 3.4 units apart. The black outline and the pushed-back copy cover about 1.46 of those
+ * (at 30 px and up), so the ground that shows between the two words is about as wide as an I (1.9). Spaces before the
+ * first letter or after the last add nothing. Assumed, not decided by the Art lead.
+ */
+export const WORD_SPACE = 2.4;
+
+/**
  * Which word of the list a play shows, from one random number of the layer's own: its index, or -1 when the play shows
  * no word (every word has a chance, and they add up to less than 100 %). The chances' rules are wordShares' (vfx-format).
  */
@@ -56,13 +64,24 @@ export function drawWord(l: WordLayer, ctx: DrawCtx & { viewerDistanceM: number 
   const pickIndex = wordIndex(l, ctx.rnd);
   if (pickIndex < 0) return;
   const text = l.words[pickIndex]!.text.toUpperCase();
-  const chars = [...text].filter((ch) => LETTERS[ch]);
+  // The letters that are drawn, each with the spaces before it. Characters not drawn are left out. A letter keeps its
+  // place in the word (its random turn, bounce and size along the word) as if there were no spaces.
+  const chars: { g: Letter; spaces: number }[] = [];
+  let spaces = 0;
+  for (const ch of text) {
+    if (ch === ' ') { spaces++; continue; }
+    const g = LETTERS[ch];
+    if (!g) continue;
+    chars.push({ g, spaces: chars.length ? spaces : 0 });
+    spaces = 0;
+  }
   const n = chars.length;
   if (!n) return;
   const items: Item[] = [];
   let x = 0;
-  chars.forEach((ch, i) => {
-    const g = LETTERS[ch]!;
+  chars.forEach(({ g, spaces }, i) => {
+    // Each space: an empty letter WORD_SPACE wide, at the size of the letter before it.
+    if (spaces) x += spaces * (WORD_SPACE + 0.5) * items[i - 1]!.s;
     const s = 1 + l.ramp * (n > 1 ? i / (n - 1) - 0.5 : 0);
     items.push({ g, s, x, b: (ctx.rnd(3, i * 2 + 1) * 2 - 1) * l.bounce, r: (ctx.rnd(3, i * 2 + 2) * 2 - 1) * l.turnDeg * DEG, w: g.w * s });
     x += (g.w + 0.5) * s;

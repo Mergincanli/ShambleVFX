@@ -1,11 +1,13 @@
 // A picture of our block letters, drawn by the real runtime in the comic word style (two tones, the black outline, the
 // pushed-back copy): the whole alphabet upright, the new letters close up next to the board's, the alphabet in the comic
-// layout, words that use the new letters, and the same words at game size.
+// layout, words that use the new letters, the same words at game size, and words with a space in them (two words in one
+// layer), close up and at game size.
 //   node tools/letter-sheet.mjs [--faction=soviets]
 // It writes a throwaway project into out/letters/project/letters/ (one effect per row, made of word layers), opens it in
-// the editor's own preview (the real runtime, the game camera) and saves out/letters/letters.png, and the game-size row
-// enlarged 3 times (pixel for pixel) as out/letters/game-size.png. Only the sunlit ground and the words show: the scene's
-// soldiers, its band of shade and the target mark are hidden. Nothing is written to projects/ or exports/.
+// the editor's own preview (the real runtime, the game camera) and saves out/letters/letters.png, and the game-size rows
+// enlarged 3 times (pixel for pixel) as out/letters/game-size.png and game-size-spaces.png. Only the sunlit ground and
+// the words show: the scene's soldiers, its band of shade and the target mark are hidden. Nothing is written to projects/
+// or exports/.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,8 +23,10 @@ const PX_PER_M = 100.7; // px per metre on a 1080p screen at the game camera (dr
 
 // ---------------------------------------------------------------- the throwaway project
 const LETTERS = JSON.parse(readFileSync(join(repo, 'packages', 'vfx-runtime', 'data', 'letters.json'), 'utf8')).letters;
-/** A word's width in px at a letter height, as drawWord lays it out (0.5 between letters, no ramp). */
-const widthPx = (text, px) => ([...text].reduce((s, ch) => s + (LETTERS[ch] ? LETTERS[ch].w + 0.5 : 0), 0) - 0.5) * (px / 7);
+/** A space between letters: 2.4 units, plus the 0.5 after it (the runtime's WORD_SPACE, in words.ts). */
+const SPACE = 2.4;
+/** A word's width in px at a letter height, as drawWord lays it out (0.5 between letters, no ramp; no space at either end). */
+const widthPx = (text, px) => ([...text].reduce((s, ch) => s + (LETTERS[ch] ? LETTERS[ch].w + 0.5 : ch === ' ' ? SPACE + 0.5 : 0), 0) - 0.5) * (px / 7);
 const UPRIGHT = { slant: 0, turn: 0, bounce: 0, tilt: [0, 0], ramp: 0 };
 const COMIC = { slant: 9, turn: 4, bounce: 0.35, tilt: [0, 0], ramp: 0 };
 
@@ -53,6 +57,7 @@ const effect = (id, name, layers) => ({
 
 const HALVES = ['ABCDEFGHIJKLM', 'NOPQRSTUVWXYZ!'];
 const WORDS = ['JINX', 'QUAKE', 'VROOM', 'ZAP', 'YAK', 'WAX'];
+const SPACED = ['KA BOOM', 'BANG BANG', 'WHAM BAM', 'ZAP ZAP'];
 // Each row: one effect, the close-up zoom it is shot at, the cell's size on screen, and its caption.
 const rows = [
   { zoom: 3, w: 1560, h: 330, label: 'Upright, as drawn (no slant, turn or bounce). New: J, Q, V, X and Y',
@@ -66,11 +71,22 @@ const rows = [
       ...line('f', WORDS.slice(0, 3), 40, { ...COMIC, tilt: [4, 10], ramp: 0.2 }, 40, 40, [2, 4, 6]),
       ...line('g', WORDS.slice(3), 40, { ...COMIC, tilt: [-10, -4], ramp: 0.2 }, -42, 40, [8, 10, 12]),
     ]) },
-  { zoom: 1, w: 760, h: 150, label: 'At game size (100 %): letters 32, 20 and 16 px tall', small: true,
+  { zoom: 1, w: 760, h: 150, label: 'At game size (100 %): letters 32, 20 and 16 px tall', small: 'game-size.png',
     fx: effect('l_game', 'Game size', [
       ...line('h', WORDS, 32, COMIC, 36, 22, [2, 4, 6, 8, 10, 12]),
       ...line('i', WORDS, 20, COMIC, -6, 16, [2, 4, 6, 8, 10, 12]),
       ...line('j', WORDS, 16, COMIC, -40, 12, [2, 4, 6, 8, 10, 12]),
+    ]) },
+  { zoom: 2, w: 1560, h: 400, label: 'A space in a word: 2.4 of the 7 units, plus the 0.5 after every letter; the ground between the words is about an I wide',
+    fx: effect('l_spaces', 'Spaces', [
+      ...line('k', SPACED.slice(0, 2), 40, { ...COMIC, tilt: [4, 10], ramp: 0.2 }, 40, 40, [2, 4]),
+      ...line('m', SPACED.slice(2), 40, { ...COMIC, tilt: [-10, -4], ramp: 0.2 }, -42, 40, [6, 8]),
+    ]) },
+  { zoom: 1, w: 760, h: 150, label: 'Words with a space at game size (100 %): letters 32, 20 and 16 px tall', small: 'game-size-spaces.png',
+    fx: effect('l_spaces_game', 'Spaces at game size', [
+      ...line('n', SPACED.slice(0, 3), 32, COMIC, 36, 22, [2, 4, 6]),
+      ...line('o', SPACED.slice(0, 3), 20, COMIC, -6, 16, [2, 4, 6]),
+      ...line('p', SPACED.slice(0, 3), 16, COMIC, -40, 12, [2, 4, 6]),
     ]) },
 ];
 
@@ -153,16 +169,17 @@ const file = join(outDir, faction === 'soviets' ? 'letters.png' : `letters-${fac
 writeFileSync(file, PNG.sync.write(sheet));
 console.log(file);
 
-// The game-size row again, 3 times larger, pixel for pixel: what a player sees, big enough to judge.
-const small = cells.find((c) => c.r.small);
-const big = new PNG({ width: small.r.w * 3, height: small.r.h * 3 });
-for (let yy = 0; yy < big.height; yy++) for (let xx = 0; xx < big.width; xx++) {
-  const s = (Math.floor(yy / 3) * small.r.w + Math.floor(xx / 3)) * 4, d = (yy * big.width + xx) * 4;
-  big.data[d] = small.png.data[s]; big.data[d + 1] = small.png.data[s + 1]; big.data[d + 2] = small.png.data[s + 2]; big.data[d + 3] = 255;
+// The game-size rows again, 3 times larger, pixel for pixel: what a player sees, big enough to judge.
+for (const small of cells.filter((c) => c.r.small)) {
+  const big = new PNG({ width: small.r.w * 3, height: small.r.h * 3 });
+  for (let yy = 0; yy < big.height; yy++) for (let xx = 0; xx < big.width; xx++) {
+    const s = (Math.floor(yy / 3) * small.r.w + Math.floor(xx / 3)) * 4, d = (yy * big.width + xx) * 4;
+    big.data[d] = small.png.data[s]; big.data[d + 1] = small.png.data[s + 1]; big.data[d + 2] = small.png.data[s + 2]; big.data[d + 3] = 255;
+  }
+  const bigFile = join(outDir, faction === 'soviets' ? small.r.small : small.r.small.replace('.png', `-${faction}.png`));
+  writeFileSync(bigFile, PNG.sync.write(big));
+  console.log(bigFile);
 }
-const bigFile = join(outDir, faction === 'soviets' ? 'game-size.png' : `game-size-${faction}.png`);
-writeFileSync(bigFile, PNG.sync.write(big));
-console.log(bigFile);
 if (errors.length) console.log(`ERRORS: ${errors.join(' | ')}`);
 await browser.close();
 await server.close();
