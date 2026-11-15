@@ -1,6 +1,6 @@
 // A contact sheet: several effects, each at a few moments, close up, on one picture (for judging a collection).
 //   node tools/contact-sheet.mjs [--project=examples/hits-collection] [--effects=a,b] [--scene=hit-unit]
-//        [--relation=enemy] [--faction=soviets] [--times=auto|ms,ms,...] [--view=close|game] [--zoom=2] [--out=out/sheets/hits.png]
+//        [--relation=enemy] [--faction=soviets] [--seed=7] [--times=auto|ms,ms,...] [--view=close|game] [--zoom=2] [--out=out/sheets/hits.png]
 // "auto" picks four moments from the effect's phases: early in the peak, late in the peak, early and late in the fade.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,6 +19,7 @@ const faction = arg('faction', 'soviets');
 const timesArg = arg('times', 'auto');
 const view = arg('view', 'close');
 const zoom = Number(arg('zoom', '2'));
+const seed = Number(arg('seed', '7'));
 const out = join(repo, arg('out', 'out/sheets/contact.png'));
 mkdirSync(dirname(out), { recursive: true });
 
@@ -51,16 +52,16 @@ for (const id of list) {
   }, [id, scene, faction, relation, timesArg]);
   const cells = [];
   for (const t of times) {
-    await page.evaluate(async ([t, view, zoom]) => {
+    await page.evaluate(async ([t, view, zoom, seed]) => {
       const a = window.__vfx.app;
       a.previewForChecks.setCloseZoom(zoom);
       a.previewForChecks.setCloseOn('target');
       a.previewForChecks.setView(view);
       a.previewForChecks.targetMarker.visible = false;
-      await a.showAt(t, 7);
-      await a.showAt(t, 7);
+      await a.showAt(t, seed);
+      await a.showAt(t, seed);
       document.querySelector('.status')?.classList.remove('show');
-    }, [t, view, zoom]);
+    }, [t, view, zoom, seed]);
     await page.waitForTimeout(40);
     const shot = PNG.sync.read(await page.screenshot({ clip: { x: (1280 - CW) / 2, y: (720 - CH) / 2, width: CW, height: CH } }));
     cells.push({ png: shot, label: `${id} ${Math.round(t)} ms` });
