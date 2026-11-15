@@ -58,12 +58,13 @@ function bigControls(app: AppApi, parts: Refresher[]): HTMLElement {
     onInput: (v) => app.editEffect(['controls', 'intensity'], v, { mergeKey: 'intensity', label: 'Intensity' }), onCommit: () => app.commit() });
   const duration = slider({ label: 'Duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. Flight time still comes from distance and speed.',
     onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
-  const swatches = h('div', { class: 'swatches', attrs: { role: 'radiogroup', 'aria-label': 'Main colour role' } });
+  const swatches = h('div', { class: 'swatches', attrs: { role: 'group', 'aria-label': 'The palette: click a colour to change it' } });
   const drawSwatches = () => {
     swatches.replaceChildren(...roleNames(app.palette).map((r) => {
       const hex = resolveRole(app.palette, r, app.faction)!;
-      const b = h('button', { class: 'swatch', title: `${r} (${hex} for ${app.faction})`, attrs: { type: 'button', role: 'radio', 'aria-checked': String(c().colour === r) },
-        on: { click: () => { app.editEffect(['controls', 'colour'], r, { label: 'Main colour' }); app.commit(); } } },
+      const b = h('button', { class: 'swatch', title: `${r} (${hex} for ${app.faction}): click to change the colour, or to make it the main colour`,
+        attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `${r}, ${hex}${c().colour === r ? ', the main colour' : ''}. Change the colour`, 'aria-current': String(c().colour === r) },
+        on: { click: (e) => app.openColourPicker(r, e.currentTarget as HTMLElement) } },
       h('span', { class: 'chip', style: `background:${hex}` }), h('span', { class: 'rname', text: r }));
       return b;
     }));

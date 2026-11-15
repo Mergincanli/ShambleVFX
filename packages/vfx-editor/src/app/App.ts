@@ -4,8 +4,9 @@
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
 import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Layer, Palette, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Layer, Palette, PaletteEntry, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
+import { roleNames } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
 import type { Atlas, Relation, Timeline } from '@shamble/vfx-runtime';
@@ -14,8 +15,8 @@ import { measureCost, readBudgets } from '../cost/measure';
 import type { Budgets, CostConditions, CostMetric, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
 import {
-  addEffect, addLayer, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
-  replaceLayer as replaceLayerIn, setEffectValue, setLayerValue,
+  ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
+  replaceLayer as replaceLayerIn, setEffectValue, setLayerValue, setRoleColour,
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
@@ -25,6 +26,7 @@ import { makeGameCamera } from '../preview/camera';
 import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
+import { ColourPicker } from './colorpicker';
 import { h, icon, segmented, selectField } from './dom';
 import { buildInspector } from './inspector';
 import { buildTimeline } from './timeline';
@@ -36,6 +38,12 @@ const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
+const THEME_KEY = 'vfx-theme';
+
+/** Night mode: dark panels round the preview (the preview itself keeps the game's colours). */
+function applyTheme(dark: boolean): void {
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+}
 const SHAPE_KINDS: ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
 const SHAPE_TEXT: Record<ShapeKind, string> = {
   shards: 'star of shards', flash: 'muzzle flash', cloud: 'cloud blast', smoke: 'smoke', ring: 'ring', dots: 'halftone dots', scorch: 'scorch mark',
@@ -95,6 +103,7 @@ export class App implements AppApi {
   private measuring: string | null = null;
   /** The atlas the preview draws with (the cost panel measures with it too). */
   private atlas: Atlas | null = null;
+  private picker!: ColourPicker;
 
   static async start(root: HTMLElement): Promise<App> {
     const app = new App();
@@ -198,6 +207,47 @@ export class App implements AppApi {
 
   previewTier(): TierName {
     return this.tier;
+  }
+
+  setFaction(f: FactionId): void {
+    if (f === this.faction) return;
+    this.faction = f;
+    this.preview.setFaction(f);
+    this.factionCtl.set(f);
+    this.inspector.refresh();
+    this.picker?.refresh();
+  }
+
+  setColour(role: string, hex: string, opts: { faction?: FactionId; mergeKey?: string } = {}): void {
+    const f = opts.faction ?? this.faction;
+    this.history.apply(`Colour ${role}`, setRoleColour(this.history.doc, role, f, hex), { mergeKey: opts.mergeKey && `colour:${role}:${f}:${opts.mergeKey}` });
+  }
+
+  restoreColour(role: string, entry: PaletteEntry, faction: FactionId): void {
+    this.history.apply(`Revert ${role}`, restoreRoleEntry(this.history.doc, role, faction, entry));
+    this.history.endGesture();
+  }
+
+  addColour(role: string, perFaction: boolean, hex: string): string | null {
+    if (!ROLE_NAME.test(role)) return 'Use lowercase words joined by dots, such as fire.blue.';
+    if (roleNames(this.palette).includes(role)) return `"${role}" is a colour already.`;
+    this.history.apply(`Add colour ${role}`, addRole(this.history.doc, role, perFaction, hex));
+    this.history.endGesture();
+    return null;
+  }
+
+  deriveColour(role: string, faction?: FactionId): void {
+    this.history.apply(`Work out ${role}`, deriveAgain(this.history.doc, role, faction ?? this.faction));
+    this.history.endGesture();
+  }
+
+  setMainColour(role: string): void {
+    this.editEffect(['controls', 'colour'], role, { label: 'Main colour' });
+    this.commit();
+  }
+
+  openColourPicker(role: string, anchor: HTMLElement): void {
+    this.picker.open(role, anchor);
   }
 
   events(): string[] {
@@ -316,6 +366,8 @@ export class App implements AppApi {
 
   private async boot(root: HTMLElement): Promise<void> {
     const params = new URLSearchParams(location.search);
+    const stored = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
+    applyTheme((params.get('theme') ?? stored) === 'dark');
     this.buildShell(root);
     this.preview = await Preview.create({
       container: this.els.viewport, palette: this.palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
@@ -328,6 +380,7 @@ export class App implements AppApi {
     this.els.backend.title = this.preview.backendName === 'WebGPU'
       ? 'Drawing with the WebGPU renderer. Add ?backend=webgl to the address to try the WebGL 2 fallback.'
       : 'Drawing with the WebGL 2 fallback of the WebGPU renderer.';
+    this.picker = new ColourPicker(this);
     this.inspector = buildInspector(this);
     root.querySelector('.right')!.append(this.inspector.el);
     this.timelineView = buildTimeline(this, (ms, done) => this.scrub(ms, done));
@@ -353,7 +406,14 @@ export class App implements AppApi {
 
   private buildShell(root: HTMLElement): void {
     const projectName = h('span', { class: 'project-name' });
-    const save = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Save (Ctrl+S)', text: 'Save', on: { click: () => void this.save() } });
+    const save = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Save (Ctrl+S)', on: { click: () => void this.save() } }, icon('save'), h('span', { class: 'save-label', text: 'Save' }));
+    const night = h('button', { class: 'tb theme-toggle', attrs: { type: 'button', 'aria-pressed': String(document.documentElement.dataset.theme === 'dark') },
+      title: 'Night mode: dark panels (the preview keeps the game\'s colours)', on: { click: () => {
+        const dark = document.documentElement.dataset.theme !== 'dark';
+        applyTheme(dark);
+        night.setAttribute('aria-pressed', String(dark));
+        try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch { /* storage may be blocked */ }
+      } } }, icon('moon'), h('span', { text: 'Night mode' }));
     const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, title: 'Undo (Ctrl+Z)', on: { click: () => this.history.undo() } }, icon('undo'));
     const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, title: 'Redo (Ctrl+Shift+Z)', on: { click: () => this.history.redo() } }, icon('redo'));
     const backend = h('span', { class: 'badge' });
@@ -362,12 +422,13 @@ export class App implements AppApi {
     const top = h('header', { class: 'topbar' },
       h('div', { class: 'brand' }, h('b', { text: 'Shamble' }), h('span', { text: 'VFX' })),
       h('div', { class: 'project' }, projectName,
-        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Projects…', on: { click: () => void this.projectsDialog() } }),
+        h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => void this.projectsDialog() } }, icon('projects'), h('span', { text: 'Projects…' })),
         save,
-        h('button', { class: 'tb save-as', attrs: { type: 'button' }, text: 'Save as…', on: { click: () => void this.saveAsDialog() } }),
-        h('button', { class: 'tb export', attrs: { type: 'button' }, text: 'Export…', title: 'Write the folder the game loads: a manifest, one file per effect, one packed atlas', on: { click: () => void this.exportDialog() } })),
-      h('div', { class: 'tools' }, undo, redo, backend,
-        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Keys', title: 'Keyboard shortcuts', on: { click: () => this.keysDialog() } })));
+        h('button', { class: 'tb save-as', attrs: { type: 'button' }, on: { click: () => void this.saveAsDialog() } }, icon('save-as'), h('span', { text: 'Save as…' })),
+        h('button', { class: 'tb export', attrs: { type: 'button' }, title: 'Write the folder the game loads: a manifest, one file per effect, one packed atlas', on: { click: () => void this.exportDialog() } },
+          icon('export'), h('span', { text: 'Export…' }))),
+      h('div', { class: 'tools' }, undo, redo, backend, night,
+        h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Keyboard shortcuts', on: { click: () => this.keysDialog() } }, icon('keys'), h('span', { text: 'Keys' }))));
 
     const effects = h('div', { class: 'list effects-list' });
     const layers = h('div', { class: 'list layers-list' });
@@ -382,7 +443,7 @@ export class App implements AppApi {
     const left = h('aside', { class: 'left' },
       h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
         h('button', { class: 'mini', attrs: { type: 'button' }, title: 'New effect', on: { click: () => this.newEffect() } }, icon('plus'), 'New'),
-        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'A copy of a ready-made effect: the drawing board\'s four, and the comic hits', on: { click: () => void this.presetDialog() } }, 'From preset…')), effects),
+        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'A copy of a ready-made effect: the drawing board\'s four, and the comic hits', on: { click: () => void this.presetDialog() } }, icon('preset'), 'From preset…')), effects),
       h('section', { class: 'card grow' }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
         h('div', { class: 'layer-tools' },
           addMenu),
@@ -393,20 +454,22 @@ export class App implements AppApi {
           h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, title: 'Duplicate', on: { click: () => this.duplicateSelected() } }, icon('copy')),
           h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, title: 'Delete layer (Del)', on: { click: () => this.deleteSelected() } }, icon('trash')))));
 
-    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', options: FACTION_IDS.map((f) => ({ value: f, label: builtInPalette.factions[f].name })), value: this.faction,
-      onChange: (f) => { this.faction = f; this.preview.setFaction(f); this.factionCtl.set(f); this.inspector.refresh(); }, small: true });
-    this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen' }, { value: 'game', label: 'Game size' }, { value: 'close', label: 'Close-up' }],
+    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', value: this.faction,
+      options: FACTION_IDS.map((f) => ({ value: f, label: builtInPalette.factions[f].name, icon: `faction-${f}` as const, style: `--team:${builtInPalette.factions[f].roles.team!.hex}` })),
+      onChange: (f) => this.setFaction(f), small: true });
+    this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen', icon: 'view-whole' }, { value: 'game', label: 'Game size', icon: 'view-game' }, { value: 'close', label: 'Close-up', icon: 'view-close' }],
       value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
-    this.closeCtl = segmented<'origin' | 'target'>({ label: 'Close-up on', options: [{ value: 'origin', label: 'Muzzle' }, { value: 'target', label: 'Target' }], value: 'target',
+    this.closeCtl = segmented<'origin' | 'target'>({ label: 'Close-up on', options: [{ value: 'origin', label: 'Muzzle', icon: 'muzzle' }, { value: 'target', label: 'Target', icon: 'target' }], value: 'target',
       onChange: (v) => { this.preview.setCloseOn(v); this.closeCtl.set(v); }, small: true });
     this.sceneCtl = selectField({ label: 'Scene', options: SCENES.map((x) => ({ value: x.id, label: x.name })), value: SCENES[0]!.id,
       onChange: (id) => this.chooseScene(id) });
     this.relationCtl = segmented<Relation>({ label: 'Made by', small: true, value: 'enemy',
-      options: [{ value: 'enemy', label: 'Enemy', title: 'An enemy made it: comic outlines in ink' }, { value: 'team', label: 'Your team', title: 'Your team made it: thin broken outlines' }, { value: 'self', label: 'You', title: 'You made it: your own words show' }],
+      options: [{ value: 'enemy', label: 'Enemy', icon: 'enemy', title: 'An enemy made it: comic outlines in ink' }, { value: 'team', label: 'Your team', icon: 'team', title: 'Your team made it: thin broken outlines' },
+        { value: 'self', label: 'You', icon: 'self', title: 'You made it: your own words show' }],
       onChange: (r) => { this.preview.setRelation(r); this.relationCtl.set(r); } });
     this.distanceBox = distanceControl((m) => { this.preview.setDistance(m); this.timelineView.refresh(); });
     this.tierCtl = segmented<TierName>({ label: 'Tier', small: true, value: 'high',
-      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
+      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], icon: `tier-${t}` as const, title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
       onChange: (t) => this.setTier(t) });
     const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
     const stats = h('button', { class: 'stats', attrs: { type: 'button' }, title: 'This frame. Click for the cost panel: the effect measured over its whole length, per tier',
@@ -880,6 +943,7 @@ export class App implements AppApi {
     this.renderEffects();
     this.renderLayers();
     this.inspector.refresh();
+    this.picker.refresh();
     this.timelineView.refresh();
     this.renderTopbar();
     if (why === 'undo' || why === 'redo') this.say(`${why === 'undo' ? 'Undid' : 'Redid'}.`);
@@ -988,7 +1052,7 @@ export class App implements AppApi {
     const dirty = this.history.dirty || this.metaDirty;
     this.els.projectName.textContent = p ? `${p.name}${dirty ? ' •' : ''}` : 'No project';
     this.els.projectName.title = p ? `${p.id}${p.writable ? '' : ' (example, read-only)'}` : '';
-    this.els.save.textContent = p && !p.writable ? 'Save as…' : 'Save';
+    (this.els.save.querySelector('.save-label') as HTMLElement).textContent = p && !p.writable ? 'Save as…' : 'Save';
     this.els.save.disabled = !!p && p.writable && !dirty;
     (this.els.root.querySelector('.save-as') as HTMLElement).style.display = p && !p.writable ? 'none' : '';
     this.els.undo.disabled = !this.history.canUndo;

@@ -173,6 +173,13 @@ export function setRoleColour(doc: EditorDoc, role: string, faction: FactionId, 
   return { ...doc, palette: withEntry(doc.palette, role, faction, { ...e, hex: up, from: 'mustafa' }) };
 }
 
+/** Put a role's entry back as it was (its colour, whose value it is, its note): the picker's Revert. */
+export function restoreRoleEntry(doc: EditorDoc, role: string, faction: FactionId, entry: PaletteEntry): EditorDoc {
+  const e = roleEntry(doc.palette, role, faction);
+  if (!e || (e.hex === entry.hex && e.from === entry.from && e.note === entry.note)) return doc;
+  return { ...doc, palette: withEntry(doc.palette, role, faction, { ...entry }) };
+}
+
 /**
  * Add a colour role, shared (one colour for everyone) or per faction (one colour each, all starting the same).
  * Nothing is renamed or removed: effects name roles, so a role, once used, has to stay.

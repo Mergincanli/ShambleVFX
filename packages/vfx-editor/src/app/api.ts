@@ -1,5 +1,5 @@
 /** What the panels may ask of the app. */
-import type { EffectFile, FactionId, Layer, Palette, TierName } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
 import type { Budgets, CostMetric, CostReport } from '../cost/measure';
@@ -29,6 +29,21 @@ export interface AppApi {
   /** The checker's problems for the current effect. */
   problems(): Problem[];
   importImages(): void;
+
+  /** Show the preview (and the colours) for another faction. */
+  setFaction(f: FactionId): void;
+  /** Change a colour in the project's palette (for the faction given, or the one shown). mergeKey: one undo step per drag. */
+  setColour(role: string, hex: string, opts?: { faction?: FactionId; mergeKey?: string }): void;
+  /** Put a colour back as it was (its value and whose it is). */
+  restoreColour(role: string, entry: PaletteEntry, faction: FactionId): void;
+  /** Add a colour role; returns why it could not, or null. */
+  addColour(role: string, perFaction: boolean, hex: string): string | null;
+  /** Work team.dark or glow.hot out again from its base. */
+  deriveColour(role: string, faction?: FactionId): void;
+  /** Make a role the current effect's main colour. */
+  setMainColour(role: string): void;
+  /** Open the colour picker on a role, next to a swatch. */
+  openColourPicker(role: string, anchor: HTMLElement): void;
 
   /** The quality tier the preview draws (Low, Medium or High). */
   previewTier(): TierName;

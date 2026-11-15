@@ -1,3 +1,6 @@
+import { icon } from './icons';
+import type { IconName } from './icons';
+
 /**
  * A few small DOM helpers and the editor's controls: sliders with a number box, segmented buttons,
  * number and text fields, selects and folding sections. Plain DOM, no framework.
@@ -56,9 +59,12 @@ export function slider(o: {
 }
 
 /** A row of buttons, one pressed. */
-export function segmented<T extends string | number>(o: { label?: string; options: { value: T; label: string; title?: string }[]; value: T; onChange(v: T): void; small?: boolean }): Control<T> {
+export function segmented<T extends string | number>(o: {
+  label?: string; options: { value: T; label: string; title?: string; icon?: IconName; style?: string }[]; value: T; onChange(v: T): void; small?: boolean;
+}): Control<T> {
   const buttons = o.options.map((opt) =>
-    h('button', { class: 'seg', title: opt.title, attrs: { type: 'button', 'aria-pressed': 'false' }, text: opt.label, on: { click: () => o.onChange(opt.value) } }));
+    h('button', { class: opt.icon ? 'seg with-icon' : 'seg', title: opt.title, style: opt.style, attrs: { type: 'button', 'aria-pressed': 'false' }, on: { click: () => o.onChange(opt.value) } },
+      opt.icon ? icon(opt.icon) : null, h('span', { text: opt.label })));
   const set = (v: T) => buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(o.options[i]!.value === v)));
   set(o.value);
   const group = h('div', { class: o.small ? 'seggroup small' : 'seggroup', attrs: { role: 'group', 'aria-label': o.label ?? '' } }, ...buttons);
@@ -119,41 +125,5 @@ export function fold(title: string, children: Child[], openByDefault = false): H
   return d;
 }
 
-export type IconName = 'play' | 'pause' | 'fire' | 'undo' | 'redo' | 'loop' | 'step-back' | 'step-fwd' | 'sprite' | 'projectile' | 'shape' | 'burst' | 'word' | 'plus' | 'up' | 'down' | 'copy' | 'trash';
-
-export function icon(name: IconName): SVGSVGElement {
-  const paths: Record<string, string> = {
-    play: 'M6 4l14 8-14 8z',
-    pause: 'M6 4h4v16H6zM14 4h4v16h-4z',
-    fire: 'M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z',
-    undo: 'M9 7H4V2M4 7a9 9 0 1 1-1 7',
-    redo: 'M15 7h5V2M20 7a9 9 0 1 0 1 7',
-    loop: 'M4 12a6 6 0 0 1 6-6h9M16 3l3 3-3 3M20 12a6 6 0 0 1-6 6H5M8 21l-3-3 3-3',
-    'step-back': 'M18 5v14l-9-7zM6 5h2v14H6z',
-    'step-fwd': 'M6 5v14l9-7zM16 5h2v14h-2z',
-    sprite: 'M4 4h16v16H4zM4 15l5-5 4 4 3-3 4 4',
-    projectile: 'M3 17L17 3M17 3h-6M17 3v6M6 21l3-3',
-    shape: 'M12 2l2.6 6.4L21 9l-5 4.4L17.6 21 12 17.4 6.4 21 8 13.4 3 9l6.4-.6z',
-    burst: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8',
-    word: 'M4 6h16M12 6v13M8 19h8',
-    plus: 'M12 4v16M4 12h16',
-    up: 'M12 5l7 8H5z',
-    down: 'M12 19l7-8H5z',
-    copy: 'M8 8h12v12H8zM4 4h12v2H6v10H4z',
-    trash: 'M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13',
-  };
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('class', 'icon');
-  svg.setAttribute('aria-hidden', 'true');
-  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  p.setAttribute('d', paths[name]!);
-  const filled = ['play', 'pause', 'fire', 'step-back', 'step-fwd', 'up', 'down'].includes(name);
-  p.setAttribute('fill', filled ? 'currentColor' : 'none');
-  p.setAttribute('stroke', 'currentColor');
-  p.setAttribute('stroke-width', filled ? '0' : '2');
-  p.setAttribute('stroke-linejoin', 'round');
-  p.setAttribute('stroke-linecap', 'round');
-  svg.append(p);
-  return svg;
-}
+export { icon, ICON_NAMES } from './icons';
+export type { IconName } from './icons';

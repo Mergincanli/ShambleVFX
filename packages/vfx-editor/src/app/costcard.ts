@@ -7,7 +7,7 @@ import type { TierName } from '@shamble/vfx-format';
 import { budgetOf, COST_METRICS, FRAMES_PER_SECOND, measuredOf } from '../cost/measure';
 import type { CostMetric, CostReport, TierCost } from '../cost/measure';
 import type { AppApi } from './api';
-import { h } from './dom';
+import { h, icon } from './dom';
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const METRIC_LABEL: Record<CostMetric, string> = { draws: 'Draws', sprites: 'Sprites alive', triangles: 'Triangles', area: 'Screen area', ms: 'CPU ms a frame' };
@@ -34,7 +34,9 @@ function valueText(c: TierCost, m: CostMetric): { main: string; sub: string } {
 
 export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   const status = h('p', { class: 'hint cost-status' });
-  const measure = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Measure', title: 'Play the effect through at 60 frames a second in each tier, at the game camera, and count', on: { click: () => app.measureCost() } });
+  const measureLabel = h('span', { text: 'Measure' });
+  const measure = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Play the effect through at 60 frames a second in each tier, at the game camera, and count', on: { click: () => app.measureCost() } },
+    icon('gauge'), measureLabel);
   const cells = new Map<string, { main: HTMLElement; sub: HTMLElement; cell: HTMLElement; box: HTMLInputElement }>();
   const rows = COST_METRICS.map((m) => h('tr', {},
     h('th', { attrs: { scope: 'row' }, title: METRIC_TITLE[m], text: METRIC_LABEL[m] }),
@@ -68,7 +70,7 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     const busy = app.costProgress();
     const stale = !!r && app.costStale();
     measure.disabled = !!busy || !app.effect();
-    measure.textContent = r ? 'Measure again' : 'Measure';
+    measureLabel.textContent = r ? 'Measure again' : 'Measure';
     status.textContent = busy ?? (!r ? 'Not measured yet. Measure plays the effect through in each tier; the preview waits meanwhile.'
       : stale ? 'The effect or the scene changed after measuring: these numbers are out of date. Measure again.'
         : `Measured over ${int(r.lengthMs)} ms (${int(r.frames)} frames).`);
