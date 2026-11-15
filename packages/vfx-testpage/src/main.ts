@@ -30,7 +30,7 @@ const offscreen = params.get('offscreen') === '1';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ui = {
   export: $<HTMLSelectElement>('export'), event: $<HTMLSelectElement>('event'), play: $<HTMLButtonElement>('play'),
-  repeat: $<HTMLInputElement>('repeat'), tier: $<HTMLSelectElement>('tier'), faction: $<HTMLSelectElement>('faction'),
+  repeat: $<HTMLInputElement>('repeat'), tier: $<HTMLSelectElement>('tier'), faction: $<HTMLElement>('faction'),
   by: $<HTMLSelectElement>('by'), height: $<HTMLSelectElement>('height'), distance: $<HTMLInputElement>('distance'),
   stage: $<HTMLDivElement>('stage'), status: $<HTMLElement>('status'),
 };
@@ -93,7 +93,23 @@ function inputs(): EffectInputs {
     target: [TARGET.x, h, TARGET.z],
   };
 }
-const faction = () => ui.faction.value as FactionId;
+let chosenFaction: FactionId = 'allies';
+let factionButtons: HTMLButtonElement[] = [];
+const faction = () => chosenFaction;
+
+// The factions' markings (sheet 16), drawn as outlines: the Soviet star (inner corners at 0.42), the Allied chevron
+// (six corners, twice as wide as high), the Empire's flower (five round petals, open centre 0.27).
+const MARKING: Record<FactionId, string> = {
+  soviets: (() => { const p: string[] = []; for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 9.5 * 0.42 : 9.5; p.push(`${(12 + r * Math.cos(a)).toFixed(2)} ${(12.8 + r * Math.sin(a)).toFixed(2)}`); } return `M${p.join('L')}Z`; })(),
+  allies: (() => { const q = (x: number, y: number) => `${(12 + x * 9.5).toFixed(2)} ${(12 + y * 9.5).toFixed(2)}`; return `M${q(-1, 0.5)}L${q(0, -0.5)}L${q(1, 0.5)}L${q(0.45, 0.5)}L${q(0, 0.05)}L${q(-0.45, 0.5)}Z`; })(),
+  empire: (() => {
+    const at = (deg: number, r: number) => { const a = (deg * Math.PI) / 180; return `${(12 + r * Math.cos(a)).toFixed(2)} ${(12 + r * Math.sin(a)).toFixed(2)}`; };
+    let d = `M${at(-126, 9.6 * 0.809)}`;
+    for (let k = 0; k < 5; k++) d += `A4.8 4.8 0 1 1 ${at(-126 + 72 * (k + 1), 9.6 * 0.809)}`;
+    const c = 9.6 * 0.27;
+    return `${d}ZM${12 + c} 12A${c} ${c} 0 1 0 ${12 - c} 12A${c} ${c} 0 1 0 ${12 + c} 12Z`;
+  })(),
+};
 const relation = () => ui.by.value as Relation;
 const distanceM = () => Math.max(0, Number(ui.distance.value) || 0);
 const lengthOf = (fx: EffectFile) => resolveTimeline(fx, inputs(), applyControls(fx.controls)).lengthMs;
@@ -178,6 +194,7 @@ async function load(folder: string): Promise<void> {
   }
   vfx.palette = loaded.palette;
   vfx.setAtlas(loaded.atlas);
+  factionButtons.forEach((b, i) => b.style.setProperty('--team', resolveRole(loaded!.palette, 'team', FACTION_IDS[i]!) ?? 'currentColor'));
   ui.event.replaceChildren(...loaded.events.map((e) => new Option(`${e}  →  ${loaded!.effectFor(e)!.name}`, e)));
   const want = params.get('event') ?? 'rifle.shot';
   if (loaded.events.includes(want)) ui.event.value = want;
@@ -272,8 +289,17 @@ async function main(): Promise<void> {
   scene.add(ring);
   standIns.push(ring);
 
-  ui.faction.replaceChildren(...FACTION_IDS.map((f) => new Option(f[0]!.toUpperCase() + f.slice(1), f)));
-  ui.faction.value = option('faction', FACTION_IDS) ?? 'allies';
+  chosenFaction = option('faction', FACTION_IDS) ?? 'allies';
+  factionButtons = FACTION_IDS.map((f) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path class="insignia" d="${MARKING[f]}"/></svg>`;
+    b.append(f[0]!.toUpperCase() + f.slice(1));
+    b.addEventListener('click', () => { chosenFaction = f; for (const x of factionButtons) x.setAttribute('aria-pressed', String(x === b)); });
+    return b;
+  });
+  factionButtons.forEach((b, i) => b.setAttribute('aria-pressed', String(FACTION_IDS[i] === chosenFaction)));
+  ui.faction.replaceChildren(...factionButtons);
   ui.tier.value = option('tier', TIER_NAMES) ?? 'high';
   ui.by.value = option('by', RELATIONS) ?? 'enemy';
 
