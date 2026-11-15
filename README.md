@@ -224,7 +224,8 @@ layer (such as tones in a star), not only whole layers; a gradient choice for sm
 the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
 an effect's own budgets in the editor (the files hold them, and the functions are there; the new Cost card comes with the new
 UI); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
-store and the load function are there; the buttons come with the new UI).
+store and the load function are there; the buttons, and naming the profile in the project when one is loaded or saved, come
+with the new UI; today only an import names it).
 
 ## Assumptions
 

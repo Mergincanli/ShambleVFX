@@ -46,7 +46,9 @@ Profiles live on this computer, not in a project, so one set of colours can go i
 - **Save as** keeps the project's palette profile name, and **Export** writes it into `editor.json`.
 
 The buttons for profiles come with the new editor UI. The editor's local server, its store (`src/io/store.ts`) and the load
-function (`loadProfile` in `src/doc/load-profile.ts`) already do all of the above.
+function (`loadProfile` in `src/doc/load-profile.ts`) already do the work behind them. One step comes with the buttons:
+naming the profile in the project (`paletteProfile`) when a profile is loaded, or when the project's colours are saved as
+one. Today only an import names it.
 
 A profile file looks like this. The editor makes the file names itself (`soviets-dark.json`, then `soviets-dark-2.json`
 when that is taken):
