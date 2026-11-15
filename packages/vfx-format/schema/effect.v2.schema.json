@@ -3330,6 +3330,31 @@
               "loop": {
                 "type": "boolean"
               },
+              "streak": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
+                  },
+                  "lengthM": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 20
+                  },
+                  "widthPx": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "role",
+                  "lengthM",
+                  "widthPx"
+                ],
+                "additionalProperties": false
+              },
               "groundStop": {
                 "type": "boolean"
               },

@@ -202,6 +202,7 @@ export const burstLayerSchema = z.strictObject({
   spinDegPerS: range(-36000, 36000),
   look: lookSchema,
   loop: z.boolean(),
+  streak: z.strictObject({ role: roleSchema, lengthM: pos().max(20), widthPx: pos().max(100) }).optional(),
   groundStop: z.boolean(),
   ...seedFields,
 });

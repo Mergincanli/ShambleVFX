@@ -41,6 +41,13 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
     const py = (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s;
     const size = pick(l.sizeM, r(3)) * curveAt(l.sizeOverLife, age / life) * ctx.s;
     if (size <= 0) continue;
+    if (l.streak && travel > 1e-4) {
+      // The streak runs back along the way the piece came (never past where it started), widest at the piece.
+      const back = Math.min(l.streak.lengthM * ctx.s, travel * ctx.s);
+      const hw = ctx.px(l.streak.widthPx) / 2;
+      const nx = -dy, ny = dx;
+      ctx.p.poly([px + nx * hw, py + ny * hw, px - dx * back, py - dy * back, px - nx * hw, py - ny * hw], ctx.rgba(l.streak.role));
+    }
     const spin = r(4) * TAU + pick(l.spinDegPerS, r(5)) * DEG * sec;
     drawPiece(ctx, look?.kind ?? 'dot', px, py, size, spin, a, fill, ink, edge, look ? ctx.px(look.inkPx) : 0);
   }

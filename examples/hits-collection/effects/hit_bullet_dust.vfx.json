@@ -1,0 +1,328 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "hit_bullet_dust",
+  "name": "Bullet hit: dust (stone, ground)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "heat.1"
+  },
+  "phases": {
+    "windupMs": 0,
+    "peakMs": 60,
+    "fadeMs": 360
+  },
+  "layers": [
+    {
+      "id": "flash",
+      "name": "Small flash",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 24
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 84,
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.2,
+        "points": 5,
+        "inner": 0.4,
+        "jitter": 0.25,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "heat.2",
+            "scale": 1
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.45
+          }
+        ],
+        "inkPx": 1.4,
+        "edge": "auto",
+        "whiteFirstStep": false,
+        "boilDeg": 2.3,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "dust",
+      "name": "Dust puff",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 420,
+      "shape": {
+        "kind": "smoke",
+        "style": "puff",
+        "radiusM": 0.3,
+        "role": "dust",
+        "rimRole": "dust.rim",
+        "inkPx": 1.8,
+        "grow": [
+          0.45,
+          1.1,
+          0
+        ],
+        "riseM": 0.28,
+        "driftM": [
+          0.05,
+          0
+        ]
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "chips",
+      "name": "Stone chips",
+      "type": "burst",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 5,
+      "lifeMs": [
+        260,
+        360
+      ],
+      "speedMps": [
+        3,
+        6
+      ],
+      "direction": "up",
+      "spreadDeg": 70,
+      "startRadiusM": [
+        0,
+        0
+      ],
+      "gravityMps2": 14,
+      "drag": 1.5,
+      "sizeM": [
+        0.03,
+        0.05
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "spinDegPerS": [
+        400,
+        900
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 4,
+      "perPlay": true,
+      "look": {
+        "kind": "chip",
+        "role": "stone",
+        "inkPx": 1,
+        "edge": "ink",
+        "inkRole": "stone.rim"
+      }
+    },
+    {
+      "id": "specks",
+      "name": "Grit",
+      "type": "burst",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 7,
+      "lifeMs": [
+        200,
+        320
+      ],
+      "speedMps": [
+        2.5,
+        5
+      ],
+      "direction": "out",
+      "spreadDeg": 180,
+      "startRadiusM": [
+        0,
+        0
+      ],
+      "gravityMps2": 9,
+      "drag": 2,
+      "sizeM": [
+        0.015,
+        0.025
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 5,
+      "perPlay": true,
+      "look": {
+        "kind": "speck",
+        "role": "debris",
+        "inkPx": 0,
+        "edge": "none"
+      }
+    },
+    {
+      "id": "word",
+      "name": "Gun word",
+      "type": "word",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "words": [
+        "THUD",
+        "POK",
+        "TAK"
+      ],
+      "letterPx": 17,
+      "colours": {
+        "top": "gunword.top",
+        "bottom": "gunword.bottom",
+        "back": "gunword.back"
+      },
+      "tiltDeg": [
+        -10,
+        -4
+      ],
+      "sizeJitter": 0.08,
+      "ramp": 0.2,
+      "bounce": 0.35,
+      "turnDeg": 4,
+      "slantDeg": 9,
+      "pop": {
+        "scale": 1.15,
+        "steps": 2
+      },
+      "breakUp": {
+        "lastMs": 90
+      },
+      "breakSteps": 0,
+      "riseM": 0,
+      "distance": {
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            5,
+            0.6
+          ],
+          [
+            8,
+            0.6
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "minPx": 14
+      },
+      "visibleTo": "shooter",
+      "seed": 6,
+      "perPlay": true,
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.22,
+        0.45
+      ]
+    }
+  ]
+}

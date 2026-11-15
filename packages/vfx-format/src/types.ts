@@ -501,6 +501,8 @@ export interface BurstLayer extends VisibleCommon {
   look: ParticleLook;
   /** Each piece starts again when its life ends (a loop of the layer's clock, not an emitter with memory). */
   loop: boolean;
+  /** A speed streak behind each piece, pointing back the way it came: tapered, in its own colour. */
+  streak?: { role: RoleName; lengthM: number; widthPx: number };
   /** Pieces stop on the ground instead of going through it. */
   groundStop: boolean;
   seed: number;

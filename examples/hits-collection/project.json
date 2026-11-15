@@ -1,0 +1,38 @@
+{
+  "format": "shamble-vfx-project",
+  "version": 1,
+  "name": "Comic hits",
+  "about": "A collection of hit effects in four sets: small arms, impact bursts, heavy explosions, energy. After the moves in the Art lead's hit references (2026-11-15), in Shamble VFX's own shapes, letters and colour roles.",
+  "preview": {
+    "hit_bullet_spark": {
+      "scene": "hit-unit"
+    },
+    "hit_bullet_dust": {
+      "scene": "hit-ground"
+    },
+    "hit_bullet_ricochet": {
+      "scene": "hit-unit"
+    },
+    "hit_burst_star": {
+      "scene": "hit-unit"
+    },
+    "hit_burst_cloud": {
+      "scene": "hit-unit"
+    },
+    "hit_burst_double": {
+      "scene": "hit-unit"
+    },
+    "hit_heavy_blast": {
+      "scene": "hit-ground"
+    },
+    "hit_heavy_puffs": {
+      "scene": "hit-ground"
+    },
+    "hit_energy_zap": {
+      "scene": "hit-unit"
+    },
+    "hit_energy_pulse": {
+      "scene": "hit-unit"
+    }
+  }
+}

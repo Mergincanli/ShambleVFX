@@ -81,6 +81,8 @@ export class Preview {
   view: ViewMode = 'whole';
   /** What the close-up centres on: the muzzle (origin) or the target. */
   closeOn: 'origin' | 'target' = 'target';
+  /** How much the close-up enlarges the game screen (2 = 200 %). */
+  closeZoom = 2;
   /** The share of the real game size the 1080p frame is shown at (1 = game size). */
   scale = 1;
   onTargetMoved: (() => void) | null = null;
@@ -242,6 +244,12 @@ export class Preview {
   /** What the close-up centres on: the muzzle or the target. */
   setCloseOn(v: 'origin' | 'target'): void {
     this.closeOn = v;
+    this.updateView();
+  }
+
+  /** How much the close-up enlarges (1 = game size, centred on the muzzle or the target). */
+  setCloseZoom(z: number): void {
+    this.closeZoom = Math.max(0.5, Math.min(4, z));
     this.updateView();
   }
 
@@ -419,7 +427,7 @@ export class Preview {
 
   private updateView(): void {
     const { x: w, y: h } = this.size;
-    const k = this.view === 'whole' ? Math.min(w / SCREEN_W, h / SCREEN_H) * 0.94 : this.view === 'frame' ? Math.min(w / SCREEN_W, h / SCREEN_H) : this.view === 'game' ? 1 : 2;
+    const k = this.view === 'whole' ? Math.min(w / SCREEN_W, h / SCREEN_H) * 0.94 : this.view === 'frame' ? Math.min(w / SCREEN_W, h / SCREEN_H) : this.view === 'game' ? 1 : this.closeZoom;
     this.scale = k;
     const vw = w / k, vh = h / k;
     let cx = SCREEN_W / 2, cy = SCREEN_H / 2;
@@ -440,7 +448,7 @@ export class Preview {
     Object.assign(this.frameBox.style, { left: `${left}px`, top: `${top}px`, width: `${SCREEN_W * k}px`, height: `${SCREEN_H * k}px` });
     this.scaleLabel.textContent = this.view === 'whole'
       ? `Whole game screen · preview at ${Math.round(k * 100)} % of game size`
-      : this.view === 'game' ? 'Game size (100 %): a 1.8 m soldier is about 150 px tall' : 'Close-up: 200 % of game size';
+      : this.view === 'game' ? 'Game size (100 %): a 1.8 m soldier is about 150 px tall' : `Close-up: ${Math.round(this.closeZoom * 100)} % of game size`;
   }
 
   private async copyOffscreen(): Promise<void> {

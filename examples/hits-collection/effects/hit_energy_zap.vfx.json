@@ -1,0 +1,334 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "hit_energy_zap",
+  "name": "Energy: zap",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "glow"
+  },
+  "phases": {
+    "windupMs": 0,
+    "peakMs": 300,
+    "fadeMs": 360
+  },
+  "layers": [
+    {
+      "id": "glow",
+      "name": "Glow",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "alpha": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.6,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 1.4,
+        "role": "glow",
+        "alpha": 0.75,
+        "soft": true,
+        "grow": [
+          0.6,
+          1.1
+        ],
+        "flicker": 0.08
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "dots",
+      "name": "Light dots",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "dots",
+        "radiusM": 1.5,
+        "innerM": 0.5,
+        "edgeM": 0.6,
+        "stepPx": 9,
+        "dotPx": 3.2,
+        "role": "glow.hot",
+        "alpha": 1,
+        "growFrom": 0.4,
+        "growMs": 100,
+        "flickerM": 0.06,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "star",
+      "name": "White star",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "steps": [
+          1.3,
+          1,
+          1.15,
+          1
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.55,
+        "points": 4,
+        "inner": 0.14,
+        "jitter": 0,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "glow.hot",
+            "scale": 1,
+            "vanishAt": 0.6
+          },
+          {
+            "role": "white",
+            "scale": 0.62
+          }
+        ],
+        "inkPx": 0,
+        "edge": "none",
+        "whiteFirstStep": false,
+        "boilDeg": 22,
+        "double": false,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "sparks",
+      "name": "Sparks",
+      "type": "burst",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 8,
+      "lifeMs": [
+        300,
+        460
+      ],
+      "speedMps": [
+        6,
+        10
+      ],
+      "direction": "out",
+      "spreadDeg": 180,
+      "startRadiusM": [
+        0.2,
+        0.3
+      ],
+      "gravityMps2": 0,
+      "drag": 3.5,
+      "sizeM": [
+        0.035,
+        0.05
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0.3
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 61,
+      "perPlay": true,
+      "streak": {
+        "role": "glow",
+        "lengthM": 0.5,
+        "widthPx": 3
+      },
+      "look": {
+        "kind": "diamond",
+        "role": "white",
+        "inkPx": 0,
+        "edge": "none"
+      }
+    },
+    {
+      "id": "word",
+      "name": "Sound word",
+      "type": "word",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "words": [
+        "ZAP",
+        "ZZAK",
+        "ZOK"
+      ],
+      "letterPx": 32,
+      "colours": {
+        "top": "white",
+        "bottom": "glow",
+        "back": "team.dark"
+      },
+      "tiltDeg": [
+        6,
+        12
+      ],
+      "sizeJitter": 0.08,
+      "ramp": 0.15,
+      "bounce": 0.35,
+      "turnDeg": 4,
+      "slantDeg": 9,
+      "pop": {
+        "scale": 1.15,
+        "steps": 2
+      },
+      "breakUp": {
+        "phase": "fade"
+      },
+      "breakSteps": 3,
+      "riseM": 0,
+      "distance": {
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            5,
+            0.6
+          ],
+          [
+            8,
+            0.6
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "minPx": 14
+      },
+      "visibleTo": "everyone",
+      "seed": 62,
+      "perPlay": true,
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.1,
+        0.62
+      ]
+    }
+  ]
+}

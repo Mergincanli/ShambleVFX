@@ -1,0 +1,268 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "hit_bullet_spark",
+  "name": "Bullet hit: spark (metal)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "heat.1"
+  },
+  "phases": {
+    "windupMs": 0,
+    "peakMs": 80,
+    "fadeMs": 160
+  },
+  "layers": [
+    {
+      "id": "star",
+      "name": "Spark star",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 24
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "peak",
+      "scale": {
+        "steps": [
+          1.25,
+          1,
+          0.8
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.3,
+        "points": 6,
+        "inner": 0.24,
+        "jitter": 0.12,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "heat.3",
+            "scale": 1
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.5
+          }
+        ],
+        "inkPx": 1.6,
+        "edge": "auto",
+        "whiteFirstStep": true,
+        "boilDeg": 8,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "lines",
+      "name": "Hit lines",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "peak",
+      "shape": {
+        "kind": "lines",
+        "count": 7,
+        "innerM": [
+          0.32,
+          0.42
+        ],
+        "lengthM": [
+          0.16,
+          0.3
+        ],
+        "widthPx": [
+          1.6,
+          2.2
+        ],
+        "role": "ink",
+        "until": 0.7,
+        "spread": 0.4
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "needles",
+      "name": "Spark needles",
+      "type": "burst",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 6,
+      "lifeMs": [
+        150,
+        220
+      ],
+      "speedMps": [
+        7,
+        11
+      ],
+      "direction": "out",
+      "spreadDeg": 180,
+      "startRadiusM": [
+        0,
+        0
+      ],
+      "gravityMps2": 3,
+      "drag": 6,
+      "sizeM": [
+        0.03,
+        0.045
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0.4
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 2,
+      "perPlay": true,
+      "look": {
+        "kind": "spark",
+        "role": "glow",
+        "inkPx": 1.2,
+        "edge": "enemy"
+      }
+    },
+    {
+      "id": "word",
+      "name": "Gun word",
+      "type": "word",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "words": [
+        "PANG",
+        "TING",
+        "PING"
+      ],
+      "letterPx": 18,
+      "colours": {
+        "top": "gunword.top",
+        "bottom": "gunword.bottom",
+        "back": "gunword.back"
+      },
+      "tiltDeg": [
+        6,
+        12
+      ],
+      "sizeJitter": 0.08,
+      "ramp": 0.2,
+      "bounce": 0.35,
+      "turnDeg": 4,
+      "slantDeg": 9,
+      "pop": {
+        "scale": 1.15,
+        "steps": 2
+      },
+      "breakUp": {
+        "lastMs": 90
+      },
+      "breakSteps": 0,
+      "riseM": 0,
+      "distance": {
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            5,
+            0.6
+          ],
+          [
+            8,
+            0.6
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "minPx": 14
+      },
+      "visibleTo": "shooter",
+      "seed": 3,
+      "perPlay": true,
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.25,
+        0.42
+      ]
+    }
+  ]
+}

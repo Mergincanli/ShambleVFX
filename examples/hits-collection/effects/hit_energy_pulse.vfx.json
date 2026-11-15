@@ -1,0 +1,376 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "hit_energy_pulse",
+  "name": "Energy: pulse",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "glow"
+  },
+  "phases": {
+    "windupMs": 0,
+    "peakMs": 260,
+    "fadeMs": 300
+  },
+  "layers": [
+    {
+      "id": "ring1",
+      "name": "Pulse ring",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 320,
+      "alpha": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.6,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "ring",
+        "radiusM": 1.5,
+        "widthPx": 6,
+        "inkPx": 0,
+        "role": "glow.hot",
+        "style": "solid",
+        "teeth": 0,
+        "teethM": 0.1,
+        "growFrom": 0.15,
+        "growMs": 260
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "ring2",
+      "name": "Second ring",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 90
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 300,
+      "alpha": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "ring",
+        "radiusM": 1.1,
+        "widthPx": 3.5,
+        "inkPx": 0,
+        "role": "glow",
+        "style": "solid",
+        "teeth": 0,
+        "teethM": 0.1,
+        "growFrom": 0.1,
+        "growMs": 260
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "glow",
+      "name": "Glow",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "glow",
+        "radiusM": 1.0,
+        "role": "glow",
+        "alpha": 0.8,
+        "soft": true,
+        "grow": [
+          1.2,
+          0.5
+        ],
+        "flicker": 0.1
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "core",
+      "name": "Core star",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "steps": [
+          1.35,
+          1.0,
+          1.2,
+          1.0
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.42,
+        "points": 6,
+        "inner": 0.3,
+        "jitter": 0.1,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "glow.hot",
+            "scale": 1,
+            "vanishAt": 0.5
+          },
+          {
+            "role": "white",
+            "scale": 0.55
+          }
+        ],
+        "inkPx": 0,
+        "edge": "none",
+        "whiteFirstStep": false,
+        "boilDeg": 14,
+        "double": false,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "needles",
+      "name": "Needles",
+      "type": "burst",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 10,
+      "lifeMs": [
+        240,
+        360
+      ],
+      "speedMps": [
+        7,
+        11
+      ],
+      "direction": "out",
+      "spreadDeg": 180,
+      "startRadiusM": [
+        0.15,
+        0.25
+      ],
+      "gravityMps2": 0,
+      "drag": 4,
+      "sizeM": [
+        0.04,
+        0.05
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0.2
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 71,
+      "perPlay": true,
+      "look": {
+        "kind": "spark",
+        "role": "glow.hot",
+        "inkPx": 0,
+        "edge": "none"
+      }
+    },
+    {
+      "id": "word",
+      "name": "Sound word",
+      "type": "word",
+      "start": {
+        "phase": "peak",
+        "ms": 30
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "words": [
+        "ZZAK",
+        "ZAP"
+      ],
+      "letterPx": 30,
+      "colours": {
+        "top": "white",
+        "bottom": "glow",
+        "back": "team.dark"
+      },
+      "tiltDeg": [
+        -11,
+        -5
+      ],
+      "sizeJitter": 0.08,
+      "ramp": -0.12,
+      "bounce": 0.35,
+      "turnDeg": 4,
+      "slantDeg": 9,
+      "pop": {
+        "scale": 1.15,
+        "steps": 2
+      },
+      "breakUp": {
+        "phase": "fade"
+      },
+      "breakSteps": 3,
+      "riseM": 0,
+      "distance": {
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            5,
+            0.6
+          ],
+          [
+            8,
+            0.6
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "minPx": 14
+      },
+      "visibleTo": "everyone",
+      "seed": 72,
+      "perPlay": true,
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        -0.05,
+        0.6
+      ]
+    }
+  ]
+}
