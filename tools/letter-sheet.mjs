@@ -61,10 +61,10 @@ const rows = [
     fx: effect('l_close', 'Close up', line('c', ['IJK', 'PQR', 'UVWXYZ'], 44, UPRIGHT, 0, 30)) },
   { zoom: 3, w: 1560, h: 330, label: 'The comic layout: slanted 9°, each letter turned up to 4° and up to 0.35 off the line',
     fx: effect('l_comic', 'Comic layout', [...line('d', [HALVES[0]], 30, COMIC, 26, 0, [3]), ...line('e', [HALVES[1]], 30, COMIC, -26, 0, [5])]) },
-  { zoom: 2.5, w: 1560, h: 330, label: 'Words with the new letters: tilted 4° to 10°, growing along the word (ramp 0.2)',
+  { zoom: 2.5, w: 1560, h: 440, label: 'Words with the new letters: tilted 4° to 10°, growing along the word (ramp 0.2)',
     fx: effect('l_words', 'Words', [
-      ...line('f', WORDS.slice(0, 3), 40, { ...COMIC, tilt: [4, 10], ramp: 0.2 }, 30, 40, [2, 4, 6]),
-      ...line('g', WORDS.slice(3), 40, { ...COMIC, tilt: [-10, -4], ramp: 0.2 }, -32, 40, [8, 10, 12]),
+      ...line('f', WORDS.slice(0, 3), 40, { ...COMIC, tilt: [4, 10], ramp: 0.2 }, 40, 40, [2, 4, 6]),
+      ...line('g', WORDS.slice(3), 40, { ...COMIC, tilt: [-10, -4], ramp: 0.2 }, -42, 40, [8, 10, 12]),
     ]) },
   { zoom: 1, w: 760, h: 150, label: 'At game size (100 %): letters 32, 20 and 16 px tall', small: true,
     fx: effect('l_game', 'Game size', [

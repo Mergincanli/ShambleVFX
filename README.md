@@ -249,7 +249,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     Y has arms 25° from upright and a stem 1.8 wide. Their strokes are 1.45 to 1.8 units thick, inside the board's own range
     (1.1 for the A's bar to 1.9 for the I).
   - The Q's tail is the only part of any letter below the line. It also reaches 0.4 past the Q's width, under the next
-    letter, so the gap after the Q's round part is as wide as the other gaps.
+    letter, so the gap after the Q's round part stays near the others: 0.9 units (most letters leave 0.5, the R 0.7).
   - No new format version: the files keep their shape. A word with these letters used to leave them out (the checker
     warned); now it draws them.
 
