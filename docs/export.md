@@ -63,8 +63,9 @@ palette is refused, and nothing is made.
 
 Exporting that project again gives the same files, byte for byte, with one difference when the project had no palette
 profile: `editor.json` now names the one the import made. From then on, export, import and export give the same files (the
-tests check this on both examples, on a version 1 project with budgets, and on a version 2 project with budgets at all three
-levels and a palette profile, whose two exports are the same from the start).
+tests check this on both examples, whose `project.json` is version 2, on a version 1 project with budgets that the tests make
+themselves, and on a version 2 project with budgets at all three levels and a palette profile, whose two exports are the same
+from the start).
 
 ## editor.json
 

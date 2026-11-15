@@ -1,0 +1,39 @@
+{
+  "format": "shamble-vfx-project",
+  "version": 1,
+  "name": "Demo project",
+  "events": {
+    "board_muzzle": [
+      "rifle.shot"
+    ],
+    "board_shell": [
+      "tank.shot"
+    ],
+    "board_beam": [
+      "hammer.leech"
+    ],
+    "board_molotov": [
+      "molotov.land"
+    ],
+    "rifle_shot": [
+      "demo.rifle.shot"
+    ],
+    "shell_flight": [
+      "demo.tank.shot"
+    ]
+  },
+  "preview": {
+    "board_shell": {
+      "scene": "board-shell"
+    },
+    "board_muzzle": {
+      "scene": "board-muzzle"
+    },
+    "board_beam": {
+      "scene": "board-beam"
+    },
+    "board_molotov": {
+      "scene": "board-molotov"
+    }
+  }
+}

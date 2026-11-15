@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx-project",
-  "version": 1,
+  "version": 2,
   "name": "Demo project",
   "events": {
     "board_muzzle": [

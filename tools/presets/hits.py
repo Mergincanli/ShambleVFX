@@ -223,7 +223,7 @@ L = [
 ]
 save(effect("hit_energy_pulse", "Energy: pulse", (0, 260, 300), L, colour="glow"), "hit-unit")
 
-proj = {"format": "shamble-vfx-project", "version": 1, "name": "Comic hits",
+proj = {"format": "shamble-vfx-project", "version": 2, "name": "Comic hits",
         "about": "A collection of hit effects in four sets: small arms, impact bursts, heavy explosions, energy. After the moves in the Art lead's hit references (2026-11-15), in Shamble VFX's own shapes, letters and colour roles.",
         "events": {fid: EVENTS[fid] for (fid, sc) in made},
         "preview": {fid: {"scene": sc} for (fid, sc) in made}}

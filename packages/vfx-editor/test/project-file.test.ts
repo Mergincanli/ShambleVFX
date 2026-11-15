@@ -8,6 +8,8 @@ import type { ProjectFile } from '../src/io/project-file';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
 const exampleText = (name: string) => readFileSync(join(repo, 'examples', name, 'project.json'), 'utf8');
+/** The tests' own version 1 files: the examples' project.json as they were before they moved to version 2. */
+const version1Text = (name: string) => readFileSync(join(import.meta.dirname, 'fixtures', 'project-v1', `${name}.json`), 'utf8');
 
 /** Read project.json and insist that it worked. */
 function read(raw: unknown) {
@@ -33,13 +35,24 @@ const V2_TEXT = toJson({
 });
 
 describe('project.json', () => {
-  it.each(['demo-project', 'hits-collection'])('reads the example %s (version 1) as version 2; written again, only the version number changes', (name) => {
+  it.each(['demo-project', 'hits-collection'])('reads the example %s (version 2) and writes it back byte for byte', (name) => {
     const text = exampleText(name);
     const r = read(JSON.parse(text));
+    expect(r.upgradedFrom).toBeUndefined();
+    expect(r.project.budgets).toEqual(defaultBudgets());
+    expect(text).toContain('"version": 2,');
+    expect(toJson(toProjectJson(r.project))).toBe(text);
+  });
+
+  it.each(['demo-project', 'hits-collection'])('reads the example %s as it was at version 1 as version 2; written again, it is today\'s example', (name) => {
+    const old = version1Text(name);
+    expect(old).toContain('"version": 1,');
+    const r = read(JSON.parse(old));
     expect(r.upgradedFrom).toBe(1);
     expect(r.project.budgets).toEqual(defaultBudgets());
-    expect(text).toContain('"version": 1,');
-    expect(toJson(toProjectJson(r.project))).toBe(text.replace('"version": 1,', '"version": 2,'));
+    // Only the version number changes.
+    expect(toJson(toProjectJson(r.project))).toBe(old.replace('"version": 1,', '"version": 2,'));
+    expect(toJson(toProjectJson(r.project))).toBe(exampleText(name));
   });
 
   it('reads version 1 budgets as the project level, switched off; written as version 2 with the numbers kept', () => {

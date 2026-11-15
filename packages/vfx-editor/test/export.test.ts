@@ -324,7 +324,8 @@ describe('project.json version 2 and editor.json', () => {
   it('a version 1 project with budgets: they travel as the project level, switched off, and export, import, export gives the same files', async () => {
     const dir = join(tmp, 'v1-budgets');
     cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
-    writeFileSync(join(dir, 'project.json'), toJson({ ...demo, budgets: { high: { triangles: 5000, draws: 3 }, low: { ms: 1.5 } } }));
+    // A version 1 project.json of the test's own: the demo's, with version 1's one set of budgets.
+    writeFileSync(join(dir, 'project.json'), toJson({ ...demo, version: 1, budgets: { high: { triangles: 5000, draws: 3 }, low: { ms: 1.5 } } }));
     expect(json(join(dir, 'project.json')).version).toBe(1);
     const { out, back } = await roundTrip('v1-budgets', dir, demo.name);
     // The first export, pinned: editor.json version 2, the numbers kept at the project level, off (no "on").
