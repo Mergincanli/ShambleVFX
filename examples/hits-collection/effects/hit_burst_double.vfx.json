@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_burst_double",
   "name": "Impact: jagged double burst",
   "controls": {
@@ -84,7 +84,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "ticks",
@@ -128,7 +133,10 @@
         "spread": 0.6
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "stars",
@@ -195,7 +203,11 @@
         "role": "glow",
         "inkPx": 1.5,
         "edge": "auto"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "chips",
@@ -263,7 +275,11 @@
         "role": "debris",
         "inkPx": 1.4,
         "edge": "ink"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -349,7 +365,12 @@
         0,
         0.58
       ],
-      "separation": "heat.3"
+      "separation": "heat.3",
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ]
 }

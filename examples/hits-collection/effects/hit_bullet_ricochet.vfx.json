@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_bullet_ricochet",
   "name": "Bullet hit: ricochet",
   "controls": {
@@ -62,7 +62,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "sparks",
@@ -133,7 +138,12 @@
         "role": "glow",
         "inkPx": 1,
         "edge": "enemy"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -216,6 +226,11 @@
       "shiftM": [
         0.3,
         0.38
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

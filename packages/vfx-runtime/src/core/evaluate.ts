@@ -4,7 +4,7 @@
  * There is no hidden state, so any moment can be drawn directly, in any order, and the same in gives the same out.
  */
 import { MAIN_ROLE, isInputAnchor, parseHex, resolveRole, srgbToLinear } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, Timing, Vec3, VisibleLayer } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, TierName, Timing, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import { applyControls } from './controls';
 import type { ResolvedControls } from './controls';
 import { curveAt } from './draw';
@@ -62,6 +62,8 @@ export interface EvalContext {
   dot?: UvRect;
   /** px on a 1080p screen per metre at the game camera. Default 100.7 (drawing board v7). */
   pxPerMetre?: number;
+  /** The quality tier: layers that do not show in it are not drawn (timing stays the same). Default high. */
+  tier?: TierName;
 }
 
 export interface EvalResult {
@@ -137,9 +139,12 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     return col;
   };
 
+  const tier = ctx.tier ?? 'high';
   for (let i = 0; i < fx.layers.length; i++) {
     const l = fx.layers[i]!;
     if (l.type === 'projectile') continue;
+    // A layer not in this tier is only not drawn: when everything starts and ends stays the same in every tier.
+    if (l.tiers && !l.tiers.includes(tier)) continue;
     const span = tl.layers[i]!;
     const tauRaw = ctx.timeMs - span.startMs;
     const life = span.endMs - span.startMs;

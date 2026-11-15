@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "board_shell",
   "name": "Tank shell (board)",
   "controls": {
@@ -59,7 +59,12 @@
         "growMs": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "scorch",
@@ -99,7 +104,12 @@
         "growMs": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "ring",
@@ -140,7 +150,12 @@
         "growMs": 72
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "dots",
@@ -182,7 +197,10 @@
         "flickerM": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "muzzle_dots",
@@ -231,7 +249,10 @@
         "flickerM": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "muzzle_blast",
@@ -296,7 +317,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "gun_smoke",
@@ -338,7 +364,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "fire_word",
@@ -410,7 +440,12 @@
       },
       "visibleTo": "everyone",
       "seed": 12,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "shell",
@@ -478,7 +513,12 @@
         "dashes": 5
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke_left",
@@ -525,7 +565,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke_right",
@@ -572,7 +616,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "speed_lines",
@@ -620,7 +668,11 @@
         "spread": 0.25
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "burst",
@@ -697,7 +749,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "debris",
@@ -768,7 +825,11 @@
       "loop": false,
       "groundStop": false,
       "seed": 3,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "sparks",
@@ -843,7 +904,11 @@
       "loop": false,
       "groundStop": false,
       "seed": 5,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -929,7 +994,12 @@
       },
       "visibleTo": "everyone",
       "seed": 4,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ]
 }

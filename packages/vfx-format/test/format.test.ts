@@ -153,7 +153,7 @@ describe('checkEffect', () => {
   });
 });
 
-describe('version 1 -> 2', () => {
+describe('version 1 -> 3', () => {
   const v1 = {
     format: 'shamble-vfx', version: 1, id: 'old_shot', name: 'Old shot', controls: { size: 1, intensity: 1, duration: 1, colour: 'glow' },
     layers: [
@@ -161,22 +161,23 @@ describe('version 1 -> 2', () => {
       { id: 'flash', name: 'Flash', type: 'sprite', start: { ms: 0 }, timing: { mode: 'steps', perSecond: 24 }, at: { input: 'origin', offset: [0, 0, 0] }, image: 'flash.png', pivot: [0.16, 0.5], sizeM: [1.2, 1.2], tint: { mode: 'keep' }, facing: 'path', durationMs: 160 },
     ],
   };
-  it('upgrades speedMps to a flight by speed, adds a straight arc, normal blend and empty phases', () => {
+  it('upgrades speedMps to a flight by speed, adds a straight arc, normal blend, empty phases and all tiers', () => {
     const r = checkEffect(v1, { palette, images });
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(1);
     const fx = r.effect!;
-    expect(fx.version).toBe(2);
+    expect(fx.version).toBe(3);
     expect(fx.phases).toEqual({ windupMs: 0, peakMs: 0, fadeMs: 0 });
     expect(fx.layers[0]).toMatchObject({ type: 'projectile', flight: { mode: 'speed', mps: 800 }, arcM: 0 });
     expect('speedMps' in fx.layers[0]!).toBe(false);
-    expect(fx.layers[1]).toMatchObject({ type: 'sprite', blend: 'normal', facing: 'path' });
+    expect(fx.layers[1]).toMatchObject({ type: 'sprite', blend: 'normal', facing: 'path', tiers: ['low', 'medium', 'high'] });
+    expect('tiers' in fx.layers[0]!).toBe(false);
   });
   it('gives back the upgraded file even when it has problems, so an old file never reaches the runtime as it was', () => {
     const r = checkEffect(v1, { palette, images: ['other.png'] });
     expect(r.ok).toBe(false);
-    expect((r.upgraded as { version: number }).version).toBe(2);
-    expect(r.effect?.version).toBe(2);
+    expect((r.upgraded as { version: number }).version).toBe(3);
+    expect(r.effect?.version).toBe(3);
   });
 });
 
@@ -234,10 +235,38 @@ describe('version 2 rules', () => {
   });
 });
 
+describe('version 2 -> 3: quality tiers', () => {
+  it('gives every visible layer all three tiers and leaves projectiles alone', () => {
+    const v2 = { ...goodEffect(), version: 2 } as Record<string, unknown>;
+    v2.layers = (v2.layers as Record<string, unknown>[]).map((l) => { const { tiers, ...rest } = l as Record<string, unknown>; void tiers; return rest; });
+    const r = checkEffect(v2, { palette, images });
+    expect(problemLines(r.problems)).toEqual([]);
+    expect(r.upgradedFrom).toBe(2);
+    for (const l of r.effect!.layers) {
+      if (l.type === 'projectile') expect('tiers' in l).toBe(false);
+      else expect(l.tiers).toEqual(['low', 'medium', 'high']);
+    }
+  });
+  it('refuses an empty or doubled tier list', () => {
+    const fx = newEffect('t', 'T');
+    fx.layers.push({ ...newShapeLayer('a', 'A', 'glow'), tiers: [] }, { ...newShapeLayer('b', 'B', 'glow'), tiers: ['low', 'low'] });
+    const m = messages(fx);
+    expect(m).toContain('layers[0].tiers: needs at least one tier');
+    expect(m).toContain('layers[1].tiers: names a tier twice');
+  });
+  it('warns when nothing shows in the Low tier', () => {
+    const fx = newEffect('t', 'T');
+    fx.layers.push({ ...newShapeLayer('a', 'A', 'glow'), tiers: ['medium', 'high'] });
+    const r = checkEffect(fx, { palette, images });
+    expect(r.ok).toBe(true);
+    expect(problemLines(r.problems)).toEqual(['warning: layers: nothing shows in the Low tier: Low drops extras, but the effect should still read']);
+  });
+});
+
 describe('versions and upgrades', () => {
   it('refuses a file from a newer version and says so', () => {
     const fx = { ...goodEffect(), version: FORMAT_VERSION + 1 };
-    expect(messages(fx)[0]).toMatch(/newer Shamble VFX \(file version 3\); this one reads up to version 2/);
+    expect(messages(fx)[0]).toMatch(/newer Shamble VFX \(file version 4\); this one reads up to version 3/);
   });
 
   it('leaves a current file unchanged and does not touch the input', () => {
@@ -251,7 +280,7 @@ describe('versions and upgrades', () => {
 
   it('runs upgrade steps in order (tested with a made-up version 0)', () => {
     const v0 = { format: 'shamble-vfx', version: 0, id: 'old', title: 'Old effect', controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' }, layers: [] };
-    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]! };
+    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]! };
     const r = checkEffect(v0, { palette, images, migrations: fake });
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(0);

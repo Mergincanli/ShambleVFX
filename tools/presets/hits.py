@@ -12,7 +12,23 @@ GUNWORD = {"top": "gunword.top", "bottom": "gunword.bottom", "back": "gunword.ba
 WORD = {"top": "white", "bottom": "glow", "back": "team.dark"}
 made = []
 
+TIERS = {
+    # effect id: (Low drops, Medium drops). Proposals: Low keeps the main shape, the word and the team-coloured marks.
+    "hit_bullet_spark": (["lines"], []),
+    "hit_bullet_dust": (["specks"], []),
+    "hit_bullet_ricochet": ([], []),
+    "hit_burst_star": (["dots", "lines", "shards_light", "stars"], ["dots"]),
+    "hit_burst_cloud": (["ticks", "specks", "puffs"], ["specks"]),
+    "hit_burst_double": (["ticks", "stars", "chips"], ["ticks"]),
+    "hit_heavy_blast": (["glow_dots", "speed_lines", "smoke_l", "smoke_r", "specks", "chunks"], ["glow_dots", "specks"]),
+    "hit_heavy_puffs": (["dots", "specks", "puff3", "puff4", "puff5"], ["dots"]),
+    "hit_energy_zap": (["glow", "dots"], ["dots"]),
+    "hit_energy_pulse": (["glow", "ring2", "needles"], ["ring2"]),
+}
+
 def save(fx, scene):
+    low, medium = TIERS.get(fx["id"], ([], []))
+    apply_tiers(fx, low_drop=low, medium_drop=medium)
     write(os.path.join(outdir, "effects", fx["id"] + ".vfx.json"), fx)
     made.append((fx["id"], scene))
 

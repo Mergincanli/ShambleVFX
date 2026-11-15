@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "shell_flight",
   "name": "Tank shell flight (demo)",
   "controls": {
@@ -61,6 +61,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -101,6 +106,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "layer": "shell"
       },
@@ -131,6 +141,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "layer": "shell"
       },
@@ -161,6 +176,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [

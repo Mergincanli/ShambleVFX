@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "board_molotov",
   "name": "Molotov flame pit (board)",
   "controls": {
@@ -63,7 +63,12 @@
         "growMs": 175
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "light_dots",
@@ -105,7 +110,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "fire_ring",
@@ -146,7 +155,12 @@
         "squash": 0.578
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "bed",
@@ -191,7 +205,12 @@
         "part": "lumps"
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "bed_detail",
@@ -236,7 +255,10 @@
         "part": "detail"
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "flames",
@@ -295,7 +317,73 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "id": "flames_low",
+      "name": "Tongues (Low: seven)",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "flames",
+        "radiusM": 2.2,
+        "count": 7,
+        "depth": "all",
+        "tallM": [
+          0.5,
+          3.0
+        ],
+        "widthM": [
+          0.16,
+          0.4
+        ],
+        "lean": 0.15,
+        "sway": 0.12,
+        "cycleSteps": [
+          5,
+          8
+        ],
+        "tones": [
+          "heat.1",
+          "heat.2",
+          "heat.3",
+          "heat.4"
+        ],
+        "shadeRole": "heat.dark",
+        "inkPx": 4.25,
+        "edge": "auto",
+        "licks": true,
+        "growMs": 250,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true,
+      "tiers": [
+        "low"
+      ]
     },
     {
       "id": "spikes",
@@ -378,7 +466,12 @@
         "role": "heat.1",
         "inkPx": 3.4,
         "edge": "enemy"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "ignition_star",
@@ -459,7 +552,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "ignition_lines",
@@ -506,7 +604,11 @@
         "spread": 0.3
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke",
@@ -559,7 +661,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "sparks",
@@ -635,7 +741,11 @@
         "role": "glow",
         "inkPx": 0.75,
         "edge": "enemy"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "sparks_hot",
@@ -711,7 +821,11 @@
         "role": "heat.4",
         "inkPx": 0.75,
         "edge": "enemy"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -784,7 +898,11 @@
           0.62,
           1
         ]
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     }
   ]
 }

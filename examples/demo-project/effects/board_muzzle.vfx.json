@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "board_muzzle",
   "name": "Rifle shot (board)",
   "controls": {
@@ -70,7 +70,11 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "hit_light",
@@ -107,7 +111,11 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "glint",
@@ -167,7 +175,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "tracer_flight",
@@ -242,7 +255,12 @@
         "dashes": 5
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "flash",
@@ -296,7 +314,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "flash_sparks",
@@ -365,7 +388,11 @@
         "role": "glow",
         "inkPx": 0,
         "edge": "none"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "hit",
@@ -426,7 +453,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke",
@@ -473,7 +505,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "dust",
@@ -520,7 +556,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "chips",
@@ -589,7 +629,11 @@
         "inkPx": 1,
         "edge": "ink",
         "inkRole": "stone.rim"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     }
   ]
 }

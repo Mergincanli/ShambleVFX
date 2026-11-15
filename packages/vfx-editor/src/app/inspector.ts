@@ -350,7 +350,7 @@ function placeFields(app: AppApi, parts: Refresher[]): HTMLElement {
 }
 
 /** Fields every visible layer has, edited elsewhere (Place, Time), so the generated form leaves them out. */
-const COMMON_KEYS = ['id', 'name', 'type', 'start', 'timing', 'at', 'facing', 'blend', 'durationMs', 'untilPhaseEnd', 'scale', 'alpha', 'shiftM', 'liftM', 'seed', 'perPlay'];
+const COMMON_KEYS = ['id', 'name', 'type', 'start', 'timing', 'tiers', 'at', 'facing', 'blend', 'durationMs', 'untilPhaseEnd', 'scale', 'alpha', 'shiftM', 'liftM', 'seed', 'perPlay'];
 const ALL_BUT_SEED = (l: Layer) => Object.keys(l).filter((k) => k !== 'seed' && k !== 'perPlay');
 
 function offsetFields(app: AppApi, get: () => Vec3 | null, set: (o: Vec3) => void): { el: HTMLElement; refresh(): void } {

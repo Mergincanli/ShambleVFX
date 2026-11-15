@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_energy_zap",
   "name": "Energy: zap",
   "controls": {
@@ -67,7 +67,11 @@
         "flicker": 0.08
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "dots",
@@ -109,7 +113,10 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "star",
@@ -171,7 +178,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "sparks",
@@ -243,7 +255,12 @@
         "role": "white",
         "inkPx": 0,
         "edge": "none"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -328,6 +345,11 @@
       "shiftM": [
         0.1,
         0.62
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

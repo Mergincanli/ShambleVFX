@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_energy_pulse",
   "name": "Energy: pulse",
   "controls": {
@@ -66,7 +66,12 @@
         "growMs": 260
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "ring2",
@@ -119,7 +124,10 @@
         "growMs": 260
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "glow",
@@ -157,7 +165,11 @@
         "flicker": 0.1
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "core",
@@ -219,7 +231,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "needles",
@@ -286,7 +303,11 @@
         "role": "glow.hot",
         "inkPx": 0,
         "edge": "none"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -370,6 +391,11 @@
       "shiftM": [
         -0.05,
         0.6
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

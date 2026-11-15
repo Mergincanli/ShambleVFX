@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_burst_cloud",
   "name": "Impact: cloud blast",
   "controls": {
@@ -57,7 +57,11 @@
         "spread": 0.3
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "cloud",
@@ -130,7 +134,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puffs",
@@ -206,7 +215,11 @@
         "role": "heat.2",
         "inkPx": 1.6,
         "edge": "ink"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "specks",
@@ -273,7 +286,10 @@
         "role": "ink",
         "inkPx": 0,
         "edge": "none"
-      }
+      },
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -359,7 +375,12 @@
         0.05,
         0.05
       ],
-      "separation": "heat.3"
+      "separation": "heat.3",
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ]
 }

@@ -25,3 +25,6 @@ Thumbs.db
 
 # Helper worktrees made by Claude Code sessions
 /.claude/worktrees/
+
+# Exports: an export holds the project's images packed in an atlas (art stays out of this public repo).
+/exports/

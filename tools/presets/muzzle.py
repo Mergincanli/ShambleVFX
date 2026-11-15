@@ -40,4 +40,7 @@ L.append(shape("dust", "Dust at the hit", "smoke",
 L.append(burst("chips", "Stone chips", start=FADE, timing=STEPS, count=3, lifeMs=[153, 153], speedMps=[5.1, 10.3], direction="up", spreadDeg=30,
     startRadiusM=[0.125, 0.25], gravityMps2=30.9, drag=12.2, sizeM=[0.042, 0.042], spinDegPerS=[688, 688],
     look={"kind": "chip", "role": "stone", "inkPx": 1, "edge": "ink", "inkRole": "stone.rim"}, seed=3))
-write(sys.argv[1], effect("board_muzzle", "Rifle shot (board)", (30, 70, 180), L))
+# Low, as the board's low mode: no smoke, no light on the ground, no dust, no stone chips, no sparks round the flash.
+fx = apply_tiers(effect("board_muzzle", "Rifle shot (board)", (30, 70, 180), L),
+                 low_drop=["muzzle_light", "hit_light", "smoke", "dust", "chips", "flash_sparks"])
+write(sys.argv[1], fx)

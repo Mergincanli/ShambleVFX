@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_bullet_spark",
   "name": "Bullet hit: spark (metal)",
   "controls": {
@@ -69,7 +69,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "lines",
@@ -112,7 +117,11 @@
         "spread": 0.4
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "needles",
@@ -178,7 +187,12 @@
         "role": "glow",
         "inkPx": 1.2,
         "edge": "enemy"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -262,6 +276,11 @@
       "shiftM": [
         0.25,
         0.42
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

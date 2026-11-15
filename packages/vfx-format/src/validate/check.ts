@@ -8,12 +8,12 @@ import { WORD_LETTERS } from '../defaults';
 import { roleNames } from '../palette';
 import type { Palette } from '../palette';
 import { LAYER_TYPES, MAIN_ROLE, isArrivalStart, isInputAnchor, isPhaseStart } from '../types';
-import type { EffectFile, Layer, PhaseName } from '../types';
+import type { EffectFile, Layer, PhaseName, VisibleLayer } from '../types';
 import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
 
-export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place';
+export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier';
 
 export interface Problem {
   kind: ProblemKind;
@@ -182,6 +182,12 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
       });
     }
   });
+
+  // Quality tiers: Low drops extras but must stay readable, so it must show something.
+  const visibleLayers = fx.layers.filter((l) => l.type !== 'projectile') as VisibleLayer[];
+  if (visibleLayers.length && !visibleLayers.some((l) => l.tiers.includes('low'))) {
+    warn('tier', 'layers', 'nothing shows in the Low tier: Low drops extras, but the effect should still read');
+  }
 
   // Start times must not wait on each other in a circle.
   const state = new Map<string, 0 | 1 | 2>();

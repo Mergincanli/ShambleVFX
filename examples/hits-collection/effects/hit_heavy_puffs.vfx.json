@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_heavy_puffs",
   "name": "Heavy: puff cluster",
   "controls": {
@@ -58,7 +58,10 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "burst",
@@ -124,7 +127,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff0",
@@ -171,7 +179,12 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff1",
@@ -218,7 +231,12 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff2",
@@ -265,7 +283,12 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff3",
@@ -312,7 +335,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff4",
@@ -359,7 +386,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "puff5",
@@ -406,7 +437,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "specks",
@@ -477,6 +512,10 @@
       "shiftM": [
         0,
         0.6
+      ],
+      "tiers": [
+        "medium",
+        "high"
       ]
     },
     {
@@ -563,7 +602,12 @@
         0.05,
         0.62
       ],
-      "separation": "heat.3"
+      "separation": "heat.3",
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ]
 }

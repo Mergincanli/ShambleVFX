@@ -1,4 +1,5 @@
 import { FORMAT_ID, FORMAT_VERSION } from './types';
+import type { TierName } from './types';
 import type { BurstLayer, EffectFile, ProjectileLayer, ShapeKind, ShapeLayer, ShapeSpec, SpriteLayer, WordLayer } from './types';
 
 /** The comic step rate: shapes hold for 1/12 s, like drawn animation (drawing board v7). */
@@ -27,7 +28,7 @@ const atOrigin = () => ({ input: 'origin' as const, offset: [0, 0, 0] as [number
 
 export function newSpriteLayer(id: string, name: string, image: string): SpriteLayer {
   return {
-    id, name, type: 'sprite', start: { ms: 0 }, timing: steps(), at: atOrigin(), facing: 'camera', blend: 'normal',
+    id, name, type: 'sprite', start: { ms: 0 }, timing: steps(), tiers: allTiers(), at: atOrigin(), facing: 'camera', blend: 'normal',
     image, pivot: [0.5, 0.5], sizeM: [1, 1], tint: { mode: 'keep' }, durationMs: 250,
   };
 }
@@ -88,7 +89,7 @@ export function defaultFacing(kind: ShapeKind): ShapeLayer['facing'] {
 
 export function newShapeLayer(id: string, name: string, kind: ShapeKind): ShapeLayer {
   return {
-    id, name, type: 'shape', start: { ms: 0 }, timing: steps(), at: atOrigin(), facing: defaultFacing(kind),
+    id, name, type: 'shape', start: { ms: 0 }, timing: steps(), tiers: allTiers(), at: atOrigin(), facing: defaultFacing(kind),
     blend: kind === 'scorch' ? 'multiply' : kind === 'glow' ? 'add' : 'normal', durationMs: 500,
     shape: defaultShape(kind), seed: 1, perPlay: true,
   };
@@ -96,7 +97,7 @@ export function newShapeLayer(id: string, name: string, kind: ShapeKind): ShapeL
 
 export function newBurstLayer(id: string, name: string): BurstLayer {
   return {
-    id, name, type: 'burst', start: { ms: 0 }, timing: steps(), at: atOrigin(), facing: 'camera', blend: 'normal',
+    id, name, type: 'burst', start: { ms: 0 }, timing: steps(), tiers: allTiers(), at: atOrigin(), facing: 'camera', blend: 'normal',
     count: 9, lifeMs: [600, 900], speedMps: [3, 6], direction: 'out', spreadDeg: 35, startRadiusM: [0.5, 0.7], gravityMps2: 9.8, drag: 2,
     sizeM: [0.08, 0.12], sizeOverLife: [[0, 1], [1, 0.5]], spinDegPerS: [0, 0],
     look: { kind: 'diamond', role: 'team', inkPx: 1.95, edge: 'auto' }, loop: false, groundStop: true, seed: 1, perPlay: true,
@@ -105,10 +106,15 @@ export function newBurstLayer(id: string, name: string): BurstLayer {
 
 export function newWordLayer(id: string, name: string): WordLayer {
   return {
-    id, name, type: 'word', start: { ms: 0 }, timing: steps(), at: { input: 'origin', offset: [0, 1.2, 0] }, facing: 'camera', blend: 'normal',
+    id, name, type: 'word', start: { ms: 0 }, timing: steps(), tiers: allTiers(), at: { input: 'origin', offset: [0, 1.2, 0] }, facing: 'camera', blend: 'normal',
     durationMs: 600, words: ['BOOM'], letterPx: 32, colours: { top: 'white', bottom: 'glow', back: 'team.dark' },
     tiltDeg: [4, 10], sizeJitter: 0.1, ramp: 0.2, bounce: 0.35, turnDeg: 4, slantDeg: 9, pop: { scale: 1.15, steps: 2 },
     breakUp: { lastMs: 140 }, breakSteps: 0, riseM: 0, distance: { curve: DEFAULT_WORD_DISTANCE.map((p) => [...p] as [number, number]), minPx: 14 },
     visibleTo: 'everyone', seed: 1, perPlay: true,
   };
+}
+
+/** A new layer shows in every quality tier. */
+function allTiers(): TierName[] {
+  return ['low', 'medium', 'high'];
 }

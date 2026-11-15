@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_bullet_dust",
   "name": "Bullet hit: dust (stone, ground)",
   "controls": {
@@ -62,7 +62,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "dust",
@@ -104,7 +109,12 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "chips",
@@ -172,7 +182,12 @@
         "inkPx": 1,
         "edge": "ink",
         "inkRole": "stone.rim"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "specks",
@@ -238,7 +253,11 @@
         "role": "debris",
         "inkPx": 0,
         "edge": "none"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -322,6 +341,11 @@
       "shiftM": [
         0.22,
         0.45
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

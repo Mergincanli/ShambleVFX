@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_heavy_blast",
   "name": "Heavy: big blast",
   "controls": {
@@ -48,7 +48,12 @@
         "growMs": 120
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "shock",
@@ -85,7 +90,12 @@
         "growMs": 220
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "glow_dots",
@@ -130,7 +140,10 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "speed_lines",
@@ -178,7 +191,11 @@
         "spread": 0.3
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke_l",
@@ -227,7 +244,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "smoke_r",
@@ -276,7 +297,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "fire",
@@ -338,7 +363,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "core",
@@ -400,7 +430,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "flash",
@@ -450,7 +485,12 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "chunks",
@@ -522,6 +562,10 @@
       "shiftM": [
         0,
         0.8
+      ],
+      "tiers": [
+        "medium",
+        "high"
       ]
     },
     {
@@ -593,6 +637,9 @@
       "shiftM": [
         0,
         0.9
+      ],
+      "tiers": [
+        "high"
       ]
     },
     {
@@ -664,6 +711,11 @@
       "shiftM": [
         0,
         0.9
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     },
     {
@@ -749,6 +801,11 @@
       "shiftM": [
         0,
         2.1
+      ],
+      "tiers": [
+        "low",
+        "medium",
+        "high"
       ]
     }
   ]

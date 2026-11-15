@@ -485,3 +485,25 @@ describe('the example effects', () => {
     }
   }
 });
+
+describe('quality tiers', () => {
+  it('draws only the layers of the chosen tier, and keeps every time the same', () => {
+    const fx = newEffect('t', 'T');
+    fx.phases = { windupMs: 0, peakMs: 300, fadeMs: 300 };
+    const all = newShapeLayer('all', 'All', 'shards');
+    const highOnly = { ...newShapeLayer('extra', 'Extra', 'dots'), tiers: ['medium', 'high'] as ('low' | 'medium' | 'high')[] };
+    fx.layers = [all, highOnly];
+    const layersAt = (tier: 'low' | 'medium' | 'high') => {
+      const { sink } = drawn(fx, ctx(100, { tier }));
+      const out = new Set<number>();
+      for (const g of BLEND_GROUPS) for (const v of sink.groups[g].layer.slice(0, sink.groups[g].vcount)) out.add(v);
+      return out;
+    };
+    expect([...layersAt('high')].sort()).toEqual([0, 1]);
+    expect([...layersAt('medium')].sort()).toEqual([0, 1]);
+    expect([...layersAt('low')]).toEqual([0]);
+    // The timeline does not depend on the tier.
+    const lowLen = drawn(fx, ctx(100, { tier: 'low' })).r.lengthMs, highLen = drawn(fx, ctx(100, { tier: 'high' })).r.lengthMs;
+    expect(lowLen).toBe(highLen);
+  });
+});

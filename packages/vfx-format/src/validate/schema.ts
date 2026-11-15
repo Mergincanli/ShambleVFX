@@ -73,8 +73,12 @@ const common = {
   start: startSchema,
   timing: timingSchema,
 };
+const tierList = z.array(z.enum(['low', 'medium', 'high'])).min(1, { error: 'needs at least one tier' }).max(3)
+  .refine((t) => new Set(t).size === t.length, { error: 'names a tier twice' });
+
 const visible = {
   ...common,
+  tiers: tierList,
   at: anchorSchema,
   facing: z.enum(['camera', 'path', 'ground', 'upright']),
   blend: z.enum(['normal', 'multiply', 'screen', 'add']),

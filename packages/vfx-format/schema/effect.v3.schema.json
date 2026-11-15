@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Mergincanli/ShambleVFX/schema/effect.v2.schema.json",
-  "title": "Shamble VFX effect file, version 2",
+  "$id": "https://github.com/Mergincanli/ShambleVFX/schema/effect.v3.schema.json",
+  "title": "Shamble VFX effect file, version 3",
   "description": "Times in ms, sizes in metres, colours as role names only (hexes live in the palette).",
   "type": "object",
   "properties": {
@@ -11,7 +11,7 @@
     },
     "version": {
       "type": "number",
-      "const": 2
+      "const": 3
     },
     "id": {
       "type": "string",
@@ -188,6 +188,19 @@
                     "additionalProperties": false
                   }
                 ]
+              },
+              "tiers": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                }
               },
               "at": {
                 "anyOf": [
@@ -481,6 +494,7 @@
               "name",
               "start",
               "timing",
+              "tiers",
               "at",
               "facing",
               "blend",
@@ -868,6 +882,19 @@
                     "additionalProperties": false
                   }
                 ]
+              },
+              "tiers": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                }
               },
               "at": {
                 "anyOf": [
@@ -2769,6 +2796,7 @@
               "name",
               "start",
               "timing",
+              "tiers",
               "at",
               "facing",
               "blend",
@@ -2883,6 +2911,19 @@
                     "additionalProperties": false
                   }
                 ]
+              },
+              "tiers": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                }
               },
               "at": {
                 "anyOf": [
@@ -3372,6 +3413,7 @@
               "name",
               "start",
               "timing",
+              "tiers",
               "at",
               "facing",
               "blend",
@@ -3499,6 +3541,19 @@
                     "additionalProperties": false
                   }
                 ]
+              },
+              "tiers": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                }
               },
               "at": {
                 "anyOf": [
@@ -3889,6 +3944,7 @@
               "name",
               "start",
               "timing",
+              "tiers",
               "at",
               "facing",
               "blend",

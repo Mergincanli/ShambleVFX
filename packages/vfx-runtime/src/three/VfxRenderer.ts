@@ -24,7 +24,7 @@ import {
   Texture,
 } from 'three/webgpu';
 import type { Camera } from 'three/webgpu';
-import type { EffectFile, FactionId, Palette } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Palette, TierName } from '@shamble/vfx-format';
 import { evaluate } from '../core/evaluate';
 import type { CameraBasis, EvalResult, UvRect } from '../core/evaluate';
 import type { Relation } from '../core/draw';
@@ -69,6 +69,8 @@ interface GroupMesh {
 export class VfxRenderer {
   /** Add this to the scene. It holds one mesh per blend group. */
   readonly object = new Group();
+  /** The quality tier every effect draws at: low, medium or high (the game's setting). */
+  tier: TierName = 'high';
   readonly sink: DrawSink;
   palette: Palette;
   private meshes: Record<BlendGroup, GroupMesh>;
@@ -157,6 +159,7 @@ export class VfxRenderer {
       colourSpace: this.colourSpace,
       white: this.whiteUv,
       ...(this.dotRect ? { dot: this.dotRect } : {}),
+      tier: this.tier,
     }, this.sink);
   }
 

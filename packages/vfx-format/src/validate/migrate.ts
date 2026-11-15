@@ -31,8 +31,21 @@ function v1to2(doc: Obj): Obj {
   };
 }
 
+/**
+ * Version 2 -> 3 (milestone 3): every visible layer gets the quality tiers it shows in, all three, so an old effect
+ * looks the same at every tier until someone decides what Low drops.
+ */
+function v2to3(doc: Obj): Obj {
+  const layers = Array.isArray(doc.layers) ? (doc.layers as Obj[]) : [];
+  return {
+    ...doc,
+    version: 3,
+    layers: layers.map((l) => (l && l.type !== 'projectile' && !('tiers' in l) ? { ...l, tiers: ['low', 'medium', 'high'] } : l)),
+  };
+}
+
 /** Version n -> n + 1. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2 };
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3 };
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; from: number; steps: number }

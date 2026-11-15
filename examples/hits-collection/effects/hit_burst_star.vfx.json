@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 2,
+  "version": 3,
   "id": "hit_burst_star",
   "name": "Impact: layered star",
   "controls": {
@@ -54,7 +54,10 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "high"
+      ]
     },
     {
       "id": "lines",
@@ -98,7 +101,11 @@
         "spread": 0.35
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "burst",
@@ -176,7 +183,12 @@
         }
       },
       "seed": 1,
-      "perPlay": true
+      "perPlay": true,
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "shards_dark",
@@ -243,7 +255,12 @@
         "role": "heat.dark",
         "inkPx": 1.6,
         "edge": "ink"
-      }
+      },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "shards_light",
@@ -310,7 +327,11 @@
         "role": "heat.2",
         "inkPx": 1.6,
         "edge": "ink"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "stars",
@@ -377,7 +398,11 @@
         "role": "glow",
         "inkPx": 1.5,
         "edge": "auto"
-      }
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ]
     },
     {
       "id": "word",
@@ -463,7 +488,12 @@
         -0.05,
         0.62
       ],
-      "separation": "heat.3"
+      "separation": "heat.3",
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ]
 }

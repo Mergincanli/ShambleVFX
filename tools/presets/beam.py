@@ -59,4 +59,8 @@ L.append(shape("emitter_hot", "Emitter, hot", "glow", {"radiusM": 0.3, "role": "
     at=O, untilPhaseEnd="fade", scale=core_scale))
 L.append(shape("emitter_white", "Emitter, white", "glow", {"radiusM": 0.2, "role": "white", "alpha": 1, "soft": False, "grow": [1, 1], "flicker": 0.1},
     at=O, untilPhaseEnd="fade", scale=core_scale))
-write(sys.argv[1], effect("board_beam", "Hammer leech beam (board)", (W, P, F), L, colour="glow"))
+fx = apply_tiers(effect("board_beam", "Hammer leech beam (board)", (W, P, F), L, colour="glow"),
+                 low_drop=["ground_glow_target", "ground_glow_emitter", "beam_glow_wide", "beam_glow", "spot_glow_wide", "spot_glow",
+                           "emitter_glow_wide", "emitter_glow", "beads", "closing_rings"],
+                 medium_drop=["beam_glow_wide", "spot_glow_wide", "emitter_glow_wide"])
+write(sys.argv[1], fx)

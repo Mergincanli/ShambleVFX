@@ -11,7 +11,7 @@
  */
 
 export const FORMAT_ID = 'shamble-vfx' as const;
-export const FORMAT_VERSION = 2 as const;
+export const FORMAT_VERSION = 3 as const;
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
@@ -124,8 +124,14 @@ interface LayerCommon {
   timing: Timing;
 }
 
+/** Quality tiers. The game picks one for every effect; each layer says in which tiers it shows. */
+export type TierName = 'low' | 'medium' | 'high';
+export const TIER_NAMES: readonly TierName[] = ['low', 'medium', 'high'];
+
 /** What every visible layer (sprite, shape, burst, word) has. */
 interface VisibleCommon extends LayerCommon {
+  /** The quality tiers this layer shows in. Low drops extras but stays readable (Mustafa's decision 7). */
+  tiers: TierName[];
   at: Anchor;
   facing: Facing;
   blend: Blend;

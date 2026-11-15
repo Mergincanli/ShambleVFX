@@ -28,11 +28,12 @@ bed = {"radiusM": R, "tones": ["heat.dark", "heat.1", "heat.2", "heat.3"], "lump
        "boilSteps": 2, "growMs": W, "breakUp": {"phase": "fade"}}
 L.append(shape("bed", "Bed", "bed", dict(bed, part="lumps"), untilPhaseEnd="fade"))
 L.append(shape("bed_detail", "Bed detail: halftone and brush strokes", "bed", dict(bed, part="detail"), untilPhaseEnd="fade"))
-L.append(shape("flames", "Tongues", "flames",
-    {"radiusM": R, "count": 22, "depth": "all", "tallM": [0.5, 3.0], "widthM": [0.16, 0.4], "lean": 0.15, "sway": 0.12, "cycleSteps": [5, 8],
-     "tones": ["heat.1", "heat.2", "heat.3", "heat.4"], "shadeRole": "heat.dark", "inkPx": 4.25, "edge": "auto", "licks": True, "growMs": W,
-     "breakUp": {"phase": "fade"}},
-    untilPhaseEnd="fade"))
+flames = {"radiusM": R, "count": 22, "depth": "all", "tallM": [0.5, 3.0], "widthM": [0.16, 0.4], "lean": 0.15, "sway": 0.12, "cycleSteps": [5, 8],
+          "tones": ["heat.1", "heat.2", "heat.3", "heat.4"], "shadeRole": "heat.dark", "inkPx": 4.25, "edge": "auto", "licks": True, "growMs": W,
+          "breakUp": {"phase": "fade"}}
+L.append(shape("flames", "Tongues", "flames", flames, untilPhaseEnd="fade"))
+# Low draws seven tongues, as the board's low mode does.
+L.append(shape("flames_low", "Tongues (Low: seven)", "flames", dict(flames, count=7), untilPhaseEnd="fade"))
 # ---- the bottle bursts: spikes thrown out, a spiky star, thin lines
 up = round(0.35 * UA, 3)
 L.append(burst("spikes", "Spikes thrown out", untilPhaseEnd="windup", shiftM=[0, up], count=11, lifeMs=[W, W], speedMps=[18, 18], direction="out",
@@ -58,4 +59,8 @@ for (id, name, n, role, seed) in [("sparks", "Sparks", 6, "glow", 11), ("sparks_
 L.append(word("word", "FWOOSH", ["FWOOSH"], durationMs=710, shiftM=[-2.5, round(0.2 * SA + 2.0 * UA, 3)], letterPx=47, tiltDeg=[9, 9], sizeJitter=0,
     ramp=0.2, pop={"scale": 1.15, "steps": 2}, scale={"steps": [0.62, 1]}, breakUp=None, distance={"curve": [[0, 1], [100, 1]], "minPx": 14}, seed=5))
 del L[-1]["breakUp"]
-write(sys.argv[1], effect("board_molotov", "Molotov flame pit (board)", (W, P, F), L))
+fx = apply_tiers(effect("board_molotov", "Molotov flame pit (board)", (W, P, F), L),
+                 low_drop=["bed_detail", "light_dots", "ignition_lines", "smoke", "sparks", "sparks_hot", "word"],
+                 medium_drop=["bed_detail"],
+                 only={"flames": ["medium", "high"], "flames_low": ["low"]})
+write(sys.argv[1], fx)
