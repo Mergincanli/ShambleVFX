@@ -182,6 +182,26 @@
       "hex": "#974C11",
       "from": "derived",
       "note": "heat.1 x 0.62: the thin broken rim of your own team's blast (board v7)"
+    },
+    "gunsmoke.rim": {
+      "hex": "#807664",
+      "from": "derived",
+      "note": "gunsmoke x 0.62: the soft rim of a rifle's smoke puff (board v7)"
+    },
+    "stone": {
+      "hex": "#D0BA8C",
+      "from": "art-lead",
+      "note": "Sheet 17 wall stone in sunlight: chips knocked off a wall"
+    },
+    "stone.rim": {
+      "hex": "#7D7054",
+      "from": "derived",
+      "note": "stone x 0.6: the edge of a stone chip (board v7)"
+    },
+    "dust.rim": {
+      "hex": "#897B5C",
+      "from": "derived",
+      "note": "stone x 0.66: the rim of a dust puff (board v7)"
     }
   }
 }

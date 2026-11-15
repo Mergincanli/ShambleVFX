@@ -9,9 +9,10 @@ import {
 import type { PerspectiveCamera } from 'three/webgpu';
 import { Plane } from 'three';
 import type { FactionId, Palette } from '@shamble/vfx-format';
+import type { Relation } from '@shamble/vfx-runtime';
 import { VfxRenderer } from '@shamble/vfx-runtime';
 import type { Atlas } from '@shamble/vfx-runtime';
-import { buildStandIn, buildWall } from './actors';
+import { buildStandIn, buildTank, buildWall } from './actors';
 import type { Actor } from './actors';
 import { CAM, cameraGround, makeGameCamera } from './camera';
 import { flat, inShadeBand, shadowOffsetPerMetre } from './materials';
@@ -31,14 +32,52 @@ export interface PreviewOptions {
 
 const SCREEN_W = CAM.screenWidth, SCREEN_H = CAM.screenHeight;
 
+type Ground = [number, number];
+/** One preview set-up (scene-data.json, scenes). Ground places are the board's camera-aligned [right, away]. */
+export interface SceneSpec {
+  id: string;
+  name: string;
+  from: string;
+  shooter: { kind: 'soldier' | 'tank'; at?: Ground; muzzle?: Ground; gun?: 'gun' | 'hammer'; faces?: Ground };
+  /** A fixed start point instead of the shooter's muzzle (a fire pit starts where it burns). */
+  origin?: { at: Ground; heightM: number };
+  target?: { at?: Ground; heightM?: number; tank?: { at: Ground; turnDeg: number } };
+  you?: { at: Ground; dir: Ground; distanceM: number };
+  props: { kind: 'wall' | 'soldier'; at: Ground; side?: 'own' | 'foe'; faces?: Ground; lengthM?: number; thicknessM?: number }[];
+}
+export const SCENES = data.scenes.list as SceneSpec[];
+
+/** Who each faction fights, as on the drawing board. */
+const FOE: Record<FactionId, FactionId> = { soviets: 'allies', allies: 'empire', empire: 'soviets' };
+
+interface Placed { actor: Actor; at: Vector3 }
+
+function ground([r, a]: Ground): Vector3 {
+  return cameraGround(r, a);
+}
+
+/** A world direction on the ground from a camera-aligned one. */
+function groundDir([r, a]: Ground): Vector3 {
+  return cameraGround(r, a).sub(cameraGround(0, 0)).normalize();
+}
+
 export class Preview {
   readonly renderer: WebGPURenderer;
-  readonly scene = new Scene();
+  readonly scene3d = new Scene();
   readonly camera: PerspectiveCamera;
   readonly vfx: VfxRenderer;
+  /** Where the effect goes (world metres; above the ground for a wall's face or a tank's top). */
   readonly target = cameraGround(3.0, -0.6);
+  /** Where the one who fires stands. */
   readonly shooter = cameraGround(-4.6, -1.3);
   faction: FactionId = 'soviets';
+  /** Who made the effect, seen from you: an enemy, your team, or you. */
+  relation: Relation = 'enemy';
+  scene: SceneSpec = SCENES[0]!;
+  /** You, the player looking (when the scene has you), and the way the distance slider moves the target from you. */
+  you: Vector3 | null = null;
+  private youDir = new Vector3(1, 0, 0);
+  private distanceM = 4;
   view: ViewMode = 'whole';
   /** What the close-up centres on: the muzzle (origin) or the target. */
   closeOn: 'origin' | 'target' = 'target';
@@ -50,8 +89,12 @@ export class Preview {
   private overlay: HTMLDivElement;
   private frameBox: HTMLDivElement;
   private scaleLabel: HTMLDivElement;
-  private standIn!: Actor & { muzzle: Vector3 };
-  private wall: Actor;
+  private shooterActor!: Actor & { muzzle: Vector3 };
+  private targetTank: (Actor & { top: Vector3 }) | null = null;
+  private targetTankAt = new Vector3();
+  private targetTankTurn = 0;
+  private youActor: Actor | null = null;
+  private props: Placed[] = [];
   private shadows: Mesh[] = [];
   private targetMarker: Mesh;
   private offscreenTarget: RenderTarget | null = null;
@@ -73,25 +116,19 @@ export class Preview {
     this.vfx = new VfxRenderer(opts.palette, { renderOrder: 1000 });
 
     const g = data.ground;
-    this.scene.background = new Color(g.sun);
+    this.scene3d.background = new Color(g.sun);
     const ground = new Mesh(new PlaneGeometry(400, 400), flat(g.sun));
     ground.rotation.x = -Math.PI / 2;
     ground.renderOrder = -20;
-    this.scene.add(ground);
-    this.scene.add(this.shadeBand());
-
-    this.wall = buildWall(inShadeBand(...this.wallSpot()));
-    const ws = this.wallSpot();
-    this.wall.group.position.set(ws[0], 0, ws[1]);
-    this.scene.add(this.wall.group);
-    this.buildStandIn();
+    this.scene3d.add(ground);
+    this.scene3d.add(this.shadeBand());
 
     const ring = new RingGeometry(0.44, 0.52, 48);
     ring.rotateX(-Math.PI / 2);
     this.targetMarker = new Mesh(ring, flat(data.ink.hex, { writeDepth: false, offset: 2 }));
     this.targetMarker.renderOrder = -4;
-    this.scene.add(this.targetMarker);
-    this.scene.add(this.vfx.object);
+    this.scene3d.add(this.targetMarker);
+    this.scene3d.add(this.vfx.object);
 
     if (opts.offscreen) {
       this.offscreenTarget = new RenderTarget(16, 16, { type: UnsignedByteType, format: RGBAFormat, colorSpace: NoColorSpace, depthBuffer: true, samples: 4 });
@@ -114,7 +151,7 @@ export class Preview {
     this.overlay.append(this.frameBox, this.scaleLabel);
     this.container.appendChild(this.overlay);
 
-    this.placeTarget();
+    this.setScene(SCENES[0]!.id);
     this.bindPointer();
     new ResizeObserver(() => this.resize()).observe(this.container);
     this.resize();
@@ -124,15 +161,71 @@ export class Preview {
     return (this.renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
   }
 
-  /** The effect's origin: the stand-in's muzzle, in world metres. */
+  /** The effect's origin: the shooter's muzzle (or the scene's fixed start point), in world metres. */
   get origin(): Vector3 {
-    return this.standIn.muzzle.clone().applyMatrix4(this.standIn.group.matrixWorld);
+    const o = this.scene.origin;
+    if (o) return ground(o.at).setY(o.heightM);
+    return this.shooterActor.muzzle.clone().applyMatrix4(this.shooterActor.group.matrixWorld);
+  }
+
+  /** How far you are from the event, metres: measured in the scene when it has you, else the slider's number. */
+  get viewerDistanceM(): number {
+    if (!this.you) return this.distanceM;
+    return Math.hypot(this.target.x - this.you.x, this.target.z - this.you.z);
+  }
+
+  /** Whether the distance comes from the scene (you and the target), so the slider moves the target. */
+  get distanceMovesTarget(): boolean {
+    return this.you !== null;
   }
 
   setFaction(f: FactionId): void {
     if (f === this.faction) return;
     this.faction = f;
-    this.buildStandIn();
+    this.buildActors();
+  }
+
+  setRelation(r: Relation): void {
+    if (r === this.relation) return;
+    this.relation = r;
+    this.buildActors();
+  }
+
+  /** Set the distance from you. In a scene with you, the target moves along the scene's line from you. */
+  setDistance(m: number): void {
+    this.distanceM = Math.max(0, m);
+    if (this.you) {
+      const p = this.you.clone().addScaledVector(this.youDir, this.distanceM);
+      this.target.set(p.x, this.target.y, p.z);
+      this.afterMove();
+    }
+  }
+
+  /** Change the set-up: who fires, where to, what stands around. */
+  setScene(id: string): boolean {
+    const sc = SCENES.find((x) => x.id === id);
+    if (!sc) return false;
+    this.scene = sc;
+    this.shooterMoved = false;
+    if (sc.shooter.at) this.shooter.copy(ground(sc.shooter.at));
+    else if (sc.shooter.muzzle) this.shooter.copy(ground(sc.shooter.muzzle));
+    if (sc.you) {
+      this.you = ground(sc.you.at);
+      this.youDir = groundDir(sc.you.dir);
+      this.distanceM = sc.you.distanceM;
+      this.target.copy(this.you).addScaledVector(this.youDir, this.distanceM).setY(0);
+    } else {
+      this.you = null;
+      if (sc.target?.tank) {
+        this.targetTankAt = ground(sc.target.tank.at);
+        this.target.copy(this.targetTankAt);
+      } else if (sc.target?.at) {
+        this.target.copy(ground(sc.target.at)).setY(sc.target.heightM ?? 0);
+      }
+    }
+    this.buildActors();
+    this.updateView();
+    return true;
   }
 
   setAtlas(atlas: Atlas): void {
@@ -141,6 +234,8 @@ export class Preview {
 
   setView(v: ViewMode): void {
     this.view = v;
+    // The game screen shows what a player sees: no editor marks.
+    this.targetMarker.visible = v !== 'frame';
     this.resize();
   }
 
@@ -156,7 +251,7 @@ export class Preview {
     this.vfx.begin(this.camera);
     drawEffects(this.vfx);
     this.vfx.end();
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene3d, this.camera);
     if (this.offscreenTarget && this.offscreenCanvas) await this.copyOffscreen();
   }
 
@@ -167,11 +262,6 @@ export class Preview {
   }
 
   // ---------------------------------------------------------------- scene parts
-
-  private wallSpot(): [number, number] {
-    const p = cameraGround(4.3, 0.4);
-    return [p.x, p.z];
-  }
 
   private shadeBand(): Mesh {
     const b = data.ground.shadeBand;
@@ -192,51 +282,120 @@ export class Preview {
     return m;
   }
 
-  private buildStandIn(): void {
-    if (this.standIn) {
-      this.scene.remove(this.standIn.group);
-      this.standIn.dispose();
+  /** Every actor of the scene, all at once (after a change of scene, faction or "made by"). */
+  private buildActors(): void {
+    for (const a of this.allActors()) {
+      this.scene3().remove(a.group);
+      a.dispose();
     }
-    this.standIn = buildStandIn(this.faction, inShadeBand(this.shooter.x, this.shooter.z));
-    this.standIn.group.position.copy(this.shooter);
-    this.scene.add(this.standIn.group);
-    this.faceTarget();
+    const sc = this.scene, own = this.faction, foe = FOE[own];
+    const shade = (v: Vector3) => inShadeBand(v.x, v.z);
+    // The one who fires.
+    if (sc.shooter.kind === 'tank') {
+      this.shooterActor = buildTank(own, sc.shooter.gun ?? 'gun', shade(this.shooter));
+    } else {
+      this.shooterActor = buildStandIn(own, shade(this.shooter));
+    }
+    this.add(this.shooterActor, this.shooter);
+    // A tank to aim at (the beam).
+    this.targetTank = null;
+    if (sc.target?.tank) {
+      this.targetTankTurn = sc.target.tank.turnDeg;
+      this.targetTank = buildTank(foe, 'gun', shade(this.targetTankAt));
+      this.add(this.targetTank, this.targetTankAt);
+    }
+    // You: on the other side when an enemy made the effect, on its side when your team or you did.
+    this.youActor = null;
+    if (this.you) {
+      this.youActor = buildStandIn(this.relation === 'enemy' ? foe : own, shade(this.you));
+      this.add(this.youActor, this.you);
+    }
+    // Everything else.
+    this.props = sc.props.map((p) => {
+      const at = ground(p.at);
+      const actor = p.kind === 'wall'
+        ? buildWall(shade(at), { ...(p.lengthM ? { lengthM: p.lengthM } : {}), ...(p.thicknessM ? { thicknessM: p.thicknessM } : {}) })
+        : buildStandIn(p.side === 'own' ? own : foe, shade(at));
+      this.add(actor, at);
+      if (p.faces) turnTo(actor, groundDir(p.faces));
+      return { actor, at };
+    });
+    this.afterMove();
+  }
+
+  private add(a: Actor, at: Vector3): void {
+    a.group.position.set(at.x, 0, at.z);
+    this.scene3().add(a.group);
+  }
+
+  private scene3(): Scene {
+    return this.scene3d;
+  }
+
+  private allActors(): Actor[] {
+    const list: (Actor | null | undefined)[] = [this.shooterActor, this.targetTank, this.youActor, ...this.props.map((p) => p.actor)];
+    return list.filter((a): a is Actor => !!a);
+  }
+
+  /** After anything moved: who faces where, the target ring, the shadows. */
+  private afterMove(): void {
+    const sc = this.scene;
+    // A soldier placed by its muzzle: stand it so the tip of its rifle is at the scene's point.
+    if (sc.shooter.kind === 'soldier' && sc.shooter.muzzle && !this.shooterMoved) {
+      const want = ground(sc.shooter.muzzle);
+      for (let i = 0; i < 4; i++) {
+        this.faceShooter();
+        const m = this.shooterActor.muzzle.clone().applyMatrix4(this.shooterActor.group.matrixWorld);
+        this.shooter.x += want.x - m.x;
+        this.shooter.z += want.z - m.z;
+        this.shooterActor.group.position.set(this.shooter.x, 0, this.shooter.z);
+      }
+    }
+    this.faceShooter();
+    if (this.targetTank) {
+      this.targetTank.group.position.set(this.targetTankAt.x, 0, this.targetTankAt.z);
+      turnTo(this.targetTank, this.targetTankAt.clone().sub(this.shooter).setY(0).normalize(), this.targetTankTurn);
+      this.targetTank.group.updateMatrixWorld(true);
+      const top = this.targetTank.top.clone().applyMatrix4(this.targetTank.group.matrixWorld);
+      this.target.copy(top);
+    }
+    if (this.youActor && this.you) turnTo(this.youActor, this.youDir);
+    this.targetMarker.position.set(this.target.x, 0.004, this.target.z);
     this.rebuildShadows();
+  }
+
+  private shooterMoved = false;
+
+  private faceShooter(): void {
+    const sc = this.scene;
+    const dir = sc.shooter.faces ? groundDir(sc.shooter.faces) : this.target.clone().sub(this.shooter).setY(0).normalize();
+    this.shooterActor.group.position.set(this.shooter.x, 0, this.shooter.z);
+    turnTo(this.shooterActor, dir);
   }
 
   private rebuildShadows(): void {
     for (const s of this.shadows) {
-      this.scene.remove(s);
+      this.scene3().remove(s);
       (s.material as { dispose(): void }).dispose();
     }
     this.shadows = [];
     const [sx, sz] = shadowOffsetPerMetre();
     const project = new Matrix4().set(1, sx, 0, 0, 0, 0, 0, 0.003, 0, sz, 1, 0, 0, 0, 0, 1);
-    for (const a of [this.wall, this.standIn]) {
+    for (const a of this.allActors()) {
       const m = new Mesh(a.shadowGeometry, flat(data.ground.shade, { writeDepth: false, offset: 2 }));
       m.matrixAutoUpdate = false;
       a.group.updateMatrixWorld(true);
       m.matrix.multiplyMatrices(project, a.group.matrixWorld);
       m.renderOrder = -10;
       this.shadows.push(m);
-      this.scene.add(m);
+      this.scene3().add(m);
     }
-  }
-
-  private faceTarget(): void {
-    const dx = this.target.x - this.shooter.x, dz = this.target.z - this.shooter.z;
-    this.standIn.group.rotation.y = Math.atan2(dx, dz);
-    this.standIn.group.updateMatrixWorld(true);
-  }
-
-  private placeTarget(): void {
-    this.targetMarker.position.set(this.target.x, 0.004, this.target.z);
   }
 
   /** Each object is a group drawn far to near, so a nearer object's ink is never painted over. */
   private orderActors(): void {
     const cam = this.camera.position;
-    const list = [this.wall, this.standIn].map((a) => ({ a, d: a.group.position.distanceToSquared(cam) }));
+    const list = this.allActors().map((a) => ({ a, d: a.group.position.distanceToSquared(cam) }));
     list.sort((p, q) => q.d - p.d);
     list.forEach((o, i) => o.a.setOrder(i * 2));
   }
@@ -332,14 +491,21 @@ export class Preview {
 
   private moveTo(which: 'target' | 'shooter', p: Vector3): void {
     if (which === 'target') {
-      this.target.set(p.x, 0, p.z);
-      this.placeTarget();
-      this.faceTarget();
+      if (this.targetTank) this.targetTankAt.set(p.x, 0, p.z);
+      // A target above the ground (a wall's face) keeps its height as it moves.
+      else this.target.set(p.x, this.target.y, p.z);
+      if (this.you) this.distanceM = this.viewerDistanceM;
     } else {
       this.shooter.set(p.x, 0, p.z);
-      this.buildStandIn();
+      this.shooterMoved = true;
     }
-    this.rebuildShadows();
+    this.afterMove();
     this.onTargetMoved?.();
   }
+}
+
+/** Turn an actor (built facing +z) to face a ground direction, plus an extra turn in degrees. */
+function turnTo(a: Actor, dir: Vector3, extraDeg = 0): void {
+  a.group.rotation.y = Math.atan2(dir.x, dir.z) + (extraDeg * Math.PI) / 180;
+  a.group.updateMatrixWorld(true);
 }

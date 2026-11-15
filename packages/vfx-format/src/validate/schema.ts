@@ -81,7 +81,9 @@ const visible = {
   durationMs: pos().max(600000, { error: 'must be 10 minutes or less' }).optional(),
   untilPhaseEnd: phaseName.optional(),
   scale: scaleSchema.optional(),
+  alpha: z.strictObject({ steps: z.array(unit).max(60).optional(), life: curve.optional() }).optional(),
   shiftM: vec2.optional(),
+  liftM: num.min(0).max(50).optional(),
 };
 
 export const spriteLayerSchema = z.strictObject({
@@ -179,7 +181,7 @@ const seedFields = { seed: z.int().min(0).max(0xffffffff), perPlay: z.boolean() 
 export const shapeLayerSchema = z.strictObject({ ...visible, type: z.literal('shape'), shape: shapeSchema, ...seedFields });
 
 const lookSchema = z.union([
-  z.strictObject({ kind: z.enum(['diamond', 'chip', 'spark', 'dot', 'shard', 'speck', 'puff', 'streak']), role: roleSchema, inkPx: px, edge }),
+  z.strictObject({ kind: z.enum(['diamond', 'chip', 'spark', 'dot', 'shard', 'speck', 'puff', 'streak']), role: roleSchema, inkPx: px, edge, inkRole: roleSchema.optional() }),
   z.strictObject({ kind: z.literal('image'), image: imageNameSchema, tint: tintSchema }),
 ]);
 

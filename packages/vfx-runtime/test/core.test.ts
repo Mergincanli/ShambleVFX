@@ -49,7 +49,7 @@ function demo(): EffectFile {
 function run(fx: EffectFile, c: EvalContext) {
   const sink = new DrawSink(16);
   const r = evaluate(fx, c, sink);
-  return { r, sink, quads: readQuads(sink.groups['top-normal']) };
+  return { r, sink, quads: readQuads(sink.groups['top']) };
 }
 
 describe('steps', () => {
@@ -107,7 +107,7 @@ describe('evaluate', () => {
     const snap = (t: number) => {
       sink.clear();
       evaluate(fx, ctx(t), sink);
-      const b = sink.groups['top-normal'];
+      const b = sink.groups['top'];
       return Buffer.from(b.pos.buffer.slice(0, b.vcount * 16)).toString('hex') + Buffer.from(b.uv.buffer.slice(0, b.vcount * 8)).toString('hex') + Buffer.from(b.idx.buffer.slice(0, b.icount * 4)).toString('hex');
     };
     const a = snap(300);
@@ -171,8 +171,8 @@ describe('evaluate', () => {
     fx.layers = [centred, standing];
     const [a, b] = run(fx, ctx(0)).quads;
     const cot = 1 / Math.tan((35.3 * Math.PI) / 180);
-    expect(a!.pull).toBeCloseTo(0.5 * cot + 0.02, 5);
-    expect(b!.pull).toBeCloseTo(0.02, 5);
+    expect(a!.pull).toBeCloseTo(0.5 * cot + 0.4, 5);
+    expect(b!.pull).toBeCloseTo(0.4, 5);
   });
 
   it("tints by role, with team colours following the faction that fired, and 'main' following the colour control", () => {
@@ -228,8 +228,8 @@ describe('evaluate', () => {
     fx.layers = Array.from({ length: 40 }, (_, i) => newSpriteLayer(`s${i}`, `S${i}`, 'a.png'));
     const sink = new DrawSink(4);
     expect(evaluate(fx, ctx(0), sink).triangles).toBe(80);
-    expect(sink.groups['top-normal'].vcount).toBe(160);
-    expect(sink.groups['top-normal'].generation).toBeGreaterThan(0);
+    expect(sink.groups['top'].vcount).toBe(160);
+    expect(sink.groups['top'].generation).toBeGreaterThan(0);
   });
 });
 

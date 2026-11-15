@@ -25,9 +25,17 @@
     "base": "#B8AD98",
     "sun": "#B8A683",
     "shade": "#6E6E6E",
-    "shadeBand": { "from": "board-v7", "note": "a flat band of shadow, as cast by a building off screen, so effects are judged in sun and in shade", "nearM": 2.0, "farM": 7.5 }
+    "shadeBand": {
+      "from": "board-v7",
+      "note": "a flat band of shadow, as cast by a building off screen, so effects are judged in sun and in shade",
+      "nearM": 2.0,
+      "farM": 7.5
+    }
   },
-  "ink": { "from": "art-lead", "hex": "#11121A" },
+  "ink": {
+    "from": "art-lead",
+    "hex": "#11121A"
+  },
   "lines": {
     "from": "art-lead",
     "note": "Sheet 17, the line rule (px at 1080p): units outline 4.8, inside 2.1; buildings and walls outline 3.6, edges 2.6.",
@@ -49,14 +57,43 @@
   "standIn": {
     "from": "art-lead",
     "note": "Sheet 16, the Conscript as a stand-in: one soldier built from simple shapes. 1.80 m to the top of the hat is the Art lead's placeholder. Heights from the ground, widths across the body.",
-    "heights": { "hatTop": 1.8, "chin": 1.54, "shoulders": 1.49, "belt": 1.07, "fists": 0.77, "coatHem": 0.43, "bootTop": 0.36 },
-    "widths": { "shoulders": 0.49, "coatHem": 0.61, "waist": 0.33 },
-    "depths": { "coatHem": 0.46 },
+    "heights": {
+      "hatTop": 1.8,
+      "chin": 1.54,
+      "shoulders": 1.49,
+      "belt": 1.07,
+      "fists": 0.77,
+      "coatHem": 0.43,
+      "bootTop": 0.36
+    },
+    "widths": {
+      "shoulders": 0.49,
+      "coatHem": 0.61,
+      "waist": 0.33
+    },
+    "depths": {
+      "coatHem": 0.46
+    },
     "materials": {
       "note": "Sheet 15 and 16: coat, top and trim per faction are Mustafa's decisions (Empire: coat B, the white coat, picked; Empire trim is the Art lead's); Dark is the Art lead's.",
-      "soviets": { "coat": "#A72123", "top": "#D41414", "trim": "#8F6F30", "dark": "#4D4843" },
-      "allies": { "coat": "#235DBD", "top": "#1F6FF0", "trim": "#FFFD82", "dark": "#4D4843" },
-      "empire": { "coat": "#F5F3EA", "top": "#890089", "trim": "#8F6F30", "dark": "#4D4843" }
+      "soviets": {
+        "coat": "#A72123",
+        "top": "#D41414",
+        "trim": "#8F6F30",
+        "dark": "#4D4843"
+      },
+      "allies": {
+        "coat": "#235DBD",
+        "top": "#1F6FF0",
+        "trim": "#FFFD82",
+        "dark": "#4D4843"
+      },
+      "empire": {
+        "coat": "#F5F3EA",
+        "top": "#890089",
+        "trim": "#8F6F30",
+        "dark": "#4D4843"
+      }
     },
     "assumed": {
       "from": "assumed",
@@ -71,5 +108,168 @@
       "rifleThickness": 0.06,
       "rifleHeight": 1.3
     }
+  },
+  "tank": {
+    "from": "board-v7",
+    "note": "The drawing board's tank blockout: tracks, hull, a band of team colour over the deck, an eight-sided turret with a team-colour roof, and a gun or the Hammer's arms. Metres; u forward, v to the left, z up (the board's own axes for a tank).",
+    "track": {
+      "u": [-2.4, 2.4],
+      "v": [0.77, 1.33],
+      "z": [0, 0.72],
+      "colour": "#34363C"
+    },
+    "hull": {
+      "u": [-2.3, 2.3],
+      "v": [-0.98, 0.98],
+      "z": [0.42, 1.4]
+    },
+    "band": {
+      "u": [0.75, 1.35]
+    },
+    "turret": {
+      "outline": [[-1.2, -0.42], [-0.88, -0.76], [0.14, -0.76], [0.48, -0.38], [0.48, 0.38], [0.14, 0.76], [-0.88, 0.76], [-1.2, 0.42]],
+      "z": [1.4, 2.05],
+      "sideShade": 0.74
+    },
+    "gun": {
+      "barrel": {
+        "u": [0.4, 2.9],
+        "v": [-0.1, 0.1],
+        "z": [1.62, 1.82]
+      },
+      "brake": {
+        "u": [2.7, 3.1],
+        "v": [-0.16, 0.16],
+        "z": [1.57, 1.87]
+      },
+      "muzzle": [3.2, 0, 1.72]
+    },
+    "hammer": {
+      "arms": {
+        "u": [0.4, 1.95],
+        "v": [0.17, 0.35],
+        "z": [1.58, 1.82]
+      },
+      "emitter": [1.95, 0, 1.7],
+      "emitterRadiusM": 0.07
+    },
+    "top": [-0.2, 0, 1.75],
+    "steel": "#50545B",
+    "emitterColour": {"from": "art-lead", "soviets": "#FF2E63", "allies": "#8AE0FF", "empire": "#C24BFF"},
+    "hullColour": {
+      "soviets": "#63503F",
+      "allies": "#485468",
+      "empire": "#504A58"
+    }
+  },
+  "scenes": {
+    "about": "The preview's set-ups. Ground places are the board's camera-aligned metres [right, away]; heights in metres. 'muzzle' places a soldier so the tip of its rifle is there. 'you' is the player looking: the distance slider moves the target along 'dir' from you.",
+    "list": [
+      {
+        "id": "street",
+        "name": "Street (stand-in and wall)",
+        "from": "assumed",
+        "shooter": {
+          "kind": "soldier",
+          "at": [-4.6, -1.3]
+        },
+        "target": {
+          "at": [3.0, -0.6],
+          "heightM": 0
+        },
+        "props": [
+          {
+            "kind": "wall",
+            "at": [4.3, 0.4]
+          }
+        ]
+      },
+      {
+        "id": "board-muzzle",
+        "name": "Board: rifle at a wall",
+        "from": "board-v7",
+        "shooter": {
+          "kind": "soldier",
+          "muzzle": [-4.2695, -1.0588]
+        },
+        "target": {
+          "at": [3.7908, 0.598],
+          "heightM": 0.82
+        },
+        "props": [
+          {
+            "kind": "wall",
+            "at": [4.3, 0.4],
+            "lengthM": 3.4,
+            "thicknessM": 0.44
+          },
+          {
+            "kind": "soldier",
+            "at": [5.4313, 0.8243],
+            "side": "foe",
+            "faces": [-0.75, -0.66]
+          }
+        ]
+      },
+      {
+        "id": "board-molotov",
+        "name": "Board: fire pit",
+        "from": "board-v7",
+        "shooter": {
+          "kind": "soldier",
+          "at": [-6.3, -1.9],
+          "faces": [0.9, 0.44]
+        },
+        "origin": {
+          "at": [0.7, -0.5],
+          "heightM": 0
+        },
+        "target": {
+          "at": [0.7, -0.5],
+          "heightM": 0
+        },
+        "props": [
+          {
+            "kind": "soldier",
+            "at": [4.3, 1.6],
+            "side": "foe",
+            "faces": [-0.8, -0.6]
+          }
+        ]
+      },
+      {
+        "id": "board-beam",
+        "name": "Board: beam between tanks",
+        "from": "board-v7",
+        "shooter": {
+          "kind": "tank",
+          "gun": "hammer",
+          "at": [-4.7, -2.0]
+        },
+        "target": {
+          "tank": {
+            "at": [4.7, 1.3],
+            "turnDeg": 152
+          }
+        },
+        "props": []
+      },
+      {
+        "id": "board-shell",
+        "name": "Board: tank shell near you",
+        "from": "board-v7",
+        "shooter": {
+          "kind": "tank",
+          "gun": "gun",
+          "at": [-6.6, 3.4]
+        },
+        "you": {
+          "at": [-5.0, -1.9],
+          "dir": [0.966, 0.259],
+          "distanceM": 4
+        },
+        "props": []
+      }
+    ]
   }
 }

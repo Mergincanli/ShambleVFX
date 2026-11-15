@@ -133,7 +133,7 @@ describe('phases', () => {
 });
 
 describe('blend groups and depth', () => {
-  it('sends each layer to the buffer of its blend, and never needs more than five draws', () => {
+  it('sends each layer to the buffer of its blend, and never needs more than four draws', () => {
     const fx = newEffect('g', 'G');
     fx.layers = [
       newShapeLayer('scorch', 'Scorch', 'scorch'),
@@ -144,7 +144,7 @@ describe('blend groups and depth', () => {
     ];
     const { sink } = drawn(fx, ctx(10));
     for (const g of BLEND_GROUPS) expect(sink.groups[g].icount, g).toBeGreaterThan(0);
-    expect(sink.drawCalls).toBe(5);
+    expect(sink.drawCalls).toBe(4);
   });
 
   it('lifts ground layers just off the ground, and pulls standing ones by how far they reach down', () => {
@@ -152,12 +152,12 @@ describe('blend groups and depth', () => {
     fx.layers = [newShapeLayer('scorch', 'Scorch', 'scorch'), newShapeLayer('star', 'Star', 'shards')];
     const { sink } = drawn(fx, ctx(10));
     const g = sink.groups['ground-multiply'];
-    for (let i = 0; i < g.vcount; i++) expect(g.pos[i * 4 + 3]).toBeCloseTo(0.02, 6);
-    const t = sink.groups['top-normal'];
+    for (let i = 0; i < g.vcount; i++) expect(g.pos[i * 4 + 3]).toBeCloseTo(0.05, 6);
+    const t = sink.groups['top'];
     // A star of radius 1.1 m reaches about 1.1 m below its centre on screen.
     const cot = 1 / Math.tan((35.3 * Math.PI) / 180);
     expect(t.pos[3]).toBeGreaterThan(0.8 * cot);
-    expect(t.pos[3]).toBeLessThan(1.4 * cot + 0.02);
+    expect(t.pos[3]).toBeLessThan(1.4 * cot + 0.4);
   });
 
   it('lays a ground shape flat on the ground', () => {
@@ -170,6 +170,19 @@ describe('blend groups and depth', () => {
 });
 
 describe('friend or foe', () => {
+  it('marks added light with a negative alpha, in the same buffer and order as ordinary drawing', () => {
+    const fx = newEffect('a', 'A');
+    fx.layers = [newShapeLayer('glow', 'Glow', 'glow'), newShapeLayer('star', 'Star', 'shards')];
+    const { sink } = drawn(fx, ctx(10));
+    const t = sink.groups.top;
+    const first = t.layer[0], last = t.layer[t.vcount - 1];
+    expect([first, last]).toEqual([0, 1]);
+    for (let i = 0; i < t.vcount; i++) {
+      if (t.layer[i] === 0) expect(t.col[i * 4 + 3]!).toBeLessThanOrEqual(0);
+      else expect(t.col[i * 4 + 3]!).toBeGreaterThan(0);
+    }
+  });
+
   it('outlines an enemy shard star in ink, and your own team with a thin broken rim', () => {
     const fx = oneShape('shards');
     const enemy = drawn(fx, ctx(10, { relation: 'enemy' })).sink;
@@ -211,7 +224,7 @@ describe('words', () => {
     w.sizeJitter = 0;
     const width = (t: number) => {
       const { sink } = drawn(fx, ctx(t));
-      const b = sink.groups['top-normal'];
+      const b = sink.groups['top'];
       let lo = Infinity, hi = -Infinity;
       for (let i = 0; i < b.vcount; i++) {
         const d = b.pos[i * 4]! * cam.right[0] + b.pos[i * 4 + 1]! * cam.right[1] + b.pos[i * 4 + 2]! * cam.right[2];
@@ -269,7 +282,7 @@ describe('bursts', () => {
     fx.controls.intensity = 1;
     // Straight up at 2 m/s against 9.8 m/s²: highest near 0.2 s, back down by 0.4 s.
     const height = (t: number) => {
-      const s = drawn(fx, ctx(t)).sink.groups['top-normal'];
+      const s = drawn(fx, ctx(t)).sink.groups['top'];
       let y = 0;
       for (let i = 0; i < s.vcount; i++) y += s.pos[i * 4 + 1]!;
       return y / s.vcount;

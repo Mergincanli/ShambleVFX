@@ -4,6 +4,7 @@
  */
 import type { EffectFile, FactionId } from '@shamble/vfx-format';
 import { applyControls } from './controls';
+import type { Relation } from './draw';
 import { resolveTimeline } from './timeline';
 import type { EffectInputs } from './timeline';
 
@@ -14,6 +15,10 @@ export interface PlayingEffect {
   seed: number;
   inputs: EffectInputs;
   faction: FactionId;
+  /** Who made it, seen from the player looking. */
+  relation: Relation;
+  /** Distance from the player looking, metres. */
+  viewerDistanceM: number;
   /** The clock time (ms) the effect started at. */
   startMs: number;
 }
@@ -24,8 +29,11 @@ export class EffectPlayer {
   private playing: PlayingEffect[] = [];
   private nextId = 1;
 
-  start(effectId: string, opts: { seed: number; inputs: EffectInputs; faction: FactionId; nowMs: number }): PlayingEffect {
-    const p: PlayingEffect = { id: this.nextId++, effectId, seed: opts.seed >>> 0, inputs: opts.inputs, faction: opts.faction, startMs: opts.nowMs };
+  start(effectId: string, opts: { seed: number; inputs: EffectInputs; faction: FactionId; nowMs: number; relation?: Relation; viewerDistanceM?: number }): PlayingEffect {
+    const p: PlayingEffect = {
+      id: this.nextId++, effectId, seed: opts.seed >>> 0, inputs: opts.inputs, faction: opts.faction,
+      relation: opts.relation ?? 'enemy', viewerDistanceM: opts.viewerDistanceM ?? 0, startMs: opts.nowMs,
+    };
     this.playing.push(p);
     return p;
   }

@@ -27,6 +27,7 @@ import type { Camera } from 'three/webgpu';
 import type { EffectFile, FactionId, Palette } from '@shamble/vfx-format';
 import { evaluate } from '../core/evaluate';
 import type { CameraBasis, EvalResult, UvRect } from '../core/evaluate';
+import type { Relation } from '../core/draw';
 import type { EffectLookup, EffectPlayer } from '../core/player';
 import { BLEND_GROUPS, DrawSink } from '../core/sink';
 import type { BlendGroup, TriBuffer } from '../core/sink';
@@ -41,6 +42,10 @@ export interface DrawParams {
   timeMs: number;
   inputs: EffectInputs;
   faction: FactionId;
+  /** Who made the effect, seen from the player looking: an enemy (the default), your team, or you. */
+  relation?: Relation;
+  /** Distance from the player looking to the event, metres (comic words shrink with it). */
+  viewerDistanceM?: number;
 }
 
 export interface VfxStats {
@@ -52,9 +57,7 @@ export interface VfxStats {
   effects: number;
 }
 
-const BLEND_OF: Record<BlendGroup, BlendMode> = {
-  'ground-multiply': 'multiply', 'ground-normal': 'normal', 'ground-screen': 'screen', 'top-normal': 'normal', 'top-add': 'add',
-};
+const BLEND_OF: Record<BlendGroup, BlendMode> = { 'ground-multiply': 'multiply', 'ground-screen': 'screen', ground: 'over', top: 'over' };
 
 interface GroupMesh {
   mesh: Mesh;
@@ -76,13 +79,13 @@ export class VfxRenderer {
   private effectsThisFrame = 0;
   private colourSpace: 'linear' | 'srgb' = 'linear';
 
-  /** renderOrder: the ground groups draw at renderOrder .. +2, the top groups at renderOrder + 10 and + 11. */
+  /** renderOrder: the ground groups draw at renderOrder .. +2, the top group at renderOrder + 10. */
   constructor(palette: Palette, opts: { renderOrder?: number; vertices?: number } = {}) {
     this.palette = palette;
     this.sink = new DrawSink(opts.vertices ?? 2048);
     this.texture = whiteTexture();
     const base = opts.renderOrder ?? 100;
-    const order: Record<BlendGroup, number> = { 'ground-multiply': base, 'ground-normal': base + 1, 'ground-screen': base + 2, 'top-normal': base + 10, 'top-add': base + 11 };
+    const order: Record<BlendGroup, number> = { 'ground-multiply': base, 'ground-screen': base + 1, ground: base + 2, top: base + 10 };
     this.meshes = Object.fromEntries(BLEND_GROUPS.map((g) => {
       const material = createEffectMaterial(this.texture, BLEND_OF[g]);
       const geometry = makeGeometry(this.sink.groups[g]);
@@ -141,6 +144,8 @@ export class VfxRenderer {
       timeMs: p.timeMs,
       inputs: p.inputs,
       faction: p.faction,
+      ...(p.relation ? { relation: p.relation } : {}),
+      ...(p.viewerDistanceM !== undefined ? { viewerDistanceM: p.viewerDistanceM } : {}),
       palette: this.palette,
       camera: this.basis,
       imageRect: this.lookup,
@@ -153,7 +158,7 @@ export class VfxRenderer {
   drawPlaying(player: EffectPlayer, nowMs: number, lookup: EffectLookup): void {
     for (const p of player.alive(nowMs, lookup)) {
       const fx = lookup(p.effectId);
-      if (fx) this.draw(fx, { seed: p.seed, timeMs: nowMs - p.startMs, inputs: p.inputs, faction: p.faction });
+      if (fx) this.draw(fx, { seed: p.seed, timeMs: nowMs - p.startMs, inputs: p.inputs, faction: p.faction, relation: p.relation, viewerDistanceM: p.viewerDistanceM });
     }
   }
 

@@ -8,7 +8,7 @@ import type { EffectFile, FactionId, Layer, Palette, Vec3 } from '@shamble/vfx-f
 import { checkEffect } from '@shamble/vfx-format/validate';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
-import type { Timeline } from '@shamble/vfx-runtime';
+import type { Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
 import type { AtlasImage } from '../atlas/pack';
 import {
@@ -19,10 +19,10 @@ import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
 import { DevServerStore, StoreError, effectPath, imagePath, readJson, writeJson } from '../io/store';
 import type { ProjectContents, ProjectStore } from '../io/store';
-import { Preview } from '../preview/Preview';
+import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
-import { h, icon, segmented } from './dom';
+import { h, icon, segmented, selectField } from './dom';
 import { buildInspector } from './inspector';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
@@ -63,6 +63,13 @@ export class App implements AppApi {
   private factionCtl!: ReturnType<typeof segmented<FactionId>>;
   private viewCtl!: ReturnType<typeof segmented<ViewMode>>;
   private closeCtl!: ReturnType<typeof segmented<'origin' | 'target'>>;
+  private sceneCtl!: ReturnType<typeof selectField>;
+  private relationCtl!: ReturnType<typeof segmented<Relation>>;
+  private distanceBox!: { el: HTMLElement; set(v: number): void };
+  /** The preview scene each effect was last shown in (kept in project.json, under "preview"). */
+  private previewScenes: Record<string, string> = {};
+  private projectMeta: Record<string, unknown> = {};
+  private metaDirty = false;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
 
@@ -168,7 +175,8 @@ export class App implements AppApi {
     this.preview = await Preview.create({
       container: this.els.viewport, palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
     });
-    this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); };
+    this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); this.distanceBox.set(this.preview.viewerDistanceM); };
+    this.distanceBox.set(this.preview.viewerDistanceM);
     // ?frame=1 shows only the game screen at its real size: for screenshots of what a player sees.
     if (params.get('frame') === '1') { document.body.classList.add('frame-only'); this.preview.setView('frame'); }
     this.els.backend.textContent = this.preview.backendName;
@@ -236,10 +244,16 @@ export class App implements AppApi {
       value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
     this.closeCtl = segmented<'origin' | 'target'>({ label: 'Close-up on', options: [{ value: 'origin', label: 'Muzzle' }, { value: 'target', label: 'Target' }], value: 'target',
       onChange: (v) => { this.preview.setCloseOn(v); this.closeCtl.set(v); }, small: true });
-    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the stand-in to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
+    this.sceneCtl = selectField({ label: 'Scene', options: SCENES.map((x) => ({ value: x.id, label: x.name })), value: SCENES[0]!.id,
+      onChange: (id) => this.chooseScene(id) });
+    this.relationCtl = segmented<Relation>({ label: 'Made by', small: true, value: 'enemy',
+      options: [{ value: 'enemy', label: 'Enemy', title: 'An enemy made it: comic outlines in ink' }, { value: 'team', label: 'Your team', title: 'Your team made it: thin broken outlines' }, { value: 'self', label: 'You', title: 'You made it: your own words show' }],
+      onChange: (r) => { this.preview.setRelation(r); this.relationCtl.set(r); } });
+    this.distanceBox = distanceControl((m) => { this.preview.setDistance(m); this.timelineView.refresh(); });
+    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
     const stats = h('span', { class: 'stats' });
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar' }, fire, this.factionCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
+    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.viewCtl.el, this.closeCtl.el, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
 
     const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
@@ -272,6 +286,7 @@ export class App implements AppApi {
     }
     this.project = contents;
     try { localStorage.setItem(LAST_PROJECT, id); } catch { /* ignore */ }
+    await this.readProjectMeta();
     await this.loadImages();
     const effects: EffectFile[] = [];
     const bad: string[] = [];
@@ -299,6 +314,42 @@ export class App implements AppApi {
     this.renderAll();
     this.say(bad.length ? `Opened ${contents.name}, with problems: ${bad.join(' | ')}` : `Opened ${contents.name}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0);
     return true;
+  }
+
+  /** project.json: the name, and which preview scene each effect is shown in. */
+  private async readProjectMeta(): Promise<void> {
+    this.projectMeta = {};
+    this.previewScenes = {};
+    this.metaDirty = false;
+    try {
+      const meta = await readJson(this.store, this.project!.id, 'project.json');
+      if (meta && typeof meta === 'object') this.projectMeta = meta as Record<string, unknown>;
+      const pv = this.projectMeta.preview;
+      if (pv && typeof pv === 'object') {
+        for (const [fx, v] of Object.entries(pv as Record<string, { scene?: unknown }>)) {
+          if (v && typeof v.scene === 'string' && SCENES.some((x) => x.id === v.scene)) this.previewScenes[fx] = v.scene;
+        }
+      }
+    } catch { /* a project without a readable project.json still opens */ }
+  }
+
+  /** Show the chosen scene, and remember it for the effect shown. */
+  private chooseScene(id: string): void {
+    if (!this.preview.setScene(id)) return;
+    this.sceneCtl.set(id);
+    if (this.selEffect && this.previewScenes[this.selEffect] !== id) {
+      this.previewScenes[this.selEffect] = id;
+      this.metaDirty = true;
+      this.renderTopbar();
+    }
+    this.distanceBox.set(this.preview.viewerDistanceM);
+    this.timelineView.refresh();
+    this.inspector.refresh();
+  }
+
+  /** The scene an effect remembers, or the street. */
+  private sceneOf(effectId: string | null): string {
+    return (effectId && this.previewScenes[effectId]) || SCENES[0]!.id;
   }
 
   private async loadImages(): Promise<void> {
@@ -334,6 +385,16 @@ export class App implements AppApi {
       for (const fx of doc.effects) await writeJson(this.store, projectId, effectPath(fx.id), fx);
       for (const id of this.effectsOnDisk) if (!doc.effects.some((e) => e.id === id)) await this.store.remove(projectId, effectPath(id));
       this.effectsOnDisk = new Set(doc.effects.map((e) => e.id));
+      if (this.metaDirty || projectId !== this.project?.id) {
+        const preview: Record<string, { scene: string }> = {};
+        for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
+        const name = projectId === this.project?.id ? (this.projectMeta.name ?? this.project?.name) : undefined;
+        const current = projectId === this.project?.id ? this.projectMeta : await readJson(this.store, projectId, 'project.json').catch(() => ({}));
+        const meta = { ...(current as Record<string, unknown>), ...(name ? { name } : {}), preview };
+        await writeJson(this.store, projectId, 'project.json', meta);
+        if (projectId === this.project?.id) this.projectMeta = meta;
+        this.metaDirty = false;
+      }
       this.history.markSaved();
       this.say(`Saved ${doc.effects.length} effect${doc.effects.length === 1 ? '' : 's'} to ${projectId}.`);
     } catch (e) {
@@ -416,6 +477,12 @@ export class App implements AppApi {
     this.selEffect = id;
     this.selLayer = null;
     this.mainTime = 0;
+    const scene = this.sceneOf(id);
+    if (this.preview && this.preview.scene.id !== scene) {
+      this.preview.setScene(scene);
+      this.distanceBox.set(this.preview.viewerDistanceM);
+    }
+    this.sceneCtl?.set(scene);
     this.renderAll();
   }
 
@@ -518,7 +585,7 @@ export class App implements AppApi {
     const fx = this.effect();
     if (!fx) return;
     this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
-    this.player.start(fx.id, { seed: this.seed, inputs: this.inputs(), faction: this.faction, nowMs: this.clock });
+    this.player.start(fx.id, { seed: this.seed, inputs: this.inputs(), faction: this.faction, nowMs: this.clock, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
     if (!this.playing) { this.playing = true; this.mainTime = Number.POSITIVE_INFINITY; }
     this.renderTransport();
   }
@@ -546,7 +613,7 @@ export class App implements AppApi {
     const lookup = (id: string) => effectById(this.history.doc, id);
     await this.preview.render((vfx) => {
       if (fx && Number.isFinite(this.mainTime) && this.mainTime >= 0) {
-        vfx.draw(fx, { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction });
+        vfx.draw(fx, { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
       }
       vfx.drawPlaying(this.player, this.clock, lookup);
     });
@@ -569,10 +636,11 @@ export class App implements AppApi {
 
   private renderTopbar(): void {
     const p = this.project;
-    this.els.projectName.textContent = p ? `${p.name}${this.history.dirty ? ' •' : ''}` : 'No project';
+    const dirty = this.history.dirty || this.metaDirty;
+    this.els.projectName.textContent = p ? `${p.name}${dirty ? ' •' : ''}` : 'No project';
     this.els.projectName.title = p ? `${p.id}${p.writable ? '' : ' (example, read-only)'}` : '';
     this.els.save.textContent = p && !p.writable ? 'Save as…' : 'Save';
-    this.els.save.disabled = !!p && p.writable && !this.history.dirty;
+    this.els.save.disabled = !!p && p.writable && !dirty;
     (this.els.root.querySelector('.save-as') as HTMLElement).style.display = p && !p.writable ? 'none' : '';
     this.els.undo.disabled = !this.history.canUndo;
     this.els.redo.disabled = !this.history.canRedo;
@@ -678,6 +746,19 @@ export class App implements AppApi {
     return true;
   }
 
+  /** For the compare and browser checks: an effect in a scene, for a faction, made by someone, at a distance. */
+  async setupForChecks(o: { effect: string; scene?: string; faction?: FactionId; relation?: Relation; distance?: number }): Promise<boolean> {
+    if (!effectById(this.history.doc, o.effect)) return false;
+    this.selectEffect(o.effect);
+    if (o.scene) this.chooseScene(o.scene);
+    if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.factionCtl.set(o.faction); }
+    if (o.relation) { this.preview.setRelation(o.relation); this.relationCtl.set(o.relation); }
+    if (o.distance !== undefined) { this.preview.setDistance(o.distance); this.distanceBox.set(this.preview.viewerDistanceM); }
+    this.metaDirty = false;
+    this.renderTopbar();
+    return true;
+  }
+
   get previewForChecks(): Preview {
     return this.preview;
   }
@@ -694,4 +775,16 @@ function layerTag(l: Layer): string {
     case 'burst': return `${l.count} × ${l.look.kind}`;
     case 'word': return l.words.join(' / ');
   }
+}
+
+/** A small distance control for the viewport bar: a range and the number in metres. */
+function distanceControl(onInput: (m: number) => void): { el: HTMLElement; set(v: number): void } {
+  const range = h('input', { attrs: { type: 'range', min: '0', max: '14', step: '0.1', 'aria-label': 'Distance from you' } });
+  const val = h('span', { class: 'dist-val' });
+  const set = (v: number) => { range.value = String(v); val.textContent = `${v.toFixed(1)} m`; };
+  range.addEventListener('input', () => { set(+range.value); onInput(+range.value); });
+  set(4);
+  const el = h('div', { class: 'row dist', title: 'How far you are from the effect. Comic words shrink with distance: full size to 2 m, 60 % from 5 to 8 m, gone at 11 m.' },
+    h('div', { class: 'lab' }, h('span', { text: 'Distance from you' })), range, val);
+  return { el, set };
 }

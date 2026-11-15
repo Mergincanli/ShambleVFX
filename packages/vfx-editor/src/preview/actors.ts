@@ -8,7 +8,7 @@
  */
 import { BufferGeometry, Group, Mesh, MeshBasicNodeMaterial, Vector3 } from 'three/webgpu';
 import type { FactionId } from '@shamble/vfx-format';
-import { box, grow, limb, merge, taperedBox, toGeometry, transform } from './shapes';
+import { box, grow, limb, merge, prism, slab, taperedBox, toGeometry, transform } from './shapes';
 import type { Solid } from './shapes';
 import { flat, inkHull, toon } from './materials';
 import data from './scene-data.json';
@@ -112,9 +112,9 @@ export function buildStandIn(faction: FactionId, inShade: boolean): Actor & { mu
   return { ...actor, muzzle: muzzle.clone().add(new Vector3(0, 0, 0.02)) };
 }
 
-/** The wall for cover, centred on x = z = 0, long side along x. */
-export function buildWall(inShade: boolean): Actor {
-  const w = data.wall;
+/** The wall for cover, centred on x = z = 0, long side along x. A scene may give its own length and thickness. */
+export function buildWall(inShade: boolean, size: { lengthM?: number; thicknessM?: number } = {}): Actor {
+  const w = { ...data.wall, ...size };
   const part: Part = { solid: box(w.lengthM, w.heightM, w.thicknessM), colour: w.base };
   const actor = assemble([part], INK_M.wallOutline, INK_M.wallEdge, inShade, 'wall for cover');
   // Edges between the wall's own faces: thin dark lines along the top edges, as the board strokes each face.
@@ -155,4 +155,56 @@ function onGround(s: Solid): Solid {
 
 function at3(s: Solid, x: number, y: number, z: number): Solid {
   return transform(s, new Matrix4().makeTranslation(x, y, z));
+}
+
+/**
+ * The drawing board's tank blockout, facing +z, tracks on y = 0. The board gives a tank in its own axes (u forward,
+ * v to the left, z up); here u is +z, v is +x and z is +y. Returns the actor, the point the effect starts from (the
+ * gun's muzzle or the Hammer's emitter) and the point a beam aims at (the top of the turret), in its own space.
+ */
+export function buildTank(faction: FactionId, gun: 'gun' | 'hammer', inShade: boolean): Actor & { muzzle: Vector3; top: Vector3 } {
+  const T = data.tank;
+  const team = data.standIn.materials[faction].top;
+  const parts: Part[] = [];
+  const add = (solid: Solid, colour: string) => parts.push({ solid, colour });
+  const uvz = (b: { u: number[]; v: number[]; z: number[] }) => slab(b.v[0]!, b.v[1]!, b.z[0]!, b.z[1]!, b.u[0]!, b.u[1]!);
+  for (const side of [1, -1]) add(uvz({ u: T.track.u, v: T.track.v.map((v) => v * side).sort((a, b) => a - b), z: T.track.z }), T.track.colour);
+  add(uvz(T.hull), T.hullColour[faction]);
+  // The band of team colour over the deck and down the sides, a hair proud of the hull so it shows.
+  const e = 0.004;
+  add(slab(T.hull.v[0]! - e, T.hull.v[1]! + e, T.hull.z[0]!, T.hull.z[1]! + e, T.band.u[0]!, T.band.u[1]!), team);
+  // The turret: eight sides in team colour darkened, a roof in team colour.
+  const outline = T.turret.outline.map(([u, v]) => [v!, u!] as [number, number]);
+  const ccw = signedArea(outline) > 0 ? outline : [...outline].reverse();
+  add(prism(ccw, T.turret.z[0]!, T.turret.z[1]!), scaleHex(team, T.turret.sideShade));
+  add(prism(ccw, T.turret.z[1]!, T.turret.z[1]! + 0.012), team);
+  let muzzle: Vector3;
+  if (gun === 'gun') {
+    add(uvz(T.gun.barrel), T.steel);
+    add(uvz(T.gun.brake), T.steel);
+    muzzle = new Vector3(T.gun.muzzle[1], T.gun.muzzle[2], T.gun.muzzle[0]);
+  } else {
+    for (const side of [1, -1]) add(uvz({ u: T.hammer.arms.u, v: T.hammer.arms.v.map((v) => v * side).sort((a, b) => a - b), z: T.hammer.arms.z }), T.steel);
+    const r = T.hammer.emitterRadiusM, [eu, ev, ez] = T.hammer.emitter as [number, number, number];
+    add(slab(ev - r, ev + r, ez - r, ez + r, eu - r, eu + r), T.emitterColour[faction]);
+    muzzle = new Vector3(ev, ez, eu);
+  }
+  const actor = assemble(parts, INK_M.unitOutline, INK_M.unitInside, inShade, `tank ${faction}`);
+  const [tu, tv, tz] = T.top as [number, number, number];
+  return { ...actor, muzzle, top: new Vector3(tv, tz, tu) };
+}
+
+function signedArea(pts: readonly [number, number][]): number {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, z0] = pts[i]!, [x1, z1] = pts[(i + 1) % pts.length]!;
+    a += x0 * z1 - x1 * z0;
+  }
+  return a / 2;
+}
+
+function scaleHex(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(Math.min(255, v * k)));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }

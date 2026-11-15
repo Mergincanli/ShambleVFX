@@ -1,0 +1,595 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "board_muzzle",
+  "name": "Rifle shot (board)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "heat.1"
+  },
+  "phases": {
+    "windupMs": 30,
+    "peakMs": 70,
+    "fadeMs": 180
+  },
+  "layers": [
+    {
+      "id": "muzzle_light",
+      "name": "Light under the muzzle",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "screen",
+      "untilPhaseEnd": "peak",
+      "scale": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.499,
+            1
+          ],
+          [
+            0.5,
+            0.8
+          ],
+          [
+            1,
+            0.8
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 1.25,
+        "role": "heat.2",
+        "alpha": 0.3,
+        "soft": false,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "hit_light",
+      "name": "Light at the hit",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 21
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0.43,
+          0,
+          -0.39
+        ]
+      },
+      "facing": "ground",
+      "blend": "screen",
+      "untilPhaseEnd": "peak",
+      "shape": {
+        "kind": "glow",
+        "radiusM": 0.7,
+        "role": "heat.2",
+        "alpha": 0.22,
+        "soft": false,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "glint",
+      "name": "Glint",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "path",
+      "blend": "normal",
+      "untilPhaseEnd": "windup",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.26
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.23,
+        "points": 4,
+        "inner": 0.3,
+        "jitter": 0,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "heat.3",
+            "scale": 1
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.55
+          }
+        ],
+        "inkPx": 0,
+        "edge": "none",
+        "whiteFirstStep": false,
+        "boilDeg": 0,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "tracer_flight",
+      "name": "Tracer flight",
+      "type": "projectile",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "from": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0.8
+        ]
+      },
+      "to": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "flight": {
+        "mode": "time",
+        "ms": 21.9
+      },
+      "arcM": 0,
+      "stretch": 1,
+      "spinDegPerS": 0
+    },
+    {
+      "id": "tracer",
+      "name": "Tracer",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "layer": "tracer_flight"
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "trail",
+        "length": 0.75,
+        "widthPx": [
+          2.9,
+          10.1
+        ],
+        "role": "glow",
+        "core": {
+          "role": "white",
+          "px": 4.6,
+          "edge": "enemy"
+        },
+        "inkPx": 3.1,
+        "edge": "enemy",
+        "breakUp": {
+          "phase": "fade"
+        },
+        "dashes": 5
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "flash",
+      "name": "Muzzle flash",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 24
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "path",
+      "blend": "normal",
+      "untilPhaseEnd": "peak",
+      "shape": {
+        "kind": "flash",
+        "lengthM": 0.95,
+        "tones": [
+          {
+            "role": "heat.1",
+            "scale": 1
+          },
+          {
+            "role": "heat.2",
+            "scale": 0.72
+          },
+          {
+            "role": "heat.3",
+            "scale": 0.46
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.24
+          }
+        ],
+        "inkPx": 3,
+        "edge": "enemy",
+        "alternate": {
+          "scale": 0.82,
+          "jitter": 0.08
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "flash_sparks",
+      "name": "Sparks at the flash",
+      "type": "burst",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 24
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "path",
+      "blend": "normal",
+      "count": 4,
+      "lifeMs": [
+        41.7,
+        41.7
+      ],
+      "speedMps": [
+        0,
+        0
+      ],
+      "direction": "path",
+      "spreadDeg": 43,
+      "startRadiusM": [
+        0.71,
+        1.19
+      ],
+      "gravityMps2": 0,
+      "drag": 0,
+      "sizeM": [
+        0.03,
+        0.03
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "spinDegPerS": [
+        0,
+        0
+      ],
+      "loop": true,
+      "groundStop": false,
+      "seed": 2,
+      "perPlay": true,
+      "untilPhaseEnd": "peak",
+      "look": {
+        "kind": "spark",
+        "role": "glow",
+        "inkPx": 0,
+        "edge": "none"
+      }
+    },
+    {
+      "id": "hit",
+      "name": "Hit star",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 21.9
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "peak",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.5
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.4,
+        "points": 6,
+        "inner": 0.22,
+        "jitter": 0,
+        "squash": 1,
+        "rotationDeg": 22.9,
+        "tones": [
+          {
+            "role": "glow",
+            "scale": 1
+          },
+          {
+            "role": "heat.4",
+            "scale": 0.5
+          }
+        ],
+        "inkPx": 1,
+        "edge": "enemy",
+        "whiteFirstStep": false,
+        "boilDeg": 2.7,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "smoke",
+      "name": "Gun smoke",
+      "type": "shape",
+      "start": {
+        "phase": "fade",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "path",
+      "blend": "normal",
+      "shiftM": [
+        0.285,
+        0
+      ],
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "smoke",
+        "style": "puff",
+        "radiusM": 0.34,
+        "role": "gunsmoke",
+        "rimRole": "gunsmoke.rim",
+        "inkPx": 2.35,
+        "grow": [
+          0.41,
+          1,
+          0
+        ],
+        "riseM": 0.22,
+        "driftM": [
+          0.425,
+          0
+        ]
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "dust",
+      "name": "Dust at the hit",
+      "type": "shape",
+      "start": {
+        "phase": "fade",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "shiftM": [
+        -0.06,
+        0
+      ],
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "smoke",
+        "style": "puff",
+        "radiusM": 0.36,
+        "role": "dust",
+        "rimRole": "dust.rim",
+        "inkPx": 2.15,
+        "grow": [
+          0.33,
+          1,
+          0
+        ],
+        "riseM": 0.3,
+        "driftM": [
+          0,
+          0
+        ]
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "chips",
+      "name": "Stone chips",
+      "type": "burst",
+      "start": {
+        "phase": "fade",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "count": 3,
+      "lifeMs": [
+        153,
+        153
+      ],
+      "speedMps": [
+        5.1,
+        10.3
+      ],
+      "direction": "up",
+      "spreadDeg": 30,
+      "startRadiusM": [
+        0.125,
+        0.25
+      ],
+      "gravityMps2": 30.9,
+      "drag": 12.2,
+      "sizeM": [
+        0.042,
+        0.042
+      ],
+      "sizeOverLife": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "spinDegPerS": [
+        688,
+        688
+      ],
+      "loop": false,
+      "groundStop": false,
+      "seed": 3,
+      "perPlay": true,
+      "look": {
+        "kind": "chip",
+        "role": "stone",
+        "inkPx": 1,
+        "edge": "ink",
+        "inkRole": "stone.rim"
+      }
+    }
+  ]
+}

@@ -5,9 +5,13 @@
  * Nothing is allocated per frame unless a buffer must grow.
  */
 
-/** Blend groups. "ground" groups draw first (they lie on the ground); "top" groups draw over the scene. */
-export type BlendGroup = 'ground-multiply' | 'ground-normal' | 'ground-screen' | 'top-normal' | 'top-add';
-export const BLEND_GROUPS: readonly BlendGroup[] = ['ground-multiply', 'ground-normal', 'ground-screen', 'top-normal', 'top-add'];
+/**
+ * Blend groups, in drawing order. The ground groups draw first (they lie on the ground): stains (multiply), then light
+ * (screen), then everything else flat on the ground. "top" draws over the scene. In "ground" and "top", ordinary drawing
+ * and added light share one draw call (premultiplied alpha), so a glow can sit under a shape drawn after it.
+ */
+export type BlendGroup = 'ground-multiply' | 'ground-screen' | 'ground' | 'top';
+export const BLEND_GROUPS: readonly BlendGroup[] = ['ground-multiply', 'ground-screen', 'ground', 'top'];
 
 export class TriBuffer {
   /** Vertices written this frame. */

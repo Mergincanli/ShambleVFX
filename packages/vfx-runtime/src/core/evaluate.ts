@@ -9,7 +9,7 @@ import { applyControls } from './controls';
 import type { ResolvedControls } from './controls';
 import { curveAt } from './draw';
 import type { DrawCtx, Relation } from './draw';
-import { clamp, cross, length, normalize, sub } from './math';
+import { clamp, cross, length, normalize, scale, sub } from './math';
 import { Painter } from './painter';
 import type { Frame3 } from './painter';
 import { drawBurst } from './particles';
@@ -86,12 +86,14 @@ const DEG = Math.PI / 180;
 const WHITE: readonly [number, number, number] = [1, 1, 1];
 const painter = new Painter();
 
-/** Which buffer a layer draws into. multiply and screen lie on the ground; add is light over everything. */
+/**
+ * Which buffer a layer draws into. multiply and screen lie on the ground. normal and add share a buffer (on the ground
+ * or over the scene): an added layer marks its colours with a negative alpha, which the material reads as "add".
+ */
 export function groupOf(l: VisibleLayer): BlendGroup {
   if (l.blend === 'multiply') return 'ground-multiply';
   if (l.blend === 'screen') return 'ground-screen';
-  if (l.blend === 'add') return 'top-add';
-  return l.facing === 'ground' ? 'ground-normal' : 'top-normal';
+  return l.facing === 'ground' ? 'ground' : 'top';
 }
 
 /** Where a visible layer is, which way its path goes and, when it rides a projectile, how far along the flight. */
@@ -155,8 +157,10 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
       continue;
     }
 
-    // Shapes, bursts and words: drawn flat in the layer's frame by the painter.
-    const frame = frameFor(l.facing, where.p, where.dir, cam);
+    // Shapes, bursts and words: drawn flat in the layer's frame by the painter. Along a path they lie in the screen's
+    // plane, as drawn comic shapes do (a sprite along a path lies along the real path instead).
+    const frame = frameFor(l.facing, where.p, where.dir, cam, true);
+    if (l.facing === 'ground' && l.liftM) frame.o[1] = l.liftM * c.size;
     if (l.shiftM) {
       for (let k = 0; k < 3; k++) {
         frame.o[k] = frame.o[k]! + (frame.u[k]! * l.shiftM[0] + frame.v[k]! * l.shiftM[1]) * c.size;
@@ -173,6 +177,8 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
       lifeMs: life,
       t: clamp(tau / life, 0, 1),
       effT: span.startMs + tau,
+      tauRaw,
+      effTRaw: ctx.timeMs,
       stepMs: stepMs(l.timing),
       tl,
       rnd: (a, b = 0) => random01(seedMix, a, b),
@@ -191,7 +197,14 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     if (l.type === 'shape') drawShape(l.shape, dctx);
     else if (l.type === 'burst') drawBurst(l, dctx);
     else drawWord(l, dctx);
-    setPull(buf, v0, frame.o, cam, l.facing === 'ground' ? 0 : pullPerMetre);
+    // Measured from the anchor itself, so a drawing moved up off the ground (shiftM) is pulled by what reaches below it.
+    // A flat layer lifted off the ground (a ring round a tank's middle) is pulled like a standing one, so the thing it
+    // circles does not hide its far side: it is drawn over its target, as a comic panel would.
+    const onGround = l.facing === 'ground' && !l.liftM;
+    setPull(buf, v0, where.p, cam, onGround ? 0 : pullPerMetre, onGround ? GROUND_PULL : STAND_OFF);
+    const a = l.alpha ? scaleAt(l.alpha, n, tau / life) : 1;
+    const sign = l.blend === 'add' ? -1 : 1;
+    if (a !== 1 || sign < 0) for (let k = v0; k < buf.vcount; k++) buf.col[k * 4 + 3] = buf.col[k * 4 + 3]! * a * sign;
   }
   return { triangles: sink.triangles - before, missingImages: missing, lengthMs: tl.lengthMs };
 }
@@ -226,30 +239,55 @@ function anchorOf(fx: EffectFile, l: VisibleLayer, ctx: EvalContext, c: Resolved
   };
 }
 
-/** The flat frame a layer draws in: u is its x, v its y. */
-export function frameFor(facing: VisibleLayer['facing'], o: Vec3, dir: Vec3 | undefined, cam: CameraBasis): Frame3 {
+/**
+ * The flat frame a layer draws in: u is its x, v its y. With `flat`, a path frame lies in the screen's plane (its x
+ * along the path as seen on screen, never foreshortened); without, its x lies along the real path.
+ */
+export function frameFor(facing: VisibleLayer['facing'], o: Vec3, dir: Vec3 | undefined, cam: CameraBasis, flat = false): Frame3 {
   if (facing === 'upright') {
     const u = normalize([cam.right[0], 0, cam.right[2]]) ?? [1, 0, 0];
     return { o: [...o], u, v: [0, 1, 0] };
   }
   if (facing === 'ground') {
-    // x to the right on screen, y away from the camera (up the screen), both flat on the ground.
+    // Flat on the ground under the anchor (assumption, marked: the ground is flat, at height 0), x to the right on
+    // screen, y away from the camera (up the screen).
     const u = normalize([cam.right[0], 0, cam.right[2]]) ?? [1, 0, 0];
     const v = normalize([cam.forward[0], 0, cam.forward[2]]) ?? [0, 0, -1];
-    return { o: [...o], u, v };
+    return { o: [o[0], 0, o[2]], u, v };
   }
   if (facing === 'path' && dir) {
     const side = normalize(cross(dir, cam.forward));
-    if (side) return { o: [...o], u: [...dir], v: side };
+    if (side) {
+      if (!flat) return { o: [...o], u: [...dir], v: side };
+      const along = normalize(cross(cam.forward, side));
+      // A drawn shape along a path stays upright: its y points up the screen whichever way the shot goes, so smoke
+      // rises and the drawing is mirrored for a shot to the left rather than turned upside down.
+      const up = side[0] * cam.up[0] + side[1] * cam.up[1] + side[2] * cam.up[2] < 0 ? scale(side, -1) : side;
+      if (along) return { o: [...o], u: along, v: up };
+    }
   }
   return { o: [...o], u: [...cam.right], v: [...cam.up] };
 }
 
 /**
- * Depth pull (assumption, marked): the part of a layer that reaches below its anchor, seen along the camera's up, is
- * pulled towards the camera by as much, so the ground or the wall it stands on never cuts it. Ground layers sit just above.
+ * How far a layer flat on the ground is pulled towards the camera, metres: enough to stay over ground decals and painted
+ * shadows (which sit a millimetre up, with a polygon offset), too little to show over the feet of what stands on it.
  */
-function setPull(buf: TriBuffer, v0: number, anchor: Vec3, cam: CameraBasis, pullPerMetre: number): void {
+const GROUND_PULL = 0.05;
+
+/**
+ * How far every standing layer is pulled towards the camera on top of its reach, metres (assumption, marked). A flat
+ * drawing through a muzzle or a hit point would otherwise cut into the thing it sits on (a gun's arms, a turret's
+ * edge); the drawing board draws effects over their own unit. Walls still hide what is clearly behind them.
+ */
+const STAND_OFF = 0.4;
+
+/**
+ * Depth pull (assumption, marked): the part of a layer that reaches below its anchor, seen along the camera's up, is
+ * pulled towards the camera by as much, so the ground or the wall it stands on never cuts it, plus the stand-off.
+ * Ground layers sit just above the ground.
+ */
+function setPull(buf: TriBuffer, v0: number, anchor: Vec3, cam: CameraBasis, pullPerMetre: number, base = STAND_OFF): void {
   let reach = 0;
   if (pullPerMetre > 0) {
     for (let i = v0; i < buf.vcount; i++) {
@@ -258,7 +296,7 @@ function setPull(buf: TriBuffer, v0: number, anchor: Vec3, cam: CameraBasis, pul
       if (-d > reach) reach = -d;
     }
   }
-  const pull = reach * pullPerMetre + 0.02;
+  const pull = reach * pullPerMetre + base;
   for (let i = v0; i < buf.vcount; i++) buf.pos[i * 4 + 3] = pull;
 }
 
@@ -282,6 +320,7 @@ function drawSprite(
 
   // Axes: the layer's frame (facing the camera, along the path, flat on the ground, or upright).
   const fr = frameFor(l.facing, p, dir, cam);
+  if (l.facing === 'ground' && l.liftM) fr.o[1] = l.liftM * c.size;
   const alongPath = l.facing === 'path' && dir !== undefined && fr.u[0] === dir[0] && fr.u[1] === dir[1] && fr.u[2] === dir[2];
   let ax: Vec3 = fr.u;
   let ay: Vec3 = fr.v;
@@ -328,32 +367,36 @@ function drawSprite(
   const uR = fu0 + (fu1 - fu0) * cu1;
 
   const am = (a0 + a1) / 2, bm = (b0 + b1) / 2;
-  const cx = p[0] + ax[0] * am + ay[0] * bm;
-  const cy = p[1] + ax[1] * am + ay[1] * bm;
-  const cz = p[2] + ax[2] * am + ay[2] * bm;
+  const o = fr.o;
+  const cx = o[0] + ax[0] * am + ay[0] * bm;
+  const cy = o[1] + ax[1] * am + ay[1] * bm;
+  const cz = o[2] + ax[2] * am + ay[2] * bm;
   const W = a1 - a0, H = b1 - b0;
 
   // Depth pull, as for shapes: by how far the quad reaches below its anchor on screen. Ground sprites sit just above.
+  const onGround = l.facing === 'ground' && !l.liftM;
   let reach = 0;
-  if (l.facing !== 'ground') {
+  if (!onGround) {
     for (let sx = -0.5; sx <= 0.5; sx += 1) {
       for (let sy = -0.5; sy <= 0.5; sy += 1) {
-        const ox = cx - p[0] + ax[0] * W * sx + ay[0] * H * sy;
-        const oy = cy - p[1] + ax[1] * W * sx + ay[1] * H * sy;
-        const oz = cz - p[2] + ax[2] * W * sx + ay[2] * H * sy;
+        const ox = cx - o[0] + ax[0] * W * sx + ay[0] * H * sy;
+        const oy = cy - o[1] + ax[1] * W * sx + ay[1] * H * sy;
+        const oz = cz - o[2] + ax[2] * W * sx + ay[2] * H * sy;
         reach = Math.max(reach, -(ox * cam.up[0] + oy * cam.up[1] + oz * cam.up[2]));
       }
     }
   }
-  const pull = reach * pullPerMetre + 0.02;
+  const pull = onGround ? GROUND_PULL : reach * pullPerMetre + STAND_OFF;
 
   const col = l.tint.mode === 'multiply' ? rgbOf(l.tint.role) : WHITE;
+  const alpha = l.alpha ? scaleAt(l.alpha, n, tau / (span.endMs - span.startMs)) : 1;
+  if (alpha <= 0) return;
   buf.quad(
     cx, cy, cz,
     ax[0] * W, ax[1] * W, ax[2] * W,
     ay[0] * H, ay[1] * H, ay[2] * H,
     uL, fv0, uR, fv1,
-    col[0], col[1], col[2], 1,
+    col[0], col[1], col[2], l.blend === 'add' ? -alpha : alpha,
     pull, index,
   );
 }

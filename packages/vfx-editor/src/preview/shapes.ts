@@ -28,6 +28,34 @@ export function taperedBox(w0: number, d0: number, w1: number, d1: number, y0: n
   return s;
 }
 
+/** An upright prism: a convex outline of [x, z] points (counter-clockwise seen from above) from height y0 to y1. */
+export function prism(outline: readonly (readonly [number, number])[], y0: number, y1: number): Solid {
+  const s: Solid = { positions: [], normals: [] };
+  const n = outline.length;
+  // Sides.
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = outline[i]!, [bx, bz] = outline[(i + 1) % n]!;
+    addQuad(s, [[bx, y0, bz], [ax, y0, az], [ax, y1, az], [bx, y1, bz]]);
+  }
+  // Top and bottom, as fans.
+  for (let i = 1; i < n - 1; i++) {
+    const a = outline[0]!, b = outline[i]!, c = outline[i + 1]!;
+    addTri(s, [a[0], y1, a[1]], [c[0], y1, c[1]], [b[0], y1, b[1]]);
+    addTri(s, [a[0], y0, a[1]], [b[0], y0, b[1]], [c[0], y0, c[1]]);
+  }
+  return s;
+}
+
+/** A box from x0..x1, y0..y1, z0..z1. */
+export function slab(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): Solid {
+  const s = box(x1 - x0, y1 - y0, z1 - z0, y0);
+  for (let i = 0; i < s.positions.length; i += 3) {
+    s.positions[i] = s.positions[i]! + (x0 + x1) / 2;
+    s.positions[i + 2] = s.positions[i + 2]! + (z0 + z1) / 2;
+  }
+  return s;
+}
+
 export function box(w: number, h: number, d: number, y0 = 0): Solid {
   return taperedBox(w, d, w, d, y0, y0 + h);
 }
@@ -102,6 +130,15 @@ function addQuad(s: Solid, q: number[][]): void {
   if (n.lengthSq() < 1e-12) n.subVectors(c, a).cross(new Vector3().subVectors(d, a));
   n.normalize();
   for (const p of [a, b, c, a, c, d]) {
+    s.positions.push(p.x, p.y, p.z);
+    s.normals.push(n.x, n.y, n.z);
+  }
+}
+
+function addTri(s: Solid, a: number[], b: number[], c: number[]): void {
+  const A = new Vector3(a[0], a[1], a[2]), B = new Vector3(b[0], b[1], b[2]), C = new Vector3(c[0], c[1], c[2]);
+  const n = new Vector3().subVectors(B, A).cross(new Vector3().subVectors(C, A)).normalize();
+  for (const p of [A, B, C]) {
     s.positions.push(p.x, p.y, p.z);
     s.normals.push(n.x, n.y, n.z);
   }

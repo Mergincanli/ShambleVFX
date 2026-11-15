@@ -107,7 +107,7 @@ export interface Flipbook {
 
 export type Tint = { mode: 'keep' } | { mode: 'multiply'; role: RoleName };
 
-/** Size over time, on top of the layer's own size. */
+/** A factor over time: size over time on top of the layer's own size (scale), or see-through over time (alpha). */
 export interface ScaleAnim {
   /** One factor per step from the start: [1.18, 1.06] pops a shape in a little too large, then it settles. */
   steps?: number[];
@@ -134,8 +134,15 @@ interface VisibleCommon extends LayerCommon {
   /** The layer ends when this phase ends. Do not set with durationMs. */
   untilPhaseEnd?: PhaseName;
   scale?: ScaleAnim;
+  /**
+   * How solid the layer is over time, 0..1 (multiplies every colour's alpha). Comic shapes stay solid; light, rings
+   * and glows may fade.
+   */
+  alpha?: ScaleAnim;
   /** Moves the drawing in its own flat frame, metres: [right, up] (for a camera-facing layer: on screen). */
   shiftM?: Vec2;
+  /** A layer flat on the ground lies this high above it, metres (a ring around a tank's middle). Default 0. */
+  liftM?: number;
 }
 
 export interface SpriteLayer extends VisibleCommon {
@@ -458,7 +465,11 @@ export interface ShapeLayer extends VisibleCommon {
 }
 
 export type ParticleLook =
-  | { kind: 'diamond' | 'chip' | 'spark' | 'dot' | 'shard' | 'speck' | 'puff' | 'streak'; role: RoleName; inkPx: number; edge: Edge }
+  | {
+    kind: 'diamond' | 'chip' | 'spark' | 'dot' | 'shard' | 'speck' | 'puff' | 'streak'; role: RoleName; inkPx: number; edge: Edge;
+    /** The colour of the "ink" edge, when it should not be black (a stone chip's darker rim). Default ink. */
+    inkRole?: RoleName;
+  }
   | { kind: 'image'; image: string; tint: Tint };
 
 /** A set number of small things thrown out at once (or again and again, with loop). */

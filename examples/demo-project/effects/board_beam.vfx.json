@@ -1,0 +1,976 @@
+{
+  "format": "shamble-vfx",
+  "version": 2,
+  "id": "board_beam",
+  "name": "Hammer leech beam (board)",
+  "controls": {
+    "size": 1,
+    "intensity": 1,
+    "duration": 1,
+    "colour": "glow"
+  },
+  "phases": {
+    "windupMs": 350,
+    "peakMs": 2500,
+    "fadeMs": 300
+  },
+  "layers": [
+    {
+      "id": "ground_glow_target",
+      "name": "Light on the ground at the target",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "screen",
+      "untilPhaseEnd": "fade",
+      "alpha": {
+        "life": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1111111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 4.4,
+        "role": "glow",
+        "alpha": 0.6,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "ground_glow_emitter",
+      "name": "Light on the ground at the Hammer",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "screen",
+      "untilPhaseEnd": "fade",
+      "alpha": {
+        "life": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1111111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 2.6,
+        "role": "glow",
+        "alpha": 0.55,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "lock_ring",
+      "name": "Lock ring",
+      "type": "shape",
+      "start": {
+        "ms": 70
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "life": [
+          [
+            0,
+            1.169
+          ],
+          [
+            0.0227,
+            1.095
+          ],
+          [
+            0.0455,
+            1.042
+          ],
+          [
+            0.0682,
+            1.011
+          ],
+          [
+            0.0909,
+            1.0
+          ],
+          [
+            0.9026,
+            1.0
+          ],
+          [
+            1,
+            1.147
+          ]
+        ]
+      },
+      "alpha": {
+        "life": [
+          [
+            0,
+            0.5
+          ],
+          [
+            0.0227,
+            1
+          ],
+          [
+            0.9026,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "ring",
+        "radiusM": 3.4,
+        "widthPx": 6,
+        "inkPx": 11.5,
+        "role": "team",
+        "style": "auto-teeth",
+        "teeth": 20,
+        "teethM": 0.36,
+        "growFrom": 1,
+        "growMs": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "closing_rings",
+      "name": "Rings closing on the target",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "ground",
+      "blend": "normal",
+      "liftM": 1.0,
+      "untilPhaseEnd": "peak",
+      "shape": {
+        "kind": "ring",
+        "radiusM": 3.1,
+        "widthPx": 4.1,
+        "inkPx": 0,
+        "role": "glow.hot",
+        "style": "auto-teeth",
+        "teeth": 20,
+        "teethM": 0.3,
+        "growFrom": 1,
+        "growMs": 0,
+        "closing": {
+          "count": 3,
+          "periodMs": 900,
+          "fromM": 3.1,
+          "toM": 0.9
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "beam_glow_wide",
+      "name": "Beam glow, wide",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "band",
+        "from": {
+          "input": "origin",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "to": {
+          "input": "target",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "widthM": [
+          0.52,
+          0.36
+        ],
+        "role": "glow",
+        "alpha": 0.2,
+        "soft": false,
+        "edge": "none",
+        "flicker": 0.1,
+        "letGo": "fade"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "beam_glow",
+      "name": "Beam glow",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "band",
+        "from": {
+          "input": "origin",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "to": {
+          "input": "target",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "widthM": [
+          0.3,
+          0.2
+        ],
+        "role": "glow",
+        "alpha": 0.45,
+        "soft": false,
+        "edge": "none",
+        "flicker": 0.1,
+        "letGo": "fade"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "beam_core",
+      "name": "Beam, hot core",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "band",
+        "from": {
+          "input": "origin",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "to": {
+          "input": "target",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "widthM": [
+          0.17,
+          0.12
+        ],
+        "role": "glow.hot",
+        "alpha": 1,
+        "soft": false,
+        "edge": "auto",
+        "flicker": 0.1,
+        "letGo": "fade",
+        "find": "windup"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "beam_white",
+      "name": "Beam, white core",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shape": {
+        "kind": "band",
+        "from": {
+          "input": "origin",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "to": {
+          "input": "target",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "widthM": [
+          0.07,
+          0.05
+        ],
+        "role": "white",
+        "alpha": 1,
+        "soft": false,
+        "edge": "enemy",
+        "flicker": 0.1,
+        "letGo": "fade"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "beads",
+      "name": "Beads",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "peak",
+      "shape": {
+        "kind": "beads",
+        "from": {
+          "input": "target",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "to": {
+          "input": "origin",
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        },
+        "count": 3,
+        "periodMs": 700,
+        "sizeM": 0.24,
+        "role": "white",
+        "glowRole": "glow"
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "spot_glow_wide",
+      "name": "Hot spot glow, wide",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "durationMs": 2635.0,
+      "scale": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.9488,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 2.7,
+        "role": "glow",
+        "alpha": 0.7,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "spot_glow",
+      "name": "Hot spot glow",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "durationMs": 2635.0,
+      "scale": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.9488,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 1.1,
+        "role": "glow",
+        "alpha": 0.8,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "spot_star",
+      "name": "Hot spot star",
+      "type": "shape",
+      "start": {
+        "phase": "peak",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 2635.0,
+      "scale": {
+        "life": [
+          [
+            0,
+            1
+          ],
+          [
+            0.9488,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "shards",
+        "radiusM": 0.38,
+        "points": 4,
+        "inner": 0.16,
+        "jitter": 0,
+        "squash": 1,
+        "rotationDeg": 0,
+        "tones": [
+          {
+            "role": "white",
+            "scale": 1
+          }
+        ],
+        "inkPx": 0,
+        "edge": "none",
+        "whiteFirstStep": false,
+        "boilDeg": 28.6,
+        "double": false
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "emitter_glow_wide",
+      "name": "Emitter glow, wide",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.294
+          ],
+          [
+            0.1111111111111111,
+            0.941
+          ],
+          [
+            0.11121111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0.4
+          ]
+        ]
+      },
+      "alpha": {
+        "life": [
+          [
+            0,
+            0.556
+          ],
+          [
+            0.1111111111111111,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 1.7,
+        "role": "glow",
+        "alpha": 0.9,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "emitter_glow",
+      "name": "Emitter glow",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "smooth"
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "add",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.294
+          ],
+          [
+            0.1111111111111111,
+            0.941
+          ],
+          [
+            0.11121111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0.4
+          ]
+        ]
+      },
+      "alpha": {
+        "life": [
+          [
+            0,
+            0.556
+          ],
+          [
+            0.1111111111111111,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 0.85,
+        "role": "glow",
+        "alpha": 0.9,
+        "soft": true,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "emitter_hot",
+      "name": "Emitter, hot",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.35
+          ],
+          [
+            0.1111111111111111,
+            1.05
+          ],
+          [
+            0.11121111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0.5
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 0.3,
+        "role": "glow.hot",
+        "alpha": 1,
+        "soft": false,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0.1
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "emitter_white",
+      "name": "Emitter, white",
+      "type": "shape",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "scale": {
+        "life": [
+          [
+            0,
+            0.35
+          ],
+          [
+            0.1111111111111111,
+            1.05
+          ],
+          [
+            0.11121111111111111,
+            1
+          ],
+          [
+            0.9047619047619048,
+            1
+          ],
+          [
+            1,
+            0.5
+          ]
+        ]
+      },
+      "shape": {
+        "kind": "glow",
+        "radiusM": 0.2,
+        "role": "white",
+        "alpha": 1,
+        "soft": false,
+        "grow": [
+          1,
+          1
+        ],
+        "flicker": 0.1
+      },
+      "seed": 1,
+      "perPlay": true
+    }
+  ]
+}

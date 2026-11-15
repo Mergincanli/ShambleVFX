@@ -15,7 +15,7 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
   const look = l.look.kind === 'image' ? null : l.look;
   const edge = look ? edgeLook(look.edge, ctx.relation) : 'none';
   const fill = look ? ctx.rgba(look.role) : ([1, 1, 1, 1] as RGBA);
-  const ink = ctx.rgba('ink');
+  const ink = ctx.rgba(look?.inkRole ?? 'ink');
   for (let i = 0; i < count; i++) {
     const life = pick(l.lifeMs, ctx.rnd(61, i));
     let age = ctx.tau;
@@ -80,12 +80,13 @@ function drawPiece(ctx: DrawCtx, kind: string, x: number, y: number, s: number, 
       return;
     default:
       if (edge === 'ink') ctx.p.disc(x, y, s + inkW, s + inkW, ink, 10);
-      if (edge === 'broken') { ctx.p.stroke(circle(x, y, s), true, inkW * 2, fill); return; }
+      if (edge === 'broken') { ctx.p.stroke(circle(x, y, s), true, Math.max(inkW * 1.1, ctx.px(1.2)), fill); return; }
       ctx.p.disc(x, y, s, s, fill, 10);
       return;
   }
   if (edge === 'broken') {
-    ctx.p.stroke(pts, true, Math.max(inkW * 1.1, ctx.px(1.5)) * 2, fill);
+    // Your own team's: the outline only, a thin line in the piece's colour.
+    ctx.p.stroke(pts, true, Math.max(inkW * 1.1, ctx.px(1.2)), fill);
     return;
   }
   if (edge === 'ink') ctx.p.stroke(pts, true, inkW * 2, ink);

@@ -20,8 +20,11 @@ export interface DrawCtx {
   lifeMs: number;
   /** tau / lifeMs, 0..1 */
   t: number;
-  /** The effect time this moment shows. */
+  /** The effect time this moment shows (on the layer's steps). */
   effT: number;
+  /** Local time and effect time as they really are, not held on steps: break-ups and phase shares follow these. */
+  tauRaw: number;
+  effTRaw: number;
   /** ms per step of the layer's clock. */
   stepMs: number;
   tl: Timeline;
@@ -49,17 +52,20 @@ export function edgeLook(e: Edge, r: Relation): EdgeLook {
   return e;
 }
 
-/** How far a break-up has got: 0 before it starts, 1 when done. */
+/**
+ * How far a break-up has got: 0 before it starts, 1 when done. It follows real time, not the layer's steps (as on the
+ * drawing board: a shape holds its drawing for a step, but shrinks and loses its tones on time).
+ */
 export function breakProgress(ctx: DrawCtx, b: BreakUp | undefined): number {
   if (!b) return 0;
   if ('phase' in b) {
     const p = ctx.tl.phases[b.phase];
     const len = p.endMs - p.startMs;
-    if (len <= 0) return ctx.effT >= p.startMs ? 1 : 0;
-    return clamp01((ctx.effT - p.startMs) / len);
+    if (len <= 0) return ctx.effTRaw >= p.startMs ? 1 : 0;
+    return clamp01((ctx.effTRaw - p.startMs) / len);
   }
   const from = ctx.lifeMs - b.lastMs;
-  return clamp01((ctx.tau - from) / b.lastMs);
+  return clamp01((ctx.tauRaw - from) / b.lastMs);
 }
 
 export function clamp01(v: number): number {

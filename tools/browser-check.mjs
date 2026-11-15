@@ -203,6 +203,7 @@ for (const backend of ['webgpu', 'webgl']) {
   await p.click('.vbar >> text=Whole screen');
 
   // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
+  const kept = (await st()).effects.filter((id) => id !== 'shell_flight').sort();
   await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
   await p.waitForTimeout(100);
   const name = `browser-check-${Date.now()}`;
@@ -211,11 +212,15 @@ for (const backend of ['webgpu', 'webgl']) {
   await p.click('dialog >> text=OK');
   await p.waitForFunction(() => document.querySelector('.project-name')?.textContent?.toLowerCase().includes('browser-check') && !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
   const dir = join(repo, 'projects', name);
-  const files = existsSync(join(dir, 'effects')) ? readdirSync(join(dir, 'effects')) : [];
-  ok('Save as leaves out an effect deleted before saving', files.length === 1 && files[0] === 'rifle_shot.vfx.json', files.join(', ') || 'no files');
+  const files = existsSync(join(dir, 'effects')) ? readdirSync(join(dir, 'effects')).sort() : [];
+  ok('Save as leaves out an effect deleted before saving', files.join() === kept.map((id) => `${id}.vfx.json`).join() && !files.includes('shell_flight.vfx.json'), files.join(', ') || 'no files');
   const savedPage = await open(`${base}/?backend=webgl&project=projects/${name}`, () => window.__vfx && window.__vfx.ready);
-  const reopened = await savedPage.page.evaluate(() => ({ effects: window.__vfx.app.debugState().effects, size: window.__vfx.app.effect()?.controls.size, name: document.querySelector('.project-name')?.textContent }));
-  ok('the saved project opens again, with the edit in it', reopened.effects.join() === 'rifle_shot' && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, size ${reopened.size}`);
+  const reopened = await savedPage.page.evaluate(() => {
+    const a = window.__vfx.app;
+    a.pickEffect('rifle_shot');
+    return { effects: a.debugState().effects.slice().sort(), size: a.effect()?.controls.size, name: document.querySelector('.project-name')?.textContent };
+  });
+  ok('the saved project opens again, with the edit in it', reopened.effects.join() === kept.join() && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, rifle_shot size ${reopened.size}`);
   await savedPage.page.close();
   ok('the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'rifle_shot.vfx.json'), 'utf8')).controls.size === 1);
   rmSync(dir, { recursive: true, force: true });

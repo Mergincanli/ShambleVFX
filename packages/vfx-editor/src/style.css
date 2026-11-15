@@ -186,3 +186,10 @@ kbd { border: 2px solid var(--ink); background: var(--white); padding: 1px 5px; 
 .frame-only .centre { grid-template-rows: minmax(0, 1fr); }
 .frame-only .viewport-wrap { margin: 0; border: 0; }
 .frame-only .frame-guide { outline: 0; box-shadow: none; }
+
+/* The viewport bar's scene picker and distance control. */
+.vbar .field.wide { margin: 0; flex-direction: row; align-items: center; gap: 6px; }
+.vbar .field.wide .flab { font-size: 12px; color: var(--sub); font-weight: 600; }
+.vbar .field.wide select { max-width: 220px; }
+.vbar .row.dist input[type='range'] { width: 110px; }
+.vbar .dist-val { font-size: 12px; font-variant-numeric: tabular-nums; min-width: 44px; }

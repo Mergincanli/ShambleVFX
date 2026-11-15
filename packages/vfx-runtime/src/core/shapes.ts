@@ -45,9 +45,11 @@ export function outline(ctx: DrawCtx, pts: ArrayLike<number>, look: EdgeLook, in
 /** A star of straight shards: n spikes of uneven length, inner corners near inner x radius. */
 export function shardPoints(ctx: DrawCtx, seed: number, R: number, n: number, inner: number, jit: number, rot: number, squash: number): number[] {
   const out: number[] = [];
+  // The spikes' angles are as uneven as their lengths: a jitter of 0 gives a regular star (a glint, a hit star).
+  const aj = Math.min(1, jit / 0.3);
   for (let i = 0; i < n; i++) {
-    const a0 = rot + (TAU * (i + (ctx.rnd(seed, i) - 0.5) * 0.3)) / n;
-    const a1 = rot + (TAU * (i + 0.5 + (ctx.rnd(seed, i + 64) - 0.5) * 0.24)) / n;
+    const a0 = rot + (TAU * (i + (ctx.rnd(seed, i) - 0.5) * 0.3 * aj)) / n;
+    const a1 = rot + (TAU * (i + 0.5 + (ctx.rnd(seed, i + 64) - 0.5) * 0.24 * aj)) / n;
     const r0 = R * (1 + (ctx.rnd(seed, i + 128) * 2 - 1) * jit);
     const r1 = R * inner * (1 + (ctx.rnd(seed, i + 192) * 2 - 1) * 0.12);
     out.push(Math.cos(a0) * r0, Math.sin(a0) * r0 * squash, Math.cos(a1) * r1, Math.sin(a1) * r1 * squash);
@@ -426,7 +428,7 @@ function drawBand(sp: BandShape, ctx: DrawCtx): void {
 function phaseShare(ctx: DrawCtx, name: 'windup' | 'peak' | 'fade'): number {
   const p = ctx.tl.phases[name];
   const len = p.endMs - p.startMs;
-  return len <= 0 ? (ctx.effT >= p.startMs ? 1 : -1) : (ctx.effT - p.startMs) / len;
+  return len <= 0 ? (ctx.effTRaw >= p.startMs ? 1 : -1) : (ctx.effTRaw - p.startMs) / len;
 }
 
 function drawBeads(sp: BeadsShape, ctx: DrawCtx): void {
