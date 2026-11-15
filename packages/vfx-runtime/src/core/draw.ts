@@ -53,6 +53,20 @@ export interface GradientRamp {
   stops: { at: number; c: RGBA }[];
 }
 
+/**
+ * A gradient's colour at place t (a new array each call): smooth blends from stop to stop; banded holds each stop's
+ * colour until the next stop. Before the first stop it is the first colour, after the last the last (as rampDisc draws).
+ */
+export function rampAt(g: GradientRamp, t: number): RGBA {
+  const s = g.stops;
+  let i = 0;
+  while (i + 1 < s.length && s[i + 1]!.at <= t) i++;
+  const a = s[i]!.c, b = s[i + 1];
+  if (g.banded || !b || t <= s[i]!.at) return [a[0], a[1], a[2], a[3]];
+  const k = (t - s[i]!.at) / (b.at - s[i]!.at);
+  return [a[0] + (b.c[0] - a[0]) * k, a[1] + (b.c[1] - a[1]) * k, a[2] + (b.c[2] - a[2]) * k, a[3] + (b.c[3] - a[3]) * k];
+}
+
 export type EdgeLook = 'ink' | 'broken' | 'none';
 
 /** Friend or foe: what an edge setting means for the player looking at it. */

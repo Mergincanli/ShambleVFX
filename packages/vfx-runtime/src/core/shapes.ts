@@ -7,7 +7,7 @@ import type {
   BandShape, BeadsShape, CloudShape, DotsShape, FlashShape, GlowShape, HalftoneFill, LinesShape, RingShape, ScorchShape,
   ShapeSpec, ShardsShape, SmokeShape, TrailShape,
 } from '@shamble/vfx-format';
-import { breakProgress, clamp01, curveAt, edgeLook, pick } from './draw';
+import { breakProgress, clamp01, curveAt, edgeLook, pick, rampAt } from './draw';
 import type { DrawCtx, EdgeLook } from './draw';
 import { drawBed, drawFlames } from './fire';
 import { insidePolygon, ovalPoints } from './painter';
@@ -190,13 +190,16 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
       items.push({ age: (ctx.tau - offset - cycle * life) / life, seed: q * 7 + cycle * 3 });
     }
   } else items.push({ age: ctx.t, seed: 1 });
-  const rim = ctx.rgba(sp.rimRole);
-  const fill = ctx.rgba(sp.role);
-  const light = sp.lightRole ? ctx.rgba(sp.lightRole) : undefined;
+  const ramp = sp.gradient ? ctx.gradient?.(sp.gradient) : undefined;
   for (const it of items) {
     const g = curveAt([[0, sp.grow[0]], [0.78, sp.grow[1]], [1, sp.grow[2]]], it.age);
     const R = sp.radiusM * ctx.s * g;
     if (R < ctx.px(1.5)) continue;
+    // With a gradient: the body's colour at the puff's own age (0 = start, 1 = end). Its alpha fades the whole puff.
+    const fill = ramp ? rampAt(ramp, it.age) : ctx.rgba(sp.role), o = fill[3];
+    if (o <= 0) continue;
+    const rim = ctx.rgba(sp.rimRole, o);
+    const light = sp.lightRole ? ctx.rgba(sp.lightRole, o) : undefined;
     ctx.p.item();
     // Drift: right, and forward (away from the camera on the ground, which shows up the screen by the camera's tilt).
     const cx = sp.driftM[0] * it.age, cy = sp.riseM * it.age + sp.driftM[1] * it.age * awayOnScreen(ctx);
@@ -209,7 +212,7 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
     if (sp.style === 'billow') {
       if (light) for (const [x, y, r] of parts) if (y > cy - R * 0.1) ctx.p.disc(x - R * 0.12, y + R * 0.15, r * 0.72, r * 0.72, light, 14);
       // Halftone underneath, in the darker rim colour.
-      const dot = ctx.rgba(sp.rimRole, 0.55);
+      const dot = ctx.rgba(sp.rimRole, 0.55 * o);
       const step = Math.max(ctx.px(5), R * 0.16);
       for (let j = 0; j < 4; j++) for (let i = -3; i <= 3; i++) {
         const x = cx + (i + (j & 1) * 0.5) * step, y = cy - R * 0.25 - j * step * 0.8;

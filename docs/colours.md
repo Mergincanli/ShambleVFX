@@ -46,7 +46,28 @@ In the picker, **Gradients**:
   selected glow**.
 - A glow's form has **Gradient, middle to rim**: pick one, or none for one flat colour.
 
-What the game can draw: a gradient is rings of colour from the middle out, smooth or banded. Blurred, mesh and image
-gradients (as in some colour tools) are not offered, because the runtime cannot draw them.
+What the game can draw: a gradient is colours along one line, smooth or banded: rings from the middle out on a glow, bands
+from the rim in on the fire's bed, and colours over time on smoke and bursts. Blurred, mesh and image gradients (as in some
+colour tools) are not offered, because the runtime cannot draw them.
 
-Only **glows** use gradients so far. Where else should they apply (smoke, the fire's bed, bursts over their life)? Tell us.
+### What a gradient runs along
+
+A gradient goes from 0 to 1. The layer decides what that line is (the picker's stops say "middle" and "rim", as for a glow):
+
+- **A glow**: from its middle (0) to its rim (1). Its colours come from the gradient, times the glow's alpha.
+- **Smoke**: over each puff's life, from its start (0) to its end (1). It colours the body of the puff; the light top and
+  the rim keep their own colours. Billows that keep coming each have their own age, so young and old ones differ. The
+  gradient's alpha makes the whole puff see-through (where its rounds overlap, it looks denser).
+- **The fire's bed**: from the rim (0) to the very middle (1). One band of lumps per stop, its edge at the stop. Banded:
+  each band is its stop's colour. Smooth: the colour blends from band to band. Give the bed's lumps and its detail the same
+  gradient, so the halftone sits where the bands meet. As the fire cools, the middle goes first, as before.
+- **Bursts**: over each piece's life, from its birth (0) to its end (1). It colours the piece; an image piece is tinted by
+  it. The speed streak and the ink edge keep their colours. The gradient's alpha fades the whole piece. Sparks that cool
+  from white to dark red, then vanish, are one gradient.
+
+Mind the direction: 0 is the middle of a glow but the rim of a bed. The ready-made **Banding** starts hot, so on a bed it
+gives a hot rim and a dark middle.
+
+In the editor, only a glow has a gradient choice so far. For smoke, the bed and bursts, a gradient already named in the file
+shows as a plain text box; the choice comes with the new UI. Without a gradient each layer uses its own colours, as before.
+The exact rules are in [format.md](format.md).

@@ -3,7 +3,7 @@
  * from the seed and the time alone: where it started, which way it flew, how fast, how it slows and falls.
  */
 import type { BurstLayer } from '@shamble/vfx-format';
-import { curveAt, edgeLook, pick } from './draw';
+import { curveAt, edgeLook, pick, rampAt } from './draw';
 import type { DrawCtx } from './draw';
 import type { RGBA } from './painter';
 
@@ -18,6 +18,7 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
   const edge = look ? edgeLook(look.edge, ctx.relation) : 'none';
   const fill = look ? ctx.rgba(look.role) : img && img.tint.mode === 'multiply' ? ctx.rgba(img.tint.role) : ([1, 1, 1, 1] as RGBA);
   const ink = ctx.rgba(look?.inkRole ?? 'ink');
+  const ramp = l.gradient ? ctx.gradient?.(l.gradient) : undefined;
   // The ground, in the layer's plane: pieces that stop on it never go lower than this (flat ground at height 0).
   const f = ctx.p.frame;
   const floor = l.groundStop && f.v[1] > 0.05 && Math.abs(f.u[1]) < 1e-6 ? -f.o[1] / f.v[1] : -Infinity;
@@ -46,17 +47,21 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
     const py = Math.max(floor, (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s);
     const size = pick(l.sizeM, r(3)) * curveAt(l.sizeOverLife, age / life) * ctx.s;
     if (size <= 0) continue;
+    // With a gradient: the piece's colour at its own age (0 = born, 1 = gone). Its alpha fades the whole piece: the
+    // streak and the ink edge too, in their own colours.
+    const c = ramp ? rampAt(ramp, age / life) : fill, o = c[3];
+    if (o <= 0) continue;
     ctx.p.item();
     if (l.streak && travel > 1e-4) {
       // The streak runs back along the way the piece came (never past where it started), widest at the piece.
       const back = Math.min(l.streak.lengthM * ctx.s, travel * ctx.s);
       const hw = ctx.px(l.streak.widthPx) / 2;
       const nx = -dy, ny = dx;
-      ctx.p.poly([px + nx * hw, py + ny * hw, px - dx * back, py - dy * back, px - nx * hw, py - ny * hw], ctx.rgba(l.streak.role));
+      ctx.p.poly([px + nx * hw, py + ny * hw, px - dx * back, py - dy * back, px - nx * hw, py - ny * hw], ctx.rgba(l.streak.role, o));
     }
     const spin = r(4) * TAU + pick(l.spinDegPerS, r(5)) * DEG * sec;
-    if (img) { ctx.p.image(px, py, size, size, spin, img.rect!, fill); continue; }
-    drawPiece(ctx, look?.kind ?? 'dot', px, py, size, spin, a, fill, ink, edge, look ? ctx.px(look.inkPx) : 0);
+    if (img) { ctx.p.image(px, py, size, size, spin, img.rect!, c); continue; }
+    drawPiece(ctx, look?.kind ?? 'dot', px, py, size, spin, a, c, o < 1 ? [ink[0], ink[1], ink[2], ink[3] * o] : ink, edge, look ? ctx.px(look.inkPx) : 0);
   }
 }
 

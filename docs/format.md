@@ -99,15 +99,33 @@ A comic shape drawn in code: `shape` holds its kind and settings, `seed` its own
 `breakUp` is `{ "phase": "fade" }` or `{ "lastMs": 200 }`: how a shape shrinks, loses tones or falls apart at the end.
 
 **Gradients** (version 5 for smoke, the bed and bursts; version 4 for glows). A `gradient` names a gradient in the palette
-(see [colours.md](colours.md)). The checker refuses a name the palette does not have. What the gradient runs along:
+(see [colours.md](colours.md)). The checker refuses a name the palette does not have; the runtime then draws the layer as
+if it had no gradient. What the gradient runs along:
 
 - **glow**: from its middle (0) to its rim (1). Its colours come from the gradient, times `alpha`.
-- **smoke**: the body colour over each puff's life, from its start (0) to its end (1). It replaces `role`. The light top
-  (`lightRole`) and the rim (`rimRole`) keep their colours. The gradient's alpha makes the whole puff more see-through.
-- **bed**: the bands from the rim (0) to the middle (1), in place of `tones` (`tones` stay, and count when there is no
-  gradient). A banded gradient gives one band per stop, with the band edges at the stops; a smooth one blends from band to
-  band. Both parts read it, so the detail's halftone sits where the bands meet: give a fire's lumps and its detail the same
-  gradient (the checker warns when they differ).
+- **smoke**: the body colour over each puff's life, from its start (0) to its end (1). A looping billow has its own life,
+  so billows of different ages show different colours at once. It replaces `role`. The light top (`lightRole`) and the rim
+  (`rimRole`) keep their colours. The gradient's alpha makes the whole puff more see-through: rim, body, light top and
+  halftone. Each round of the puff is see-through on its own, so where rounds overlap the puff looks denser (as with a
+  layer's `alpha`). Where the alpha is 0 the puff is not drawn at all.
+- **bed**: from the rim (0) to the very middle (1). A place on the bed is 1 minus its distance from the middle, divided by
+  the bed's radius, so a stop at 0.5 is halfway in. The gradient replaces `tones` (`tones` stay, and count when there is
+  no gradient).
+  - One band of lumps per stop. A band's lumps reach out to its stop's place (on average; the first band's to the rim),
+    and the band lasts until the next stop. So the band edges sit at the stops. A band with no room is left out (two
+    stops at one place, or a stop at 1).
+  - Banded: each band is its stop's colour. Smooth: the same bands, but each point takes the gradient's colour at its
+    place, kept between its band's place and the next band's. So the colour blends from band to band, and the middle still
+    cools when the inner bands go out.
+  - The detail's halftone and brush strokes take the next band's colour (smooth: the next band's colour halfway in). Both
+    parts read the gradient, so the halftone sits where the bands meet: give a fire's lumps and its detail the same
+    gradient (the checker warns when they differ).
+  - Without a gradient, the tones sit where a banded gradient with stops at 0.58 k / (K − 1) + 0.03 k would put them (k
+    counts from 0, K tones). For 4 tones that is 0, 0.2233…, 0.4467… and 0.67. A banded gradient with the same tones at
+    exactly those stops draws today's bed; with the stops rounded to four decimals, the bands of the Molotov's bed move by
+    less than a millimetre.
+  - A stop's alpha makes its band see-through. A ready-made gradient made for a glow runs from the middle: on a bed it
+    runs from the rim, so a hot-first gradient gives a hot rim.
 - **burst**: each piece's colour over its own life, from its birth (0) to its end (1) (see the burst layer below).
 
 ## Burst layer (`"type": "burst"`)
@@ -118,9 +136,11 @@ A set number of pieces thrown out at once (or again and again with `loop`). Ever
 `groundStop`, optional `streak` (a speed streak behind each piece), optional `gradient`, `seed`, `perPlay`.
 `look` is `{ "kind", "role", "inkPx", "edge", "inkRole"? }` with kind `diamond`, `chip`, `spark`, `dot`, `shard`, `speck`,
 `puff`, `streak` or `spike`; or `{ "kind": "image", "image": "chip.png", "tint": … }`.
-`gradient` (a gradient in the palette): each piece's colour over its own life, from its birth (0) to its end (1). It replaces
-the look's `role`; an image piece is multiplied by the gradient's colour (in place of its tint). The gradient's alpha makes
-the piece more see-through. The speed streak keeps its own colour, and ink edges stay.
+`gradient` (a gradient in the palette): each piece's colour over its own life, from its birth (0) to its end (1), so pieces
+of different ages show different colours at once. It replaces the look's `role` (your own team's broken edge, drawn in the
+piece's colour, takes it too); an image piece is multiplied by the gradient's colour (in place of its tint). The gradient's
+alpha makes the whole piece more see-through, its ink edge and speed streak too. The speed streak keeps its own colour, and
+ink edges stay. Where the alpha is 0 the piece is not drawn at all.
 
 ## Word layer (`"type": "word"`)
 

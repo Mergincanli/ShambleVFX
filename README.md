@@ -66,7 +66,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers. See [docs/cost.md](docs/cost.md).
 11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one.
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
-    under **Gradients** start from a ready-made gradient or make your own; a glow can use one. See [docs/colours.md](docs/colours.md).
+    under **Gradients** start from a ready-made gradient or make your own; a glow can use one, and smoke, the fire's bed and
+    bursts draw one named in their file. See [docs/colours.md](docs/colours.md).
 13. **Night mode** in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
 14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
     never goes to this public repo.
@@ -94,10 +95,12 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (260): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (294): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
 has a chance); the words box keeping chances; palettes with gradients and their upgrade; colour edits and their undo; glows
-drawn from gradients; the palette; same-seed playback; steps, phases, flights and arcs; every shape kind, bursts and words;
+drawn from gradients; gradients on smoke, the fire's bed and bursts (colours at given ages and places, banded edges at the
+stops, alpha, faction roles, both bed parts on the same band edges, and a banded gradient at the tones' places drawing
+today's bed exactly); the palette; same-seed playback; steps, phases, flights and arcs; every shape kind, bursts and words;
 friend or foe; quality tiers; the item count behind "sprites alive"; the letters; the fire's layout; every example effect
 drawn all through; undo and redo; the project file server; the export checker; export, import and export again giving the
 same files on both examples; the runtime's loader and its version guard; the screen-area count and the cost measurement.
@@ -131,6 +134,8 @@ These write pictures to `out/` (kept out of git):
   picture (`--relation=team`, `--zoom=1` for big effects, `--tier=low`).
 - `node tools/tier-sheet.mjs` puts Low, Medium and High side by side at the game camera, at the game's real size: the four
   board presets, or `--project=… --effects=… --times=…` for others. For judging whether Low stays readable.
+- `node tools/gradient-sheets.mjs` draws test gradients on smoke, the fire's bed, sparks and image pieces, one sheet each, in
+  `out/gradients/` (`--faction=allies` for another faction). It makes a throwaway project in `out/gradients/project/`.
 - `npm run export`, `npm run check:export` and `npm run import`: see [docs/export.md](docs/export.md).
 - `node tools/shoot.mjs <effect> <scene> <ms,ms>` takes the game screen of one effect at chosen moments.
 - `tools/presets/*.py` wrote the preset files (Python 3, optional: the JSON files are what counts, and the editor edits them).
@@ -140,7 +145,8 @@ These write pictures to `out/` (kept out of git):
 - **Effect files, version 5** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2, 3 and 4.
   - **Colours per project**: the project's own `palette.json` (version 2, with gradients), edited with the colour picker;
     the built-in palette for projects without one ([docs/colours.md](docs/colours.md)).
-  - **Gradients**: smooth or banded ramps in the palette; a glow can use one from its middle to its rim.
+  - **Gradients**: smooth or banded ramps in the palette. A glow runs one from its middle to its rim, smoke over each
+    puff's life, the fire's bed from its rim to its middle (one band per stop), and a burst over each piece's life.
   - **Quality tiers**: every visible layer says in which tiers it shows (Low, Medium, High). The game picks one tier; the
     timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
@@ -172,8 +178,8 @@ These write pictures to `out/` (kept out of git):
   show each faction's marking from sheet 16.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
-layer (such as tones in a star), not only whole layers; gradients on anything but glows; renaming or removing colours and
-gradients.
+layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
+(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients.
 
 ## Assumptions
 
@@ -209,14 +215,26 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **The test page** repeats the board's camera numbers and the rifle scene's positions; the game brings its own.
 - **Board data in the repo**: the tank blockout, scene positions, preset sizes and timings, layouts and formulas stay in this
   public repo (Mustafa's yes, 2026-11-15).
-- **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; gradients only on glows
-  so far; `team.dark` and `glow.hot` worked out again only when asked; the night mode's greys; the icons.
+- **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; `team.dark` and
+  `glow.hot` worked out again only when asked; the night mode's greys; the icons.
 - **Word chances** (the rules themselves are the approved plan, and "the rest shows no word" is Mustafa's choice): a chance may
   have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. In the
   words box, a word typed again keeps its chance when its text is the same, capitals or not (words are drawn in capitals); a
   word typed twice is matched in order (the first BOOM takes the first old BOOM's chance).
 - **A fire's bed and its gradient**: the checker treats all the bed layers of one effect as one fire, so it compares every
   detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
+- **How the runtime draws gradients on the bed** (the plan says only "band edges at the stops" and "a smooth one blends"):
+  - A place on the bed is 1 minus its distance from the middle, divided by the bed's radius. A band's edge is where its lumps
+    reach on average. Without a gradient the tones keep their places (0.58 k / (K − 1) + 0.03 k), so a banded gradient at
+    those places draws exactly today's bed.
+  - A smooth gradient gets the same bands as a banded one (one per stop; a stop at the very middle gives none). Each point
+    takes the colour of its place, kept inside its band, so the middle still cools first. The detail's halftone takes the
+    next band's colour (smooth: halfway into it). The white-hot spots are more of the middle band (smooth: coloured by place).
+  - Lumps are never more than 0.6 of a band, and bands close together shift towards the camera less, so each stays inside
+    the last. A stop's alpha makes its band see-through.
+- **Alpha in smoke and burst gradients** fades every part of the puff or piece: rim, light top and halftone; ink edge and
+  speed streak (they keep their colours). Each part is see-through on its own, so overlapping rounds look denser, as with a
+  layer's alpha. A puff or piece at alpha 0 is not drawn, and not counted in "sprites alive".
 
 ## Claude skills
 

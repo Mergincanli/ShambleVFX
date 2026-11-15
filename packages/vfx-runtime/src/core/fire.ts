@@ -8,8 +8,8 @@
  * h up, metres) are laid onto the drawing's plane with the camera's own tilt, so the bed reads as lying on the ground.
  */
 import type { BedShape, FlamesShape } from '@shamble/vfx-format';
-import { breakProgress, clamp01, edgeLook, ease, pick } from './draw';
-import type { DrawCtx } from './draw';
+import { breakProgress, clamp01, edgeLook, ease, pick, rampAt } from './draw';
+import type { DrawCtx, GradientRamp } from './draw';
 import { insidePolygon, ovalPoints } from './painter';
 import type { RGBA } from './painter';
 
@@ -39,28 +39,80 @@ function fireLine(ctx: DrawCtx, edge: BedShape['edge'], inkPx: number, darkRole:
   return { col: ctx.rgba(darkRole), w: ctx.px(inkPx * 0.66), heavy: false };
 }
 
-interface Lump { x: number; y: number; rx: number; ry: number; a: number; i: number }
+/** A lump in drawing coordinates; d and a: where it sits on the ground from its band's centre (distance, angle). */
+interface Lump { x: number; y: number; rx: number; ry: number; a: number; i: number; d: number }
 
 // ---------------------------------------------------------------- the bed
 
+/**
+ * One band of the bed, as shares of the bed's radius: its base oval (rho), its lumps (r0), and how far it sits towards
+ * the camera (z, in tenths). Its lumps reach out to rho + r0, so its place from the rim (0) to the middle (1) is
+ * 1 - rho - r0. c: its flat colour (tones, or a banded gradient). A smooth gradient (g) colours it by place instead,
+ * between lo and hi: from its own place to the next band's.
+ */
+interface Band { rho: number; r0: number; z: number; c?: RGBA; g?: GradientRamp; lo: number; hi: number }
+
+/**
+ * The bed's bands, rim first. From tones: one band per tone, as always. From a gradient: one band per stop; band j's
+ * lumps reach out to its stop's place (the first band's to the rim) and it lasts to the next stop, so the band edges sit
+ * at the stops. A band with no room (two stops at one place, a stop at the very middle) is left out.
+ */
+export function bedBands(sp: BedShape, ctx: DrawCtx): Band[] {
+  const g = sp.gradient ? ctx.gradient?.(sp.gradient) : undefined;
+  const K = sp.tones.length;
+  if (!g) return sp.tones.map((role, k) => ({ rho: 0.76 - 0.58 * (K > 1 ? k / (K - 1) : 0), r0: 0.24 - 0.03 * k, z: k, c: ctx.rgba(role), lo: 0, hi: 0 }));
+  const out: Band[] = [];
+  let z = 0, last = 0;
+  g.stops.forEach((st, j) => {
+    const p = j ? clamp01(st.at) : 0, hi = j + 1 < g.stops.length ? clamp01(g.stops[j + 1]!.at) : 1;
+    if (hi <= p) return;
+    const k = out.length;
+    // Lumps as tones would have them, but never more than 0.6 of the band; a band shifts towards the camera by less
+    // when it is close to the last one, so it stays inside it.
+    const r0 = Math.min(Math.max(0.03, 0.24 - 0.03 * k), 0.6 * (1 - p));
+    if (k) z += Math.min(1, 9 * (p - last));
+    out.push({ rho: 1 - p - r0, r0, z, ...(g.banded ? { c: st.c } : { g }), lo: p, hi });
+    last = p;
+  });
+  return out;
+}
+
+/** A band's colour: its flat colour, or a smooth gradient's halfway through the band. */
+function bandColour(b: Band): RGBA {
+  return b.c ?? rampAt(b.g!, (b.lo + b.hi) / 2);
+}
+
 /** One band of the bed: a base oval and lumps round its edge, in drawing coordinates. */
-function bandLumps(sp: BedShape, ctx: DrawCtx, k: number, K: number, scale: number, boil: number, t: { sa: number; ua: number }): Lump[] {
+function bandLumps(sp: BedShape, ctx: DrawCtx, b: Band, k: number, scale: number, boil: number, t: { sa: number; ua: number }): Lump[] {
   const R = sp.radiusM * ctx.s * scale;
-  const share = K > 1 ? k / (K - 1) : 0;
-  const rho = R * (0.76 - 0.58 * share);
-  const z = -R * 0.1 * k;                       // inner bands sit nearer the camera: the bright middle sits low, in front
+  const rho = R * b.rho;
+  const z = -R * 0.1 * b.z;                     // inner bands sit nearer the camera: the bright middle sits low, in front
   const n = Math.max(4, Math.round(sp.lumps * (rho / (R * 0.76))));
-  const r0 = sp.radiusM * ctx.s * scale * (0.24 - 0.03 * k);
-  const out: Lump[] = [{ x: 0, y: z * t.sa, rx: rho * 1.02, ry: rho * 1.02 * t.sa, a: 0, i: -1 }];
+  const r0 = R * b.r0;
+  const out: Lump[] = [{ x: 0, y: z * t.sa, rx: rho * 1.02, ry: rho * 1.02 * t.sa, a: 0, i: -1, d: 0 }];
   for (let i = 0; i < n; i++) {
     const a = (TAU * (i + 0.5 * (k % 2))) / n + (ctx.rnd(30 + k, i) - 0.5) * 0.35;
     const r = r0 * (0.8 + 0.4 * ctx.rnd(40 + k, i)) * (1 + 0.09 * Math.sin(boil * 2.1 + i * 2.3 + k));
     const d = rho * (0.95 + 0.1 * ctx.rnd(50 + k, i));
     const gx = d * Math.cos(a), gz = d * Math.sin(a) + z;
     const lift = (0.45 - 0.05 * k) * r;
-    out.push({ x: gx, y: gz * t.sa + lift * t.ua, rx: r, ry: r * 0.78, a, i });
+    out.push({ x: gx, y: gz * t.sa + lift * t.ua, rx: r, ry: r * 0.78, a, i, d });
   }
   return out;
+}
+
+/**
+ * A lump coloured by a smooth gradient: each corner takes the colour of its place, as if the lump lay flat on the ground
+ * (a circle of its own radius), kept between the band's own place and the next band's. Same triangles as a plain lump.
+ */
+function placeDisc(ctx: DrawCtx, q: Lump, R: number, b: Band): void {
+  const at = (ox: number, oz: number) => rampAt(b.g!, Math.min(b.hi, Math.max(b.lo, 1 - Math.hypot(q.d * Math.cos(q.a) + ox, q.d * Math.sin(q.a) + oz) / R)));
+  const mid = ctx.p.vtx(q.x, q.y, at(0, 0)), rim: number[] = [];
+  for (let i = 0; i < 20; i++) {
+    const c = Math.cos((TAU * i) / 20), s = Math.sin((TAU * i) / 20);
+    rim.push(ctx.p.vtx(q.x + c * q.rx, q.y + s * q.ry, at(c * q.rx, s * q.rx)));
+  }
+  for (let i = 0; i < 20; i++) ctx.p.target.tri(mid, rim[i]!, rim[(i + 1) % 20]!);
 }
 
 function insideLumps(x: number, y: number, list: Lump[]): boolean {
@@ -74,8 +126,10 @@ function insideLumps(x: number, y: number, list: Lump[]): boolean {
 export function drawBed(sp: BedShape, ctx: DrawCtx): void {
   const { reach, fadeK } = lifeShape(ctx, sp.growMs, sp.breakUp);
   if (fadeK >= 0.9 || reach <= 0.01) return;
-  const K = sp.tones.length;
+  const all = bedBands(sp, ctx);
+  const K = all.length;
   const scale = reach * (1 - 0.3 * fadeK);
+  const R = sp.radiusM * ctx.s * scale;
   // As it cools the middle goes first: fewer bands, from the inside out.
   const bands = K - Math.min(K - 1, Math.floor(fadeK * K * 1.003));
   const boil = Math.floor((ctx.n >= 0 ? ctx.n : ctx.tau / ctx.stepMs) / Math.max(1, sp.boilSteps));
@@ -83,8 +137,8 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
   const line = fireLine(ctx, sp.edge, sp.inkPx, sp.detailRole);
   const deep = ctx.rgba(sp.detailRole);
   for (let k = 0; k < bands; k++) {
-    const list = bandLumps(sp, ctx, k, K, scale, boil, t);
-    const fill = ctx.rgba(sp.tones[k]!);
+    const b = all[k]!;
+    const list = bandLumps(sp, ctx, b, k, scale, boil, t);
     if (sp.part === 'lumps') {
       // The line first, round every lump of the band, so overlapping lumps share one outline; then the fill.
       const lw = k === 0 && line ? line.w : (line ? line.w * 0.45 : ctx.px(sp.inkPx * 0.3));
@@ -93,11 +147,14 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
         if (k === 0 && line?.heavy) for (const q of list) ctx.p.stroke(ovalPoints(q.x - 0.5 * lw, q.y - 0.65 * lw, q.rx, q.ry, 20), true, 2 * lw, lc);
         for (const q of list) ctx.p.stroke(ovalPoints(q.x, q.y, q.rx, q.ry, 20), true, 2 * lw, lc);
       }
-      for (const q of list) ctx.p.disc(q.x, q.y, q.rx, q.ry, fill, 20);
+      for (const q of list) {
+        if (b.c) ctx.p.disc(q.x, q.y, q.rx, q.ry, b.c, 20);
+        else placeDisc(ctx, q, R, b);
+      }
       continue;
     }
     // Detail: halftone of the next tone on each lump's outer side, where one tone meets the next; brush strokes.
-    const next = k + 1 < K ? ctx.rgba(sp.tones[k + 1]!) : ctx.rgba(sp.tones[K - 1]!);
+    const next = bandColour(all[k + 1 < K ? k + 1 : K - 1]!);
     const step = ctx.px(10.1), dot = ctx.px(4.9);
     for (let qi = 1; qi < list.length; qi++) {
       const q = list[qi]!;
@@ -117,14 +174,16 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
       if (ctx.rnd(60 + k + boil, q.i) > 0.45) hatch(ctx, q, next, near, boil);
     }
   }
-  // White-hot spots low in the middle, while the whole bed burns.
+  // White-hot spots low in the middle, while the whole bed burns: more of the middle band, reaching towards the camera.
   if (sp.part === 'lumps' && bands === K) {
-    const R = sp.radiusM * ctx.s * scale;
-    const core = ctx.rgba(sp.tones[K - 1]!);
+    const b = all[K - 1]!, z = -R * 0.1 * b.z;
     for (let m = 0; m < 3; m++) {
       const gx = (ctx.rnd(70, m) - 0.5) * R * 0.32, gz = -R * (0.24 + 0.14 * ctx.rnd(71, m));
       const r = R * (0.1 + 0.04 * ctx.rnd(72, m)) * (1 + 0.1 * Math.sin(boil * 2 + m));
-      ctx.p.disc(gx, gz * t.sa + 0.1 * t.ua, r, r * 0.6, core, 16);
+      const y = gz * t.sa + 0.1 * t.ua;
+      // A smooth gradient colours them by place as well, so they blend into the middle as a tone's do.
+      if (b.c) ctx.p.disc(gx, y, r, r * 0.6, b.c, 16);
+      else placeDisc(ctx, { x: gx, y, rx: r, ry: r * 0.6, a: Math.atan2(gz - z, gx), i: m, d: Math.hypot(gx, gz - z) }, R, b);
     }
   }
 }
