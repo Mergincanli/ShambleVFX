@@ -1,0 +1,20 @@
+{
+  "name": "@shamble/vfx-testpage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A minimal page that loads only vfx-runtime and an export folder, and plays effects by game event name. It proves the game can use the exported files without the editor.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@shamble/vfx-runtime": "*",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.187.0",
+    "vite": "8.3.8"
+  }
+}

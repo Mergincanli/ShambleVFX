@@ -176,11 +176,11 @@
           ],
           [
             0.0909,
-            1.0
+            1
           ],
           [
             0.9026,
-            1.0
+            1
           ],
           [
             1,
@@ -250,7 +250,7 @@
       },
       "facing": "ground",
       "blend": "normal",
-      "liftM": 1.0,
+      "liftM": 1,
       "untilPhaseEnd": "peak",
       "shape": {
         "kind": "ring",
@@ -589,7 +589,7 @@
       },
       "facing": "camera",
       "blend": "add",
-      "durationMs": 2635.0,
+      "durationMs": 2635,
       "scale": {
         "life": [
           [
@@ -645,7 +645,7 @@
       },
       "facing": "camera",
       "blend": "add",
-      "durationMs": 2635.0,
+      "durationMs": 2635,
       "scale": {
         "life": [
           [
@@ -703,7 +703,7 @@
       },
       "facing": "camera",
       "blend": "normal",
-      "durationMs": 2635.0,
+      "durationMs": 2635,
       "scale": {
         "life": [
           [

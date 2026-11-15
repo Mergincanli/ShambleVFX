@@ -172,7 +172,7 @@
       "spreadDeg": 180,
       "startRadiusM": [
         0.8,
-        1.0
+        1
       ],
       "gravityMps2": 0,
       "drag": 2.2,

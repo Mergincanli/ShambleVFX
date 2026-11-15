@@ -90,8 +90,7 @@ fx = {"format": "shamble-vfx", "version": 3, "id": "board_shell", "name": "Tank 
       "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": "heat.1"},
       "phases": {"windupMs": 560, "peakMs": 490, "fadeMs": 900}, "layers": layers}
 sys.path.insert(0, __file__.rsplit('/', 1)[0])
-from common import apply_tiers
+from common import apply_tiers, write
 apply_tiers(fx, low_drop=["dots", "muzzle_dots", "gun_smoke", "smoke_left", "smoke_right", "debris", "sparks", "speed_lines"],
             medium_drop=["dots", "muzzle_dots"])
-json.dump(fx, open(sys.argv[1], "w"), indent=2)
-print(len(layers), "layers")
+write(sys.argv[1], fx)

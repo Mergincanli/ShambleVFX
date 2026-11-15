@@ -90,12 +90,12 @@
         "steps": [
           0.7,
           1.08,
-          1.0
+          1
         ]
       },
       "shape": {
         "kind": "cloud",
-        "radiusM": 1.0,
+        "radiusM": 1,
         "squash": 0.86,
         "lobes": 11,
         "lobeDepth": 0.2,

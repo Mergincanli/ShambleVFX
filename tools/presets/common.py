@@ -61,7 +61,30 @@ def effect(id, name, phases, layers, colour="heat.1"):
             "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": colour},
             "phases": {"windupMs": phases[0], "peakMs": phases[1], "fadeMs": phases[2]}, "layers": layers}
 
+def _whole(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    if isinstance(v, float) and "e" in repr(v):
+        raise ValueError(f"{v!r} would be written in e-notation, which the editor writes differently: round it")
+    if isinstance(v, dict):
+        return {k: _whole(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_whole(x) for x in v]
+    return v
+
+
+def dumps(v):
+    """The project's own JSON layout, the same bytes the editor writes (JSON.stringify(v, null, 2) and a newline)."""
+    return json.dumps(_whole(v), indent=2, ensure_ascii=False) + "\n"
+
+
+def write_json(path, v):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(dumps(v))
+
+
 def write(path, fx):
-    json.dump(fx, open(path, "w"), indent=2)
-    open(path, "a").write("\n")
+    write_json(path, fx)
     print(path, len(fx["layers"]), "layers")

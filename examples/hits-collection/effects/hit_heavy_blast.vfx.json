@@ -175,7 +175,7 @@
         "kind": "lines",
         "count": 30,
         "innerM": [
-          2.0,
+          2,
           2.7
         ],
         "lengthM": [
@@ -334,7 +334,7 @@
         "steps": [
           0.75,
           1.1,
-          1.0
+          1
         ]
       },
       "shape": {
@@ -395,13 +395,13 @@
       "untilPhaseEnd": "fade",
       "shiftM": [
         0,
-        1.0
+        1
       ],
       "scale": {
         "steps": [
           0.7,
           1.12,
-          1.0
+          1
         ]
       },
       "shape": {
@@ -466,7 +466,7 @@
       ],
       "shape": {
         "kind": "shards",
-        "radiusM": 2.0,
+        "radiusM": 2,
         "points": 13,
         "inner": 0.5,
         "jitter": 0.3,
@@ -527,7 +527,7 @@
       "spreadDeg": 95,
       "startRadiusM": [
         0.6,
-        1.0
+        1
       ],
       "gravityMps2": 9,
       "drag": 1.2,

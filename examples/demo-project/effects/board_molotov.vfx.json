@@ -289,7 +289,7 @@
         "depth": "all",
         "tallM": [
           0.5,
-          3.0
+          3
         ],
         "widthM": [
           0.16,
@@ -352,7 +352,7 @@
         "depth": "all",
         "tallM": [
           0.5,
-          3.0
+          3
         ],
         "widthM": [
           0.16,
@@ -529,7 +529,7 @@
       },
       "shape": {
         "kind": "shards",
-        "radiusM": 1.0,
+        "radiusM": 1,
         "points": 10,
         "inner": 0.44,
         "jitter": 0.22,
@@ -644,7 +644,7 @@
         "role": "fire.smoke",
         "lightRole": "fire.smoke.light",
         "rimRole": "fire.smoke.line",
-        "inkPx": 3.0,
+        "inkPx": 3,
         "grow": [
           0.18,
           0.9,

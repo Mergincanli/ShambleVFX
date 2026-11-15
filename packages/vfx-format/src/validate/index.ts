@@ -11,6 +11,8 @@ export type { CheckOptions, CheckResult, Problem, ProblemKind } from './check';
 export { migrate, MIGRATIONS } from './migrate';
 export type { Migration, MigrateResult } from './migrate';
 export { effectSchema, layerSchema, spriteLayerSchema, projectileLayerSchema, controlsSchema, roleSchema, idSchema, imageNameSchema } from './schema';
+export { checkExport, checkEvents, EXPORT_FORMAT, EXPORT_VERSION, EVENT_NAME } from './export';
+export type { AtlasMap, ExportCheck, ExportManifest, ManifestEffect } from './export';
 
 /** The effect file schema as JSON Schema, for other tools (and editors that read "$schema"). */
 export function effectJsonSchema(): Record<string, unknown> {

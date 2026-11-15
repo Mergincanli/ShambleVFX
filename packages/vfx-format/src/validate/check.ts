@@ -13,7 +13,7 @@ import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
 
-export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier';
+export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier' | 'export';
 
 export interface Problem {
   kind: ProblemKind;

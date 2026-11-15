@@ -94,7 +94,7 @@
         "steps": [
           0.8,
           1.1,
-          1.0
+          1
         ]
       },
       "shape": {
@@ -261,7 +261,7 @@
       "blend": "normal",
       "untilPhaseEnd": "fade",
       "shiftM": [
-        0.0,
+        0,
         0.75
       ],
       "shape": {
@@ -278,7 +278,7 @@
         ],
         "riseM": 0.35,
         "driftM": [
-          0.0,
+          0,
           0
         ]
       },
@@ -365,7 +365,7 @@
       "untilPhaseEnd": "fade",
       "shiftM": [
         0.75,
-        1.0
+        1
       ],
       "shape": {
         "kind": "smoke",

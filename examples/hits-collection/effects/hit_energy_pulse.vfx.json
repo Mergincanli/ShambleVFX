@@ -154,7 +154,7 @@
       "untilPhaseEnd": "fade",
       "shape": {
         "kind": "glow",
-        "radiusM": 1.0,
+        "radiusM": 1,
         "role": "glow",
         "alpha": 0.8,
         "soft": true,
@@ -197,9 +197,9 @@
       "scale": {
         "steps": [
           1.35,
-          1.0,
+          1,
           1.2,
-          1.0
+          1
         ]
       },
       "shape": {

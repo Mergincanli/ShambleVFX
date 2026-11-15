@@ -28,3 +28,6 @@ Thumbs.db
 
 # Exports: an export holds the project's images packed in an atlas (art stays out of this public repo).
 /exports/
+
+# Python byte code from tools/presets
+__pycache__/

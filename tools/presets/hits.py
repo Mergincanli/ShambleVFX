@@ -12,6 +12,14 @@ GUNWORD = {"top": "gunword.top", "bottom": "gunword.bottom", "back": "gunword.ba
 WORD = {"top": "white", "bottom": "glow", "back": "team.dark"}
 made = []
 
+# The game events each hit answers (proposals: the game's real event names are not decided).
+EVENTS = {
+    "hit_bullet_spark": ["hit.bullet.metal"], "hit_bullet_dust": ["hit.bullet.ground"], "hit_bullet_ricochet": ["hit.bullet.ricochet"],
+    "hit_burst_star": ["hit.burst.star"], "hit_burst_cloud": ["hit.burst.cloud"], "hit_burst_double": ["hit.burst.double"],
+    "hit_heavy_blast": ["hit.heavy.blast"], "hit_heavy_puffs": ["hit.heavy.puffs"],
+    "hit_energy_zap": ["hit.energy.zap"], "hit_energy_pulse": ["hit.energy.pulse"],
+}
+
 TIERS = {
     # effect id: (Low drops, Medium drops). Proposals: Low keeps the main shape, the word and the team-coloured marks.
     "hit_bullet_spark": (["lines"], []),
@@ -217,7 +225,7 @@ save(effect("hit_energy_pulse", "Energy: pulse", (0, 260, 300), L, colour="glow"
 
 proj = {"format": "shamble-vfx-project", "version": 1, "name": "Comic hits",
         "about": "A collection of hit effects in four sets: small arms, impact bursts, heavy explosions, energy. After the moves in the Art lead's hit references (2026-11-15), in Shamble VFX's own shapes, letters and colour roles.",
+        "events": {fid: EVENTS[fid] for (fid, sc) in made},
         "preview": {fid: {"scene": sc} for (fid, sc) in made}}
-json.dump(proj, open(os.path.join(outdir, "project.json"), "w"), indent=2)
-open(os.path.join(outdir, "project.json"), "a").write("\n")
+write_json(os.path.join(outdir, "project.json"), proj)
 print(len(made), "hits")

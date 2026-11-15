@@ -139,7 +139,7 @@
       },
       "shape": {
         "kind": "shards",
-        "radiusM": 1.0,
+        "radiusM": 1,
         "points": 12,
         "inner": 0.48,
         "jitter": 0.32,

@@ -52,10 +52,80 @@ export const WHITE_BLOCK = '__white';
 /** A round white dot (with a soft edge) for halftone: one textured square per dot instead of a many-sided disc. */
 export const DOT_BLOCK = '__dot';
 const DOT = 16;
+const WHITE = 8;
+
+/**
+ * Where every image goes on the atlas page, with the white block and the dot. The editor's preview and the export both
+ * use this, so the game's atlas has the same layout as the one the editor draws from.
+ */
+export function atlasLayout(images: readonly PackInput[], pad = 2): PackResult {
+  return packRects([...images, { name: WHITE_BLOCK, width: WHITE, height: WHITE }, { name: DOT_BLOCK, width: DOT, height: DOT }], { padding: pad });
+}
+
+/** The dot's pixels: white, radius 7 of a 16 px square, a one-pixel soft edge, clear corners (RGBA, not premultiplied). */
+export function dotPixels(): Uint8ClampedArray<ArrayBuffer> {
+  const px = new Uint8ClampedArray(new ArrayBuffer(DOT * DOT * 4));
+  for (let y = 0; y < DOT; y++) for (let x = 0; x < DOT; x++) {
+    const d = Math.hypot(x + 0.5 - DOT / 2, y + 0.5 - DOT / 2);
+    const i = (y * DOT + x) * 4;
+    px[i] = px[i + 1] = px[i + 2] = 255;
+    px[i + 3] = Math.round(255 * Math.min(1, Math.max(0, DOT / 2 - 1 + 0.5 - d)));
+  }
+  return px;
+}
+
+/** A picture as plain RGBA bytes, not premultiplied (as a PNG holds it). */
+export interface Pixels {
+  width: number;
+  height: number;
+  data: Uint8Array | Uint8ClampedArray;
+}
+
+/**
+ * The atlas page as RGBA bytes, from each image's own bytes: images copied exactly, their edge pixels repeated into the
+ * padding, the white block (with its padding white too) and the dot. Used by the export (Node has no canvas).
+ */
+export function composeAtlas(layout: PackResult, images: ReadonlyMap<string, Pixels>, pad = 2): Uint8Array {
+  const W = layout.width, H = layout.height;
+  const out = new Uint8Array(W * H * 4);
+  const put = (x: number, y: number, src: Uint8Array | Uint8ClampedArray, si: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const o = (y * W + x) * 4;
+    out[o] = src[si]!; out[o + 1] = src[si + 1]!; out[o + 2] = src[si + 2]!; out[o + 3] = src[si + 3]!;
+  };
+  for (const [name, im] of images) {
+    const r = layout.rects[name];
+    if (!r) continue;
+    for (let y = -pad; y < im.height + pad; y++) {
+      const sy = Math.min(im.height - 1, Math.max(0, y));
+      for (let x = -pad; x < im.width + pad; x++) {
+        const sx = Math.min(im.width - 1, Math.max(0, x));
+        put(r.x + x, r.y + y, im.data, (sy * im.width + sx) * 4);
+      }
+    }
+  }
+  const w = layout.rects[WHITE_BLOCK]!;
+  const white = new Uint8Array([255, 255, 255, 255]);
+  for (let y = -pad; y < w.h + pad; y++) for (let x = -pad; x < w.w + pad; x++) put(w.x + x, w.y + y, white, 0);
+  const d = layout.rects[DOT_BLOCK]!;
+  const dot = dotPixels();
+  for (let y = 0; y < DOT; y++) for (let x = 0; x < DOT; x++) put(d.x + x, d.y + y, dot, (y * DOT + x) * 4);
+  return out;
+}
+
+/** Cut one image back out of an atlas page (for importing an export). */
+export function cutFromAtlas(page: Pixels, r: AtlasRect): Uint8Array {
+  const out = new Uint8Array(r.w * r.h * 4);
+  for (let y = 0; y < r.h; y++) {
+    const src = ((r.y + y) * page.width + r.x) * 4;
+    out.set(page.data.subarray(src, src + r.w * 4), y * r.w * 4);
+  }
+  return out;
+}
 
 /** Paint the atlas page. Each image's edge pixels are repeated into its padding, so filtering never bleeds. */
 export function drawAtlas(images: readonly AtlasImage[], pad = 2): Atlas {
-  const packed = packRects([...images, { name: WHITE_BLOCK, width: 8, height: 8 }, { name: DOT_BLOCK, width: DOT, height: DOT }], { padding: pad });
+  const packed = atlasLayout(images, pad);
   const canvas = document.createElement('canvas');
   canvas.width = packed.width;
   canvas.height = packed.height;
@@ -64,11 +134,9 @@ export function drawAtlas(images: readonly AtlasImage[], pad = 2): Atlas {
   const w = packed.rects[WHITE_BLOCK]!;
   g.fillStyle = '#ffffff';
   g.fillRect(w.x - pad, w.y - pad, w.w + 2 * pad, w.h + 2 * pad);
-  // The dot: radius 7 of a 16 px square, so its corners stay clear.
+  // The dot: the same pixels the export writes.
   const d = packed.rects[DOT_BLOCK]!;
-  g.beginPath();
-  g.arc(d.x + DOT / 2, d.y + DOT / 2, DOT / 2 - 1, 0, Math.PI * 2);
-  g.fill();
+  g.putImageData(new ImageData(dotPixels(), DOT, DOT), d.x, d.y);
   for (const im of images) {
     const r = packed.rects[im.name]!;
     const { x, y, w, h } = r;
