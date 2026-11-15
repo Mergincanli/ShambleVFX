@@ -32,3 +32,11 @@ export function hashText(s: string): number {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
   return h >>> 0;
 }
+
+/**
+ * The random seed one layer draws with in one play: the play's seed (when the layer changes every play), the layer's own
+ * seed and its id, mixed. Every random number a shape, burst or word uses comes from this seed.
+ */
+export function layerSeed(l: { id: string; seed: number; perPlay: boolean }, playSeed: number): number {
+  return ((l.perPlay ? playSeed : 0) ^ Math.imul(l.seed + 1, 0x9e3779b1) ^ hashText(l.id)) >>> 0;
+}

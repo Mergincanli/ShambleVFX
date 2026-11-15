@@ -13,10 +13,12 @@ describe('example projects', () => {
     const dir = join(examples, project);
     const images = readdirSync(join(dir, 'images'));
     for (const file of readdirSync(join(dir, 'effects'))) {
-      it(`${project}/${file} passes the checker`, () => {
+      it(`${project}/${file} passes the checker, in the current version`, () => {
         const r = checkEffect(JSON.parse(readFileSync(join(dir, 'effects', file), 'utf8')), { palette: paletteJson as Palette, images });
         expect(problemLines(r.problems)).toEqual([]);
         expect(`${r.effect?.id}.vfx.json`).toBe(file);
+        // No upgrade needed: the examples are saved in the current version.
+        expect(r.upgradedFrom).toBeUndefined();
       });
     }
   }

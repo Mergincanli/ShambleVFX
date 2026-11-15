@@ -11,7 +11,7 @@ export { DrawSink, TriBuffer, BLEND_GROUPS, readQuads } from './sink';
 export type { BlendGroup, QuadRecord } from './sink';
 export { edgeLook } from './draw';
 export type { Relation, EdgeLook } from './draw';
-export { wordIndex, wordDistanceScale } from './words';
+export { wordIndex, wordDistanceScale, pickWord } from './words';
 export { hash32, random01, hashText } from './random';
 export { shotFrame, frameOffset } from './math';
 export type { ShotFrame } from './math';

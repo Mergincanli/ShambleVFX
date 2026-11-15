@@ -94,24 +94,26 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (227): the format, the checker and the upgrades from versions 1, 2 and 3; palettes with gradients and their
-upgrade; colour edits and their undo; glows drawn from gradients; the palette; same-seed playback;
-steps, phases, flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind
-"sprites alive"; the letters; the fire's layout; every example effect drawn all through; undo and redo; the project file
-server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
-its version guard; the screen-area count and the cost measurement.
+The unit tests (260): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
+has a chance); the words box keeping chances; palettes with gradients and their upgrade; colour edits and their undo; glows
+drawn from gradients; the palette; same-seed playback; steps, phases, flights and arcs; every shape kind, bursts and words;
+friend or foe; quality tiers; the item count behind "sprites alive"; the letters; the fire's layout; every example effect
+drawn all through; undo and redo; the project file server; the export checker; export, import and export again giving the
+same files on both examples; the runtime's loader and its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (139 checks): palette colours read back exactly; the ground and walls cut
-what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
-the generated forms, the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before
-leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version
-guard, a glow drawn from an exported gradient in its exact colours) and its bundle (no checker, no editor code); the colour
-picker (a typed colour, a drag and Revert, a new colour), a ready-made gradient on a glow, night mode, the faction markings,
-and Save as, Export and Import carrying the project's palette.json. It saves screenshots to `out/screenshots/`.
+A headless browser check on WebGPU and WebGL 2 (140 checks): palette colours read back exactly; the ground and walls cut
+what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging, the
+generated forms, the words box (a word typed again keeps its chance), the add menu, phase starts, New from preset, tiers,
+game events (unsaved ones are asked about before leaving), the cost panel and budgets, Save as, Export and Import; the test
+page on both backends (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an
+exported gradient in its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a
+drag and Revert, a new colour), a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and
+Import carrying the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
 
 ```bash
@@ -135,7 +137,7 @@ These write pictures to `out/` (kept out of git):
 
 ## What works now
 
-- **Effect files, version 4** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2 and 3.
+- **Effect files, version 5** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2, 3 and 4.
   - **Colours per project**: the project's own `palette.json` (version 2, with gradients), edited with the colour picker;
     the built-in palette for projects without one ([docs/colours.md](docs/colours.md)).
   - **Gradients**: smooth or banded ramps in the palette; a glow can use one from its middle to its rim.
@@ -143,6 +145,10 @@ These write pictures to `out/` (kept out of git):
     timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
     shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters).
+  - **Words with chances** (version 5): each word of a word layer can have a chance in percent; words without one share what
+    is left, and when every word has one and they add up to less than 100, the rest of the plays show no word. A word layer
+    with no chances shows the same word for every seed as before. Setting chances in the editor comes with the new UI; the
+    words box keeps them when you type the list again.
   - **Phases**: wind-up, peak and fade. Layers start with a phase, last until one ends, or break up during one.
   - **Friend or foe** per layer, by edge: solid ink for an enemy's, thin and broken for your own team's.
 - **The drawing board's four effects** as presets, compared side by side with the board at its key moments, both sides and
@@ -205,6 +211,12 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   public repo (Mustafa's yes, 2026-11-15).
 - **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; gradients only on glows
   so far; `team.dark` and `glow.hot` worked out again only when asked; the night mode's greys; the icons.
+- **Word chances** (the rules themselves are the approved plan, and "the rest shows no word" is Mustafa's choice): a chance may
+  have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. In the
+  words box, a word typed again keeps its chance when its text is the same, capitals or not (words are drawn in capitals); a
+  word typed twice is matched in order (the first BOOM takes the first old BOOM's chance).
+- **A fire's bed and its gradient**: the checker treats all the bed layers of one effect as one fire, so it compares every
+  detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
 
 ## Claude skills
 

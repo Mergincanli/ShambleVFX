@@ -206,7 +206,7 @@ describe('words', () => {
   const word = () => {
     const fx = newEffect('w', 'W');
     const w = newWordLayer('w', 'W');
-    w.words = ['KABOOM'];
+    w.words = [{ text: 'KABOOM' }];
     fx.layers = [w];
     return { fx, w };
   };
@@ -524,7 +524,7 @@ describe('items drawn (the cost panel\'s "sprites alive")', () => {
 
   it('counts a word by its letters, a sprite as one, and a star with its halftone dots', () => {
     const word = newEffect('w', 'W');
-    word.layers = [{ ...newWordLayer('w', 'W'), words: ['BOOM'] }];
+    word.layers = [{ ...newWordLayer('w', 'W'), words: [{ text: 'BOOM' }] }];
     expect(drawn(word, ctx(40, { relation: 'self' })).sink.items).toBe(4);
 
     const sprite = newEffect('s', 'S');

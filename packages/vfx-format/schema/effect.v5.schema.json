@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Mergincanli/ShambleVFX/schema/effect.v4.schema.json",
-  "title": "Shamble VFX effect file, version 4",
+  "$id": "https://github.com/Mergincanli/ShambleVFX/schema/effect.v5.schema.json",
+  "title": "Shamble VFX effect file, version 5",
   "description": "Times in ms, sizes in metres, colours as role names only (hexes live in the palette).",
   "type": "object",
   "properties": {
@@ -11,7 +11,7 @@
     },
     "version": {
       "type": "number",
-      "const": 4
+      "const": 5
     },
     "id": {
       "type": "string",
@@ -1528,6 +1528,10 @@
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
                       },
+                      "gradient": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
+                      },
                       "lightRole": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
@@ -2694,6 +2698,10 @@
                           "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
                         }
                       },
+                      "gradient": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
+                      },
                       "lumps": {
                         "type": "integer",
                         "minimum": 3,
@@ -3372,6 +3380,10 @@
                   }
                 ]
               },
+              "gradient": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+)*$"
+              },
               "loop": {
                 "type": "boolean"
               },
@@ -3745,9 +3757,23 @@
                 "maxItems": 16,
                 "type": "array",
                 "items": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 24
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 24
+                    },
+                    "chance": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "letterPx": {

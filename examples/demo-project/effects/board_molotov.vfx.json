@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "board_molotov",
   "name": "Molotov flame pit (board)",
   "controls": {
@@ -849,7 +849,9 @@
       "facing": "camera",
       "blend": "normal",
       "words": [
-        "FWOOSH"
+        {
+          "text": "FWOOSH"
+        }
       ],
       "letterPx": 47,
       "colours": {

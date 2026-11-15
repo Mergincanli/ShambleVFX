@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "board_beam",
   "name": "Hammer leech beam (board)",
   "controls": {

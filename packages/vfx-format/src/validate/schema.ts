@@ -1,8 +1,9 @@
 /**
- * The schema of an effect file, version 2, written with zod.
+ * The schema of an effect file (the current version, FORMAT_VERSION), written with zod.
  * Only the editor, the tests and the export tools load this file. The runtime never does.
  */
 import { z } from 'zod';
+import { GRADIENT_NAME } from '../palette';
 import { FORMAT_ID, FORMAT_VERSION } from '../types';
 import type { EffectFile } from '../types';
 
@@ -22,6 +23,9 @@ const nameSchema = z.string().min(1, { error: 'needs a name' }).max(80, { error:
 export const roleSchema = z
   .string()
   .regex(/^[a-z][a-z0-9]*(\.[a-z0-9]+)*$/, { error: 'must be a colour role name such as heat.2 or glow, never a hex colour' });
+
+/** A gradient's name in the palette, written like a role's: glow.ramp, fire.bed (the palette's own rule). */
+const gradientNameSchema = z.string().regex(GRADIENT_NAME, { error: 'must be a gradient name such as glow.ramp' });
 
 /** A PNG file name in the project's images folder: no folders, no "..". */
 export const imageNameSchema = z
@@ -130,7 +134,8 @@ const shapeSchema = z.discriminatedUnion('kind', [
     boilDeg: num.min(-90).max(90), breakUp: breakUpSchema.optional(), halftone: halftoneSchema.optional(),
   }),
   z.strictObject({
-    kind: z.literal('smoke'), style: z.enum(['puff', 'billow']), radiusM: pos().max(50), role: roleSchema, lightRole: roleSchema.optional(), rimRole: roleSchema,
+    kind: z.literal('smoke'), style: z.enum(['puff', 'billow']), radiusM: pos().max(50), role: roleSchema, gradient: gradientNameSchema.optional(),
+    lightRole: roleSchema.optional(), rimRole: roleSchema,
     inkPx: px, grow: z.tuple([num.min(0).max(10), num.min(0).max(10), num.min(0).max(10)]), riseM: num.min(-50).max(50), driftM: vec2,
     loop: z.strictObject({ count: z.int().min(1).max(32), lifeMs: pos() }).optional(),
   }),
@@ -154,7 +159,7 @@ const shapeSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('glow'), radiusM: pos().max(100), role: roleSchema, alpha: unit, soft: z.boolean(), grow: z.tuple([num.min(0).max(10), num.min(0).max(10)]), flicker: num.min(0).max(2),
-    gradient: z.string().regex(/^[a-z][a-z0-9]*(\.[a-z0-9]+)*$/, { error: 'must be a gradient name such as glow.ramp' }).optional(),
+    gradient: gradientNameSchema.optional(),
   }),
   z.strictObject({
     kind: z.literal('trail'), length: unit, widthPx: z.tuple([px, px]), role: roleSchema,
@@ -176,7 +181,8 @@ const shapeSchema = z.discriminatedUnion('kind', [
     licks: z.boolean(), growMs: num.min(0).max(60000), breakUp: breakUpSchema.optional(),
   }),
   z.strictObject({
-    kind: z.literal('bed'), radiusM: pos().max(50), tones: z.array(roleSchema).min(1).max(8), lumps: z.int().min(3).max(64), part: z.enum(['lumps', 'detail']),
+    kind: z.literal('bed'), radiusM: pos().max(50), tones: z.array(roleSchema).min(1).max(8), gradient: gradientNameSchema.optional(), lumps: z.int().min(3).max(64),
+    part: z.enum(['lumps', 'detail']),
     detailRole: roleSchema, inkPx: px, edge, boilSteps: z.int().min(1).max(60), growMs: num.min(0).max(60000), breakUp: breakUpSchema.optional(),
   }),
 ]);
@@ -206,6 +212,7 @@ export const burstLayerSchema = z.strictObject({
   sizeOverLife: curve,
   spinDegPerS: range(-36000, 36000),
   look: lookSchema,
+  gradient: gradientNameSchema.optional(),
   loop: z.boolean(),
   streak: z.strictObject({ role: roleSchema, lengthM: pos().max(20), widthPx: pos().max(100) }).optional(),
   groundStop: z.boolean(),
@@ -215,7 +222,10 @@ export const burstLayerSchema = z.strictObject({
 export const wordLayerSchema = z.strictObject({
   ...visible,
   type: z.literal('word'),
-  words: z.array(z.string().min(1).max(24)).min(1, { error: 'needs at least one word' }).max(16),
+  words: z.array(z.strictObject({
+    text: z.string().min(1).max(24),
+    chance: num.min(0, { error: 'must be 0 % or more' }).max(100, { error: 'must be 100 % or less' }).optional(),
+  })).min(1, { error: 'needs at least one word' }).max(16),
   letterPx: pos().max(400),
   colours: z.strictObject({ top: roleSchema, bottom: roleSchema, back: roleSchema }),
   separation: roleSchema.optional(),

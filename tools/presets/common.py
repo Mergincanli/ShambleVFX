@@ -25,10 +25,14 @@ def burst(id, name, **kw):
     l.update(base)
     return l
 
+def words_of(words):
+    """A word layer's words (format 5): each a {"text": ...}, with a "chance" in % when one is given as a dict."""
+    return [w if isinstance(w, dict) else {"text": w} for w in words]
+
 def word(id, name, words, **kw):
     l = {"id": id, "name": name, "type": "word", "start": kw.pop("start", {"ms": 0}), "timing": kw.pop("timing", STEPS),
          "at": kw.pop("at", T), "facing": "camera", "blend": "normal"}
-    base = dict(words=words, letterPx=40, colours={"top": "white", "bottom": "glow", "back": "team.dark"}, tiltDeg=[4, 10], sizeJitter=0.08,
+    base = dict(words=words_of(words), letterPx=40, colours={"top": "white", "bottom": "glow", "back": "team.dark"}, tiltDeg=[4, 10], sizeJitter=0.08,
                 ramp=0.2, bounce=0.35, turnDeg=4, slantDeg=9, pop={"scale": 1.15, "steps": 2}, breakUp={"lastMs": 140}, breakSteps=0, riseM=0,
                 distance={"curve": DIST, "minPx": 14}, visibleTo="everyone", seed=1, perPlay=True)
     base.update(kw)
@@ -57,7 +61,7 @@ def apply_tiers(fx, low_drop=(), medium_drop=(), only=None):
     return fx
 
 def effect(id, name, phases, layers, colour="heat.1"):
-    return {"format": "shamble-vfx", "version": 4, "id": id, "name": name,
+    return {"format": "shamble-vfx", "version": 5, "id": id, "name": name,
             "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": colour},
             "phases": {"windupMs": phases[0], "peakMs": phases[1], "fadeMs": phases[2]}, "layers": layers}
 

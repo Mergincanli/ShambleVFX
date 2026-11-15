@@ -69,6 +69,17 @@ describe('loading an export folder', () => {
     );
   });
 
+  it('plays version 5, and refuses an export made with version 4 effects in plain words', async () => {
+    expect(FORMAT_VERSION).toBe(5);
+    expect((await loadExport(URL_, folder())).manifest.effectVersion).toBe(5);
+    await expect(loadExport(URL_, folder((f) => { manifestOf(f).effectVersion = 4; }))).rejects.toThrow(
+      'the effects in this export are version 4, and this runtime plays version 5: export them again with the editor, which upgrades old effects',
+    );
+    await expect(loadExport(URL_, folder((f) => { (f['effects/shot.vfx.json'] as Record<string, unknown>).version = 4; }))).rejects.toThrow(
+      'https://game.test/vfx/effects/shot.vfx.json is version 4, not 5: export it again',
+    );
+  });
+
   it('names a missing file, a wrong atlas and an event with no effect', async () => {
     await expect(loadExport(URL_, folder((f) => { delete f['effects/shot.vfx.json']; }))).rejects.toThrow(
       'could not read https://game.test/vfx/effects/shot.vfx.json (the server said 404)',

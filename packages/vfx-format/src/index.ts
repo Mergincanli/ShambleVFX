@@ -7,3 +7,4 @@ export * from './types';
 export * from './palette';
 export * from './defaults';
 export * from './export';
+export * from './words';

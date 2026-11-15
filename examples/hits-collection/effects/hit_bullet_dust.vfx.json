@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "hit_bullet_dust",
   "name": "Bullet hit: dust (stone, ground)",
   "controls": {
@@ -281,9 +281,15 @@
       "facing": "camera",
       "blend": "normal",
       "words": [
-        "THUD",
-        "POK",
-        "TAK"
+        {
+          "text": "THUD"
+        },
+        {
+          "text": "POK"
+        },
+        {
+          "text": "TAK"
+        }
       ],
       "letterPx": 17,
       "colours": {

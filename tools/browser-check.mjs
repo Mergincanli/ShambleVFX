@@ -220,6 +220,23 @@ if (webgpu) {
   await p.keyboard.press('Control+z');
   const r0 = (await L('burst')).shape.radiusM;
   ok('a shape\'s generated field edits the effect, and undo puts it back', r1 === 1.5 && r0 === 1.1, `radius ${r1}, after undo ${r0}`);
+  // The words box: the words as a comma list; a word typed again keeps its chance, a new one gets none.
+  await p.evaluate(() => { const a = window.__vfx.app; a.selectLayer('word'); a.editLayer(['words', 1, 'chance'], 30); a.commit(); });
+  await p.waitForTimeout(150);
+  const wordsBox = () => p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Words \(one picked per play\)$/ }) }).locator('input');
+  const shownWords = await wordsBox().inputValue();
+  await wordsBox().fill('wham, krakoom, zap');
+  await wordsBox().press('Enter');
+  await p.locator('.timeline').click({ position: { x: 60, y: 8 } });
+  const typedWords = (await L('word')).words;
+  await p.keyboard.press('Control+z');
+  await p.keyboard.press('Control+z');
+  const wordsBack = (await L('word')).words;
+  ok('the words box shows the words as a comma list; a word typed again keeps its chance, and undo puts them back',
+    shownWords === 'KABOOM, KRAKOOM, BADOOM, WHAM' && JSON.stringify(typedWords) === JSON.stringify([{ text: 'WHAM' }, { text: 'KRAKOOM', chance: 30 }, { text: 'ZAP' }])
+      && JSON.stringify(wordsBack) === JSON.stringify([{ text: 'KABOOM' }, { text: 'KRAKOOM' }, { text: 'BADOOM' }, { text: 'WHAM' }]),
+    `"${shownWords}" -> ${JSON.stringify(typedWords)}, after two undos ${JSON.stringify(wordsBack)}`);
+  await p.evaluate(() => window.__vfx.app.selectLayer('burst'));
   const before = (await p.evaluate(() => window.__vfx.app.effect().layers.length));
   await p.selectOption('select.add-layer', 'shape:cloud');
   await p.waitForTimeout(150);
@@ -627,7 +644,7 @@ if (webgpu) {
     writeFileSync(join(old, 'manifest.json'), JSON.stringify(m, null, 2) + '\n');
     const g1 = await open(`${tpBase}/?export=_check-old-effects&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
     const e1 = await g1.page.evaluate(() => window.__test.error ?? '');
-    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 4: export them again/.test(e1), e1);
+    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 5: export them again/.test(e1), e1);
     await g1.page.close();
     rmSync(old, { recursive: true, force: true });
     const g2 = await open(`${tpBase}/?export=_check-missing&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);

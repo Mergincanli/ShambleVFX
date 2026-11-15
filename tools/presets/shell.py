@@ -43,7 +43,7 @@ layers.append(shape("gun_smoke", "Gun smoke", "smoke",
     {"style": "puff", "radiusM": 0.34, "role": "gunsmoke", "rimRole": "ink", "inkPx": 2.5, "grow": [0.7, 1.33, 0], "riseM": 0.5, "driftM": [-0.09, 0]},
     at={"input": "origin", "offset": [0, 0, 0.5]}, start={"ms": 90}, durationMs=810, timing=SMOOTH))
 layers.append({"id": "fire_word", "name": "Firing word", "type": "word", "start": {"ms": 0}, "timing": STEPS, "at": O, "facing": "camera", "blend": "normal",
-    "durationMs": 620, "shiftM": [0.3, 1.05], "words": ["THOOM", "WHUMP", "BOOM"], "letterPx": 40,
+    "durationMs": 620, "shiftM": [0.3, 1.05], "words": [{"text": w} for w in ["THOOM", "WHUMP", "BOOM"]], "letterPx": 40,
     "colours": {"top": "white", "bottom": "glow", "back": "team.dark"}, "tiltDeg": [7, 7], "sizeJitter": 0, "ramp": 0.18, "bounce": 0.35,
     "turnDeg": 4, "slantDeg": 9, "pop": {"scale": 1.14, "steps": 2}, "breakUp": {"lastMs": 140}, "breakSteps": 0, "riseM": 0,
     "distance": {"curve": [[0, 1], [100, 1]], "minPx": 14}, "visibleTo": "everyone", "seed": 12, "perPlay": True})
@@ -81,12 +81,12 @@ layers.append(burst("sparks", "Sparks", count=9, lifeMs=[940, 940], speedMps=[1.
     startRadiusM=[0.66, 0.66], gravityMps2=0, drag=2.13, sizeM=[0.066, 0.099], sizeOverLife=[[0, 1], [0.521, 1], [1, 0.5]], spinDegPerS=[0, 0],
     look={"kind": "diamond", "role": "team", "inkPx": 1.95, "edge": "auto"}, loop=False, groundStop=False, seed=5, perPlay=True))
 layers.append({"id": "word", "name": "Sound word", "type": "word", "start": {"phase": "peak", "ms": 0}, "timing": STEPS, "at": T, "facing": "camera",
-    "blend": "normal", "untilPhaseEnd": "fade", "shiftM": [-0.06, 0.3 + 0.98 * RR], "words": sys.argv[2].split(",") if len(sys.argv) > 2 else ["KABOOM", "KRAKOOM", "BADOOM", "WHAM"],
+    "blend": "normal", "untilPhaseEnd": "fade", "shiftM": [-0.06, 0.3 + 0.98 * RR], "words": [{"text": w} for w in (sys.argv[2].split(",") if len(sys.argv) > 2 else ["KABOOM", "KRAKOOM", "BADOOM", "WHAM"])],
     "letterPx": 52, "colours": {"top": "white", "bottom": "glow", "back": "team.dark"}, "tiltDeg": [5, 10], "sizeJitter": 0.08, "ramp": 0.25,
     "bounce": 0.35, "turnDeg": 4, "slantDeg": 9, "pop": {"scale": 1.15, "steps": 2}, "breakUp": {"phase": "fade"}, "breakSteps": 5,
     "riseM": round(0.25 * RR, 4), "distance": {"curve": DIST, "minPx": 14}, "visibleTo": "everyone", "seed": 4, "perPlay": True})
 
-fx = {"format": "shamble-vfx", "version": 4, "id": "board_shell", "name": "Tank shell (board)",
+fx = {"format": "shamble-vfx", "version": 5, "id": "board_shell", "name": "Tank shell (board)",
       "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": "heat.1"},
       "phases": {"windupMs": 560, "peakMs": 490, "fadeMs": 900}, "layers": layers}
 sys.path.insert(0, __file__.rsplit('/', 1)[0])

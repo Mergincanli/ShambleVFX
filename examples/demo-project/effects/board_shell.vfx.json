@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "board_shell",
   "name": "Tank shell (board)",
   "controls": {
@@ -397,9 +397,15 @@
         1.05
       ],
       "words": [
-        "THOOM",
-        "WHUMP",
-        "BOOM"
+        {
+          "text": "THOOM"
+        },
+        {
+          "text": "WHUMP"
+        },
+        {
+          "text": "BOOM"
+        }
       ],
       "letterPx": 40,
       "colours": {
@@ -938,10 +944,18 @@
         1.3780000000000001
       ],
       "words": [
-        "KABOOM",
-        "KRAKOOM",
-        "BADOOM",
-        "WHAM"
+        {
+          "text": "KABOOM"
+        },
+        {
+          "text": "KRAKOOM"
+        },
+        {
+          "text": "BADOOM"
+        },
+        {
+          "text": "WHAM"
+        }
       ],
       "letterPx": 52,
       "colours": {

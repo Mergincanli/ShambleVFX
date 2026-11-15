@@ -7,7 +7,7 @@ import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { checkEffect, problemLines } from '@shamble/vfx-format/validate';
 import { History } from '../src/doc/history';
 import type { EditorDoc } from '../src/doc/history';
-import { addLayer, addRole, deriveAgain, duplicateLayer, mixHex, moveLayer, newProjectile, newSprite, removeLayer, scaleHex, setEffectValue, setIn, setLayerValue, setRoleColour } from '../src/doc/edits';
+import { addLayer, addRole, deriveAgain, duplicateLayer, mixHex, moveLayer, newProjectile, newSprite, removeLayer, scaleHex, setEffectValue, setIn, setLayerValue, setRoleColour, wordsFromText } from '../src/doc/edits';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (f: string) => JSON.parse(readFileSync(join(here, '../../../examples/demo-project/effects', f), 'utf8')) as EffectFile;
@@ -150,5 +150,42 @@ describe('colour edits', () => {
     h.undo();
     expect(h.doc.palette.roles['dust']!.hex).toBe(before);
     expect(h.dirty).toBe(false);
+  });
+});
+
+describe('the words box: words typed again', () => {
+  const old = [{ text: 'BOOM', chance: 50 }, { text: 'BAM' }, { text: 'POW', chance: 0 }];
+
+  it('keeps each word\'s chance when its text stays the same, in any order; new words get no chance', () => {
+    expect(wordsFromText(old, 'POW, BOOM, ZAP')).toEqual([{ text: 'POW', chance: 0 }, { text: 'BOOM', chance: 50 }, { text: 'ZAP' }]);
+    expect(wordsFromText(old, 'BOOM, BAM, POW')).toEqual(old);
+  });
+
+  it('reads the comma list as the box always did: trimmed, in capitals, empty ones left out', () => {
+    expect(wordsFromText(old, '  boom ,, bam,  ')).toEqual([{ text: 'BOOM', chance: 50 }, { text: 'BAM' }]);
+    expect(wordsFromText(old, ' , ')).toEqual([]);
+  });
+
+  it('matches a word typed twice in order: the first takes the first old one, the next the next', () => {
+    const twice = [{ text: 'BOOM', chance: 50 }, { text: 'BOOM', chance: 20 }];
+    expect(wordsFromText(twice, 'BOOM, BOOM, BOOM')).toEqual([{ text: 'BOOM', chance: 50 }, { text: 'BOOM', chance: 20 }, { text: 'BOOM' }]);
+    expect(wordsFromText(twice, 'BOOM')).toEqual([{ text: 'BOOM', chance: 50 }]);
+  });
+
+  it('matches capitals or not, since words are drawn in capitals', () => {
+    expect(wordsFromText([{ text: 'boom', chance: 30 }], 'BOOM')).toEqual([{ text: 'BOOM', chance: 30 }]);
+  });
+
+  it('is one undo step in the document, and the result passes the checker', () => {
+    const h = new History({ palette: paletteJson as Palette, effects: [load('board_shell.vfx.json')] });
+    const fx = h.doc.effects[0]!;
+    const i = fx.layers.findIndex((l) => l.id === 'word');
+    h.apply('Chance', setLayerValue(h.doc, fx.id, 'word', ['words', 1, 'chance'], 30));
+    const before = (h.doc.effects[0]!.layers[i] as { words: unknown[] }).words;
+    h.apply('Words', setLayerValue(h.doc, fx.id, 'word', ['words'], wordsFromText(before as { text: string; chance?: number }[], 'WHAM, krakoom, ZAP')));
+    expect((h.doc.effects[0]!.layers[i] as { words: unknown[] }).words).toEqual([{ text: 'WHAM' }, { text: 'KRAKOOM', chance: 30 }, { text: 'ZAP' }]);
+    expect(problemLines(checkEffect(h.doc.effects[0], { palette: paletteJson as Palette }).problems)).toEqual([]);
+    h.undo();
+    expect((h.doc.effects[0]!.layers[i] as { words: unknown[] }).words).toEqual(before);
   });
 });

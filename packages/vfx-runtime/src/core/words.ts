@@ -3,18 +3,33 @@
  * A word is built back to front: a dark copy pushed down and to the side, a black outline, then the letter in two flat
  * tones with a hard edge between them. Each letter turns a little and sits a little off the line; the whole word leans.
  */
+import { wordAt } from '@shamble/vfx-format';
 import type { WordLayer } from '@shamble/vfx-format';
 import { breakProgress, clamp01, curveAt, pick } from './draw';
 import type { DrawCtx } from './draw';
 import { LETTERS } from './letters';
 import type { Letter } from './letters';
 import type { RGBA } from './painter';
+import { layerSeed, random01 } from './random';
 
 const DEG = Math.PI / 180;
 
-/** Which word of the list a play shows (from the seed). */
+/**
+ * Which word of the list a play shows, from one random number of the layer's own: its index, or -1 when the play shows
+ * no word (every word has a chance, and they add up to less than 100 %). The chances' rules are wordShares' (vfx-format).
+ */
 export function wordIndex(l: WordLayer, rnd: (a: number, b?: number) => number): number {
-  return Math.min(l.words.length - 1, Math.floor(rnd(1) * l.words.length));
+  return wordAt(l.words, rnd(1));
+}
+
+/**
+ * Which word a play of this word layer shows: its index in the layer's words, or -1 for no word. `seed` is the play's
+ * seed, the one EffectPlayer.start and VfxRenderer.draw get. Drawing picks with this same code and the same random
+ * number, so the answer is what the game shows (when the word is seen at all: distance and who made it decide that).
+ */
+export function pickWord(l: WordLayer, seed: number): number {
+  const s = layerSeed(l, seed);
+  return wordIndex(l, (a, b = 0) => random01(s, a, b));
 }
 
 /** The size share a word gets at a distance from the player who sees it. */
@@ -36,8 +51,10 @@ export function drawWord(l: WordLayer, ctx: DrawCtx & { viewerDistanceM: number 
   if (hPx < 1) return;
   const h = ctx.px(hPx), u = h / 7;
 
-  // Layout in letter units (cap height 7).
-  const text = l.words[wordIndex(l, ctx.rnd)]!.toUpperCase();
+  // Layout in letter units (cap height 7). Some plays show no word.
+  const pickIndex = wordIndex(l, ctx.rnd);
+  if (pickIndex < 0) return;
+  const text = l.words[pickIndex]!.text.toUpperCase();
   const chars = [...text].filter((ch) => LETTERS[ch]);
   const n = chars.length;
   if (!n) return;

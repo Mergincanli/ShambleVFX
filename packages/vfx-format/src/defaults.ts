@@ -107,7 +107,7 @@ export function newBurstLayer(id: string, name: string): BurstLayer {
 export function newWordLayer(id: string, name: string): WordLayer {
   return {
     id, name, type: 'word', start: { ms: 0 }, timing: steps(), tiers: allTiers(), at: { input: 'origin', offset: [0, 1.2, 0] }, facing: 'camera', blend: 'normal',
-    durationMs: 600, words: ['BOOM'], letterPx: 32, colours: { top: 'white', bottom: 'glow', back: 'team.dark' },
+    durationMs: 600, words: [{ text: 'BOOM' }], letterPx: 32, colours: { top: 'white', bottom: 'glow', back: 'team.dark' },
     tiltDeg: [4, 10], sizeJitter: 0.1, ramp: 0.2, bounce: 0.35, turnDeg: 4, slantDeg: 9, pop: { scale: 1.15, steps: 2 },
     breakUp: { lastMs: 140 }, breakSteps: 0, riseM: 0, distance: { curve: DEFAULT_WORD_DISTANCE.map((p) => [...p] as [number, number]), minPx: 14 },
     visibleTo: 'everyone', seed: 1, perPlay: true,

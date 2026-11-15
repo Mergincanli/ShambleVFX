@@ -1230,7 +1230,7 @@ function layerTag(l: Layer): string {
     case 'projectile': return l.flight.mode === 'speed' ? `${l.flight.mps} m/s` : l.flight.mode === 'time' ? `${l.flight.ms} ms` : `${l.flight.phase}`;
     case 'shape': return l.shape.kind;
     case 'burst': return `${l.count} × ${l.look.kind}`;
-    case 'word': return l.words.join(' / ');
+    case 'word': return l.words.map((w) => w.text).join(' / ');
   }
 }
 

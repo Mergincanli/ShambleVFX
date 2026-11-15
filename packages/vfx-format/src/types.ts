@@ -1,5 +1,5 @@
 /**
- * The effect file, version 2.
+ * The effect file, version 5.
  *
  * Rules that hold for every effect file:
  * - Times are in milliseconds, sizes and distances in metres, ink widths in px on a 1080p screen.
@@ -11,7 +11,7 @@
  */
 
 export const FORMAT_ID = 'shamble-vfx' as const;
-export const FORMAT_VERSION = 4 as const;
+export const FORMAT_VERSION = 5 as const;
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
@@ -264,6 +264,12 @@ export interface SmokeShape {
   style: 'puff' | 'billow';
   radiusM: number;
   role: RoleName;
+  /**
+   * A gradient in the palette: the body colour over each puff's life, from its start (0) to its end (1). With it, the
+   * body takes its colour from the gradient, not from role; the light top and the rim keep their own colours. The
+   * gradient's alpha multiplies the whole puff's opacity.
+   */
+  gradient?: string;
   /** The lighter top of a billow. */
   lightRole?: RoleName;
   rimRole: RoleName;
@@ -456,8 +462,14 @@ export interface FlamesShape {
 export interface BedShape {
   kind: 'bed';
   radiusM: number;
-  /** Rim to middle. */
+  /** Rim to middle. Used when there is no gradient. */
   tones: RoleName[];
+  /**
+   * A gradient in the palette: the bands from the rim (0) to the middle (1), in place of tones. A banded gradient gives
+   * one band per stop, with the band edges at the stops; a smooth one blends from band to band. Both parts (lumps and
+   * detail) read it, so the detail's halftone sits where the bands meet: give both bed layers of a fire the same one.
+   */
+  gradient?: string;
   lumps: number;
   /** Draw only the bed (flat tones), or only its detail on top (halftone where tones meet, brush strokes, curls). */
   part: 'lumps' | 'detail';
@@ -507,6 +519,12 @@ export interface BurstLayer extends VisibleCommon {
   sizeOverLife: Curve;
   spinDegPerS: Range;
   look: ParticleLook;
+  /**
+   * A gradient in the palette: each piece's colour over its own life, from its birth (0) to its end (1). It replaces the
+   * look's role; image pieces are multiplied by it (in place of the tint). The gradient's alpha multiplies the piece's
+   * opacity. The speed streak keeps its own colour, and ink edges stay.
+   */
+  gradient?: string;
   /** Each piece starts again when its life ends (a loop of the layer's clock, not an emitter with memory). */
   loop: boolean;
   /** A speed streak behind each piece, pointing back the way it came: tapered, in its own colour. */
@@ -517,11 +535,20 @@ export interface BurstLayer extends VisibleCommon {
   perPlay: boolean;
 }
 
+/**
+ * One word a word layer can show. chance: how often it shows, in percent (0 to 100), optional. How chances turn into
+ * shares of the plays (words without a chance, chances adding up to more or less than 100): see wordShares (words.ts).
+ */
+export interface SoundWord {
+  text: string;
+  chance?: number;
+}
+
 /** A comic sound word in our own block letters. It always faces the screen. */
 export interface WordLayer extends VisibleCommon {
   type: 'word';
   /** One is picked per play, from the seed. Letters we have not drawn yet are left out (the checker warns). */
-  words: string[];
+  words: SoundWord[];
   /** Letter height in px on a 1080p screen, at full size. */
   letterPx: number;
   /** Two flat tones (top above, bottom below, hard edge between) and the pushed-back copy behind. */

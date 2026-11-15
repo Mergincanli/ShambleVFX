@@ -4,7 +4,9 @@
  * folds optional parts behind an on/off switch. Field names carry their units (radiusM, widthPx, growMs, tiltDeg).
  */
 import { PHASE_NAMES, roleNames } from '@shamble/vfx-format';
+import type { SoundWord } from '@shamble/vfx-format';
 import type { AppApi } from './api';
+import { wordsFromText } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { checkField, fold, h, numberField, selectField, textField } from './dom';
 
@@ -160,6 +162,16 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
         const c = textField({ label, value: text(v), onChange: (s) => {
           const pts = s.split(',').map((q) => q.split(':').map(Number)).filter((q) => q.length === 2 && q.every(Number.isFinite));
           if (pts.length) edit(p, pts.sort((m, n) => m[0]! - n[0]!), label);
+        } });
+        parts.push({ refresh: () => c.set(text(get(p))) });
+        return c.el;
+      }
+      // A word layer's words: typed as a comma list. A word typed again keeps its chance; new words get none.
+      if (key === 'words' && v.every((x) => !!x && typeof x === 'object' && typeof (x as { text?: unknown }).text === 'string')) {
+        const text = (list: unknown) => (list as SoundWord[]).map((w) => w.text).join(', ');
+        const c = textField({ label, value: text(v), onChange: (s) => {
+          const words = wordsFromText(get(p) as SoundWord[], s);
+          if (words.length) edit(p, words, label);
         } });
         parts.push({ refresh: () => c.set(text(get(p))) });
         return c.el;

@@ -1,19 +1,21 @@
 /**
  * The checker. It names every problem in plain words, with where it is:
- * schema errors, unknown colour roles, missing images, hex colours, broken links between layers, missing lengths,
- * and, as warnings, letters we have not drawn yet and phases with no length.
+ * schema errors, unknown colour roles and gradients, missing images, hex colours, broken links between layers, missing
+ * lengths, and, as warnings, letters we have not drawn yet, word chances that do not work as typed, a fire's bed layers
+ * with different gradients, and phases with no length.
  */
 import type { core } from 'zod';
 import { WORD_LETTERS } from '../defaults';
 import { roleNames } from '../palette';
 import type { Palette } from '../palette';
 import { LAYER_TYPES, MAIN_ROLE, isArrivalStart, isInputAnchor, isPhaseStart } from '../types';
-import type { EffectFile, Layer, PhaseName, VisibleLayer } from '../types';
+import type { BedShape, EffectFile, Layer, PhaseName, VisibleLayer, WordLayer } from '../types';
+import { chanceTotal, wordShares } from '../words';
 import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
 
-export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'gradient' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier' | 'export';
+export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'gradient' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'chance' | 'phase' | 'place' | 'tier' | 'export';
 
 export interface Problem {
   kind: ProblemKind;
@@ -110,6 +112,28 @@ function issueText(iss: core.$ZodIssue): string {
   }
 }
 
+/** A percent for a message: whole numbers as they are, others to two decimals at most (120, 33.33). */
+function percent(v: number): string {
+  return String(Math.round(v * 100) / 100);
+}
+
+/**
+ * Word chances that will not work as typed (warnings): chances that add up to more than 100 % (scaled down), a word
+ * without a chance left with nothing because the others already reach 100 %, a word with a 0 % chance. The rules are
+ * wordShares' own (words.ts), so a warning never says something the pick does not do.
+ */
+function chanceWarnings(l: WordLayer, at: string, warn: (path: string, message: string) => void): void {
+  const t = chanceTotal(l.words);
+  if (t.over) warn(`${at}.words`, `"${l.name}": the chances add up to ${percent(t.total)} %: they are scaled down to 100 %`);
+  const shares = wordShares(l.words);
+  l.words.forEach((w, j) => {
+    if (w.chance === 0) warn(`${at}.words[${j}].chance`, `"${w.text}" has a 0 % chance, so it never shows`);
+    else if (w.chance === undefined && shares.words[j] === 0) {
+      warn(`${at}.words[${j}]`, `"${w.text}" has no chance of its own, and the other words' chances already reach 100 %, so it never shows`);
+    }
+  });
+}
+
 /** Why a visible layer has no length, or null when its length can be worked out. */
 function durationProblem(l: Layer): string | null {
   if (l.type === 'projectile') return null;
@@ -177,11 +201,24 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
     if (d) err('duration', at, `"${l.name}" ${d}`);
     if (l.type === 'word') {
       l.words.forEach((w, j) => {
-        const missing = [...new Set([...w.toUpperCase()].filter((ch) => ch !== ' ' && !WORD_LETTERS.includes(ch)))];
-        if (missing.length) warn('letters', `${at}.words[${j}]`, `"${w}": ${missing.map((m) => `"${m}"`).join(', ')} ${missing.length > 1 ? 'are' : 'is'} not drawn yet and will be left out (drawn: ${WORD_LETTERS})`);
+        const missing = [...new Set([...w.text.toUpperCase()].filter((ch) => ch !== ' ' && !WORD_LETTERS.includes(ch)))];
+        if (missing.length) warn('letters', `${at}.words[${j}].text`, `"${w.text}": ${missing.map((m) => `"${m}"`).join(', ')} ${missing.length > 1 ? 'are' : 'is'} not drawn yet and will be left out (drawn: ${WORD_LETTERS})`);
       });
+      chanceWarnings(l, at, (path, message) => warn('chance', path, message));
     }
   });
+
+  // A fire's bed: the detail's halftone sits where the bands meet only when the detail and the lumps share one gradient
+  // (or both have none). Assumption, marked: the effect's bed layers belong to one fire, so every detail layer is
+  // compared with every lumps layer of the effect.
+  const beds = fx.layers.flatMap((l, i) => (l.type === 'shape' && l.shape.kind === 'bed' ? [{ l, i, sp: l.shape as BedShape }] : []));
+  for (const d of beds.filter((b) => b.sp.part === 'detail')) {
+    const other = beds.find((b) => b.sp.part === 'lumps' && b.sp.gradient !== d.sp.gradient);
+    if (!other) continue;
+    const name = (g: string | undefined) => (g ? `"${g}"` : 'none');
+    warn('gradient', `layers[${d.i}].shape.gradient`,
+      `"${d.l.name}" and "${other.l.name}" use different gradients (${name(d.sp.gradient)} and ${name(other.sp.gradient)}): the detail's halftone would not sit where the bands meet. Give both bed layers the same gradient`);
+  }
 
   // Quality tiers: Low drops extras but must stay readable, so it must show something.
   const visibleLayers = fx.layers.filter((l) => l.type !== 'projectile') as VisibleLayer[];
@@ -214,9 +251,11 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
       const found: { path: string; role: string }[] = [];
       rolesIn(l, ['layers', i], found);
       for (const r of found) if (r.role !== MAIN_ROLE && !known.has(r.role)) err('role', r.path, `"${r.role}" is not a role in the palette`);
-      if (l.type === 'shape' && l.shape.kind === 'glow' && l.shape.gradient && !opts.palette!.gradients?.[l.shape.gradient]) {
-        err('gradient', `layers[${i}].shape.gradient`, `"${l.shape.gradient}" is not a gradient in the palette`);
-      }
+      // A glow, smoke, a fire's bed or a burst may take its colours from a gradient: it must be in the palette.
+      const gradient = l.type === 'burst' ? { name: l.gradient, path: `layers[${i}].gradient` }
+        : l.type === 'shape' && (l.shape.kind === 'glow' || l.shape.kind === 'smoke' || l.shape.kind === 'bed') ? { name: l.shape.gradient, path: `layers[${i}].shape.gradient` }
+          : undefined;
+      if (gradient?.name && !opts.palette!.gradients?.[gradient.name]) err('gradient', gradient.path, `"${gradient.name}" is not a gradient in the palette`);
     });
   }
 

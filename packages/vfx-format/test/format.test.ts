@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../palette/palette.json';
 import { FACTION_IDS, FORMAT_VERSION, PALETTE_VERSION, checkPalette, newEffect, newProjectileLayer, newSpriteLayer, resolveGradient, resolveRole, roleNames, upgradePalette } from '../src/index';
-import type { EffectFile, Palette } from '../src/index';
+import type { BedShape, EffectFile, Palette, SmokeShape, SoundWord, WordLayer } from '../src/index';
 import { MIGRATIONS, checkEffect, migrate, problemLines } from '../src/validate/index';
 import { newBurstLayer, newShapeLayer, newWordLayer } from '../src/index';
 
@@ -192,13 +192,13 @@ describe('version 2 rules', () => {
   it('warns about letters we have not drawn yet, and still accepts the file', () => {
     const fx = newEffect('w', 'W');
     const w = newWordLayer('w', 'Word');
-    w.words = ['KA-BLAM', 'YAY'];
+    w.words = [{ text: 'KA-BLAM' }, { text: 'YAY' }];
     fx.layers.push(w);
     const r = checkEffect(fx, { palette, images });
     expect(r.ok).toBe(true);
     expect(problemLines(r.problems)).toEqual([
-      'warning: layers[0].words[0]: "KA-BLAM": "-" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
-      'warning: layers[0].words[1]: "YAY": "Y" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
+      'warning: layers[0].words[0].text: "KA-BLAM": "-" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
+      'warning: layers[0].words[1].text: "YAY": "Y" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
     ]);
   });
   it('checks places and lengths: multiply lies on the ground, words face the screen, a trail rides a projectile, one length only', () => {
@@ -280,7 +280,7 @@ describe('versions and upgrades', () => {
 
   it('runs upgrade steps in order (tested with a made-up version 0)', () => {
     const v0 = { format: 'shamble-vfx', version: 0, id: 'old', title: 'Old effect', controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' }, layers: [] };
-    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]!, 3: MIGRATIONS[3]! };
+    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]!, 3: MIGRATIONS[3]!, 4: MIGRATIONS[4]! };
     const r = checkEffect(v0, { palette, images, migrations: fake });
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(0);
@@ -292,9 +292,11 @@ describe('versions and upgrades', () => {
 describe('version 3 -> 4, and gradients', () => {
   it('upgrades a version 3 file by its number only', () => {
     const v3 = { ...goodEffect(), version: 3 };
+    expect(MIGRATIONS[3]!(structuredClone(v3))).toEqual({ ...goodEffect(), version: 4 });
     const r = checkEffect(v3, { palette, images });
     expect(r.upgradedFrom).toBe(3);
-    expect(r.effect).toEqual({ ...goodEffect(), version: 4 });
+    // It has no word layer, so the step to version 5 changes its number only too.
+    expect(r.effect).toEqual({ ...goodEffect(), version: FORMAT_VERSION });
   });
 
   it('reads a version 1 palette as version 2, with no gradients', () => {
@@ -333,5 +335,134 @@ describe('version 3 -> 4, and gradients', () => {
     expect(messages(fx)).toContain('layers[0].shape.gradient: "glow.ramp" is not a gradient in the palette');
     const p: Palette = { ...palette, gradients: { 'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow' }, { at: 1, role: 'glow', alpha: 0 }] } } };
     expect(checkEffect(fx, { palette: p, images }).problems.filter((x) => x.kind === 'gradient')).toEqual([]);
+  });
+});
+
+describe('version 4 -> 5: words with chances, gradients on smoke, the bed and bursts', () => {
+  /** A version 4 file as it was saved: words as plain texts. */
+  const v4 = () => {
+    const fx = newEffect('w4', 'Words, version 4') as unknown as Record<string, unknown>;
+    const w = { ...newWordLayer('word', 'Sound word'), words: ['BOOM', 'BANG'] } as unknown as Record<string, unknown>;
+    fx.version = 4;
+    fx.layers = [newShapeLayer('star', 'Star', 'shards'), w];
+    return fx;
+  };
+
+  it('turns each word into an object with its text, and changes nothing else', () => {
+    const old = v4();
+    const r = checkEffect(old, { palette, images });
+    expect(problemLines(r.problems)).toEqual([]);
+    expect(r.upgradedFrom).toBe(4);
+    expect((r.effect!.layers[1] as WordLayer).words).toEqual([{ text: 'BOOM' }, { text: 'BANG' }]);
+    // The upgraded file is the old one, field for field and in the same order, with the new number and word objects.
+    const want = JSON.parse(JSON.stringify(old));
+    want.version = 5;
+    want.layers[1].words = [{ text: 'BOOM' }, { text: 'BANG' }];
+    expect(JSON.stringify(r.upgraded)).toBe(JSON.stringify(want));
+    expect(JSON.stringify(old)).toBe(JSON.stringify(v4())); // the input is not changed
+  });
+
+  it('upgrades the words of a version 2 file all the way', () => {
+    const v2 = { ...v4(), version: 2 } as Record<string, unknown>;
+    v2.layers = (v2.layers as Record<string, unknown>[]).map((l) => { const { tiers, ...rest } = l; void tiers; return rest; });
+    const r = checkEffect(v2, { palette, images });
+    expect(problemLines(r.problems)).toEqual([]);
+    expect((r.effect!.layers[1] as WordLayer).words).toEqual([{ text: 'BOOM' }, { text: 'BANG' }]);
+  });
+
+  it('leaves what is not a word as it was, for the checker to name', () => {
+    const old = v4();
+    ((old.layers as Record<string, unknown>[])[1]!).words = ['BOOM', 7];
+    const r = checkEffect(old, { palette, images });
+    expect(r.ok).toBe(false);
+    expect(problemLines(r.problems)).toEqual(['layers[1].words[1]: should be an object']);
+    const m = migrate({ format: 'shamble-vfx', version: 4, layers: 'none' });
+    expect(m.ok && m.doc.layers).toBe('none');
+  });
+
+  it('takes a chance from 0 to 100 %, and nothing else in a word', () => {
+    const fx = newEffect('c', 'C');
+    fx.layers = [{ ...newWordLayer('w', 'W'), words: [{ text: 'BOOM', chance: 0 }, { text: 'BAM', chance: 12.5 }, { text: 'POW', chance: 87.5 }] }];
+    expect(messages(fx)).toEqual(['warning: layers[0].words[0].chance: "BOOM" has a 0 % chance, so it never shows']);
+    const bad = structuredClone(fx) as unknown as { layers: { words: Record<string, unknown>[] }[] };
+    bad.layers[0]!.words = [{ text: 'BOOM', chance: 101 }, { text: 'BAM', chance: -1 }, { text: 'POW', odds: 3 }, { chance: 5 }];
+    expect(messages(bad)).toEqual([
+      'layers[0].words[0].chance: must be 100 % or less',
+      'layers[0].words[1].chance: must be 0 % or more',
+      'layers[0].words[2]: has unknown field: "odds"',
+      'layers[0].words[3].text: is missing',
+    ]);
+  });
+
+  const withWords = (words: SoundWord[]) => {
+    const fx = newEffect('c', 'C');
+    fx.layers = [{ ...newWordLayer('w', 'Sound word'), words }];
+    return messages(fx);
+  };
+
+  it('warns when the chances add up to more than 100 %, and names the words left with nothing', () => {
+    expect(withWords([{ text: 'BOOM', chance: 70 }, { text: 'BAM', chance: 50 }, { text: 'POW' }])).toEqual([
+      'warning: layers[0].words: "Sound word": the chances add up to 120 %: they are scaled down to 100 %',
+      'warning: layers[0].words[2]: "POW" has no chance of its own, and the other words\' chances already reach 100 %, so it never shows',
+    ]);
+  });
+
+  it('names a word left with nothing when the others reach exactly 100 %', () => {
+    expect(withWords([{ text: 'BOOM', chance: 60 }, { text: 'BAM', chance: 40 }, { text: 'POW' }])).toEqual([
+      'warning: layers[0].words[2]: "POW" has no chance of its own, and the other words\' chances already reach 100 %, so it never shows',
+    ]);
+  });
+
+  it('says nothing when the chances work as typed', () => {
+    expect(withWords([{ text: 'BOOM' }, { text: 'BAM' }])).toEqual([]); // equal shares
+    expect(withWords([{ text: 'BOOM', chance: 50 }, { text: 'BAM' }, { text: 'POW' }])).toEqual([]); // the rest shared
+    expect(withWords([{ text: 'BOOM', chance: 30 }, { text: 'BAM', chance: 20 }])).toEqual([]); // half the plays show no word
+    expect(withWords([{ text: 'BOOM', chance: 33.3 }, { text: 'BAM', chance: 33.3 }, { text: 'POW', chance: 33.4 }])).toEqual([]); // 100 %, rounded
+  });
+
+  it('names a gradient the palette does not have, on smoke, on the bed and on a burst', () => {
+    const fx = newEffect('g', 'G');
+    const smoke = newShapeLayer('smoke', 'Smoke', 'smoke');
+    const bed = newShapeLayer('bed', 'Bed', 'bed');
+    const burst = newBurstLayer('sparks', 'Sparks');
+    fx.layers = [
+      { ...smoke, shape: { ...(smoke.shape as SmokeShape), gradient: 'smoke.thin' } },
+      { ...bed, shape: { ...(bed.shape as BedShape), gradient: 'fire.bed' } },
+      { ...burst, gradient: 'sparks.cool' },
+    ];
+    expect(messages(fx)).toEqual([
+      'layers[0].shape.gradient: "smoke.thin" is not a gradient in the palette',
+      'layers[1].shape.gradient: "fire.bed" is not a gradient in the palette',
+      'layers[2].gradient: "sparks.cool" is not a gradient in the palette',
+    ]);
+    const stops = [{ at: 0, role: 'heat.1' }, { at: 1, role: 'heat.dark', alpha: 0 }];
+    const p: Palette = { ...palette, gradients: { 'smoke.thin': { kind: 'smooth', from: 'mustafa', stops }, 'fire.bed': { kind: 'banded', from: 'mustafa', stops }, 'sparks.cool': { kind: 'smooth', from: 'mustafa', stops } } };
+    expect(problemLines(checkEffect(fx, { palette: p, images }).problems)).toEqual([]);
+  });
+
+  it('refuses a badly written gradient name', () => {
+    const fx = newEffect('g', 'G');
+    fx.layers = [{ ...newBurstLayer('sparks', 'Sparks'), gradient: 'Sparks Cool' }];
+    expect(messages(fx)).toEqual(['layers[0].gradient: must be a gradient name such as glow.ramp']);
+  });
+
+  it("warns when a fire's bed layers use different gradients", () => {
+    const stops = [{ at: 0, role: 'heat.dark' }, { at: 1, role: 'heat.3' }];
+    const p: Palette = { ...palette, gradients: { 'fire.bed': { kind: 'banded', from: 'mustafa', stops }, 'fire.blue': { kind: 'banded', from: 'mustafa', stops } } };
+    const fire = (lumps?: string, detail?: string, withDetail = true) => {
+      const fx = newEffect('f', 'F');
+      const bed = newShapeLayer('bed', 'Bed', 'bed');
+      const sp = bed.shape as BedShape;
+      fx.layers = [{ ...bed, shape: { ...sp, ...(lumps ? { gradient: lumps } : {}) } }];
+      if (withDetail) fx.layers.push({ ...bed, id: 'bed_detail', name: 'Bed detail', shape: { ...sp, part: 'detail', ...(detail ? { gradient: detail } : {}) } });
+      return problemLines(checkEffect(fx, { palette: p, images }).problems);
+    };
+    const why = 'the detail\'s halftone would not sit where the bands meet. Give both bed layers the same gradient';
+    expect(fire('fire.bed', undefined)).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients (none and "fire.bed"): ${why}`]);
+    expect(fire(undefined, 'fire.bed')).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients ("fire.bed" and none): ${why}`]);
+    expect(fire('fire.bed', 'fire.blue')).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients ("fire.blue" and "fire.bed"): ${why}`]);
+    expect(fire('fire.bed', 'fire.bed')).toEqual([]);
+    expect(fire(undefined, undefined)).toEqual([]);
+    expect(fire('fire.bed', undefined, false)).toEqual([]); // no detail: nothing to sit where the bands meet
   });
 });

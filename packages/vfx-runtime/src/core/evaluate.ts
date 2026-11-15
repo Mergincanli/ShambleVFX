@@ -14,7 +14,7 @@ import { clamp, cross, length, normalize, scale, sub } from './math';
 import { Painter } from './painter';
 import type { Frame3 } from './painter';
 import { drawBurst } from './particles';
-import { hashText, random01 } from './random';
+import { layerSeed, random01 } from './random';
 import { drawShape } from './shapes';
 import type { BlendGroup, DrawSink, TriBuffer } from './sink';
 import { flightDirection, flightPoint, holdSteps, inputPoint, resolveTimeline, stepMs } from './timeline';
@@ -200,7 +200,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
         frame.o[k] = frame.o[k]! + (frame.u[k]! * l.shiftM[0] + frame.v[k]! * l.shiftM[1]) * c.size;
       }
     }
-    const seedMix = ((l.perPlay ? ctx.seed : 0) ^ Math.imul(l.seed + 1, 0x9e3779b1) ^ hashText(l.id)) >>> 0;
+    const seedMix = layerSeed(l, ctx.seed);
     const v0 = buf.vcount;
     painter.begin(buf, frame, i, white, ctx.dot);
     const dctx: DrawCtx & { viewerDistanceM: number } = {

@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "hit_burst_star",
   "name": "Impact: layered star",
   "controls": {
@@ -427,9 +427,15 @@
       "facing": "camera",
       "blend": "normal",
       "words": [
-        "POW",
-        "BAM",
-        "WHAM"
+        {
+          "text": "POW"
+        },
+        {
+          "text": "BAM"
+        },
+        {
+          "text": "WHAM"
+        }
       ],
       "letterPx": 34,
       "colours": {

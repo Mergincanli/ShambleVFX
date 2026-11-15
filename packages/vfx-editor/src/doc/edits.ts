@@ -2,7 +2,7 @@
  * Edits as pure functions: each takes a document and returns a new one. Nothing is changed in place.
  */
 import { FACTION_IDS, newProjectileLayer, newSpriteLayer, parseHex } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, SoundWord } from '@shamble/vfx-format';
 import type { EditorDoc } from './history';
 
 export type Path = readonly (string | number)[];
@@ -52,6 +52,23 @@ export function replaceLayer(doc: EditorDoc, effectId: string, layer: Layer): Ed
   const fx = effectById(doc, effectId);
   if (!fx) return doc;
   return replaceEffect(doc, effectId, { ...fx, layers: fx.layers.map((l) => (l.id === layer.id ? layer : l)) });
+}
+
+/**
+ * A word layer's words after its list was typed again, as a comma list ("BOOM, BANG"): each text trimmed and in
+ * capitals, empty ones dropped. A word keeps its chance when its text stays the same: each typed word takes the first
+ * old word with that text not taken yet (matched in order, capitals or not, as the runtime draws capitals). New words
+ * get no chance.
+ */
+export function wordsFromText(old: readonly SoundWord[], typed: string): SoundWord[] {
+  const taken = new Set<number>();
+  return typed.split(',').map((w) => w.trim().toUpperCase()).filter(Boolean).map((text) => {
+    const i = old.findIndex((o, k) => !taken.has(k) && o.text.toUpperCase() === text);
+    if (i < 0) return { text };
+    taken.add(i);
+    const chance = old[i]!.chance;
+    return chance === undefined ? { text } : { text, chance };
+  });
 }
 
 /** A layer id not used in the effect yet: base, base_2, base_3, ... */

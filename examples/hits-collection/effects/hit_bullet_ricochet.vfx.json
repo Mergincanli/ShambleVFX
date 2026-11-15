@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "hit_bullet_ricochet",
   "name": "Bullet hit: ricochet",
   "controls": {
@@ -167,8 +167,12 @@
       "facing": "camera",
       "blend": "normal",
       "words": [
-        "ZING",
-        "PING"
+        {
+          "text": "ZING"
+        },
+        {
+          "text": "PING"
+        }
       ],
       "letterPx": 17,
       "colours": {

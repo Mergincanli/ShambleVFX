@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 4,
+  "version": 5,
   "id": "hit_burst_cloud",
   "name": "Impact: cloud blast",
   "controls": {
@@ -314,9 +314,15 @@
       "facing": "camera",
       "blend": "normal",
       "words": [
-        "BOOM",
-        "BLAM",
-        "WHUMP"
+        {
+          "text": "BOOM"
+        },
+        {
+          "text": "BLAM"
+        },
+        {
+          "text": "WHUMP"
+        }
       ],
       "letterPx": 36,
       "colours": {

@@ -44,7 +44,6 @@ function v2to3(doc: Obj): Obj {
   };
 }
 
-/** Version n -> n + 1. */
 /**
  * Version 3 -> 4: a glow may take its colours from a gradient in the palette ("gradient", optional). Nothing in a
  * version 3 file changes; the number goes up so an older runtime refuses an effect it could not draw.
@@ -53,7 +52,25 @@ function v3to4(doc: Obj): Obj {
   return { ...doc, version: 4 };
 }
 
-export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3, 3: v3to4 };
+/**
+ * Version 4 -> 5: a word layer's words become objects that can carry a chance: ["BOOM", "BANG"] turns into
+ * [{ "text": "BOOM" }, { "text": "BANG" }]. With no chances set, every play shows the same word as before.
+ * Version 5 also lets smoke, the fire's bed and bursts take colours from a gradient (optional, so nothing else changes).
+ * Anything that is not a word in a list is left as it is, for the checker to name.
+ */
+function v4to5(doc: Obj): Obj {
+  const out: Obj = { ...doc, version: 5 };
+  if (Array.isArray(doc.layers)) {
+    out.layers = (doc.layers as unknown[]).map((l) => {
+      const layer = l as Obj | null;
+      if (!layer || typeof layer !== 'object' || layer.type !== 'word' || !Array.isArray(layer.words)) return l;
+      return { ...layer, words: (layer.words as unknown[]).map((w) => (typeof w === 'string' ? { text: w } : w)) };
+    });
+  }
+  return out;
+}
+
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3, 3: v3to4, 4: v4to5 };
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; from: number; steps: number }

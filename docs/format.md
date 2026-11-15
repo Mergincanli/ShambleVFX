@@ -1,9 +1,9 @@
-# The effect file, version 4
+# The effect file, version 5
 
 One effect is one JSON file: `effects/<id>.vfx.json` in a project folder, next to `images/` (PNG files), `project.json` and,
 when the project has its own colours, `palette.json`.
-The exact schema is `packages/vfx-format/schema/effect.v4.schema.json`; the types are `packages/vfx-format/src/types.ts`.
-Files of versions 1, 2 and 3 open unchanged: the checker upgrades them (see the end).
+The exact schema is `packages/vfx-format/schema/effect.v5.schema.json`; the types are `packages/vfx-format/src/types.ts`.
+Files of versions 1, 2, 3 and 4 open unchanged: the checker upgrades them (see the end).
 
 What the game loads is an **export folder** made from a project: see [export.md](export.md).
 
@@ -84,7 +84,7 @@ A comic shape drawn in code: `shape` holds its kind and settings, `seed` its own
 | `shards` | A star of uneven spikes in layered tones (bursts, glints, hit stars) | `radiusM`, `points`, `inner`, `jitter` (0 = regular), `squash`, `tones` (each `role`, `scale`, optional `points`, `vanishAt`), `inkPx`, `edge`, `whiteFirstStep`, `boilDeg`, `double` (a second jagged edge), optional `halftone` fill, `breakUp` |
 | `flash` | A muzzle flash along the shot | `lengthM`, `tones`, `inkPx`, `edge`, `alternate` (every other step smaller and jittered) |
 | `cloud` | A scalloped cloud blast in layered tones | `radiusM`, `squash`, `lobes`, `lobeDepth`, `tones`, `inkPx`, `edge`, `boilDeg`, optional `halftone`, `breakUp` |
-| `smoke` | A puff, or a lumpy billow lit from above with halftone under | `style`, `radiusM`, `role`, `lightRole`, `rimRole`, `inkPx`, `grow` [start, peak, end], `riseM`, `driftM` [right, forward], optional `loop` |
+| `smoke` | A puff, or a lumpy billow lit from above with halftone under | `style`, `radiusM`, `role`, `lightRole`, `rimRole`, `inkPx`, `grow` [start, peak, end], `riseM`, `driftM` [right, forward], optional `loop`, optional `gradient` (see below) |
 | `ring` | A circle on the ground, or rings closing in | `radiusM`, `widthPx`, `inkPx`, `role`, `style` (`auto-zigzag`, `auto-teeth`, `solid`, `dashed`, `zigzag`, `teeth`), `teeth`, `teethM`, `growFrom`, `growMs`, optional `dashAt`, `breakUp`, `closing`, `squash` |
 | `dots` | A field of halftone dots (light, soft edges) | `radiusM`, `innerM`, `edgeM`, `stepPx`, `dotPx`, `role`, `alpha`, `growFrom`, `growMs`, `flickerM`, optional `squash`, `breakUp` |
 | `scorch` | A stain (multiply it) | `style` (`oval`, `splat`), `radiusM`, `role`, `coreScale`, `coreRole`, `lobes`, `growMs` |
@@ -94,28 +94,55 @@ A comic shape drawn in code: `shape` holds its kind and settings, `seed` its own
 | `band` | A beam from one point to another | `from`, `to`, `widthM`, `role`, `alpha`, `soft`, `edge`, `flicker`, optional `find` and `letGo` phases |
 | `beads` | Bright beads running along a beam | `from`, `to`, `count`, `periodMs`, `sizeM`, `role`, `glowRole` |
 | `flames` | Flame tongues in rows, back to front | `radiusM`, `count`, `depth`, `tallM`, `widthM`, `lean`, `sway`, `cycleSteps`, `tones`, `shadeRole`, `inkPx`, `edge`, `licks`, `growMs`, `breakUp` |
-| `bed` | The boiling bed of a fire, or its detail on top | `radiusM`, `tones` (rim to middle), `lumps`, `part` (`lumps`, `detail`), `detailRole`, `inkPx`, `edge`, `boilSteps`, `growMs`, `breakUp` |
+| `bed` | The boiling bed of a fire, or its detail on top | `radiusM`, `tones` (rim to middle), `lumps`, `part` (`lumps`, `detail`), `detailRole`, `inkPx`, `edge`, `boilSteps`, `growMs`, `breakUp`, optional `gradient` (see below) |
 
 `breakUp` is `{ "phase": "fade" }` or `{ "lastMs": 200 }`: how a shape shrinks, loses tones or falls apart at the end.
+
+**Gradients** (version 5 for smoke, the bed and bursts; version 4 for glows). A `gradient` names a gradient in the palette
+(see [colours.md](colours.md)). The checker refuses a name the palette does not have. What the gradient runs along:
+
+- **glow**: from its middle (0) to its rim (1). Its colours come from the gradient, times `alpha`.
+- **smoke**: the body colour over each puff's life, from its start (0) to its end (1). It replaces `role`. The light top
+  (`lightRole`) and the rim (`rimRole`) keep their colours. The gradient's alpha makes the whole puff more see-through.
+- **bed**: the bands from the rim (0) to the middle (1), in place of `tones` (`tones` stay, and count when there is no
+  gradient). A banded gradient gives one band per stop, with the band edges at the stops; a smooth one blends from band to
+  band. Both parts read it, so the detail's halftone sits where the bands meet: give a fire's lumps and its detail the same
+  gradient (the checker warns when they differ).
+- **burst**: each piece's colour over its own life, from its birth (0) to its end (1) (see the burst layer below).
 
 ## Burst layer (`"type": "burst"`)
 
 A set number of pieces thrown out at once (or again and again with `loop`). Every piece comes from the seed and the time.
 `count`, `lifeMs`, `speedMps` (ranges `[low, high]`), `direction` (`up`, `out`, `path`), `spreadDeg`, `startRadiusM`, optional
 `areaM` (start anywhere in a box), `gravityMps2`, `drag`, `sizeM`, `sizeOverLife` (curve), `spinDegPerS`, `look`, `loop`,
-`groundStop`, optional `streak` (a speed streak behind each piece), `seed`, `perPlay`.
+`groundStop`, optional `streak` (a speed streak behind each piece), optional `gradient`, `seed`, `perPlay`.
 `look` is `{ "kind", "role", "inkPx", "edge", "inkRole"? }` with kind `diamond`, `chip`, `spark`, `dot`, `shard`, `speck`,
 `puff`, `streak` or `spike`; or `{ "kind": "image", "image": "chip.png", "tint": … }`.
+`gradient` (a gradient in the palette): each piece's colour over its own life, from its birth (0) to its end (1). It replaces
+the look's `role`; an image piece is multiplied by the gradient's colour (in place of its tint). The gradient's alpha makes
+the piece more see-through. The speed streak keeps its own colour, and ink edges stay.
 
 ## Word layer (`"type": "word"`)
 
 A comic sound word in our own block letters (A B C D E F G H I K L M N O P R S T U W Z and !; the checker warns about others).
 It always faces the screen.
-`words` (one picked per play), `letterPx`, `colours` (`top`, `bottom`, `back`: two flat tones and the pushed-back copy),
+`words` (one picked per play, see below), `letterPx`, `colours` (`top`, `bottom`, `back`: two flat tones and the pushed-back copy),
 optional `separation` (a thin line between two black outlines), `tiltDeg` (range), `sizeJitter`, `ramp`, `bounce`, `turnDeg`,
 `slantDeg`, `pop` (`scale`, `steps`), optional `breakUp` and `breakSteps`, `riseM`, `distance` (`curve` of [metres, size share]
 from the player looking, and `minPx` under which it is not drawn), `visibleTo` (`everyone`, or `shooter` for a gun's word),
 `seed`, `perPlay`.
+
+**Words and their chances** (version 5). Each word is `{ "text": "BOOM", "chance": 50 }`. `chance` is optional: how often the
+word shows, in percent, from 0 to 100. Each play picks one word from the seed, with one random number:
+
+1. No word has a chance: every word is as likely as the others, and every play shows a word.
+2. The chances add up to more than 100: they are scaled down to 100. A word without a chance never shows.
+3. Some words have no chance: they share what is left (100 minus the chances given) equally.
+4. Every word has a chance, and they add up to less than 100: the rest of the plays show no word (Mustafa's choice).
+   For example BOOM 30 and BANG 20: half the plays show no word.
+
+The checker warns when the chances add up to more than 100 %, when a word is left with nothing because the others already
+reach 100 %, and when a word has a 0 % chance (it never shows).
 
 ## The palette (`palette.json`, version 2)
 
@@ -140,6 +167,10 @@ The checker upgrades an old file when it reads it, one version at a time. Save t
   until someone decides what Low drops.
 - **3 → 4**: nothing in the file changes but its number. Version 4 lets a glow name a gradient; the new number makes an older
   runtime refuse an effect it could not draw.
+- **4 → 5**: each word of a word layer becomes an object: `["BOOM", "BANG"]` turns into `[{ "text": "BOOM" }, { "text": "BANG" }]`.
+  With no chances, every play shows the same word as before, for every seed. Version 5 also lets smoke, the fire's bed and
+  bursts name a gradient (nothing to change in an old file); the new number makes an older runtime refuse an effect it could
+  not draw.
 
 Note: a few optional fields were added to version 2 after its first push, before anyone used it (`alpha`, `liftM`, `areaM`,
 `streak`, `inkRole`, the `spike` piece, `squash` on rings and dots). They are optional, so every version 2 file stays valid;
