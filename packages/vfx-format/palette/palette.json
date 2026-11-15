@@ -5,42 +5,183 @@
     "soviets": {
       "name": "Soviets",
       "roles": {
-        "team": { "hex": "#D41414", "from": "mustafa" },
-        "glow": { "hex": "#FF2E63", "from": "art-lead" },
-        "team.dark": { "hex": "#940E0E", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+        "team": {
+          "hex": "#D41414",
+          "from": "mustafa"
+        },
+        "glow": {
+          "hex": "#FF2E63",
+          "from": "art-lead"
+        },
+        "team.dark": {
+          "hex": "#940E0E",
+          "from": "derived",
+          "note": "team x 0.7: the pushed-back copy of a comic word (board v7)"
+        },
+        "glow.hot": {
+          "hex": "#FF628A",
+          "from": "derived",
+          "note": "glow mixed with 25 % white: the hot core of a beam (board v7)"
+        }
       }
     },
     "allies": {
       "name": "Allies",
       "roles": {
-        "team": { "hex": "#1F6FF0", "from": "mustafa" },
-        "glow": { "hex": "#8AE0FF", "from": "art-lead" },
-        "team.dark": { "hex": "#164EA8", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+        "team": {
+          "hex": "#1F6FF0",
+          "from": "mustafa"
+        },
+        "glow": {
+          "hex": "#8AE0FF",
+          "from": "art-lead"
+        },
+        "team.dark": {
+          "hex": "#164EA8",
+          "from": "derived",
+          "note": "team x 0.7: the pushed-back copy of a comic word (board v7)"
+        },
+        "glow.hot": {
+          "hex": "#A7E8FF",
+          "from": "derived",
+          "note": "glow mixed with 25 % white: the hot core of a beam (board v7)"
+        }
       }
     },
     "empire": {
       "name": "Empire",
       "roles": {
-        "team": { "hex": "#890089", "from": "mustafa" },
-        "glow": { "hex": "#C24BFF", "from": "art-lead" },
-        "team.dark": { "hex": "#600060", "from": "derived", "note": "team x 0.7: the pushed-back copy of a comic word (board v7)" }
+        "team": {
+          "hex": "#890089",
+          "from": "mustafa"
+        },
+        "glow": {
+          "hex": "#C24BFF",
+          "from": "art-lead"
+        },
+        "team.dark": {
+          "hex": "#600060",
+          "from": "derived",
+          "note": "team x 0.7: the pushed-back copy of a comic word (board v7)"
+        },
+        "glow.hot": {
+          "hex": "#D178FF",
+          "from": "derived",
+          "note": "glow mixed with 25 % white: the hot core of a beam (board v7)"
+        }
       }
     }
   },
   "roles": {
-    "heat.1": { "hex": "#F47A1C", "from": "art-lead", "note": "orange: the outside of fire and blasts" },
-    "heat.2": { "hex": "#FFB02E", "from": "art-lead", "note": "amber" },
-    "heat.3": { "hex": "#FFE27A", "from": "art-lead", "note": "yellow" },
-    "heat.4": { "hex": "#FFF4D6", "from": "art-lead", "note": "white-hot core" },
-    "heat.dark": { "hex": "#B85207", "from": "board-v7", "note": "burnt orange: shaded side of fire; a heavy gun's outer blast. Never red." },
-    "heat.deep": { "hex": "#6C2D08", "from": "board-v7", "note": "ember: the darkest fire tone" },
-    "ink": { "hex": "#11121A", "from": "art-lead", "note": "black ink line" },
-    "white": { "hex": "#FFFFFF", "from": "board-v7", "note": "top of a comic word; flash cores" },
-    "gunword.top": { "hex": "#F6F3E9", "from": "art-lead", "note": "a small gun's word, upper tone, every team" },
-    "gunword.bottom": { "hex": "#D6D0C0", "from": "art-lead", "note": "a small gun's word, lower tone, every team" },
-    "smoke": { "hex": "#4A4642", "from": "board-v7", "note": "fire smoke (flame pit)" },
-    "gunsmoke": { "hex": "#CFBFA2", "from": "derived", "note": "gun smoke #CFC8BC in sunlight (board v7 draws it lit)" },
-    "dust": { "hex": "#DCC8A0", "from": "derived", "note": "stone #D0C2A2 mixed with 25 % white, in sunlight (board v7's hit dust)" },
-    "debris": { "hex": "#6F614B", "from": "derived", "note": "debris #6F6557 in sunlight (board v7)" }
+    "heat.1": {
+      "hex": "#F47A1C",
+      "from": "art-lead",
+      "note": "orange: the outside of fire and blasts"
+    },
+    "heat.2": {
+      "hex": "#FFB02E",
+      "from": "art-lead",
+      "note": "amber"
+    },
+    "heat.3": {
+      "hex": "#FFE27A",
+      "from": "art-lead",
+      "note": "yellow"
+    },
+    "heat.4": {
+      "hex": "#FFF4D6",
+      "from": "art-lead",
+      "note": "white-hot core"
+    },
+    "heat.dark": {
+      "hex": "#B85207",
+      "from": "board-v7",
+      "note": "burnt orange: shaded side of fire; a heavy gun's outer blast. Never red."
+    },
+    "heat.deep": {
+      "hex": "#6C2D08",
+      "from": "board-v7",
+      "note": "ember: the darkest fire tone"
+    },
+    "ink": {
+      "hex": "#11121A",
+      "from": "art-lead",
+      "note": "black ink line"
+    },
+    "white": {
+      "hex": "#FFFFFF",
+      "from": "board-v7",
+      "note": "top of a comic word; flash cores"
+    },
+    "gunword.top": {
+      "hex": "#F6F3E9",
+      "from": "art-lead",
+      "note": "a small gun's word, upper tone, every team"
+    },
+    "gunword.bottom": {
+      "hex": "#D6D0C0",
+      "from": "art-lead",
+      "note": "a small gun's word, lower tone, every team"
+    },
+    "smoke": {
+      "hex": "#4A4642",
+      "from": "board-v7",
+      "note": "fire smoke (flame pit)"
+    },
+    "gunsmoke": {
+      "hex": "#CFBFA2",
+      "from": "derived",
+      "note": "gun smoke #CFC8BC in sunlight (board v7 draws it lit)"
+    },
+    "dust": {
+      "hex": "#DCC8A0",
+      "from": "derived",
+      "note": "stone #D0C2A2 mixed with 25 % white, in sunlight (board v7's hit dust)"
+    },
+    "debris": {
+      "hex": "#6F614B",
+      "from": "derived",
+      "note": "debris #6F6557 in sunlight (board v7)"
+    },
+    "gunword.back": {
+      "hex": "#57524B",
+      "from": "art-lead",
+      "note": "the pushed-back copy of a small gun's word, every team (study 5.0)"
+    },
+    "scorch.1": {
+      "hex": "#AA967E",
+      "from": "board-v7",
+      "note": "a scorch mark on the ground, multiplied"
+    },
+    "scorch.2": {
+      "hex": "#968068",
+      "from": "board-v7",
+      "note": "the darker middle of a scorch mark, multiplied"
+    },
+    "scorch.shadow": {
+      "hex": "#9E9282",
+      "from": "board-v7",
+      "note": "a falling shell's shadow, multiplied"
+    },
+    "scorch.splat": {
+      "hex": "#827061",
+      "from": "derived",
+      "note": "a burnt splat under a fire, multiplied (board v7: white mixed 90 % with #74604F)"
+    },
+    "smoke.light": {
+      "hex": "#A39680",
+      "from": "derived",
+      "note": "blast smoke #A39D94 in sunlight (board v7)"
+    },
+    "smoke.dark": {
+      "hex": "#8E826E",
+      "from": "derived",
+      "note": "darker blast smoke #8E8880 in sunlight (board v7)"
+    },
+    "heat.rim": {
+      "hex": "#974C11",
+      "from": "derived",
+      "note": "heat.1 x 0.62: the thin broken rim of your own team's blast (board v7)"
+    }
   }
 }

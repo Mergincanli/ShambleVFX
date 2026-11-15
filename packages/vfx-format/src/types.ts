@@ -1,19 +1,24 @@
 /**
- * The effect file, version 1.
+ * The effect file, version 2.
  *
  * Rules that hold for every effect file:
- * - Times are in milliseconds, sizes and distances in metres.
+ * - Times are in milliseconds, sizes and distances in metres, ink widths in px on a 1080p screen.
  * - Colours are role names ("heat.2", "team", "glow"). A hex colour is never stored in an effect file:
  *   the hexes live in the one palette file (palette/palette.json).
- * - Everything random comes from the seed the game passes in.
+ * - Everything random comes from the seed the game passes in (mixed with each layer's own seed).
  * - Layers draw in list order: the first layer is at the bottom.
+ * - An effect has three phases on its timeline: wind-up, peak, fade.
  */
 
 export const FORMAT_ID = 'shamble-vfx' as const;
-export const FORMAT_VERSION = 1 as const;
+export const FORMAT_VERSION = 2 as const;
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
+/** A curve: [time 0..1, value] points, straight lines between them. */
+export type Curve = [number, number][];
+/** A range: a value is picked between the two, from the seed. */
+export type Range = [number, number];
 
 /** The points the game gives an effect when it starts it. */
 export type InputName = 'origin' | 'target';
@@ -22,8 +27,18 @@ export const INPUT_NAMES: readonly InputName[] = ['origin', 'target'];
 /** A colour role, resolved through the palette for the faction that made the effect. */
 export type RoleName = string;
 
-/** In a tint, "main" means the effect's colour control (one of the big controls). */
+/** In a tint or a fill, "main" means the effect's colour control (one of the big controls). */
 export const MAIN_ROLE = 'main' as const;
+
+export type PhaseName = 'windup' | 'peak' | 'fade';
+export const PHASE_NAMES: readonly PhaseName[] = ['windup', 'peak', 'fade'];
+
+/** The effect's three phases, back to back: wind-up, then peak, then fade. All zero = no phases set. */
+export interface Phases {
+  windupMs: number;
+  peakMs: number;
+  fadeMs: number;
+}
 
 /**
  * A point given by the game, moved by an offset in the "shot frame":
@@ -34,31 +49,51 @@ export interface InputAnchor {
   offset: Vec3;
 }
 
-/** Ride on a projectile layer: the sprite moves with it. Only projectiles can be ridden. */
+/** Ride on a projectile layer: the layer moves with it. Only projectiles can be ridden. */
 export interface LayerAnchor {
   layer: string;
 }
 
 export type Anchor = InputAnchor | LayerAnchor;
 
-/** When a layer starts: some ms after the effect starts, or some ms after a projectile lands. */
-export type StartAnchor = { ms: number } | { arrivalOf: string; ms: number };
+/** When a layer starts: some ms after the effect starts, after a projectile lands, or after a phase starts. */
+export type StartAnchor = { ms: number } | { arrivalOf: string; ms: number } | { phase: PhaseName; ms: number };
 
 /** A layer moves in whole steps (12 a second is the comic default) or smoothly. */
 export type Timing = { mode: 'steps'; perSecond: number } | { mode: 'smooth' };
+
+/**
+ * How a flat layer is placed in the world.
+ * camera: faces the camera. path: its x axis lies along the motion (or the shot).
+ * ground: lies flat on the ground. upright: stands up like a sign (camera's right, world up), so heights are true heights.
+ */
+export type Facing = 'camera' | 'path' | 'ground' | 'upright';
+export const FACINGS: readonly Facing[] = ['camera', 'path', 'ground', 'upright'];
+
+/**
+ * How a layer mixes with what is under it. multiply darkens (scorch marks) and screen lightens (light on the ground):
+ * both lie on the ground. add adds light (glows).
+ */
+export type Blend = 'normal' | 'multiply' | 'screen' | 'add';
+export const BLENDS: readonly Blend[] = ['normal', 'multiply', 'screen', 'add'];
+
+/**
+ * Friend or foe by shape and edge (Mustafa, 2026-11-14), set per layer.
+ * auto: an enemy's gets a solid ink edge, your own team's a thin broken one (what "broken" looks like depends on the
+ *       kind: a dashed rim, a hollow spark, a thin dark line, a dashed beam). enemy: an ink edge for an enemy's, none
+ *       for your own team's. ink, broken, none: always that look.
+ */
+export type Edge = 'auto' | 'enemy' | 'ink' | 'broken' | 'none';
+export const EDGES: readonly Edge[] = ['auto', 'enemy', 'ink', 'broken', 'none'];
 
 /**
  * The big controls each effect opens with. They scale the effect as a whole.
  * What each one changes is decided in one place: vfx-runtime's applyControls().
  */
 export interface Controls {
-  /** Scales sprite sizes and offsets. Not the points the game gives, not speeds. */
   size: number;
-  /** How strong the effect is. In version 1 it scales flash-like sprites and streaks. */
   intensity: number;
-  /** Stretches the effect's own times. Not a projectile's flight time (that comes from distance and speed). */
   duration: number;
-  /** The main colour role. Layers whose tint role is "main" use it. */
   colour: RoleName;
 }
 
@@ -72,8 +107,13 @@ export interface Flipbook {
 
 export type Tint = { mode: 'keep' } | { mode: 'multiply'; role: RoleName };
 
-/** "camera": the image faces the camera. "path": its x axis lies along the motion (or the shot direction). */
-export type Facing = 'camera' | 'path';
+/** Size over time, on top of the layer's own size. */
+export interface ScaleAnim {
+  /** One factor per step from the start: [1.18, 1.06] pops a shape in a little too large, then it settles. */
+  steps?: number[];
+  /** A curve over the layer's life (0 = start, 1 = end). */
+  life?: Curve;
+}
 
 interface LayerCommon {
   /** Unique inside the effect. Lowercase letters, digits and _. */
@@ -84,9 +124,22 @@ interface LayerCommon {
   timing: Timing;
 }
 
-export interface SpriteLayer extends LayerCommon {
-  type: 'sprite';
+/** What every visible layer (sprite, shape, burst, word) has. */
+interface VisibleCommon extends LayerCommon {
   at: Anchor;
+  facing: Facing;
+  blend: Blend;
+  /** How long the layer shows. Absent: automatic (see the layer type), or until a phase ends (untilPhaseEnd). */
+  durationMs?: number;
+  /** The layer ends when this phase ends. Do not set with durationMs. */
+  untilPhaseEnd?: PhaseName;
+  scale?: ScaleAnim;
+  /** Moves the drawing in its own flat frame, metres: [right, up] (for a camera-facing layer: on screen). */
+  shiftM?: Vec2;
+}
+
+export interface SpriteLayer extends VisibleCommon {
+  type: 'sprite';
   /** A PNG file name in the project's images folder. */
   image: string;
   flipbook?: Flipbook;
@@ -95,29 +148,386 @@ export interface SpriteLayer extends LayerCommon {
   /** Width and height in metres. */
   sizeM: Vec2;
   tint: Tint;
-  facing: Facing;
-  /**
-   * How long the sprite shows. Absent means: as long as the projectile it rides is in the air,
-   * or, for a flipbook that does not loop, one step per frame.
-   */
-  durationMs?: number;
 }
 
 export interface ProjectileLayer extends LayerCommon {
   type: 'projectile';
   from: InputAnchor;
   to: InputAnchor;
-  /** Metres per second. The flight time is distance / speed. */
-  speedMps: number;
+  /** How long it flies: from a speed (distance / speed), a fixed time, or the length of a phase. */
+  flight: { mode: 'speed'; mps: number } | { mode: 'time'; ms: number } | { mode: 'phase'; phase: PhaseName };
+  /** Height of the arc above the straight line, in metres, at the middle of the flight. 0 = straight. */
+  arcM: number;
   /** Length factor along the path for the sprites that ride it: 1 is no stretch, 2 twice as long. */
   stretch: number;
   /** Degrees per second the riding sprites turn in their own plane. */
   spinDegPerS: number;
 }
 
-export type Layer = SpriteLayer | ProjectileLayer;
+/** One tone of a layered shape: a copy at `scale` of the outer size, filled with `role`. */
+export interface Tone {
+  role: RoleName;
+  scale: number;
+  /** Its own number of points (shards only). */
+  points?: number;
+  /** The tone goes away when the break-up reaches this point (0..1). Absent: it stays. */
+  vanishAt?: number;
+}
+
+/** Halftone dots inside a shape: they shrink towards one side. */
+export interface HalftoneFill {
+  role: RoleName;
+  stepPx: number;
+  dotPx: number;
+  /** The side the dots fade towards, in degrees on screen (0 = right, 90 = up). */
+  towardDeg: number;
+}
+
+/** When a shape breaks up: over a phase, or over the last part of the layer's life. */
+export type BreakUp = { phase: PhaseName } | { lastMs: number };
+
+export type ShapeSpec =
+  | ShardsShape | FlashShape | CloudShape | SmokeShape | RingShape | DotsShape | ScorchShape | LinesShape
+  | GlowShape | TrailShape | BandShape | BeadsShape | FlamesShape | BedShape;
+
+export type ShapeKind = ShapeSpec['kind'];
+
+/** A burst of straight shards or a star, in layered tones (outer first). Also glints and hit stars (jitter 0). */
+export interface ShardsShape {
+  kind: 'shards';
+  radiusM: number;
+  points: number;
+  /** Inner corners, as a share of the radius. */
+  inner: number;
+  /** How uneven the spikes are (0 = a regular star). */
+  jitter: number;
+  /** 1 = round; less than 1 squashes it top to bottom. */
+  squash: number;
+  rotationDeg: number;
+  tones: Tone[];
+  inkPx: number;
+  edge: Edge;
+  /** The first step is drawn white (the "one white frame" when a shell lands). */
+  whiteFirstStep: boolean;
+  /** Degrees it turns on every other step (the drawing "boils"). */
+  boilDeg: number;
+  /** Tones go away from the outside in, and the shape shrinks to half, over this time. */
+  breakUp?: BreakUp;
+  /** A second, jagged edge inside the first. */
+  double: boolean;
+  halftone?: HalftoneFill;
+}
+
+/** A muzzle flash: a long spike forward, side spikes, short spikes back. Lies along the shot. */
+export interface FlashShape {
+  kind: 'flash';
+  lengthM: number;
+  tones: Tone[];
+  inkPx: number;
+  edge: Edge;
+  /** Every other step is drawn smaller and jittered, as the drawing board alternates two drawings. */
+  alternate: { scale: number; jitter: number };
+}
+
+/** A cloud: a lumpy, scalloped outline (blast cores, puff bursts), in layered tones. */
+export interface CloudShape {
+  kind: 'cloud';
+  radiusM: number;
+  squash: number;
+  lobes: number;
+  /** How far the lobes stand out, as a share of the radius. */
+  lobeDepth: number;
+  tones: Tone[];
+  inkPx: number;
+  edge: Edge;
+  boilDeg: number;
+  breakUp?: BreakUp;
+  halftone?: HalftoneFill;
+}
+
+/** Smoke: a puff (a few rounds with a rim) or a billow (lumpy, lit from above, halftone underneath). */
+export interface SmokeShape {
+  kind: 'smoke';
+  style: 'puff' | 'billow';
+  radiusM: number;
+  role: RoleName;
+  /** The lighter top of a billow. */
+  lightRole?: RoleName;
+  rimRole: RoleName;
+  inkPx: number;
+  /** Size over the life, as [start, peak, end] factors. */
+  grow: [number, number, number];
+  /** How far it rises over its life, in metres. */
+  riseM: number;
+  /** How far the wind carries it over its life: [right, forward] metres. */
+  driftM: Vec2;
+  /** Billows that keep coming: how many at once, and how long each one lives. */
+  loop?: { count: number; lifeMs: number };
+}
+
+/**
+ * A circle on the ground: the ring round a blast or a fire area.
+ * auto-zigzag / auto-teeth: an enemy's ring is a zigzag (shell) or a solid ring with teeth (fire, lock-on), your own
+ * team's is dashed. The other styles force one look.
+ */
+export interface RingShape {
+  kind: 'ring';
+  radiusM: number;
+  /** The coloured line, px at 1080p. */
+  widthPx: number;
+  /** The ink line under it, px at 1080p (0 = none). */
+  inkPx: number;
+  role: RoleName;
+  style: 'auto-zigzag' | 'auto-teeth' | 'solid' | 'dashed' | 'zigzag' | 'teeth';
+  /** Zigzag corners or teeth round the ring. */
+  teeth: number;
+  /** How far the teeth reach in, metres. */
+  teethM: number;
+  /** It grows from this share of its size to full size over growMs. */
+  growFrom: number;
+  growMs: number;
+  /** It turns dashed, and loses its teeth, when the break-up passes this point (0..1). */
+  dashAt?: number;
+  breakUp?: BreakUp;
+  /** Rings that close in on the centre, again and again (a lock-on). */
+  closing?: { count: number; periodMs: number; fromM: number; toM: number };
+}
+
+/**
+ * A field of halftone dots: the soft edge of a blast, light on the ground. With edgeM 0 the dots shrink from the middle
+ * out; with edgeM > 0 they stay full size and shrink over the last edgeM metres (a ring of light from innerM).
+ */
+export interface DotsShape {
+  kind: 'dots';
+  radiusM: number;
+  innerM: number;
+  edgeM: number;
+  stepPx: number;
+  dotPx: number;
+  role: RoleName;
+  alpha: number;
+  /** The field grows from this share to full size over growMs. */
+  growFrom: number;
+  growMs: number;
+  /** The outer edge breathes by this many metres every other step. */
+  flickerM: number;
+  breakUp?: BreakUp;
+}
+
+/** A stain on the ground (multiply it): a soft oval, or a splat with lobes. */
+export interface ScorchShape {
+  kind: 'scorch';
+  style: 'oval' | 'splat';
+  radiusM: number;
+  role: RoleName;
+  /** A darker middle: its share of the size (0 = none). */
+  coreScale: number;
+  coreRole: RoleName;
+  lobes: number;
+  growMs: number;
+}
+
+/** Thin ink lines radiating from the middle (speed lines). */
+export interface LinesShape {
+  kind: 'lines';
+  count: number;
+  innerM: Range;
+  lengthM: Range;
+  widthPx: Range;
+  role: RoleName;
+  /** The lines are gone after this share of the life. */
+  until: number;
+  /** How far they move out over that time, as a share of the inner radius. */
+  spread: number;
+}
+
+/** A soft round glow (light), or a flat disc of light. Use with add or screen. */
+export interface GlowShape {
+  kind: 'glow';
+  radiusM: number;
+  role: RoleName;
+  alpha: number;
+  soft: boolean;
+  /** Size over the life, as [start, end] factors. */
+  grow: Vec2;
+  /** Every other step it is this much larger (flicker). */
+  flicker: number;
+}
+
+/** A streak along a projectile's path: the last part of the path behind it. Rides a projectile. */
+export interface TrailShape {
+  kind: 'trail';
+  /** How much of the path it covers behind the projectile, as a share of the whole path. */
+  length: number;
+  /** Width in px at the tail and at the head. */
+  widthPx: Vec2;
+  role: RoleName;
+  /** The front part, in another colour (the hot head of a shell). */
+  head?: { role: RoleName; share: number };
+  /** A thin core line along the middle. "auto" leaves it out for your own team, as the board does. */
+  core?: { role: RoleName; px: number; edge: Edge };
+  inkPx: number;
+  edge: Edge;
+  /** It breaks into dashes that shrink towards the target over this time. */
+  breakUp?: BreakUp;
+  dashes: number;
+}
+
+/** A straight band from one point to another (a beam): solid, soft (light), or broken. */
+export interface BandShape {
+  kind: 'band';
+  from: InputAnchor;
+  to: InputAnchor;
+  /** Width in metres at the start and at the end. */
+  widthM: Vec2;
+  role: RoleName;
+  alpha: number;
+  soft: boolean;
+  /** "auto": broken (dashed) for your own team, solid for an enemy's. */
+  edge: Edge;
+  /** Every other step it is this much wider (flicker). */
+  flicker: number;
+  /** Over this phase it grows from the start towards the end, as a thin dashed line (finding the target). */
+  find?: PhaseName;
+  /** Over this phase it lets go: it pulls back from the end towards the start. */
+  letGo?: PhaseName;
+}
+
+/** Bright beads that run along a line, again and again (the direction of a drain). */
+export interface BeadsShape {
+  kind: 'beads';
+  from: InputAnchor;
+  to: InputAnchor;
+  count: number;
+  periodMs: number;
+  sizeM: number;
+  role: RoleName;
+  glowRole?: RoleName;
+}
+
+/** Flame tongues: long S-curved shapes that sway and flow one way, each with a light core and a shaded side. */
+export interface FlamesShape {
+  kind: 'flames';
+  radiusM: number;
+  count: number;
+  /** Which depth of the fire: back, middle, front, or all three. */
+  depth: 'back' | 'middle' | 'front' | 'all';
+  tallM: Range;
+  widthM: Range;
+  /** How far the tips lean with the wind, metres per metre of height. */
+  lean: number;
+  sway: number;
+  /** Steps one sway takes. */
+  cycleSteps: Range;
+  /** body, middle, hot, core (outer to inner) for the back tongues; nearer tongues use the hotter end. */
+  tones: RoleName[];
+  shadeRole: RoleName;
+  inkPx: number;
+  edge: Edge;
+  /** A small flame that lets go of a tall tongue's tip. */
+  licks: boolean;
+  growMs: number;
+  breakUp?: BreakUp;
+}
+
+/** The bed of a fire: rounded lumps in tone bands, dark at the rim and bright in the middle, boiling. */
+export interface BedShape {
+  kind: 'bed';
+  radiusM: number;
+  /** Rim to middle. */
+  tones: RoleName[];
+  lumps: number;
+  /** Draw only the bed (flat tones), or only its detail on top (halftone where tones meet, brush strokes, curls). */
+  part: 'lumps' | 'detail';
+  detailRole: RoleName;
+  inkPx: number;
+  edge: Edge;
+  /** The lumps change every this many steps. */
+  boilSteps: number;
+  growMs: number;
+  breakUp?: BreakUp;
+}
+
+export interface ShapeLayer extends VisibleCommon {
+  type: 'shape';
+  shape: ShapeSpec;
+  /** This layer's own seed. */
+  seed: number;
+  /** true: the shape changes with every play (the play seed is mixed in); false: always the same. */
+  perPlay: boolean;
+}
+
+export type ParticleLook =
+  | { kind: 'diamond' | 'chip' | 'spark' | 'dot' | 'shard' | 'speck' | 'puff' | 'streak'; role: RoleName; inkPx: number; edge: Edge }
+  | { kind: 'image'; image: string; tint: Tint };
+
+/** A set number of small things thrown out at once (or again and again, with loop). */
+export interface BurstLayer extends VisibleCommon {
+  type: 'burst';
+  count: number;
+  lifeMs: Range;
+  speedMps: Range;
+  /** In the layer's flat frame: out = all round; up = around up within spreadDeg; path = around the shot within spreadDeg. */
+  direction: 'up' | 'out' | 'path';
+  spreadDeg: number;
+  /** Starting distance from the anchor, in metres. */
+  startRadiusM: Range;
+  gravityMps2: number;
+  /** Slows the pieces down: 0 = none; 3 = they lose most of their speed in a third of a second. */
+  drag: number;
+  sizeM: Range;
+  sizeOverLife: Curve;
+  spinDegPerS: Range;
+  look: ParticleLook;
+  /** Each piece starts again when its life ends (a loop of the layer's clock, not an emitter with memory). */
+  loop: boolean;
+  /** Pieces stop on the ground instead of going through it. */
+  groundStop: boolean;
+  seed: number;
+  perPlay: boolean;
+}
+
+/** A comic sound word in our own block letters. It always faces the screen. */
+export interface WordLayer extends VisibleCommon {
+  type: 'word';
+  /** One is picked per play, from the seed. Letters we have not drawn yet are left out (the checker warns). */
+  words: string[];
+  /** Letter height in px on a 1080p screen, at full size. */
+  letterPx: number;
+  /** Two flat tones (top above, bottom below, hard edge between) and the pushed-back copy behind. */
+  colours: { top: RoleName; bottom: RoleName; back: RoleName };
+  /** A thin line of this colour between two black outlines, so the word reads on anything. */
+  separation?: RoleName;
+  /** Tilt of the whole word, picked per play between these, degrees (negative = the other way). */
+  tiltDeg: Range;
+  /** Size picked per play within this share up or down. */
+  sizeJitter: number;
+  /** Letters grow (+) or shrink (-) along the word, as a share. */
+  ramp: number;
+  /** How far letters sit above or below the line, in letter heights / 7. */
+  bounce: number;
+  /** How far each letter turns, degrees. */
+  turnDeg: number;
+  slantDeg: number;
+  /** Pops in a little too large for the first steps, then settles. */
+  pop: { scale: number; steps: number };
+  /** Shrinks away at the end: over a phase or the last ms of its life, in this many steps (0 = smoothly). */
+  breakUp?: BreakUp;
+  breakSteps: number;
+  /** How far it rises over its life, in metres. */
+  riseM: number;
+  /** Size by distance from the player who sees it: [metres, size share] points; under minPx it is not drawn. */
+  distance: { curve: [number, number][]; minPx: number };
+  /** everyone, or only the player who fired (a gun's word). */
+  visibleTo: 'everyone' | 'shooter';
+  seed: number;
+  perPlay: boolean;
+}
+
+export type Layer = SpriteLayer | ProjectileLayer | ShapeLayer | BurstLayer | WordLayer;
 export type LayerType = Layer['type'];
-export const LAYER_TYPES: readonly LayerType[] = ['sprite', 'projectile'];
+export const LAYER_TYPES: readonly LayerType[] = ['sprite', 'projectile', 'shape', 'burst', 'word'];
+export type VisibleLayer = SpriteLayer | ShapeLayer | BurstLayer | WordLayer;
 
 export interface EffectFile {
   format: typeof FORMAT_ID;
@@ -126,6 +536,7 @@ export interface EffectFile {
   id: string;
   name: string;
   controls: Controls;
+  phases: Phases;
   layers: Layer[];
 }
 
@@ -135,4 +546,12 @@ export function isInputAnchor(a: Anchor): a is InputAnchor {
 
 export function isArrivalStart(s: StartAnchor): s is { arrivalOf: string; ms: number } {
   return (s as { arrivalOf?: string }).arrivalOf !== undefined;
+}
+
+export function isPhaseStart(s: StartAnchor): s is { phase: PhaseName; ms: number } {
+  return (s as { phase?: string }).phase !== undefined;
+}
+
+export function isVisible(l: Layer): l is VisibleLayer {
+  return l.type !== 'projectile';
 }

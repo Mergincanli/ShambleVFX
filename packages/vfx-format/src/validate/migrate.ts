@@ -6,8 +6,33 @@ import { FORMAT_ID, FORMAT_VERSION } from '../types';
 
 export type Migration = (doc: Record<string, unknown>) => Record<string, unknown>;
 
-/** Version n -> n + 1. Empty while version 1 is the only version. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+type Obj = Record<string, unknown>;
+
+/**
+ * Version 1 -> 2 (milestone 2):
+ * - the effect gets phases (wind-up, peak, fade), all 0 = "not set", so nothing moves;
+ * - a sprite gets blend "normal" (as version 1 drew it);
+ * - a projectile's speedMps becomes flight { mode: "speed", mps }, and it gets arcM 0 (straight, as before).
+ */
+function v1to2(doc: Obj): Obj {
+  const layers = Array.isArray(doc.layers) ? (doc.layers as Obj[]) : [];
+  return {
+    ...doc,
+    version: 2,
+    phases: { windupMs: 0, peakMs: 0, fadeMs: 0 },
+    layers: layers.map((l) => {
+      if (l && l.type === 'sprite') return { ...l, blend: 'normal' };
+      if (l && l.type === 'projectile') {
+        const { speedMps, ...rest } = l;
+        return { ...rest, flight: { mode: 'speed', mps: speedMps }, arcM: 0 };
+      }
+      return l;
+    }),
+  };
+}
+
+/** Version n -> n + 1. */
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2 };
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; from: number; steps: number }

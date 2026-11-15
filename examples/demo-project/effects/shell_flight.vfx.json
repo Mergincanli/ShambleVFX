@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 1,
+  "version": 2,
   "id": "shell_flight",
   "name": "Tank shell flight (demo)",
   "controls": {
@@ -9,73 +9,187 @@
     "duration": 1,
     "colour": "team"
   },
+  "phases": {
+    "windupMs": 0,
+    "peakMs": 0,
+    "fadeMs": 0
+  },
   "layers": [
     {
       "id": "shell",
       "name": "Shell",
       "type": "projectile",
-      "start": { "ms": 0 },
-      "timing": { "mode": "steps", "perSecond": 12 },
-      "from": { "input": "origin", "offset": [0, 0, 0] },
-      "to": { "input": "target", "offset": [0, 0, 0] },
-      "speedMps": 12,
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "from": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "to": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
       "stretch": 1,
-      "spinDegPerS": 0
+      "spinDegPerS": 0,
+      "flight": {
+        "mode": "speed",
+        "mps": 12
+      },
+      "arcM": 0
     },
     {
       "id": "gun_blast",
       "name": "Gun blast",
       "type": "sprite",
-      "start": { "ms": 0 },
-      "timing": { "mode": "steps", "perSecond": 12 },
-      "at": { "input": "origin", "offset": [0, 0, 0.1] },
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "origin",
+        "offset": [
+          0,
+          0,
+          0.1
+        ]
+      },
       "image": "gun_blast.png",
-      "flipbook": { "cols": 3, "rows": 1, "frames": 3, "loop": false },
-      "pivot": [0.42, 0.5],
-      "sizeM": [1.6, 1.6],
-      "tint": { "mode": "keep" },
-      "facing": "path"
+      "flipbook": {
+        "cols": 3,
+        "rows": 1,
+        "frames": 3,
+        "loop": false
+      },
+      "pivot": [
+        0.42,
+        0.5
+      ],
+      "sizeM": [
+        1.6,
+        1.6
+      ],
+      "tint": {
+        "mode": "keep"
+      },
+      "facing": "path",
+      "blend": "normal"
     },
     {
       "id": "trail",
       "name": "Shell trail",
       "type": "sprite",
-      "start": { "ms": 0 },
-      "timing": { "mode": "steps", "perSecond": 12 },
-      "at": { "layer": "shell" },
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "layer": "shell"
+      },
       "image": "shell_trail.png",
-      "pivot": [1, 0.5],
-      "sizeM": [1.3, 0.16],
-      "tint": { "mode": "multiply", "role": "main" },
-      "facing": "path"
+      "pivot": [
+        1,
+        0.5
+      ],
+      "sizeM": [
+        1.3,
+        0.16
+      ],
+      "tint": {
+        "mode": "multiply",
+        "role": "main"
+      },
+      "facing": "path",
+      "blend": "normal"
     },
     {
       "id": "head",
       "name": "Shell head",
       "type": "sprite",
-      "start": { "ms": 0 },
-      "timing": { "mode": "steps", "perSecond": 12 },
-      "at": { "layer": "shell" },
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "layer": "shell"
+      },
       "image": "shell_head.png",
-      "pivot": [0.5, 0.5],
-      "sizeM": [0.34, 0.17],
-      "tint": { "mode": "keep" },
-      "facing": "path"
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "sizeM": [
+        0.34,
+        0.17
+      ],
+      "tint": {
+        "mode": "keep"
+      },
+      "facing": "path",
+      "blend": "normal"
     },
     {
       "id": "landing",
       "name": "Landing burst",
       "type": "sprite",
-      "start": { "arrivalOf": "shell", "ms": 0 },
-      "timing": { "mode": "steps", "perSecond": 12 },
-      "at": { "input": "target", "offset": [0, 0, 0] },
+      "start": {
+        "arrivalOf": "shell",
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
       "image": "burst.png",
-      "flipbook": { "cols": 2, "rows": 2, "frames": 4, "loop": false },
-      "pivot": [0.5, 0.62],
-      "sizeM": [2.6, 2.6],
-      "tint": { "mode": "keep" },
+      "flipbook": {
+        "cols": 2,
+        "rows": 2,
+        "frames": 4,
+        "loop": false
+      },
+      "pivot": [
+        0.5,
+        0.62
+      ],
+      "sizeM": [
+        2.6,
+        2.6
+      ],
+      "tint": {
+        "mode": "keep"
+      },
       "facing": "camera",
-      "durationMs": 490
+      "durationMs": 490,
+      "blend": "normal"
     }
   ]
 }

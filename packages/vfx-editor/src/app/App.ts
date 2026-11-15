@@ -279,11 +279,11 @@ export class App implements AppApi {
       try {
         const raw = await readJson(this.store, id, `effects/${file}`);
         const r = checkEffect(raw, { palette, images: this.images.keys() });
-        if (r.ok) effects.push(r.effect);
+        if (r.ok && r.effect) effects.push(r.effect);
         else {
           // Keep a file that parses but has problems (for example a missing image), so it can be fixed here.
-          const schemaOk = !r.problems.some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
-          if (schemaOk) effects.push(raw as EffectFile);
+          // Always keep the upgraded copy, never the old file as it was read.
+          if (r.effect) effects.push(r.effect);
           bad.push(`${file}: ${r.problems.map((p) => `${p.path} ${p.message}`).slice(0, 3).join('; ')}`);
         }
       } catch (e) {
@@ -594,7 +594,7 @@ export class App implements AppApi {
     // Shown top of the drawing order first.
     list.replaceChildren(...[...fx.layers].reverse().map((l) => h('button', {
       class: l.id === this.selLayer ? 'item layer-item sel' : 'item layer-item', attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
-    }, icon(l.type === 'projectile' ? 'projectile' : 'sprite'), h('span', { text: l.name }), h('code', { text: l.type === 'sprite' ? l.image.replace(/\.png$/, '') : `${l.speedMps} m/s` }))));
+    }, icon(l.type === 'projectile' ? 'projectile' : 'sprite'), h('span', { text: l.name }), h('code', { text: layerTag(l) }))));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }
 
@@ -684,3 +684,14 @@ export class App implements AppApi {
 }
 
 export { StoreError };
+
+/** A few words after a layer's name in the list: its image, its flight, its shape, its word. */
+function layerTag(l: Layer): string {
+  switch (l.type) {
+    case 'sprite': return l.image.replace(/\.png$/, '');
+    case 'projectile': return l.flight.mode === 'speed' ? `${l.flight.mps} m/s` : l.flight.mode === 'time' ? `${l.flight.ms} ms` : `${l.flight.phase}`;
+    case 'shape': return l.shape.kind;
+    case 'burst': return `${l.count} × ${l.look.kind}`;
+    case 'word': return l.words.join(' / ');
+  }
+}

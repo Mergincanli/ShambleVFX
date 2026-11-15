@@ -1,0 +1,86 @@
+/**
+ * What a shape, word or burst gets when it draws one moment: the painter, its clock, its random numbers, its colours,
+ * friend or foe, and unit helpers. Shared by shapes.ts, words.ts and particles.ts.
+ */
+import type { BreakUp, Curve, Edge, Range } from '@shamble/vfx-format';
+import type { Painter, RGBA } from './painter';
+import type { Flight, Timeline } from './timeline';
+
+/** Who made the effect, seen from the player looking at it. */
+export type Relation = 'enemy' | 'team' | 'self';
+
+export interface DrawCtx {
+  p: Painter;
+  /** Local time in ms as the layer shows it: the start of its current step, or the time itself when smooth. */
+  tau: number;
+  /** Step index, or -1 when the layer moves smoothly. */
+  n: number;
+  /** 0 or 1, flipping every step (every 1/12 s when smooth). */
+  parity: number;
+  lifeMs: number;
+  /** tau / lifeMs, 0..1 */
+  t: number;
+  /** The effect time this moment shows. */
+  effT: number;
+  /** ms per step of the layer's clock. */
+  stepMs: number;
+  tl: Timeline;
+  /** A number in [0, 1) from the seed and up to two integers. */
+  rnd: (a: number, b?: number) => number;
+  rgba: (role: string, alpha?: number) => RGBA;
+  relation: Relation;
+  /** px on a 1080p screen, in metres at the game camera. */
+  px: (v: number) => number;
+  /** The layer's size factor (size control and size animation). */
+  s: number;
+  intensity: number;
+  /** For a layer riding a projectile: the flight and how far along it is (0..1, on the projectile's steps). */
+  ride?: { flight: Flight; k: number };
+  /** World points of the shot, for bands and beads. */
+  point: (input: 'origin' | 'target', offset: [number, number, number]) => [number, number, number];
+}
+
+export type EdgeLook = 'ink' | 'broken' | 'none';
+
+/** Friend or foe: what an edge setting means for the player looking at it. */
+export function edgeLook(e: Edge, r: Relation): EdgeLook {
+  if (e === 'auto') return r === 'enemy' ? 'ink' : 'broken';
+  if (e === 'enemy') return r === 'enemy' ? 'ink' : 'none';
+  return e;
+}
+
+/** How far a break-up has got: 0 before it starts, 1 when done. */
+export function breakProgress(ctx: DrawCtx, b: BreakUp | undefined): number {
+  if (!b) return 0;
+  if ('phase' in b) {
+    const p = ctx.tl.phases[b.phase];
+    const len = p.endMs - p.startMs;
+    if (len <= 0) return ctx.effT >= p.startMs ? 1 : 0;
+    return clamp01((ctx.effT - p.startMs) / len);
+  }
+  const from = ctx.lifeMs - b.lastMs;
+  return clamp01((ctx.tau - from) / b.lastMs);
+}
+
+export function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/** The value of a curve at x (straight lines between points; flat before the first and after the last). */
+export function curveAt(c: Curve | readonly (readonly [number, number])[], x: number): number {
+  if (!c.length) return 1;
+  if (x <= c[0]![0]) return c[0]![1];
+  for (let i = 1; i < c.length; i++) {
+    const a = c[i - 1]!, b = c[i]!;
+    if (x <= b[0]) return b[0] === a[0] ? b[1] : a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
+  }
+  return c[c.length - 1]![1];
+}
+
+export function pick(r: Range, u: number): number {
+  return r[0] + (r[1] - r[0]) * u;
+}
+
+export function ease(k: number): number {
+  return 1 - (1 - k) * (1 - k);
+}

@@ -16,7 +16,7 @@ describe('example projects', () => {
       it(`${project}/${file} passes the checker`, () => {
         const r = checkEffect(JSON.parse(readFileSync(join(dir, 'effects', file), 'utf8')), { palette: paletteJson as Palette, images });
         expect(problemLines(r.problems)).toEqual([]);
-        expect(r.ok && `${r.effect.id}.vfx.json`).toBe(file);
+        expect(`${r.effect?.id}.vfx.json`).toBe(file);
       });
     }
   }

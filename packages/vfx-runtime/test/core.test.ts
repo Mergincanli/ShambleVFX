@@ -35,7 +35,7 @@ function ctx(timeMs: number, over: Partial<EvalContext> = {}): EvalContext {
 function demo(): EffectFile {
   const fx = newEffect('demo', 'Demo');
   const shell = newProjectileLayer('shell', 'Shell');
-  shell.speedMps = 40;
+  shell.flight = { mode: 'speed', mps: 40 };
   shell.stretch = 2;
   const streak: SpriteLayer = { ...newSpriteLayer('streak', 'Streak', 'streak.png'), at: { layer: 'shell' }, facing: 'path', pivot: [1, 0.5], sizeM: [1, 0.2] };
   delete streak.durationMs;

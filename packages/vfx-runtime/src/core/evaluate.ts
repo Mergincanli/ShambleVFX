@@ -1,16 +1,24 @@
 /**
  * evaluate(): draw one moment of one effect.
- * In: the effect, a seed, a time and the inputs. Out: quads in the sink, in layer order (first layer at the bottom).
+ * In: the effect, a seed, a time and the inputs. Out: triangles in the sink, in layer order (first layer at the bottom).
  * There is no hidden state, so any moment can be drawn directly, in any order, and the same in gives the same out.
  */
 import { MAIN_ROLE, isInputAnchor, parseHex, resolveRole, srgbToLinear } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, Timing, Vec3 } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, Timing, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import { applyControls } from './controls';
 import type { ResolvedControls } from './controls';
-import { clamp, cross, length, lerp, normalize, sub } from './math';
-import type { DrawSink } from './sink';
-import { holdSteps, inputPoint, resolveTimeline, stepMs } from './timeline';
-import type { EffectInputs, LayerSpan, Timeline } from './timeline';
+import { curveAt } from './draw';
+import type { DrawCtx, Relation } from './draw';
+import { clamp, cross, length, normalize, sub } from './math';
+import { Painter } from './painter';
+import type { Frame3 } from './painter';
+import { drawBurst } from './particles';
+import { hashText, random01 } from './random';
+import { drawShape } from './shapes';
+import type { BlendGroup, DrawSink, TriBuffer } from './sink';
+import { flightDirection, flightPoint, holdSteps, inputPoint, resolveTimeline, stepMs } from './timeline';
+import type { EffectInputs, Flight, LayerSpan, Timeline } from './timeline';
+import { drawWord } from './words';
 
 /** The camera's unit vectors in world space. forward points from the camera into the scene. */
 export interface CameraBasis {
@@ -35,17 +43,23 @@ export interface EvalContext {
   inputs: EffectInputs;
   /** The faction that made the effect: team and glow roles resolve to its colours. */
   faction: FactionId;
+  /** Who made it, seen from the player looking: an enemy, your team, or you. Default enemy. */
+  relation?: Relation;
+  /** Distance from the player looking to the event, metres (comic words shrink with it). Default 0. */
+  viewerDistanceM?: number;
   palette: Palette;
   camera: CameraBasis;
   /** Finds an image in the atlas. Undefined when the atlas does not have it. */
   imageRect(name: string): UvRect | undefined;
   /**
-   * How to write tint colours: 'linear' (three.js colour management on, the default) or 'srgb'
+   * How to write colours: 'linear' (three.js colour management on, the default) or 'srgb'
    * (colour management off, as the legacy game did). The three.js side sets this from the renderer's setup.
    */
   colourSpace?: 'linear' | 'srgb';
   /** The atlas point that is plain white, for shapes drawn without an image. */
   white?: [number, number];
+  /** px on a 1080p screen per metre at the game camera. Default 100.7 (drawing board v7). */
+  pxPerMetre?: number;
 }
 
 export interface EvalResult {
@@ -69,6 +83,25 @@ export function shownTime(localMs: number, t: Timing): number {
 }
 
 const DEG = Math.PI / 180;
+const WHITE: readonly [number, number, number] = [1, 1, 1];
+const painter = new Painter();
+
+/** Which buffer a layer draws into. multiply and screen lie on the ground; add is light over everything. */
+export function groupOf(l: VisibleLayer): BlendGroup {
+  if (l.blend === 'multiply') return 'ground-multiply';
+  if (l.blend === 'screen') return 'ground-screen';
+  if (l.blend === 'add') return 'top-add';
+  return l.facing === 'ground' ? 'ground-normal' : 'top-normal';
+}
+
+/** Where a visible layer is, which way its path goes and, when it rides a projectile, how far along the flight. */
+interface Anchor {
+  p: Vec3;
+  dir: Vec3 | undefined;
+  ride: { flight: Flight; k: number } | undefined;
+  spinDeg: number;
+  stretch: number;
+}
 
 export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timeline?: Timeline): EvalResult {
   const c = applyControls(fx.controls);
@@ -77,89 +110,183 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
   const missing: string[] = [];
   const colours = new Map<string, [number, number, number]>();
   const cam = ctx.camera;
-  // How far towards the camera a point must move to rise by one metre: cot(pitch).
+  // How far towards the camera a point must move to rise by one metre on screen: cot(pitch).
   const fy = Math.abs(cam.forward[1]);
   const pullPerMetre = fy > 0.05 ? Math.sqrt(Math.max(0, 1 - fy * fy)) / fy : 20;
+  const relation = ctx.relation ?? 'enemy';
+  const mPerPx = 1 / (ctx.pxPerMetre ?? 100.7);
+  const white = ctx.white ?? [0.5, 0.5];
+  const viewerDistanceM = ctx.viewerDistanceM ?? 0;
+
+  const rgbOf = (role: string): [number, number, number] => {
+    const name = role === MAIN_ROLE ? c.mainRole : role;
+    let col = colours.get(name);
+    if (!col) {
+      const hex = resolveRole(ctx.palette, name, ctx.faction);
+      // An unknown role draws white (untinted). The checker names it.
+      const [r, g, b] = hex ? parseHex(hex) : [255, 255, 255];
+      col = ctx.colourSpace === 'srgb'
+        ? [r / 255, g / 255, b / 255]
+        : [srgbToLinear(r / 255), srgbToLinear(g / 255), srgbToLinear(b / 255)];
+      colours.set(name, col);
+    }
+    return col;
+  };
 
   for (let i = 0; i < fx.layers.length; i++) {
     const l = fx.layers[i]!;
-    if (l.type !== 'sprite') continue;
+    if (l.type === 'projectile') continue;
     const span = tl.layers[i]!;
-    const tau = ctx.timeMs - span.startMs;
-    if (tau < 0 || tau >= span.endMs - span.startMs) continue;
-    const rect = ctx.imageRect(l.image);
-    if (!rect) {
-      if (!missing.includes(l.image)) missing.push(l.image);
+    const tauRaw = ctx.timeMs - span.startMs;
+    const life = span.endMs - span.startMs;
+    if (tauRaw < 0 || tauRaw >= life) continue;
+    const n = l.timing.mode === 'steps' ? stepIndex(tauRaw, l.timing.perSecond) : -1;
+    const tau = shownTime(tauRaw, l.timing);
+    const buf = sink.groups[groupOf(l)];
+    const where = anchorOf(fx, l, ctx, c, tl);
+
+    if (l.type === 'sprite') {
+      const rect = ctx.imageRect(l.image);
+      if (!rect) {
+        if (!missing.includes(l.image)) missing.push(l.image);
+        continue;
+      }
+      drawSprite(l, i, span, tau, n, rect, where, cam, c, buf, rgbOf, pullPerMetre);
       continue;
     }
-    drawSprite(fx, l, i, span, tau, rect, ctx, c, tl, sink, colours, pullPerMetre);
+
+    // Shapes, bursts and words: drawn flat in the layer's frame by the painter.
+    const frame = frameFor(l.facing, where.p, where.dir, cam);
+    if (l.shiftM) {
+      for (let k = 0; k < 3; k++) {
+        frame.o[k] = frame.o[k]! + (frame.u[k]! * l.shiftM[0] + frame.v[k]! * l.shiftM[1]) * c.size;
+      }
+    }
+    const seedMix = ((l.perPlay ? ctx.seed : 0) ^ Math.imul(l.seed + 1, 0x9e3779b1) ^ hashText(l.id)) >>> 0;
+    const v0 = buf.vcount;
+    painter.begin(buf, frame, i, white);
+    const dctx: DrawCtx & { viewerDistanceM: number } = {
+      p: painter,
+      tau,
+      n,
+      parity: n >= 0 ? n % 2 : Math.floor(tau / (1000 / 12)) % 2,
+      lifeMs: life,
+      t: clamp(tau / life, 0, 1),
+      effT: span.startMs + tau,
+      stepMs: stepMs(l.timing),
+      tl,
+      rnd: (a, b = 0) => random01(seedMix, a, b),
+      rgba: (role, alpha = 1) => {
+        const k = rgbOf(role);
+        return [k[0], k[1], k[2], alpha];
+      },
+      relation,
+      px: (v) => v * mPerPx,
+      s: c.size * scaleAt(l.scale, n, tau / life),
+      intensity: c.intensity,
+      ...(where.ride ? { ride: where.ride } : {}),
+      point: (input, offset) => inputPoint(ctx.inputs, tl.frame, { input, offset }, c.size),
+      viewerDistanceM,
+    };
+    if (l.type === 'shape') drawShape(l.shape, dctx);
+    else if (l.type === 'burst') drawBurst(l, dctx);
+    else drawWord(l, dctx);
+    setPull(buf, v0, frame.o, cam, l.facing === 'ground' ? 0 : pullPerMetre);
   }
   return { triangles: sink.triangles - before, missingImages: missing, lengthMs: tl.lengthMs };
 }
 
-function roleColour(role: string, ctx: EvalContext, c: ResolvedControls, cache: Map<string, [number, number, number]>): [number, number, number] {
-  const name = role === MAIN_ROLE ? c.mainRole : role;
-  let col = cache.get(name);
-  if (!col) {
-    const hex = resolveRole(ctx.palette, name, ctx.faction);
-    // An unknown role draws white (untinted). The checker names it.
-    const [r, g, b] = hex ? parseHex(hex) : [255, 255, 255];
-    col = ctx.colourSpace === 'srgb'
-      ? [r / 255, g / 255, b / 255]
-      : [srgbToLinear(r / 255), srgbToLinear(g / 255), srgbToLinear(b / 255)];
-    cache.set(name, col);
+/** Size factor from the layer's size animation: per step, and over its life. */
+function scaleAt(s: VisibleLayer['scale'], n: number, t: number): number {
+  if (!s) return 1;
+  let k = 1;
+  if (s.steps && n >= 0 && n < s.steps.length) k *= s.steps[n]!;
+  if (s.life) k *= curveAt(s.life, clamp(t, 0, 1));
+  return k;
+}
+
+function anchorOf(fx: EffectFile, l: VisibleLayer, ctx: EvalContext, c: ResolvedControls, tl: Timeline): Anchor {
+  if (isInputAnchor(l.at)) {
+    const p = inputPoint(ctx.inputs, tl.frame, l.at, c.size);
+    const dir = normalize(sub(ctx.inputs.target, ctx.inputs.origin)) ?? tl.frame.forward;
+    return { p, dir, ride: undefined, spinDeg: 0, stretch: 1 };
   }
-  return col;
+  const ps = tl.byId.get(l.at.layer)!;
+  const pl = fx.layers[ps.index] as ProjectileLayer;
+  const f = ps.flight!;
+  // A rider samples the projectile on the projectile's own steps, so they move together.
+  const tp = Math.max(0, shownTime(ctx.timeMs - ps.startMs, pl.timing));
+  const k = f.ms > 0 ? clamp(tp / f.ms, 0, 1) : 1;
+  return {
+    p: flightPoint(f, k),
+    dir: flightDirection(f, k),
+    ride: { flight: f, k },
+    spinDeg: (pl.spinDegPerS * tp) / 1000,
+    stretch: pl.stretch * c.intensity,
+  };
+}
+
+/** The flat frame a layer draws in: u is its x, v its y. */
+export function frameFor(facing: VisibleLayer['facing'], o: Vec3, dir: Vec3 | undefined, cam: CameraBasis): Frame3 {
+  if (facing === 'upright') {
+    const u = normalize([cam.right[0], 0, cam.right[2]]) ?? [1, 0, 0];
+    return { o: [...o], u, v: [0, 1, 0] };
+  }
+  if (facing === 'ground') {
+    // x to the right on screen, y away from the camera (up the screen), both flat on the ground.
+    const u = normalize([cam.right[0], 0, cam.right[2]]) ?? [1, 0, 0];
+    const v = normalize([cam.forward[0], 0, cam.forward[2]]) ?? [0, 0, -1];
+    return { o: [...o], u, v };
+  }
+  if (facing === 'path' && dir) {
+    const side = normalize(cross(dir, cam.forward));
+    if (side) return { o: [...o], u: [...dir], v: side };
+  }
+  return { o: [...o], u: [...cam.right], v: [...cam.up] };
+}
+
+/**
+ * Depth pull (assumption, marked): the part of a layer that reaches below its anchor, seen along the camera's up, is
+ * pulled towards the camera by as much, so the ground or the wall it stands on never cuts it. Ground layers sit just above.
+ */
+function setPull(buf: TriBuffer, v0: number, anchor: Vec3, cam: CameraBasis, pullPerMetre: number): void {
+  let reach = 0;
+  if (pullPerMetre > 0) {
+    for (let i = v0; i < buf.vcount; i++) {
+      const o = i * 4;
+      const d = (buf.pos[o]! - anchor[0]) * cam.up[0] + (buf.pos[o + 1]! - anchor[1]) * cam.up[1] + (buf.pos[o + 2]! - anchor[2]) * cam.up[2];
+      if (-d > reach) reach = -d;
+    }
+  }
+  const pull = reach * pullPerMetre + 0.02;
+  for (let i = v0; i < buf.vcount; i++) buf.pos[i * 4 + 3] = pull;
 }
 
 function drawSprite(
-  fx: EffectFile, l: SpriteLayer, index: number, span: LayerSpan, tau: number, rect: UvRect,
-  ctx: EvalContext, c: ResolvedControls, tl: Timeline, sink: DrawSink,
-  colours: Map<string, [number, number, number]>, pullPerMetre: number,
+  l: SpriteLayer, index: number, span: LayerSpan, tau: number, n: number, rect: UvRect, where: Anchor,
+  cam: CameraBasis, c: ResolvedControls, buf: TriBuffer,
+  rgbOf: (role: string) => [number, number, number], pullPerMetre: number,
 ): void {
-  const cam = ctx.camera;
-  const n = l.timing.mode === 'steps' ? stepIndex(tau, l.timing.perSecond) : -1;
-
-  // Where the sprite is, and which way its path goes.
-  let p: Vec3;
-  let dir: Vec3 | undefined;
-  let spinDeg = 0;
-  let stretch = 1;
-  let ride: { along: number; total: number } | undefined;
-  if (isInputAnchor(l.at)) {
-    p = inputPoint(ctx.inputs, tl.frame, l.at, c.size);
-    dir = normalize(sub(ctx.inputs.target, ctx.inputs.origin)) ?? tl.frame.forward;
-  } else {
-    const ps = tl.byId.get(l.at.layer)!;
-    const pl = fx.layers[ps.index] as ProjectileLayer;
-    const f = ps.flight!;
-    // The rider samples the projectile on the projectile's own steps, so they move together.
-    const tp = Math.max(0, shownTime(ctx.timeMs - ps.startMs, pl.timing));
-    const k = f.ms > 0 ? clamp(tp / f.ms, 0, 1) : 1;
-    p = lerp(f.from, f.to, k);
-    dir = f.dir;
-    spinDeg = (pl.spinDegPerS * tp) / 1000;
-    stretch = pl.stretch * c.intensity;
-    const total = length(sub(f.to, f.from));
-    ride = { along: k * total, total };
-  }
+  const p = where.p;
+  const dir = where.dir;
+  const total = where.ride ? length(sub(where.ride.flight.to, where.ride.flight.from)) : 0;
+  const along = where.ride ? where.ride.k * total : 0;
 
   // Size. Sprites on a point the game gives grow with intensity (flashes, hits, landings).
-  let w = l.sizeM[0] * c.size;
-  let h = l.sizeM[1] * c.size;
-  if (!ride) { w *= c.intensity; h *= c.intensity; }
-  if (l.facing === 'path') w *= stretch;
+  const anim = scaleAt(l.scale, n, tau / (span.endMs - span.startMs));
+  let w = l.sizeM[0] * c.size * anim;
+  let h = l.sizeM[1] * c.size * anim;
+  if (!where.ride) { w *= c.intensity; h *= c.intensity; }
+  if (l.facing === 'path') w *= where.stretch;
   if (!(w > 1e-6 && h > 1e-6)) return;
 
-  // Axes: facing the camera, or lying along the path (x along the motion, y across it, in the view).
-  let ax: Vec3 = cam.right;
-  let ay: Vec3 = cam.up;
-  if (l.facing === 'path' && dir) {
-    const side = normalize(cross(dir, cam.forward));
-    if (side) { ax = dir; ay = side; }
-  }
-  if (spinDeg !== 0) {
-    const cs = Math.cos(spinDeg * DEG), sn = Math.sin(spinDeg * DEG);
+  // Axes: the layer's frame (facing the camera, along the path, flat on the ground, or upright).
+  const fr = frameFor(l.facing, p, dir, cam);
+  const alongPath = l.facing === 'path' && dir !== undefined && fr.u[0] === dir[0] && fr.u[1] === dir[1] && fr.u[2] === dir[2];
+  let ax: Vec3 = fr.u;
+  let ay: Vec3 = fr.v;
+  if (where.spinDeg !== 0) {
+    const cs = Math.cos(where.spinDeg * DEG), sn = Math.sin(where.spinDeg * DEG);
     const rx: Vec3 = [ax[0] * cs + ay[0] * sn, ax[1] * cs + ay[1] * sn, ax[2] * cs + ay[2] * sn];
     const ry: Vec3 = [ay[0] * cs - ax[0] * sn, ay[1] * cs - ax[1] * sn, ay[2] * cs - ax[2] * sn];
     ax = rx; ay = ry;
@@ -170,9 +297,9 @@ function drawSprite(
   let a0 = -pu * w, a1 = (1 - pu) * w; // along x: left edge .. right edge
   const b0 = -(1 - pv) * h, b1 = pv * h; // along y: bottom edge .. top edge
   // A streak riding a projectile never reaches back past the start of the path, nor past its end.
-  if (ride && l.facing === 'path' && dir && ax === dir) {
-    a0 = Math.max(a0, -ride.along);
-    a1 = Math.min(a1, ride.total - ride.along);
+  if (where.ride && alongPath && where.spinDeg === 0) {
+    a0 = Math.max(a0, -along);
+    a1 = Math.min(a1, total - along);
     if (a1 - a0 < 1e-4) return;
   }
   const cu0 = (a0 + pu * w) / w, cu1 = (a1 + pu * w) / w; // the part of the image still shown
@@ -206,21 +333,22 @@ function drawSprite(
   const cz = p[2] + ax[2] * am + ay[2] * bm;
   const W = a1 - a0, H = b1 - b0;
 
-  // Depth pull (assumption, marked): the part of a sprite that reaches below its anchor, seen along the camera's
-  // up, is pulled towards the camera by as much, so the ground or the wall it sits on never cuts it.
+  // Depth pull, as for shapes: by how far the quad reaches below its anchor on screen. Ground sprites sit just above.
   let reach = 0;
-  for (let sx = -0.5; sx <= 0.5; sx += 1) {
-    for (let sy = -0.5; sy <= 0.5; sy += 1) {
-      const ox = cx - p[0] + ax[0] * W * sx + ay[0] * H * sy;
-      const oy = cy - p[1] + ax[1] * W * sx + ay[1] * H * sy;
-      const oz = cz - p[2] + ax[2] * W * sx + ay[2] * H * sy;
-      reach = Math.max(reach, -(ox * cam.up[0] + oy * cam.up[1] + oz * cam.up[2]));
+  if (l.facing !== 'ground') {
+    for (let sx = -0.5; sx <= 0.5; sx += 1) {
+      for (let sy = -0.5; sy <= 0.5; sy += 1) {
+        const ox = cx - p[0] + ax[0] * W * sx + ay[0] * H * sy;
+        const oy = cy - p[1] + ax[1] * W * sx + ay[1] * H * sy;
+        const oz = cz - p[2] + ax[2] * W * sx + ay[2] * H * sy;
+        reach = Math.max(reach, -(ox * cam.up[0] + oy * cam.up[1] + oz * cam.up[2]));
+      }
     }
   }
   const pull = reach * pullPerMetre + 0.02;
 
-  const col = l.tint.mode === 'multiply' ? roleColour(l.tint.role, ctx, c, colours) : WHITE;
-  sink.groups['top-normal'].quad(
+  const col = l.tint.mode === 'multiply' ? rgbOf(l.tint.role) : WHITE;
+  buf.quad(
     cx, cy, cz,
     ax[0] * W, ax[1] * W, ax[2] * W,
     ay[0] * H, ay[1] * H, ay[2] * H,
@@ -229,5 +357,3 @@ function drawSprite(
     pull, index,
   );
 }
-
-const WHITE: [number, number, number] = [1, 1, 1];

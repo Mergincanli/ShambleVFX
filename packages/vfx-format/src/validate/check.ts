@@ -1,20 +1,24 @@
 /**
  * The checker. It names every problem in plain words, with where it is:
- * schema errors, unknown colour roles, missing images, hex colours, broken links between layers, missing durations.
+ * schema errors, unknown colour roles, missing images, hex colours, broken links between layers, missing lengths,
+ * and, as warnings, letters we have not drawn yet and phases with no length.
  */
 import type { core } from 'zod';
+import { WORD_LETTERS } from '../defaults';
 import { roleNames } from '../palette';
 import type { Palette } from '../palette';
-import { LAYER_TYPES, MAIN_ROLE, isArrivalStart, isInputAnchor } from '../types';
-import type { EffectFile, Layer } from '../types';
+import { LAYER_TYPES, MAIN_ROLE, isArrivalStart, isInputAnchor, isPhaseStart } from '../types';
+import type { EffectFile, Layer, PhaseName } from '../types';
 import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
 
-export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id';
+export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place';
 
 export interface Problem {
   kind: ProblemKind;
+  /** error: the file cannot be used as it is. warning: it works, but probably not as meant. */
+  level: 'error' | 'warning';
   /** Where in the file, e.g. layers[2].tint.role */
   path: string;
   message: string;
@@ -29,9 +33,16 @@ export interface CheckOptions {
   migrations?: Readonly<Record<number, Migration>>;
 }
 
-export type CheckResult =
-  | { ok: true; effect: EffectFile; problems: []; upgradedFrom?: number }
-  | { ok: false; problems: Problem[]; effect?: undefined; upgradedFrom?: number };
+export interface CheckResult {
+  /** No errors (warnings allowed). */
+  ok: boolean;
+  /** The effect, upgraded to the current version, when it passed the schema (even with other problems). */
+  effect?: EffectFile;
+  /** The upgraded file as plain data, whenever the upgrade itself worked. Use this, never the raw old file. */
+  upgraded?: Record<string, unknown>;
+  problems: Problem[];
+  upgradedFrom?: number;
+}
 
 export function pathText(path: readonly PropertyKey[]): string {
   let s = '';
@@ -46,12 +57,29 @@ const CSS_COLOUR = /\b(?:rgba?|hsla?)\s*\(/i;
 function findColourStrings(v: unknown, path: (string | number)[], out: Problem[]): void {
   if (typeof v === 'string') {
     if (HEX_COLOUR.test(v) || CSS_COLOUR.test(v)) {
-      out.push({ kind: 'colour', path: pathText(path), message: `holds a fixed colour ("${v}"). Effect files name colour roles only; hexes live in the palette` });
+      out.push({ kind: 'colour', level: 'error', path: pathText(path), message: `holds a fixed colour ("${v}"). Effect files name colour roles only; hexes live in the palette` });
     }
   } else if (Array.isArray(v)) {
     v.forEach((x, i) => findColourStrings(x, [...path, i], out));
   } else if (v && typeof v === 'object') {
     for (const [k, x] of Object.entries(v)) findColourStrings(x, [...path, k], out);
+  }
+}
+
+/** Every role a layer names, with where. Keys named "role", ending in "Role", tone lists, word colours and separation. */
+function rolesIn(v: unknown, path: (string | number)[], out: { path: string; role: string }[]): void {
+  if (Array.isArray(v)) {
+    const last = path[path.length - 1];
+    v.forEach((x, i) => {
+      if (typeof x === 'string' && last === 'tones') out.push({ path: pathText([...path, i]), role: x });
+      else rolesIn(x, [...path, i], out);
+    });
+  } else if (v && typeof v === 'object') {
+    for (const [k, x] of Object.entries(v)) {
+      const inColours = path[path.length - 1] === 'colours';
+      if (typeof x === 'string' && (k === 'role' || k.endsWith('Role') || k === 'separation' || inColours)) out.push({ path: pathText([...path, k]), role: x });
+      else rolesIn(x, [...path, k], out);
+    }
   }
 }
 
@@ -82,18 +110,26 @@ function issueText(iss: core.$ZodIssue): string {
   }
 }
 
-function layerDurationProblem(l: Layer): string | null {
-  if (l.type !== 'sprite' || l.durationMs !== undefined) return null;
+/** Why a visible layer has no length, or null when its length can be worked out. */
+function durationProblem(l: Layer): string | null {
+  if (l.type === 'projectile') return null;
+  if (l.durationMs !== undefined || l.untilPhaseEnd !== undefined) return null;
   if (!isInputAnchor(l.at)) return null; // rides a projectile: shows while it flies
-  if (l.flipbook && !l.flipbook.loop) return null; // one step per frame
-  return l.flipbook ? 'loops its flipbook, so it needs a duration (durationMs)' : 'needs a duration (durationMs), or must ride a projectile';
+  if (l.type === 'sprite' && l.flipbook && !l.flipbook.loop) return null; // one step per frame
+  if (l.type === 'burst' && !l.loop) return null; // as long as its longest piece lives
+  return 'needs a length: durationMs, or untilPhaseEnd, or it must ride a projectile';
 }
 
 /** Check an effect file. Older versions are upgraded first. */
 export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResult {
   const problems: Problem[] = [];
+  const err = (kind: ProblemKind, path: string, message: string) => problems.push({ kind, level: 'error', path, message });
+  const warn = (kind: ProblemKind, path: string, message: string) => problems.push({ kind, level: 'warning', path, message });
   const up = migrate(input, opts.migrations);
-  if (!up.ok) return { ok: false, problems: [{ kind: input && typeof input === 'object' && 'format' in input ? 'version' : 'format', path: '(file)', message: up.problem }] };
+  if (!up.ok) {
+    err(input && typeof input === 'object' && 'format' in input ? 'version' : 'format', '(file)', up.problem);
+    return { ok: false, problems };
+  }
   const upgradedFrom = up.steps > 0 ? up.from : undefined;
   const doc = up.doc;
 
@@ -101,31 +137,50 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
 
   const parsed = effectSchema.safeParse(doc, { reportInput: true });
   if (!parsed.success) {
-    for (const iss of parsed.error.issues) problems.push({ kind: 'schema', path: pathText(iss.path), message: issueText(iss) });
-    return { ok: false, problems, upgradedFrom };
+    for (const iss of parsed.error.issues) err('schema', pathText(iss.path), issueText(iss));
+    return { ok: false, upgraded: doc, problems, upgradedFrom };
   }
   const fx = parsed.data as EffectFile;
+  const phaseLen: Record<PhaseName, number> = { windup: fx.phases.windupMs, peak: fx.phases.peakMs, fade: fx.phases.fadeMs };
+  const phasesSet = phaseLen.windup + phaseLen.peak + phaseLen.fade > 0;
 
   // Layer ids and links between layers.
   const byId = new Map<string, { layer: Layer; index: number }>();
   fx.layers.forEach((l, i) => {
-    if (byId.has(l.id)) problems.push({ kind: 'id', path: `layers[${i}].id`, message: `"${l.id}" is used by more than one layer` });
+    if (byId.has(l.id)) err('id', `layers[${i}].id`, `"${l.id}" is used by more than one layer`);
     else byId.set(l.id, { layer: l, index: i });
   });
   fx.layers.forEach((l, i) => {
-    if (l.type === 'sprite' && !isInputAnchor(l.at)) {
-      const t = byId.get(l.at.layer);
-      if (!t) problems.push({ kind: 'link', path: `layers[${i}].at.layer`, message: `rides "${l.at.layer}", but there is no such layer` });
-      else if (t.layer.type !== 'projectile') problems.push({ kind: 'link', path: `layers[${i}].at.layer`, message: `rides "${l.at.layer}", which is not a projectile. Only projectiles can be ridden` });
+    const at = `layers[${i}]`;
+    if (l.type !== 'projectile') {
+      if (!isInputAnchor(l.at)) {
+        const t = byId.get(l.at.layer);
+        if (!t) err('link', `${at}.at.layer`, `rides "${l.at.layer}", but there is no such layer`);
+        else if (t.layer.type !== 'projectile') err('link', `${at}.at.layer`, `rides "${l.at.layer}", which is not a projectile. Only projectiles can be ridden`);
+      }
+      if (l.durationMs !== undefined && l.untilPhaseEnd !== undefined) err('duration', at, `"${l.name}" has both durationMs and untilPhaseEnd: keep one`);
+      if ((l.blend === 'multiply' || l.blend === 'screen') && l.facing !== 'ground') err('place', `${at}.blend`, `"${l.name}": ${l.blend} works on what lies under it, so the layer must lie on the ground (facing "ground")`);
+      if (l.type === 'word' && l.facing !== 'camera') err('place', `${at}.facing`, `"${l.name}": a word always faces the screen (facing "camera")`);
+      if (l.type === 'shape' && l.shape.kind === 'trail' && isInputAnchor(l.at)) err('link', `${at}.at`, `"${l.name}": a trail follows a projectile, so it must ride one`);
+      if (l.untilPhaseEnd && !phasesSet) warn('phase', `${at}.untilPhaseEnd`, `"${l.name}" ends with a phase, but the effect has no phases set`);
+    } else if (l.flight.mode === 'phase' && phaseLen[l.flight.phase] <= 0) {
+      warn('phase', `${at}.flight`, `"${l.name}" flies for the ${l.flight.phase} phase, which has no length, so it lands at once`);
     }
     if (isArrivalStart(l.start)) {
       const t = byId.get(l.start.arrivalOf);
-      if (!t) problems.push({ kind: 'link', path: `layers[${i}].start.arrivalOf`, message: `starts when "${l.start.arrivalOf}" lands, but there is no such layer` });
-      else if (t.layer.type !== 'projectile') problems.push({ kind: 'link', path: `layers[${i}].start.arrivalOf`, message: `starts when "${l.start.arrivalOf}" lands, but that layer is not a projectile` });
-      else if (l.start.arrivalOf === l.id) problems.push({ kind: 'link', path: `layers[${i}].start.arrivalOf`, message: 'starts when it lands itself' });
+      if (!t) err('link', `${at}.start.arrivalOf`, `starts when "${l.start.arrivalOf}" lands, but there is no such layer`);
+      else if (t.layer.type !== 'projectile') err('link', `${at}.start.arrivalOf`, `starts when "${l.start.arrivalOf}" lands, but that layer is not a projectile`);
+      else if (l.start.arrivalOf === l.id) err('link', `${at}.start.arrivalOf`, 'starts when it lands itself');
     }
-    const d = layerDurationProblem(l);
-    if (d) problems.push({ kind: 'duration', path: `layers[${i}]`, message: `"${l.name}" ${d}` });
+    if (isPhaseStart(l.start) && !phasesSet) warn('phase', `${at}.start`, `"${l.name}" starts with a phase, but the effect has no phases set`);
+    const d = durationProblem(l);
+    if (d) err('duration', at, `"${l.name}" ${d}`);
+    if (l.type === 'word') {
+      l.words.forEach((w, j) => {
+        const missing = [...new Set([...w.toUpperCase()].filter((ch) => ch !== ' ' && !WORD_LETTERS.includes(ch)))];
+        if (missing.length) warn('letters', `${at}.words[${j}]`, `"${w}": ${missing.map((m) => `"${m}"`).join(', ')} ${missing.length > 1 ? 'are' : 'is'} not drawn yet and will be left out (drawn: ${WORD_LETTERS})`);
+      });
+    }
   });
 
   // Start times must not wait on each other in a circle.
@@ -135,7 +190,7 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
     if (s === 2) return;
     if (s === 1) {
       const cycle = [...trail.slice(trail.indexOf(id)), id].join(' -> ');
-      problems.push({ kind: 'link', path: `layers[${byId.get(id)!.index}].start`, message: `start times wait on each other in a circle: ${cycle}` });
+      err('link', `layers[${byId.get(id)!.index}].start`, `start times wait on each other in a circle: ${cycle}`);
       return;
     }
     state.set(id, 1);
@@ -148,13 +203,11 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
   // Colour roles.
   if (opts.palette) {
     const known = new Set(roleNames(opts.palette));
-    if (!known.has(fx.controls.colour)) {
-      problems.push({ kind: 'role', path: 'controls.colour', message: `"${fx.controls.colour}" is not a role in the palette` });
-    }
+    if (!known.has(fx.controls.colour)) err('role', 'controls.colour', `"${fx.controls.colour}" is not a role in the palette`);
     fx.layers.forEach((l, i) => {
-      if (l.type === 'sprite' && l.tint.mode === 'multiply' && l.tint.role !== MAIN_ROLE && !known.has(l.tint.role)) {
-        problems.push({ kind: 'role', path: `layers[${i}].tint.role`, message: `"${l.tint.role}" is not a role in the palette` });
-      }
+      const found: { path: string; role: string }[] = [];
+      rolesIn(l, ['layers', i], found);
+      for (const r of found) if (r.role !== MAIN_ROLE && !known.has(r.role)) err('role', r.path, `"${r.role}" is not a role in the palette`);
     });
   }
 
@@ -162,17 +215,16 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
   if (opts.images) {
     const have = new Set(opts.images);
     fx.layers.forEach((l, i) => {
-      if (l.type === 'sprite' && !have.has(l.image)) {
-        problems.push({ kind: 'image', path: `layers[${i}].image`, message: `"${l.image}" is missing from the images folder` });
-      }
+      if (l.type === 'sprite' && !have.has(l.image)) err('image', `layers[${i}].image`, `"${l.image}" is missing from the images folder`);
+      if (l.type === 'burst' && l.look.kind === 'image' && !have.has(l.look.image)) err('image', `layers[${i}].look.image`, `"${l.look.image}" is missing from the images folder`);
     });
   }
 
-  if (problems.length) return { ok: false, problems, upgradedFrom };
-  return { ok: true, effect: fx, problems: [], upgradedFrom };
+  const ok = !problems.some((p) => p.level === 'error');
+  return { ok, effect: fx, upgraded: doc, problems, upgradedFrom };
 }
 
-/** One line per problem, for logs and the editor. */
+/** One line per problem, for logs and the editor. Warnings say so. */
 export function problemLines(problems: readonly Problem[]): string[] {
-  return problems.map((p) => `${p.path}: ${p.message}`);
+  return problems.map((p) => `${p.level === 'warning' ? 'warning: ' : ''}${p.path}: ${p.message}`);
 }

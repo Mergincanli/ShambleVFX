@@ -139,7 +139,9 @@ for (const backend of ['webgpu', 'webgl']) {
   // -- the transport, on the tank shell (about 1 s long)
   await p.click('text=Tank shell flight (demo)');
   await p.click('.transport .play');
-  await p.waitForTimeout(250);
+  // Real time in a headless browser comes in uneven frames (the first ones compile shaders), so wait for the clock
+  // to move rather than for a fixed time.
+  await p.waitForFunction(() => window.__vfx.app.debugState().mainTime > 50, null, { timeout: 3000 }).catch(() => {});
   let s1 = await st();
   ok('Play (mouse) moves the time', s1.playing && s1.mainTime > 50, `playing ${s1.playing}, ${s1.mainTime.toFixed(0)} ms`);
   await p.keyboard.press(' ');

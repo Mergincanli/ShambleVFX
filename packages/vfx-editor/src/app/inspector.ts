@@ -2,12 +2,14 @@
  * The right panel: the effect's big controls on top, the selected layer's details folded below.
  * Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
  */
-import { MAIN_ROLE, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
-import type { InputAnchor, Layer, ProjectileLayer, SpriteLayer, Vec3 } from '@shamble/vfx-format';
+import { MAIN_ROLE, PHASE_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
+import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, Vec3 } from '@shamble/vfx-format';
 import type { AppApi } from './api';
 import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
 
 interface Refresher { refresh(): void }
+
+const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
 
 export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void; refresh(): void } {
   const el = h('aside', { class: 'inspector', attrs: { 'aria-label': 'Effect and layer settings' } });
@@ -71,9 +73,10 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElemen
   const box = h('section', { class: 'card layer' });
   const name = textField({ label: 'Layer name', value: layer.name, onChange: (v) => app.editLayer(['name'], v.trim() || 'Layer', { label: 'Rename layer' }) });
   parts.push({ refresh: () => name.set(L().name) });
-  box.append(h('h2', { text: layer.type === 'sprite' ? 'Sprite layer' : 'Projectile layer' }), name.el);
+  const title = { sprite: 'Sprite layer', projectile: 'Projectile layer', shape: 'Shape layer', burst: 'Burst layer', word: 'Word layer' }[layer.type];
+  box.append(h('h2', { text: title }), name.el);
   if (layer.type === 'sprite') box.append(...spriteFields(app, parts));
-  else box.append(...projectileFields(app, parts));
+  else if (layer.type === 'projectile') box.append(...projectileFields(app, parts));
   box.append(timeFields(app, parts));
   return box;
 }
@@ -183,9 +186,31 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     parts.push({ refresh: () => { sel.set(P()[key].input); off.refresh(); } });
     return [sel.el, off.el];
   };
-  const speed = slider({ label: 'Speed', min: 1, max: 1200, step: 1, value: P().speedMps, unit: 'm/s', digits: 0,
+  const fl = () => P().flight;
+  const flightMode = segmented({ label: 'Flight', small: true, value: fl().mode,
+    options: [{ value: 'speed', label: 'By speed' }, { value: 'time', label: 'Fixed time' }, { value: 'phase', label: 'One phase' }],
+    onChange: (v) => {
+      const next = v === 'speed' ? { mode: 'speed', mps: 40 } : v === 'time' ? { mode: 'time', ms: 500 } : { mode: 'phase', phase: 'windup' };
+      app.editLayer(['flight'], next, { label: 'Flight' }); app.commit();
+    } });
+  const speed = slider({ label: 'Speed', min: 1, max: 1200, step: 1, value: fl().mode === 'speed' ? (fl() as { mps: number }).mps : 40, unit: 'm/s', digits: 0,
     hint: 'Flight time = distance ÷ speed. A rifle at real speed lands within one 1/12 s step.',
-    onInput: (v) => app.editLayer(['speedMps'], v, { mergeKey: 'speed', label: 'Speed' }), onCommit: () => app.commit() });
+    onInput: (v) => app.editLayer(['flight', 'mps'], v, { mergeKey: 'speed', label: 'Speed' }), onCommit: () => app.commit() });
+  const flightMs = numberField({ label: 'Flight time', value: fl().mode === 'time' ? (fl() as { ms: number }).ms : 500, step: 10, min: 1, unit: 'ms',
+    onChange: (v) => { app.editLayer(['flight', 'ms'], Math.max(1, v), { label: 'Flight time' }); app.commit(); } });
+  const flightPhase = selectField({ label: 'Flies during', options: PHASE_NAMES.map((n) => ({ value: n, label: PHASE_LABEL[n] })),
+    value: fl().mode === 'phase' ? (fl() as { phase: PhaseName }).phase : 'windup',
+    onChange: (v) => { app.editLayer(['flight', 'phase'], v, { label: 'Flies during' }); app.commit(); } });
+  const arc = slider({ label: 'Arc height', min: 0, max: 30, step: 0.1, value: P().arcM, unit: 'm',
+    hint: 'How high the path rises above the straight line, at the middle. 0 flies straight.',
+    onInput: (v) => app.editLayer(['arcM'], v, { mergeKey: 'arc', label: 'Arc height' }), onCommit: () => app.commit() });
+  const showMode = () => {
+    const m = fl().mode;
+    speed.el.style.display = m === 'speed' ? '' : 'none';
+    flightMs.el.style.display = m === 'time' ? '' : 'none';
+    flightPhase.el.style.display = m === 'phase' ? '' : 'none';
+  };
+  showMode();
   const stretch = slider({ label: 'Stretch along the path', min: 0.1, max: 20, step: 0.05, value: P().stretch, unit: '×',
     hint: 'How much longer the sprites that ride it and face along the path get.',
     onInput: (v) => app.editLayer(['stretch'], v, { mergeKey: 'stretch', label: 'Stretch' }), onCommit: () => app.commit() });
@@ -198,10 +223,17 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     flight.textContent = span?.flight ? `Now: ${span.flight.ms.toFixed(0)} ms in the air over ${dist(span.flight.from, span.flight.to).toFixed(1)} m.` : '';
   };
   showFlight();
-  parts.push({ refresh: () => { speed.set(P().speedMps); stretch.set(P().stretch); spin.set(P().spinDegPerS); showFlight(); } });
+  parts.push({ refresh: () => {
+    const f = fl();
+    flightMode.set(f.mode);
+    if (f.mode === 'speed') speed.set(f.mps);
+    else if (f.mode === 'time') flightMs.set(f.ms);
+    else flightPhase.set(f.phase);
+    arc.set(P().arcM); stretch.set(P().stretch); spin.set(P().spinDegPerS); showMode(); showFlight();
+  } });
   return [
     fold('Path', [...endSel('from', 'From'), ...endSel('to', 'To')], true),
-    fold('Motion', [speed.el, flight, stretch.el, spin.el], true),
+    fold('Motion', [flightMode.el, speed.el, flightMs.el, flightPhase.el, flight, arc.el, stretch.el, spin.el], true),
   ];
 }
 

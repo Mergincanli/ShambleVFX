@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import paletteJson from '../palette/palette.json';
 import { FACTION_IDS, FORMAT_VERSION, checkPalette, newEffect, newProjectileLayer, newSpriteLayer, resolveRole, roleNames } from '../src/index';
 import type { EffectFile, Palette } from '../src/index';
-import { checkEffect, migrate, problemLines } from '../src/validate/index';
+import { MIGRATIONS, checkEffect, migrate, problemLines } from '../src/validate/index';
+import { newBurstLayer, newShapeLayer, newWordLayer } from '../src/index';
 
 const palette = paletteJson as Palette;
 const images = ['flash.png', 'streak.png'];
@@ -20,8 +21,7 @@ function goodEffect(): EffectFile {
 }
 
 function messages(input: unknown, opts = { palette, images }): string[] {
-  const r = checkEffect(input, opts);
-  return r.ok ? [] : problemLines(r.problems);
+  return problemLines(checkEffect(input, opts).problems);
 }
 
 describe('palette', () => {
@@ -137,8 +137,8 @@ describe('checkEffect', () => {
     delete (loop as { durationMs?: number }).durationMs;
     fx.layers.push(s, loop);
     const m = messages(fx);
-    expect(m).toContain('layers[4]: "Lonely" needs a duration (durationMs), or must ride a projectile');
-    expect(m).toContain('layers[5]: "Looping" loops its flipbook, so it needs a duration (durationMs)');
+    expect(m).toContain('layers[4]: "Lonely" needs a length: durationMs, or untilPhaseEnd, or it must ride a projectile');
+    expect(m).toContain('layers[5]: "Looping" needs a length: durationMs, or untilPhaseEnd, or it must ride a projectile');
   });
 
   it('finds duplicate layer ids', () => {
@@ -153,10 +153,91 @@ describe('checkEffect', () => {
   });
 });
 
+describe('version 1 -> 2', () => {
+  const v1 = {
+    format: 'shamble-vfx', version: 1, id: 'old_shot', name: 'Old shot', controls: { size: 1, intensity: 1, duration: 1, colour: 'glow' },
+    layers: [
+      { id: 'bullet', name: 'Bullet', type: 'projectile', start: { ms: 0 }, timing: { mode: 'smooth' }, from: { input: 'origin', offset: [0, 0, 0] }, to: { input: 'target', offset: [0, 0, 0] }, speedMps: 800, stretch: 1, spinDegPerS: 0 },
+      { id: 'flash', name: 'Flash', type: 'sprite', start: { ms: 0 }, timing: { mode: 'steps', perSecond: 24 }, at: { input: 'origin', offset: [0, 0, 0] }, image: 'flash.png', pivot: [0.16, 0.5], sizeM: [1.2, 1.2], tint: { mode: 'keep' }, facing: 'path', durationMs: 160 },
+    ],
+  };
+  it('upgrades speedMps to a flight by speed, adds a straight arc, normal blend and empty phases', () => {
+    const r = checkEffect(v1, { palette, images });
+    expect(problemLines(r.problems)).toEqual([]);
+    expect(r.upgradedFrom).toBe(1);
+    const fx = r.effect!;
+    expect(fx.version).toBe(2);
+    expect(fx.phases).toEqual({ windupMs: 0, peakMs: 0, fadeMs: 0 });
+    expect(fx.layers[0]).toMatchObject({ type: 'projectile', flight: { mode: 'speed', mps: 800 }, arcM: 0 });
+    expect('speedMps' in fx.layers[0]!).toBe(false);
+    expect(fx.layers[1]).toMatchObject({ type: 'sprite', blend: 'normal', facing: 'path' });
+  });
+  it('gives back the upgraded file even when it has problems, so an old file never reaches the runtime as it was', () => {
+    const r = checkEffect(v1, { palette, images: ['other.png'] });
+    expect(r.ok).toBe(false);
+    expect((r.upgraded as { version: number }).version).toBe(2);
+    expect(r.effect?.version).toBe(2);
+  });
+});
+
+describe('version 2 rules', () => {
+  it('accepts the new layer kinds with their defaults', () => {
+    const fx = newEffect('kinds', 'Kinds');
+    fx.phases = { windupMs: 100, peakMs: 400, fadeMs: 600 };
+    for (const k of ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'band', 'beads', 'flames', 'bed'] as const) fx.layers.push(newShapeLayer(`s_${k}`, k, k));
+    fx.layers.push(newBurstLayer('b', 'Bits'), newWordLayer('w', 'Word'));
+    expect(messages(fx)).toEqual([]);
+  });
+  it('warns about letters we have not drawn yet, and still accepts the file', () => {
+    const fx = newEffect('w', 'W');
+    const w = newWordLayer('w', 'Word');
+    w.words = ['KA-BLAM', 'YAY'];
+    fx.layers.push(w);
+    const r = checkEffect(fx, { palette, images });
+    expect(r.ok).toBe(true);
+    expect(problemLines(r.problems)).toEqual([
+      'warning: layers[0].words[0]: "KA-BLAM": "-" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
+      'warning: layers[0].words[1]: "YAY": "Y" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
+    ]);
+  });
+  it('checks places and lengths: multiply lies on the ground, words face the screen, a trail rides a projectile, one length only', () => {
+    const fx = newEffect('p', 'P');
+    const scorch = newShapeLayer('scorch', 'Scorch', 'scorch');
+    scorch.facing = 'camera';
+    const word = { ...newWordLayer('word', 'Word'), facing: 'upright' as const };
+    const trail = newShapeLayer('trail', 'Trail', 'trail');
+    const both = { ...newShapeLayer('both', 'Both', 'shards'), untilPhaseEnd: 'fade' as const };
+    fx.layers.push(scorch, word, trail, both);
+    const m = messages(fx);
+    expect(m).toContain('layers[0].blend: "Scorch": multiply works on what lies under it, so the layer must lie on the ground (facing "ground")');
+    expect(m).toContain('layers[1].facing: "Word": a word always faces the screen (facing "camera")');
+    expect(m).toContain('layers[2].at: "Trail": a trail follows a projectile, so it must ride one');
+    expect(m).toContain('layers[3]: "Both" has both durationMs and untilPhaseEnd: keep one');
+  });
+  it('checks every colour role inside shapes, bursts and words', () => {
+    const fx = newEffect('r', 'R');
+    const sh = newShapeLayer('s', 'S', 'shards');
+    (sh.shape as { tones: { role: string; scale: number }[] }).tones[1]!.role = 'heat.9';
+    const w = newWordLayer('w', 'W');
+    w.colours.back = 'nope';
+    fx.layers.push(sh, w);
+    const m = messages(fx);
+    expect(m).toContain('layers[0].shape.tones[1].role: "heat.9" is not a role in the palette');
+    expect(m).toContain('layers[1].colours.back: "nope" is not a role in the palette');
+  });
+  it('warns when a projectile flies for a phase that has no length', () => {
+    const fx = newEffect('f', 'F');
+    const p = newProjectileLayer('p', 'P');
+    p.flight = { mode: 'phase', phase: 'windup' };
+    fx.layers.push(p);
+    expect(messages(fx)).toEqual(['warning: layers[0].flight: "P" flies for the windup phase, which has no length, so it lands at once']);
+  });
+});
+
 describe('versions and upgrades', () => {
   it('refuses a file from a newer version and says so', () => {
     const fx = { ...goodEffect(), version: FORMAT_VERSION + 1 };
-    expect(messages(fx)[0]).toMatch(/newer Shamble VFX \(file version 2\); this one reads up to version 1/);
+    expect(messages(fx)[0]).toMatch(/newer Shamble VFX \(file version 3\); this one reads up to version 2/);
   });
 
   it('leaves a current file unchanged and does not touch the input', () => {
@@ -170,11 +251,11 @@ describe('versions and upgrades', () => {
 
   it('runs upgrade steps in order (tested with a made-up version 0)', () => {
     const v0 = { format: 'shamble-vfx', version: 0, id: 'old', title: 'Old effect', controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' }, layers: [] };
-    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; } };
+    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]! };
     const r = checkEffect(v0, { palette, images, migrations: fake });
-    expect(r.ok).toBe(true);
+    expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(0);
-    expect(r.ok && r.effect.name).toBe('Old effect');
+    expect(r.effect?.name).toBe('Old effect');
     expect(messages(v0)[0]).toMatch(/there is no upgrade from version 0 to 1/);
   });
 });
