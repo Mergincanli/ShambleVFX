@@ -65,7 +65,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 10. **Cost** (lower in the right panel; the triangle count above the preview jumps there): press **Measure** for draws, sprites
     alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they are the project's budgets, and
     typing one switches them on. See [docs/cost.md](docs/cost.md).
-11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one.
+11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one
+    (and keeps its colours as a palette profile).
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
     under **Gradients** start from a ready-made gradient or make your own; a glow can use one, and smoke, the fire's bed and
     bursts draw one named in their file. See [docs/colours.md](docs/colours.md).
@@ -96,7 +97,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (413): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (473): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
 has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances; the colours each
 layer can use, checked against the real runtime (every example drawn at 60 frames a second for every made-by, tier and
@@ -111,21 +112,26 @@ effect drawn all through; undo and redo; the project file server; `project.json`
 (written back byte for byte, a newer version refused); budgets at three levels (which one counts, every edit, only what
 differs written); `editor.json` version 2 and the older one; the export checker; export, import and export again giving the
 same files on both examples, on a version 1 project with budgets and on a version 2 project with budgets at all three levels
-and a palette profile; the runtime's loader and its version guard; the screen-area count and the cost measurement.
+and a palette profile (a project with no palette profile gets one at import, so the second `editor.json` names it; the files
+are the same from then on); palette profiles (names, the very same colours, the two defaults, the folder made on first use,
+every route and store function, import adding or finding a profile, loading a profile keeping what the effects use, and the
+default bed gradient drawing the Molotov's bed as today); the runtime's loader and its version guard; the screen-area count
+and the cost measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (144 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (148 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked
 about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card says
-which level counts), Save as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), a project
-whose `project.json` is a newer version (not opened, and the editor says why); the test page on both backends (exact
-palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in its exact
-colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
+which level counts), Save as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette
+profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its
+name, a project whose `project.json` is a newer version (not opened, and the editor says why); the test page on both
+backends (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported
+gradient in its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
 a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying the project's
 palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
@@ -193,6 +199,11 @@ These write pictures to `out/` (kept out of git):
   - **`project.json` version 2** (with `paletteProfile` and the new budgets), read and written by one reader shared by the
     local server, the command line and the editor. Version 1 projects still open; an export's `editor.json` is version 2,
     and import reads the older one too.
+- **Palette profiles** ([docs/colours.md](docs/colours.md)): named sets of colours in `palettes/` on this computer, made
+  with two defaults (**Built-in**, and **Built-in with gradients**: the ready-made gradients and three for the fire's bed,
+  sparks and smoke). The local server and the editor's store list, read, make, save over, rename and delete them, and
+  restore the defaults; import keeps an export's colours as one (or finds one with the very same colours). Loading one into
+  a project keeps every colour and gradient the project's effects use that the profile lacks.
 - **The colours each layer uses**: the checker knows every colour a layer can use, named or not: the roles its fields name,
   the black ink outline, a star's white first step, your own team's broken edge (`heat.rim`) and its gradient's stops. It
   names any the palette lacks, and what the layer needs it for ([docs/colours.md](docs/colours.md)).
@@ -212,7 +223,8 @@ layer (such as tones in a star), not only whole layers; a gradient choice for sm
 (the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds,
 the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
 an effect's own budgets in the editor (the files hold them, and the functions are there; the new Cost card comes with the new
-UI).
+UI); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
+store and the load function are there; the buttons come with the new UI).
 
 ## Assumptions
 
@@ -304,6 +316,28 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     letter, so the gap after the Q's round part stays near the others: 0.9 units (most letters leave 0.5, the R 0.7).
   - No new format version: the files keep their shape. A word with these letters used to leave them out (the checker
     warned); now it draws them.
+- **Palette profiles** (where they live, the defaults, the name rule, import's numbering and "the very same colours" are the
+  approved plan; these details are ours):
+  - The folder is made, with the two defaults, the first time something needs it (a list, a new profile, an import), not
+    when the editor starts. Restoring the defaults adds back the ones whose name is missing, without regard to case; a
+    profile with that name stays as it is, even with other colours.
+  - A profile's file is named after it (`soviets-dark.json`, `soviets-dark-2.json` when taken; `profile.json` for a name
+    with no Latin letters or digits). Renaming moves the file to fit the new name, so the id can change; the answer gives
+    the new one.
+  - A name counts characters (so 64 letters of any alphabet fit), and is kept in one Unicode form, so an accent typed two
+    ways is one name. Control characters are tabs, line breaks and the like; other invisible characters are allowed.
+  - "The very same colours" compares the faction names too (they are part of the factions), and a stop with no alpha is
+    solid. An import's name from free text has its control characters turned into spaces and is cut to 64 characters
+    (nothing left: "Imported colours"); a numbered name cuts the base to keep the number.
+  - An export whose `palette.json` is not a usable palette is refused at import (it used to import, and the project then
+    fell back to the built-in palette when opened): its colours cannot be kept as a profile.
+  - A list shows each faction's team colour, then the first shared colours, eight in all, as swatches.
+  - "Built-in with gradients" holds all nine ready-made gradients (they all use roles), then `fire.bed`, `sparks.cool` and
+    `smoke.thin`, all marked `"from": "assumed"`. The ready-made gradients now live in `src/doc/gradient-presets.ts`, shared
+    by the colour picker and the default profile, so a change to them changes what a fresh palettes folder gets.
+  - The sparks and smoke gradients are our proposals; the thinning smoke starts at 60 % of each puff's life, so the
+    see-through rounds overlap only near the end.
+  - `VFX_PALETTES_DIR` picks another palettes folder (the browser check uses a temporary one).
 
 ## Claude skills
 
@@ -319,5 +353,6 @@ npm install --workspace=@shamble/vfx-editor @ui-sdk/web @ui-sdk/core
 
 - `style-guide/`: Mustafa's style files (the drawing board, the sheets).
 - `projects/`: your effect projects.
+- `palettes/`: your palette profiles.
 - `out/`: screenshots and other output of the checks.
 - `exports/`: export folders (they hold the project's images).

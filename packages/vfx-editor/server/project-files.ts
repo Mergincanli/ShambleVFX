@@ -32,11 +32,26 @@
  *   DELETE file?id=&path=                delete one effect or image file
  *   GET    exports                       list the export folders in exports/
  *   POST   export     {id}               export a project (as saved on disk) to exports/<folder>/, replacing it
- *   POST   import     {export, root, name}  make a new project from exports/<export>/
+ *   POST   import     {export, root, name}  make a new project from exports/<export>/; the export's colours become a
+ *                                        palette profile (or one with the very same colours is used), and the answer
+ *                                        says which ("profile": {id, name, added})
  *
- * Export and import run the code in ./export.ts (the same as `npm run export`), loaded through Vite, so they can use the
- * TypeScript packages as they are. This file itself is also loaded by Vite's config loader (vite.config.ts imports it),
- * which cannot load the workspace packages: it imports only Node, types and plain files of the editor (project-file.ts).
+ * Palette profiles (named sets of colours in the palettes folder, ../src/io/palette-profile.ts), also under /__vfx/api:
+ *   GET    profiles                      list them: {profiles: [{id, name, changed, swatches, gradientCount}], problems}
+ *   POST   profiles   {name, palette}    make a new one (409 when the name is taken, so the editor can ask for another)
+ *   POST   profiles/defaults             add back the default profiles that are missing (never twice)
+ *   GET    profile?id=                   one profile, with its palette
+ *   PUT    profile?id=  {palette}        save colours over a profile (its name stays)
+ *   PATCH  profile?id=  {name}           rename it (409 when taken); the answer gives the id it ends with
+ *   DELETE profile?id=                   delete it
+ * The palettes folder: palettes/ in the repo (git ignores it), or VFX_PALETTES_DIR (environment variable). The server
+ * makes it, with the two default profiles, the first time it is needed. A server given its own roots (the tests) has
+ * none unless it is given one, so tests never touch the real folder.
+ *
+ * Export and import run the code in ./export.ts (the same as `npm run export`), and palette profiles the code in
+ * ./palette-profiles.ts, both loaded through Vite, so they can use the TypeScript packages as they are. This file itself
+ * is also loaded by Vite's config loader (vite.config.ts imports it), which cannot load the workspace packages: it imports
+ * only Node, types and plain files of the editor (project-file.ts).
  */
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -47,6 +62,7 @@ import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { PROJECT_FORMAT, newProjectFile, readProjectJson, toProjectJson } from '../src/io/project-file.ts';
 import type * as ExportModule from './export';
+import type * as ProfilesModule from './palette-profiles';
 
 export const API_PREFIX = '/__vfx/api/';
 export const CLIENT_HEADER = 'x-shamble-vfx';
@@ -71,6 +87,13 @@ export interface ProjectFilesOptions {
   exportsDir?: string;
   /** Loads ./export.ts. The Vite plugin loads it through the dev server; tests can import it directly. */
   loadExport?: () => Promise<typeof ExportModule>;
+  /**
+   * The palettes folder (palette profiles). Default: the repo's palettes/ folder (or VFX_PALETTES_DIR), but only with the
+   * default roots: a server given its own roots has no palettes folder unless it is given one.
+   */
+  palettesDir?: string;
+  /** Loads ./palette-profiles.ts. The Vite plugin loads it through the dev server; tests can import it directly. */
+  loadProfiles?: () => Promise<typeof ProfilesModule>;
 }
 
 const ROOT_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -100,6 +123,12 @@ export function defaultRoots(env: NodeJS.ProcessEnv = process.env): ProjectRoot[
 /** The repo's exports/ folder. */
 export function defaultExportsDir(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'exports');
+}
+
+/** The palettes folder (palette profiles): VFX_PALETTES_DIR when it is set, else the repo's palettes/ (git ignores it). */
+export function defaultPalettesDir(env: NodeJS.ProcessEnv = process.env): string {
+  const own = (env.VFX_PALETTES_DIR ?? '').trim();
+  return own ? resolve(own) : resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'palettes');
 }
 
 /** Turn a project name into a folder name: lowercase letters, digits, _ and -. */
@@ -139,6 +168,13 @@ export function createProjectFilesHandler(opts: ProjectFilesOptions = {}) {
   const loadExport = async () => {
     if (!opts.loadExport) throw new ApiError(501, 'Export is not set up on this server');
     return opts.loadExport();
+  };
+  // The default palettes folder comes with the default roots only (see palettesDir).
+  const palettesDir = opts.palettesDir ?? (opts.roots ? undefined : defaultPalettesDir());
+  const profilesAt = async (): Promise<{ dir: string; m: typeof ProfilesModule }> => {
+    if (!palettesDir) throw new ApiError(501, 'Palette profiles are not set up on this server (it has no palettes folder)');
+    if (!opts.loadProfiles) throw new ApiError(501, 'Palette profiles are not set up on this server');
+    return { dir: palettesDir, m: await opts.loadProfiles() };
   };
   for (const r of roots) {
     if (!ROOT_ID.test(r.id)) throw new Error(`Project root id "${r.id}" must be lowercase letters, digits, _ or -`);
@@ -198,23 +234,63 @@ export function createProjectFilesHandler(opts: ProjectFilesOptions = {}) {
       }
       if (route === 'import' && method === 'POST') {
         const body = await readJsonBody(req, maxBody);
+        if (!palettesDir) throw new ApiError(501, 'Import is not set up on this server (it has no palettes folder for the export\'s colours)');
         const folder = str(body.export, 'export');
         if (!FOLDER.test(folder) || folder.includes('..')) throw new ApiError(400, `"${folder}" is not an export folder name`);
         const dir = join(exportsDir, folder);
         if (!(await isFolder(dir)) || !(await realInside(dir, exportsDir))) throw new ApiError(404, `There is no export "exports/${folder}"`);
         const root = writableRoot(roots, str(body.root, 'root'));
         const made = await makeProjectFolder(root, str(body.name, 'name'));
-        const r = await (await loadExport()).importExport(dir, made.dir, made.name).catch((e: unknown) => ({ ok: false, errors: [String((e as Error)?.message ?? e)], effects: 0, images: 0 }));
+        const r: ExportModule.ImportReport = await (await loadExport()).importExport(dir, made.dir, { name: made.name, palettesDir })
+          .catch((e: unknown) => ({ ok: false, errors: [String((e as Error)?.message ?? e)], effects: 0, images: 0 }));
         if (!r.ok) {
           await fs.rm(made.dir, { recursive: true, force: true });
           return send(res, 422, { ok: false, errors: r.errors });
         }
-        return send(res, 201, { ok: true, id: `${root.id}/${made.folder}`, name: made.name, root: root.id, writable: true, effects: r.effects, images: r.images });
+        return send(res, 201, { ok: true, id: `${root.id}/${made.folder}`, name: made.name, root: root.id, writable: true, effects: r.effects, images: r.images, ...(r.profile ? { profile: r.profile } : {}) });
       }
-      if (['projects', 'copy', 'project', 'exports', 'export', 'import'].includes(route)) throw new ApiError(405, `${method} is not allowed here`);
+      if (route === 'profiles' && method === 'GET') {
+        const { dir, m } = await profilesAt();
+        return send(res, 200, await m.listProfiles(dir));
+      }
+      if (route === 'profiles' && method === 'POST') {
+        const body = await readJsonBody(req, maxBody);
+        const { dir, m } = await profilesAt();
+        return send(res, 201, await m.createProfile(dir, str(body.name, 'name'), body.palette));
+      }
+      if (route === 'profiles/defaults' && method === 'POST') {
+        const { dir, m } = await profilesAt();
+        return send(res, 200, await m.restoreDefaultProfiles(dir));
+      }
+      if (route === 'profile') {
+        const id = param(q, 'id');
+        if (method === 'GET') {
+          const { dir, m } = await profilesAt();
+          return send(res, 200, await m.readProfile(dir, id));
+        }
+        if (method === 'PUT') {
+          const body = await readJsonBody(req, maxBody);
+          const { dir, m } = await profilesAt();
+          return send(res, 200, await m.saveProfile(dir, id, body.palette));
+        }
+        if (method === 'PATCH') {
+          const body = await readJsonBody(req, maxBody);
+          const { dir, m } = await profilesAt();
+          return send(res, 200, await m.renameProfile(dir, id, str(body.name, 'name')));
+        }
+        if (method === 'DELETE') {
+          const { dir, m } = await profilesAt();
+          await m.deleteProfile(dir, id);
+          return send(res, 200, { ok: true });
+        }
+        throw new ApiError(405, `${method} is not allowed here`);
+      }
+      if (['projects', 'copy', 'project', 'exports', 'export', 'import', 'profiles', 'profiles/defaults'].includes(route)) throw new ApiError(405, `${method} is not allowed here`);
       throw new ApiError(404, 'Not found');
     } catch (e) {
       if (e instanceof ApiError) send(res, e.status, { error: e.message });
+      // Errors of the modules loaded through Vite (palette profiles) carry their status too.
+      else if (hasStatus(e)) send(res, e.status, { error: e.message });
       else send(res, 500, { error: `The server could not do that: ${e instanceof Error ? e.message : String(e)}` });
     }
   };
@@ -228,6 +304,7 @@ export function projectFiles(opts: ProjectFilesOptions = {}): Plugin {
     configureServer(server) {
       const handle = createProjectFilesHandler({
         loadExport: () => server.ssrLoadModule('/server/export.ts') as Promise<typeof ExportModule>,
+        loadProfiles: () => server.ssrLoadModule('/server/palette-profiles.ts') as Promise<typeof ProfilesModule>,
         ...opts,
       });
       server.middlewares.use((req, res, next) => {
@@ -551,6 +628,12 @@ async function realInside(child: string, parent: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------- requests and replies
+
+/** An error with an HTTP status in the 400s or 500s (ProfileError, from a module loaded through Vite: a class of its own there). */
+function hasStatus(e: unknown): e is Error & { status: number } {
+  const status = (e as { status?: unknown } | null)?.status;
+  return e instanceof Error && typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599;
+}
 
 function readOnly(): ApiError {
   return new ApiError(403, 'This project is read-only (an example). Use Save as to copy it into your projects');

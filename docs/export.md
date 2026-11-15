@@ -47,13 +47,24 @@ not match the files. The game's build can run the same checker (`checkExport` in
 ## Import one
 
 - In the editor: **Projects…**, then a name under **Import an export**.
-- From the command line: `npm run import -- exports/demo-project projects/demo-back "Demo back"`.
+- From the command line: `npm run import -- exports/demo-project projects/demo-back "Demo back"`. It keeps the colours as a
+  palette profile in `palettes/` too, and says which.
 
 Import makes a **new** project (it never writes into a folder that has files): the effect files exactly as they are in the
-export, each image cut back out of the atlas pixel for pixel, the game events, and the preview scenes, the budgets and the
-palette profile's name from `editor.json`. The new project's `project.json` is version 2. Exporting that project again gives
-the same files, byte for byte (the tests check this on both examples, on a version 1 project with budgets, and on a
-version 2 project with budgets at all three levels and a palette profile).
+export, each image cut back out of the atlas pixel for pixel, the game events, and the preview scenes and the budgets from
+`editor.json`. The new project's `project.json` is version 2.
+
+The export's colours become the new project's `palette.json`, and a **palette profile** on this computer
+([colours.md](colours.md)): named after `editor.json`'s `paletteProfile`, else after the export's project (not after the
+name you give the new project). A profile of that name, or one of its numbered names ("Soviets dark (1)"), that holds the
+very same colours is used instead of adding one; when the name holds other colours, the new profile gets the first free
+number. The new project's `project.json` names the profile it ended up with. An export whose `palette.json` is not a usable
+palette is refused, and nothing is made.
+
+Exporting that project again gives the same files, byte for byte, with one difference when the project had no palette
+profile: `editor.json` now names the one the import made. From then on, export, import and export give the same files (the
+tests check this on both examples, on a version 1 project with budgets, and on a version 2 project with budgets at all three
+levels and a palette profile, whose two exports are the same from the start).
 
 ## editor.json
 
@@ -70,7 +81,8 @@ The editor's own notes. The game ignores this file.
 ```
 
 - `version` is 2, as in `project.json` version 2 (the budgets have the same shape).
-- `paletteProfile`: the name of the palette profile the project's colours came from, when the project has one.
+- `paletteProfile`: the name of the palette profile the project's colours came from, when the project has one. Import names
+  the profile it adds (or finds) after it.
 - `preview`: the scene each effect is shown in, as in `project.json`.
 - `budgets`: the budgets at three levels, as in `project.json`: only what differs from the defaults, and only for the
   effects in the export ([cost.md](cost.md)).

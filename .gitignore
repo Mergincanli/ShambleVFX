@@ -4,6 +4,9 @@
 # Mustafa's effect projects. They may hold his art. Never commit them.
 /projects/
 
+# Palette profiles: Mustafa's own sets of colours, kept on this computer (the editor's local server makes them).
+/palettes/
+
 # Screenshots, reports and other output made by the checks.
 /out/
 

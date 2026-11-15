@@ -4,7 +4,8 @@
  *
  * An export folder holds manifest.json, palette.json, atlas.png, atlas.json, effects/<id>.vfx.json and editor.json
  * (see packages/vfx-format/src/validate/export.ts). Pixels are copied exactly (pngjs), not through a canvas.
- * project.json and editor.json are read and written by the one reader and writer in ../src/io/project-file.ts.
+ * project.json and editor.json are read and written by the one reader and writer in ../src/io/project-file.ts. Import
+ * adds the export's colours to the palette profiles (./palette-profiles.ts).
  */
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -20,6 +21,8 @@ import type { Pixels } from '../src/atlas/pack';
 import { defaultBudgets } from '../src/cost/budgets';
 import { toEditorJson, toProjectJson, readEditorJson, readProjectJson } from '../src/io/project-file';
 import type { ProjectFile } from '../src/io/project-file';
+import type { ImportedProfile } from '../src/io/palette-profile';
+import { addImportedProfile } from './palette-profiles';
 
 /** The built-in palette, for a project without its own palette.json. */
 const builtInPalette = paletteJson as Palette;
@@ -231,15 +234,29 @@ export interface ImportReport {
   errors: string[];
   effects: number;
   images: number;
+  /** The palette profile the export's colours became: added, or one that already held the very same colours. */
+  profile?: ImportedProfile;
+}
+
+export interface ImportOptions {
+  /** The new project's name. Default: the export's. */
+  name?: string;
+  /** The palettes folder: the export's colours become a palette profile there. No default, so a caller always says which. */
+  palettesDir: string;
 }
 
 /**
  * Import an export folder into an empty project folder: the effect files as they are, each image cut back out of the
- * atlas, the events, and (from editor.json) the preview scenes, the budgets and the palette profile's name. editor.json
- * may be version 2 or the older one with no version (its budgets become the project level, switched off). The new
- * project's project.json is version 2. The white block and the dot are not images.
+ * atlas, the events, and (from editor.json) the preview scenes and the budgets. editor.json may be version 2 or the older
+ * one with no version (its budgets become the project level, switched off). The new project's project.json is version 2.
+ * The white block and the dot are not images.
+ *
+ * The export's colours become the project's palette.json, and a palette profile in `palettesDir`: named after editor.json's
+ * paletteProfile, else the export's project name (a profile of that name, or one of its numbered names, with the very same
+ * colours is used instead of adding one). The new project's project.json records the profile's name. An export whose
+ * palette.json is not a usable palette is refused.
  */
-export async function importExport(exportDir: string, projectDir: string, name?: string): Promise<ImportReport> {
+export async function importExport(exportDir: string, projectDir: string, opts: ImportOptions): Promise<ImportReport> {
   const there = await fs.readdir(projectDir).catch(() => [] as string[]);
   if (there.length) return { ok: false, errors: [`${projectDir} is not empty: import into a new folder, so no project is overwritten`], effects: 0, images: 0 };
   const ex = await readExport(exportDir);
@@ -252,6 +269,16 @@ export async function importExport(exportDir: string, projectDir: string, name?:
   const read = readEditorJson(await readJsonFile(join(exportDir, 'editor.json')).catch(() => undefined));
   if (!read.ok) return { ok: false, errors: [read.error], effects: 0, images: 0 };
   const notes = read.notes;
+  // The colours: they must be a usable palette (the game's and the profile's), then they become a profile, before any
+  // file of the new project is written.
+  const wrong = checkPalette(ex.palette);
+  if (wrong.length) return { ok: false, errors: wrong.map((w) => `palette.json: ${w}`), effects: 0, images: 0 };
+  let profile: ImportedProfile;
+  try {
+    profile = await addImportedProfile(opts.palettesDir, notes.paletteProfile ?? ex.manifest.name, ex.palette);
+  } catch (e) {
+    return { ok: false, errors: [`the export's colours could not be kept as a palette profile: ${(e as Error).message}`], effects: 0, images: 0 };
+  }
   await fs.mkdir(join(projectDir, 'effects'), { recursive: true });
   await fs.mkdir(join(projectDir, 'images'), { recursive: true });
   for (const e of ex.manifest.effects) await fs.writeFile(join(projectDir, 'effects', `${e.id}.vfx.json`), ex.texts[e.file]!);
@@ -266,8 +293,8 @@ export async function importExport(exportDir: string, projectDir: string, name?:
     images++;
   }
   const project: ProjectFile = {
-    name: name ?? ex.manifest.name,
-    ...(notes.paletteProfile !== undefined ? { paletteProfile: notes.paletteProfile } : {}),
+    name: opts.name ?? ex.manifest.name,
+    paletteProfile: profile.name,
     events: Object.fromEntries(ex.manifest.effects.map((e) => [e.id, e.events])),
     ...(notes.preview ? { preview: notes.preview } : {}),
     budgets: notes.budgets,
@@ -276,5 +303,5 @@ export async function importExport(exportDir: string, projectDir: string, name?:
   await fs.writeFile(join(projectDir, 'project.json'), toJson(toProjectJson(project)));
   // The export's colours become the project's own palette.json.
   await fs.writeFile(join(projectDir, 'palette.json'), toJson(ex.palette));
-  return { ok: true, errors: [], effects: ex.manifest.effects.length, images };
+  return { ok: true, errors: [], effects: ex.manifest.effects.length, images, profile };
 }

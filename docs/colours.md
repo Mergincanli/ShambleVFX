@@ -9,6 +9,54 @@ Effect files name colour **roles** (`heat.1`, `team`, `glow`, …), never hexes.
   effects. The built-in palette is never written, so another project keeps its colours.
 - Save as copies `palette.json`. Export carries it in the export folder, and the game uses it. Import gives it back.
 - Assumed (tell us if wrong): one palette per project. Changing the built-in palette for every project is a separate step.
+- To take the same colours from one project to another, keep them as a **palette profile** (below).
+
+## Palette profiles
+
+A palette profile is a named set of colours: a whole palette, with its team colours, its shared colours and its gradients.
+Profiles live on this computer, not in a project, so one set of colours can go into many projects.
+
+- **Where they live**: the folder `palettes/` in the repo, one file each (the environment variable `VFX_PALETTES_DIR` picks
+  another folder). Git ignores it, as it ignores `projects/`: your colours stay on your computer. The game never sees a
+  profile: a project keeps its colours in its own `palette.json`, and an export carries that.
+- **The two defaults**: the first time the editor needs the folder, it makes it with two profiles:
+  - **Built-in**: the built-in palette, as it is.
+  - **Built-in with gradients**: the same colours, plus gradients made only of built-in colours (no new hexes): the nine
+    ready-made ones, and three for smoke, the fire's bed and bursts. **fire.bed** is the Molotov bed's four tones from the rim
+    to the middle, in the places its bands have today, so it draws today's bed. **sparks.cool**: a spark goes from white-hot to
+    yellow, orange and burnt orange as it fades out. **smoke.thin**: a fire's smoke puff, solid until 60 % of its life, then
+    thinning to nothing. All proposals.
+
+  They are ordinary profiles: change them, rename them, delete them. A deleted default does not come back by itself:
+  **Restore the default profiles** adds back the ones whose name is missing, never twice, and leaves one that is there as
+  it is.
+- **Load a profile** into a project: the project takes the profile's colours. No effect breaks: every colour and gradient
+  the project's effects use that the profile lacks is kept from the project's own colours (a gradient's stops count too), and
+  the editor can say what it kept and which effect and layer needs it. Then the project names the profile in `project.json`
+  (`paletteProfile`), and Save writes the colours into its `palette.json`, as any colour change does.
+- **Save** the project's colours over a profile (its name stays), or **save them as a new profile** under a new name.
+- **Rename** and **delete** a profile.
+- **Names**: 1 to 64 characters, no tabs or line breaks, and each name only once, without regard to upper and lower case
+  ("Soviets dark" and "soviets DARK" are the same name). When a name is taken, the editor asks for another.
+- **Import**: importing an export keeps the export's colours as a profile, named after the export's palette profile (in its
+  `editor.json`), else after the export's project. If a profile of that name holds other colours, the new one gets
+  " (1)", then " (2)", and so on. If that profile, or one of its numbered ones, holds the very same colours (the same hexes,
+  factions and gradients; who chose them and the notes do not count), nothing is added and that one is used. The new
+  project's `project.json` names the profile it ended up with. `npm run import` does the same.
+- **Save as** keeps the project's palette profile name, and **Export** writes it into `editor.json`.
+
+The buttons for profiles come with the new editor UI. The editor's local server, its store (`src/io/store.ts`) and the load
+function (`loadProfile` in `src/doc/load-profile.ts`) already do all of the above.
+
+A profile file looks like this. The editor makes the file names itself (`soviets-dark.json`, then `soviets-dark-2.json`
+when that is taken):
+
+```json
+{ "format": "shamble-vfx-palette-profile", "version": 1, "name": "Soviets dark", "palette": { "version": 2, "factions": { … }, "roles": { … }, "gradients": { … } } }
+```
+
+A file in the folder that cannot be used (not a profile, broken, or of a newer version) is named in the list, with why. A file
+of a newer version is never written over.
 
 ## Changing a colour
 

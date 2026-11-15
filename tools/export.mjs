@@ -7,6 +7,8 @@
  *   npm run export -- examples/demo-project out/my-export   writes out/my-export/ (the folder is replaced)
  *   npm run check:export -- exports/demo-project            checks an export folder
  *   npm run import -- exports/demo-project projects/back    makes a new project from an export
+ *
+ * Import also keeps the export's colours as a palette profile in palettes/ (or VFX_PALETTES_DIR), as the editor does.
  */
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,9 +51,17 @@ try {
     console.log(r.check.ok ? `OK: ${r.check.effects.size} effects, ${Object.keys(r.manifest?.events ?? {}).length} events` : 'The export has errors.');
     code = r.check.ok ? 0 : 1;
   } else {
-    const r = await ex.importExport(resolve(a), resolve(b), c);
+    // The palettes folder the editor's local server uses: palettes/ in the repo, or VFX_PALETTES_DIR.
+    const { defaultPalettesDir } = await server.ssrLoadModule('/server/project-files.ts');
+    const palettesDir = defaultPalettesDir();
+    const r = await ex.importExport(resolve(a), resolve(b), { name: c, palettesDir });
     list('Errors (nothing imported):', r.errors);
-    if (r.ok) console.log(`Imported ${r.effects} effects and ${r.images} images into ${resolve(b)}`);
+    if (r.ok) {
+      console.log(`Imported ${r.effects} effects and ${r.images} images into ${resolve(b)}`);
+      if (r.profile) console.log(r.profile.added
+        ? `The colours were added as the palette profile "${r.profile.name}" (${join(palettesDir, `${r.profile.id}.json`)})`
+        : `The colours are the same as the palette profile "${r.profile.name}": nothing was added`);
+    }
     code = r.ok ? 0 : 1;
   }
 } finally {

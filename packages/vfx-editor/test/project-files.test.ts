@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -296,6 +296,19 @@ describe('files', () => {
     expect((await call('GET', 'nothing')).status).toBe(404);
     expect((await call('DELETE', 'projects')).status).toBe(405);
     expect((await call('POST', `file?${q(id, 'images/x.png')}`)).status).toBe(405);
+    expect((await call('DELETE', 'profiles')).status).toBe(405);
+    expect((await call('GET', 'profiles/defaults')).status).toBe(405);
+  });
+
+  it('has no palettes folder when it was given its own roots and none, so palette profiles and import say so (the real folder is never touched)', async () => {
+    const list = await call('GET', 'profiles');
+    expect(list.status).toBe(501);
+    expect(list.json().error).toBe('Palette profiles are not set up on this server (it has no palettes folder)');
+    expect((await call('GET', `profile?${q('built-in')}`)).status).toBe(501);
+    const im = await call('POST', 'import', json({ export: 'hits', root: 'projects', name: 'Never made' }));
+    expect(im.status).toBe(501);
+    expect(im.json().error).toMatch(/no palettes folder/);
+    expect(existsSync(join(tmp, 'projects', 'never-made'))).toBe(false);
   });
 });
 
@@ -341,10 +354,12 @@ describe('export and import', () => {
     mkdirSync(join(box, 'examples'), { recursive: true });
     cpSync(join(import.meta.dirname, '..', '..', '..', 'examples', 'hits-collection'), join(box, 'examples', 'hits'), { recursive: true });
     const exportsDir = join(box, 'exports');
-    // The editor package is Vite's root here, so the plugin loads server/export.ts the way `npm run dev` does.
+    const palettesDir = join(box, 'palettes');
+    // The editor package is Vite's root here, so the plugin loads server/export.ts and server/palette-profiles.ts the way
+    // `npm run dev` does.
     const vite = await createViteServer({
       configFile: false, root: join(import.meta.dirname, '..'), logLevel: 'silent', appType: 'custom',
-      plugins: [projectFiles({ roots: exRoots, exportsDir })], server: { host: '127.0.0.1', port: 0, hmr: false, ws: false },
+      plugins: [projectFiles({ roots: exRoots, exportsDir, palettesDir })], server: { host: '127.0.0.1', port: 0, hmr: false, ws: false },
     });
     await vite.listen();
     const p = (vite.httpServer!.address() as AddressInfo).port;
@@ -359,11 +374,18 @@ describe('export and import', () => {
 
       const im = await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'projects', name: 'Hits back' }) });
       expect(im.status).toBe(201);
-      expect(im.json()).toMatchObject({ ok: true, id: 'projects/hits-back', name: 'Hits back', effects: 10, images: 0 });
+      // The export's colours became a palette profile named after the export's project (not the name typed for the new one).
+      expect(im.json()).toMatchObject({ ok: true, id: 'projects/hits-back', name: 'Hits back', effects: 10, images: 0, profile: { id: 'comic-hits', name: 'Comic hits', added: true } });
       const back = JSON.parse(readFileSync(join(box, 'projects', 'hits-back', 'project.json'), 'utf8'));
       expect(back.name).toBe('Hits back');
+      expect(back.paletteProfile).toBe('Comic hits');
       expect(back.events.hit_bullet_spark).toEqual(['hit.bullet.metal']);
       expect(back.preview.hit_heavy_blast).toEqual({ scene: 'hit-ground' });
+      // The palette profiles, through the dev server: the two defaults (the folder was made on first use) and the import's.
+      const profiles = await call('GET', 'profiles', { to: p, headers: { host: `127.0.0.1:${p}` } });
+      expect(profiles.status).toBe(200);
+      expect(profiles.json().profiles.map((x: { name: string }) => x.name)).toEqual(['Built-in', 'Built-in with gradients', 'Comic hits']);
+      expect(readdirSync(palettesDir).sort()).toEqual(['built-in-with-gradients.json', 'built-in.json', 'comic-hits.json']);
 
       // A taken name, a read-only root and an unknown export are refused, and leave nothing behind.
       expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'projects', name: 'Hits back' }) })).status).toBe(409);

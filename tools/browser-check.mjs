@@ -8,11 +8,13 @@
 //    - the editor: opens the demo project, pauses at set times (never waits on a running animation), and saves
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets,
-//    Save as into projects/, Export and Import (everything made is deleted again after).
+//    Save as into projects/, Export and Import, and the palette profiles Import adds (everything made is deleted again
+//    after). Palette profiles go to a temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer } from 'vite';
@@ -48,6 +50,13 @@ const note = (name, detail) => { results.push({ name, pass: true, detail, note: 
 }
 
 // ---------------------------------------------------------------- 2. the dev server and the browser
+// Palette profiles (Import adds one) go to a temporary folder; the real palettes/ must stay as it is.
+const realPalettes = join(repo, 'palettes');
+const realPalettesBefore = existsSync(realPalettes) ? readdirSync(realPalettes).sort().join() : null;
+const checkTmp = mkdtempSync(join(tmpdir(), 'shamble-vfx-check-'));
+// Not made yet: the server makes it, with the two default profiles, the first time it is needed (here: at Import).
+const checkPalettes = join(checkTmp, 'palettes');
+process.env.VFX_PALETTES_DIR = checkPalettes;
 const server = await createServer({ root: join(repo, 'packages', 'vfx-editor'), configFile: join(repo, 'packages', 'vfx-editor', 'vite.config.ts'), logLevel: 'error', server: { port: 0, host: '127.0.0.1', open: false } });
 await server.listen();
 const base = server.resolvedUrls.local[0].replace(/\/$/, '');
@@ -556,6 +565,42 @@ if (webgpu) {
   const importedMeta = importDir && existsSync(join(importDir, 'project.json')) ? JSON.parse(readFileSync(join(importDir, 'project.json'), 'utf8')) : null;
   ok('Export writes editor.json version 2 with the budgets, and Import gives them back in project.json version 2', notes?.version === 2 && JSON.stringify(notes.budgets) === savedBudgets
     && importedMeta?.version === 2 && JSON.stringify(importedMeta.budgets) === savedBudgets, JSON.stringify({ editor: { version: notes?.version, budgets: notes?.budgets }, imported: { version: importedMeta?.version, budgets: importedMeta?.budgets } }));
+
+  // -- Import keeps the export's colours as a palette profile, named after the export's project (not the name typed for the
+  // new project), and the new project.json records it. The folder (made on first use) also got the two default profiles.
+  const profileFile = existsSync(checkPalettes) ? readdirSync(checkPalettes).find((f) => { try { return JSON.parse(readFileSync(join(checkPalettes, f), 'utf8')).name === name; } catch { return false; } }) : undefined;
+  const profileJson = profileFile ? JSON.parse(readFileSync(join(checkPalettes, profileFile), 'utf8')) : null;
+  ok('Import keeps the export\'s colours as a palette profile named after the export\'s project, and project.json records it',
+    imported.body?.profile?.name === name && imported.body.profile.added === true && importedMeta?.paletteProfile === name
+    && JSON.stringify(profileJson?.palette) === JSON.stringify(JSON.parse(readFileSync(join(exportDir, 'palette.json'), 'utf8'))),
+    JSON.stringify({ answer: imported.body?.profile, recorded: importedMeta?.paletteProfile, file: profileFile }));
+  const listed = await savedPage.page.evaluate(async () => {
+    const res = await fetch('/__vfx/api/profiles', { headers: { 'X-Shamble-VFX': '1' } });
+    return { status: res.status, body: await res.json() };
+  });
+  const listedNames = (listed.body?.profiles ?? []).map((x) => x.name);
+  ok('the palette profiles are listed through the editor\'s server: the two defaults and the imported one, with swatches',
+    listed.status === 200 && listedNames.includes('Built-in') && listedNames.includes('Built-in with gradients') && listedNames.includes(name)
+    && listed.body.profiles.every((x) => x.swatches.length === 8 && /^\d{4}-\d\d-\d\dT/.test(x.changed)), `${listed.status}: ${listedNames.join(', ')}`);
+
+  // -- Save as keeps the palette profile's name, and Export writes it into editor.json: on the imported project.
+  const againName = `${name}-again`;
+  const againDir = join(repo, 'projects', againName), againExport = join(repo, 'exports', againName);
+  const reopenedImported = importDir ? await savedPage.page.evaluate((id) => { window.confirm = () => true; return window.__vfx.app.openProject(id); }, imported.body.id) : false;
+  if (reopenedImported) {
+    await savedPage.page.click('.topbar >> text=Save as…');
+    await savedPage.page.fill('dialog input.text', againName);
+    await savedPage.page.click('dialog >> text=OK');
+    await savedPage.page.waitForFunction((n) => document.querySelector('.project-name')?.textContent?.includes(n) && !document.querySelector('.project-name')?.textContent?.includes('•'), againName, { timeout: 15000 }).catch(() => {});
+  }
+  const againMeta = existsSync(join(againDir, 'project.json')) ? JSON.parse(readFileSync(join(againDir, 'project.json'), 'utf8')) : null;
+  const againExported = againMeta ? await savedPage.page.evaluate(() => window.__vfx.app.exportNow()) : null;
+  const againNotes = existsSync(join(againExport, 'editor.json')) ? JSON.parse(readFileSync(join(againExport, 'editor.json'), 'utf8')) : null;
+  ok('Save as keeps the palette profile\'s name in project.json, and Export writes it into editor.json',
+    !!reopenedImported && againMeta?.name === againName && againMeta.paletteProfile === name && !!againExported?.ok && againNotes?.paletteProfile === name,
+    JSON.stringify({ opened: reopenedImported, saved: againMeta && { name: againMeta.name, paletteProfile: againMeta.paletteProfile }, exported: againExported?.ok, editor: againNotes?.paletteProfile }));
+  rmSync(againDir, { recursive: true, force: true });
+  rmSync(againExport, { recursive: true, force: true });
   await savedPage.page.close();
   if (importDir) rmSync(importDir, { recursive: true, force: true });
   rmSync(exportDir, { recursive: true, force: true });
@@ -726,6 +771,11 @@ if (webgpu) {
 
 await browser.close();
 await server.close();
+rmSync(checkTmp, { recursive: true, force: true });
+{
+  const after = existsSync(realPalettes) ? readdirSync(realPalettes).sort().join() : null;
+  ok('the real palettes/ folder is not touched (the check used a temporary one)', after === realPalettesBefore, realPalettesBefore === null ? (after === null ? 'not there, before or after' : 'made during the check') : 'compared its files');
+}
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.filter((r) => !r.note).length - failed.length} passed, ${failed.length} failed. Screenshots: out/screenshots/`);
 process.exit(failed.length ? 1 : 0);

@@ -6,24 +6,14 @@
  */
 import { resolveGradient, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { Gradient, GradientStop } from '@shamble/vfx-format';
+import { GRADIENT_PRESETS } from '../doc/gradient-presets';
+import type { GradientPreset as Preset } from '../doc/gradient-presets';
 import type { AppApi } from './api';
 import { ramp as makeRamp } from './colour';
 import { h, icon } from './dom';
 
-interface Preset { name: string; label: string; gradient: Omit<Gradient, 'from'> }
-
-/** Ready-made gradients, from roles so they follow the faction. Proposals, all drawable by the runtime. */
-export const GRADIENT_PRESETS: Preset[] = [
-  { name: 'glow.ramp', label: 'Radial ramp', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'glow.hot' }, { at: 0.45, role: 'glow', alpha: 0.9 }, { at: 1, role: 'glow', alpha: 0 }] } },
-  { name: 'glow.fade', label: 'Soft fade', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'glow' }, { at: 1, role: 'glow', alpha: 0 }] } },
-  { name: 'fire.core', label: 'Hot core', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'white' }, { at: 0.25, role: 'heat.3' }, { at: 0.6, role: 'heat.1', alpha: 0.85 }, { at: 1, role: 'heat.1', alpha: 0 }] } },
-  { name: 'fire.bands', label: 'Banding', gradient: { kind: 'banded', stops: [{ at: 0, role: 'heat.4' }, { at: 0.25, role: 'heat.3' }, { at: 0.5, role: 'heat.2' }, { at: 0.75, role: 'heat.1' }] } },
-  { name: 'team.duo', label: 'Duotone', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'glow.hot' }, { at: 1, role: 'team' }] } },
-  { name: 'team.tri', label: 'Tricolor', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'white' }, { at: 0.5, role: 'glow' }, { at: 1, role: 'team.dark' }] } },
-  { name: 'glow.rings', label: 'Landscape', gradient: { kind: 'banded', stops: [{ at: 0, role: 'white' }, { at: 0.35, role: 'glow.hot' }, { at: 0.7, role: 'glow', alpha: 0.7 }] } },
-  { name: 'fire.ember', label: 'Ember', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'heat.3' }, { at: 0.5, role: 'heat.dark', alpha: 0.9 }, { at: 1, role: 'heat.deep', alpha: 0 }] } },
-  { name: 'smoke.fade', label: 'Smoke', gradient: { kind: 'smooth', stops: [{ at: 0, role: 'smoke.light', alpha: 0.9 }, { at: 1, role: 'smoke', alpha: 0 }] } },
-];
+/** Ready-made gradients (src/doc/gradient-presets.ts, shared with the default palette profiles). */
+export { GRADIENT_PRESETS };
 
 const cssColour = (hex: string, alpha: number) => {
   const n = parseInt(hex.slice(1), 16);

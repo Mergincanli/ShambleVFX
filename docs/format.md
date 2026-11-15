@@ -192,7 +192,8 @@ Not part of an effect, but the editor keeps these next to the effects:
 ```
 
 - `name`: the project's name.
-- `paletteProfile` (optional): the name of the palette profile the project's colours came from.
+- `paletteProfile` (optional): the name of the palette profile the project's colours came from. An import sets it to the
+  profile the export's colours became ([colours.md](colours.md), Palette profiles).
 - `events`: effect id → the game events it answers.
 - `preview`: the scene each effect is shown in.
 - `budgets`: the cost budgets at three levels (the project's, classes, an effect's own), each off until switched on. Only
