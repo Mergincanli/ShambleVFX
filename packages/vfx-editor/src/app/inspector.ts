@@ -3,11 +3,17 @@
  * Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
  */
 import { MAIN_ROLE, PHASE_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
-import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, Vec3 } from '@shamble/vfx-format';
+import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import type { AppApi } from './api';
 import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
+import { specForm, structureOf } from './specform';
 
 interface Refresher { refresh(): void }
+
+/** The inspector rebuilds when the effect, the layer or the layer's structure (a part switched on, a tone added) changes. */
+function keyOf(fxId: string | undefined, layer: Layer | undefined): string {
+  return `${fxId}|${layer?.id}|${layer?.type}|${layer ? structureOf(layer) : ''}`;
+}
 
 const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
 
@@ -19,7 +25,7 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
   const rebuild = () => {
     const fx = app.effect();
     const layer = app.layer();
-    builtFor = `${fx?.id}|${layer?.id}|${layer?.type}`;
+    builtFor = keyOf(fx?.id, layer);
     parts = [];
     el.replaceChildren();
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
@@ -31,7 +37,7 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
   const refresh = () => {
     const fx = app.effect();
     const layer = app.layer();
-    if (`${fx?.id}|${layer?.id}|${layer?.type}` !== builtFor) { rebuild(); return; }
+    if (keyOf(fx?.id, layer) !== builtFor) { rebuild(); return; }
     for (const p of parts) p.refresh();
   };
   rebuild();
@@ -60,9 +66,18 @@ function bigControls(app: AppApi, parts: Refresher[]): HTMLElement {
     }));
   };
   drawSwatches();
-  parts.push({ refresh: () => { name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration); drawSwatches(); } });
+  const ph = () => app.effect()!.phases;
+  const phase = (key: 'windupMs' | 'peakMs' | 'fadeMs', label: string) => numberField({ label, value: ph()[key], step: 10, min: 0, unit: 'ms',
+    onChange: (v) => { app.editEffect(['phases', key], Math.max(0, Math.round(v)), { label: `${label} length` }); app.commit(); } });
+  const windup = phase('windupMs', 'Wind-up'), peak = phase('peakMs', 'Peak'), fadeF = phase('fadeMs', 'Fade');
+  parts.push({ refresh: () => {
+    name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration); drawSwatches();
+    windup.set(ph().windupMs); peak.set(ph().peakMs); fadeF.set(ph().fadeMs);
+  } });
   return h('section', { class: 'card bigcontrols' },
     h('h2', { text: 'Effect' }), name.el, size.el, intensity.el, duration.el,
+    h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'layers can start with a phase or last until one ends' })),
+      h('div', { class: 'fieldrow' }, windup.el, peak.el, fadeF.el)),
     h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), h('span', { class: 'hint', text: 'the main role; layers tinted "main" use it' })), swatches));
 }
 
@@ -77,6 +92,12 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElemen
   box.append(h('h2', { text: title }), name.el);
   if (layer.type === 'sprite') box.append(...spriteFields(app, parts));
   else if (layer.type === 'projectile') box.append(...projectileFields(app, parts));
+  else {
+    box.append(placeFields(app, parts));
+    if (layer.type === 'shape') box.append(fold(`Shape: ${layer.shape.kind}`, specForm(app, parts, ['shape'], layer.shape.kind, ['kind']), true));
+    else box.append(fold(layer.type === 'burst' ? 'Pieces' : 'Word', specForm(app, parts, [], layer.type, COMMON_KEYS), true));
+    box.append(fold('Seed', specForm(app, parts, [], 'seed', ALL_BUT_SEED(layer)), false));
+  }
   box.append(timeFields(app, parts));
   return box;
 }
@@ -243,22 +264,42 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
     onChange: (v) => { app.editLayer(['timing'], v === 'steps' ? { mode: 'steps', perSecond: 12 } : { mode: 'smooth' }, { label: 'Moves' }); app.commit(); } });
   const rate = numberField({ label: 'Steps a second', value: L().timing.mode === 'steps' ? (L().timing as { perSecond: number }).perSecond : 12, step: 1, min: 1, max: 60,
     onChange: (v) => { app.editLayer(['timing', 'perSecond'], Math.max(1, Math.min(60, Math.round(v))), { label: 'Steps a second' }); app.commit(); } });
-  const startOptions = () => [{ value: '', label: 'With the effect' }, ...app.effect()!.layers.filter((l) => l.type === 'projectile' && l.id !== L().id).map((l) => ({ value: l.id, label: `When "${l.name}" lands` }))];
-  const startOf = () => { const st = L().start; return isArrivalStart(st) ? st.arrivalOf : ''; };
-  const startSel = selectField({ label: 'Starts', options: startOptions(), value: startOf(),
-    onChange: (v) => { app.editLayer(['start'], v ? { arrivalOf: v, ms: L().start.ms } : { ms: L().start.ms }, { label: 'Starts' }); app.commit(); } });
+  // Starts: with the effect, with a phase, or when a projectile lands. The delay is kept when the choice changes.
+  const startOptions = () => [
+    { value: 'effect', label: 'With the effect' },
+    ...PHASE_NAMES.map((n) => ({ value: `phase:${n}`, label: `When the ${PHASE_LABEL[n].toLowerCase()} starts` })),
+    ...app.effect()!.layers.filter((l) => l.type === 'projectile' && l.id !== L().id).map((l) => ({ value: `land:${l.id}`, label: `When "${l.name}" lands` })),
+  ];
+  const startOf = () => { const st = L().start; return isArrivalStart(st) ? `land:${st.arrivalOf}` : 'phase' in st ? `phase:${st.phase}` : 'effect'; };
+  const startSel = selectField({ label: 'Starts', options: startOptions(), value: startOf(), onChange: (v) => {
+    const ms = L().start.ms;
+    const [k, id] = v.split(':') as [string, string | undefined];
+    const next = k === 'land' ? { arrivalOf: id!, ms } : k === 'phase' ? { phase: id as PhaseName, ms } : { ms };
+    app.editLayer(['start'], next, { label: 'Starts' }); app.commit();
+  } });
   const delay = numberField({ label: 'Delay', value: L().start.ms, step: 10, min: 0, unit: 'ms', onChange: (v) => { app.editLayer(['start', 'ms'], Math.max(0, v), { label: 'Delay' }); app.commit(); } });
-  const autoDur = checkField({ label: 'Automatic length', value: L().type === 'sprite' && (L() as SpriteLayer).durationMs === undefined,
-    onChange: (v) => { app.editLayer(['durationMs'], v ? undefined : Math.round(spanMs(app) || 250), { label: 'Length' }); app.commit(); } });
+  // Lasts: automatically, a fixed time, or until a phase ends (visible layers; a projectile lasts its flight).
+  const lastOptions = [{ value: 'auto', label: 'Automatically' }, { value: 'fixed', label: 'A fixed time' },
+    ...PHASE_NAMES.map((n) => ({ value: `until:${n}`, label: `Until the ${PHASE_LABEL[n].toLowerCase()} ends` }))];
+  const lastOf = () => { const l = L() as VisibleLayer; return l.durationMs !== undefined ? 'fixed' : l.untilPhaseEnd ? `until:${l.untilPhaseEnd}` : 'auto'; };
+  const lastSel = selectField({ label: 'Lasts', options: lastOptions, value: lastOf(), onChange: (v) => {
+    const l = L() as VisibleLayer;
+    const next: VisibleLayer = { ...l };
+    delete next.durationMs;
+    delete next.untilPhaseEnd;
+    if (v === 'fixed') next.durationMs = Math.round(spanMs(app) || 250);
+    else if (v.startsWith('until:')) next.untilPhaseEnd = v.slice(6) as PhaseName;
+    app.replaceLayer(next, 'Lasts'); app.commit();
+  } });
   const dur = numberField({ label: 'Length', value: (L() as SpriteLayer).durationMs ?? 0, step: 10, min: 1, unit: 'ms',
     onChange: (v) => { app.editLayer(['durationMs'], Math.max(1, v), { label: 'Length' }); app.commit(); } });
   const span = h('p', { class: 'readout' });
   const show = () => {
     const l = L();
     rate.el.style.display = l.timing.mode === 'steps' ? '' : 'none';
-    const isSprite = l.type === 'sprite';
-    autoDur.el.style.display = isSprite ? '' : 'none';
-    dur.el.style.display = isSprite && (l as SpriteLayer).durationMs !== undefined ? '' : 'none';
+    const visible = l.type !== 'projectile';
+    lastSel.el.style.display = visible ? '' : 'none';
+    dur.el.style.display = visible && (l as VisibleLayer).durationMs !== undefined ? '' : 'none';
     const s = app.timeline()?.byId.get(l.id);
     span.textContent = s ? `Shows from ${s.startMs.toFixed(0)} to ${s.endMs.toFixed(0)} ms (with the current target).` : '';
   };
@@ -266,12 +307,50 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
   parts.push({ refresh: () => {
     const l = L();
     mode.set(l.timing.mode); rate.set(l.timing.mode === 'steps' ? l.timing.perSecond : 12);
-    startSel.setOptions(startOptions()); startSel.set(isArrivalStart(l.start) ? l.start.arrivalOf : ''); delay.set(l.start.ms);
-    if (l.type === 'sprite') { autoDur.set(l.durationMs === undefined); dur.set(l.durationMs ?? 0); }
+    startSel.setOptions(startOptions()); startSel.set(startOf()); delay.set(l.start.ms);
+    if (l.type !== 'projectile') { lastSel.set(lastOf()); dur.set(l.durationMs ?? 0); }
     show();
   } });
-  return fold('Time', [mode.el, rate.el, startSel.el, delay.el, autoDur.el, dur.el, span], true);
+  return fold('Time', [mode.el, rate.el, startSel.el, delay.el, lastSel.el, dur.el, span], true);
 }
+
+/** Where a shape, burst or word sits, which way it faces, how it mixes, and a nudge in its own plane. */
+function placeFields(app: AppApi, parts: Refresher[]): HTMLElement {
+  const V = () => app.layer() as VisibleLayer;
+  const anchorOptions = () => [
+    { value: 'input:origin', label: 'The origin (muzzle)' },
+    { value: 'input:target', label: 'The target' },
+    ...app.effect()!.layers.filter((l) => l.type === 'projectile').map((l) => ({ value: `layer:${l.id}`, label: `Rides "${l.name}"` })),
+  ];
+  const anchorValue = () => { const a = V().at; return isInputAnchor(a) ? `input:${a.input}` : `layer:${a.layer}`; };
+  const anchor = selectField({ label: 'Sits on', options: anchorOptions(), value: anchorValue(), onChange: (v) => {
+    const [kind, id] = v.split(':') as [string, string];
+    const l = V();
+    app.editLayer(['at'], kind === 'input' ? { input: id, offset: isInputAnchor(l.at) ? l.at.offset : [0, 0, 0] } : { layer: id }, { label: 'Sits on' }); app.commit();
+  } });
+  const offset = offsetFields(app, () => (isInputAnchor(V().at) ? (V().at as InputAnchor).offset : null), (o) => app.editLayer(['at', 'offset'], o, { label: 'Offset' }));
+  const facing = selectField({ label: 'Faces', value: V().facing, options: [{ value: 'camera', label: 'The camera' }, { value: 'path', label: 'Along the path' },
+    { value: 'ground', label: 'Flat on the ground' }, { value: 'upright', label: 'Upright (true heights)' }],
+    onChange: (v) => { app.editLayer(['facing'], v, { label: 'Faces' }); app.commit(); } });
+  const blend = selectField({ label: 'Mixes', value: V().blend, options: [{ value: 'normal', label: 'Normal' }, { value: 'add', label: 'Adds light' },
+    { value: 'screen', label: 'Lightens the ground (screen)' }, { value: 'multiply', label: 'Darkens the ground (multiply)' }],
+    onChange: (v) => { app.editLayer(['blend'], v, { label: 'Mixes' }); app.commit(); } });
+  const sx = numberField({ label: 'Nudge right', value: V().shiftM?.[0] ?? 0, step: 0.05, unit: 'm', onChange: (v) => { app.editLayer(['shiftM'], [v, V().shiftM?.[1] ?? 0], { label: 'Nudge' }); app.commit(); } });
+  const sy = numberField({ label: 'Nudge up', value: V().shiftM?.[1] ?? 0, step: 0.05, unit: 'm', onChange: (v) => { app.editLayer(['shiftM'], [V().shiftM?.[0] ?? 0, v], { label: 'Nudge' }); app.commit(); } });
+  const lift = numberField({ label: 'Lift off the ground', value: V().liftM ?? 0, step: 0.05, min: 0, unit: 'm',
+    onChange: (v) => { app.editLayer(['liftM'], v > 0 ? v : undefined, { label: 'Lift' }); app.commit(); } });
+  parts.push({ refresh: () => {
+    const l = V();
+    anchor.setOptions(anchorOptions()); anchor.set(anchorValue()); offset.refresh(); facing.set(l.facing); blend.set(l.blend);
+    sx.set(l.shiftM?.[0] ?? 0); sy.set(l.shiftM?.[1] ?? 0); lift.set(l.liftM ?? 0); lift.el.style.display = l.facing === 'ground' ? '' : 'none';
+  } });
+  lift.el.style.display = V().facing === 'ground' ? '' : 'none';
+  return fold('Place', [anchor.el, offset.el, facing.el, blend.el, h('div', { class: 'fieldrow' }, sx.el, sy.el), lift.el], true);
+}
+
+/** Fields every visible layer has, edited elsewhere (Place, Time), so the generated form leaves them out. */
+const COMMON_KEYS = ['id', 'name', 'type', 'start', 'timing', 'at', 'facing', 'blend', 'durationMs', 'untilPhaseEnd', 'scale', 'alpha', 'shiftM', 'liftM', 'seed', 'perPlay'];
+const ALL_BUT_SEED = (l: Layer) => Object.keys(l).filter((k) => k !== 'seed' && k !== 'perPlay');
 
 function offsetFields(app: AppApi, get: () => Vec3 | null, set: (o: Vec3) => void): { el: HTMLElement; refresh(): void } {
   const axis = (i: 0 | 1 | 2, label: string) => numberField({ label, value: get()?.[i] ?? 0, step: 0.05, unit: 'm', onChange: (v) => {

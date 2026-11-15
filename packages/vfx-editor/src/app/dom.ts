@@ -117,7 +117,9 @@ export function fold(title: string, children: Child[], openByDefault = false): H
   return d;
 }
 
-export function icon(name: 'play' | 'pause' | 'fire' | 'undo' | 'redo' | 'loop' | 'step-back' | 'step-fwd' | 'sprite' | 'projectile' | 'plus' | 'up' | 'down' | 'copy' | 'trash'): SVGSVGElement {
+export type IconName = 'play' | 'pause' | 'fire' | 'undo' | 'redo' | 'loop' | 'step-back' | 'step-fwd' | 'sprite' | 'projectile' | 'shape' | 'burst' | 'word' | 'plus' | 'up' | 'down' | 'copy' | 'trash';
+
+export function icon(name: IconName): SVGSVGElement {
   const paths: Record<string, string> = {
     play: 'M6 4l14 8-14 8z',
     pause: 'M6 4h4v16H6zM14 4h4v16h-4z',
@@ -129,6 +131,9 @@ export function icon(name: 'play' | 'pause' | 'fire' | 'undo' | 'redo' | 'loop' 
     'step-fwd': 'M6 5v14l9-7zM16 5h2v14h-2z',
     sprite: 'M4 4h16v16H4zM4 15l5-5 4 4 3-3 4 4',
     projectile: 'M3 17L17 3M17 3h-6M17 3v6M6 21l3-3',
+    shape: 'M12 2l2.6 6.4L21 9l-5 4.4L17.6 21 12 17.4 6.4 21 8 13.4 3 9l6.4-.6z',
+    burst: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8',
+    word: 'M4 6h16M12 6v13M8 19h8',
     plus: 'M12 4v16M4 12h16',
     up: 'M12 5l7 8H5z',
     down: 'M12 19l7-8H5z',

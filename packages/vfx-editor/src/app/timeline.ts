@@ -5,6 +5,8 @@
 import type { AppApi } from './api';
 import { h, icon } from './dom';
 
+const PHASE_TEXT = { windup: 'wind-up', peak: 'peak', fade: 'fade' } as const;
+
 export interface TimelineView {
   el: HTMLElement;
   refresh(): void;
@@ -13,9 +15,10 @@ export interface TimelineView {
 
 export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) => void): TimelineView {
   const ruler = h('div', { class: 'tl-ruler' });
+  const phases = h('div', { class: 'tl-phases' });
   const rows = h('div', { class: 'tl-rows' });
   const head = h('div', { class: 'tl-head' });
-  const track = h('div', { class: 'tl-track' }, ruler, rows, head);
+  const track = h('div', { class: 'tl-track' }, ruler, phases, rows, head);
   const el = h('div', { class: 'timeline', attrs: { 'aria-label': 'Timeline' } }, track);
   let span = 1000;
 
@@ -41,6 +44,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
     const tl = app.timeline();
     rows.replaceChildren();
     ruler.replaceChildren();
+    phases.replaceChildren();
     if (!fx || !tl) return;
     span = Math.max(400, Math.ceil((tl.lengthMs * 1.08) / 100) * 100);
     // Ruler: a label every 100 ms (every 200 when long), a small mark every 1/12 s step.
@@ -52,6 +56,15 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
       ruler.append(h('div', { class: 'tl-step', style: `left:${(t / span) * 100}%` }));
     }
     ruler.append(h('div', { class: 'tl-unit', text: 'ms' }));
+    // The phases: wind-up, peak, fade, as one strip under the ruler.
+    const total = tl.phases.fade.endMs;
+    phases.style.display = total > 0 ? '' : 'none';
+    for (const p of [tl.phases.windup, tl.phases.peak, tl.phases.fade]) {
+      const len = p.endMs - p.startMs;
+      if (len <= 0) continue;
+      phases.append(h('div', { class: `tl-phase ${p.name}`, style: `left:${(p.startMs / span) * 100}%;width:${(len / span) * 100}%`,
+        title: `${PHASE_TEXT[p.name]}: ${p.startMs.toFixed(0)}–${p.endMs.toFixed(0)} ms` }, h('span', { text: PHASE_TEXT[p.name] })));
+    }
     const sel = app.layer()?.id;
     // Top of the drawing order first, as in the layers list.
     [...fx.layers].reverse().forEach((l) => {
@@ -67,7 +80,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
         bar.title += ` · ${l.timing.perSecond} steps a second`;
       } else bar.title += ' · smooth';
       const name = h('button', { class: 'tl-name', attrs: { type: 'button', 'aria-pressed': String(l.id === sel) }, on: { click: () => app.selectLayer(l.id) } },
-        icon(l.type === 'projectile' ? 'projectile' : 'sprite'), h('span', { text: l.name }));
+        icon(l.type), h('span', { text: l.name }));
       rows.append(h('div', { class: l.id === sel ? 'tl-row sel' : 'tl-row' }, name, h('div', { class: 'tl-lane' }, bar)));
     });
   };

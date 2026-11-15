@@ -180,6 +180,40 @@ if (webgpu) {
   const redone = await p.evaluate(() => window.__vfx.app.effect().controls.size);
   ok('redo', redone === 2, `after redo ${redone}`);
 
+  // -- the new layer types: a generated field, the add menu, a phase start, a preset
+  const L = (id) => p.evaluate((id) => window.__vfx.app.effect().layers.find((l) => l.id === id), id);
+  await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_shell'); a.selectLayer('burst'); });
+  await p.waitForTimeout(150);
+  const radius = p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Radius$/ }) }).locator('input').first();
+  await radius.fill('1.5');
+  await radius.press('Enter');
+  await p.locator('.timeline').click({ position: { x: 60, y: 8 } });
+  const r1 = (await L('burst')).shape.radiusM;
+  await p.keyboard.press('Control+z');
+  const r0 = (await L('burst')).shape.radiusM;
+  ok('a shape\'s generated field edits the effect, and undo puts it back', r1 === 1.5 && r0 === 1.1, `radius ${r1}, after undo ${r0}`);
+  const before = (await p.evaluate(() => window.__vfx.app.effect().layers.length));
+  await p.selectOption('select.add-layer', 'shape:cloud');
+  await p.waitForTimeout(150);
+  const added = await p.evaluate(() => { const a = window.__vfx.app; return { n: a.effect().layers.length, sel: a.layer()?.type, kind: a.layer()?.shape?.kind }; });
+  ok('the add menu adds a shape layer and selects it', added.n === before + 1 && added.sel === 'shape' && added.kind === 'cloud', JSON.stringify(added));
+  const starts = p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Starts$/ }) }).locator('select');
+  await starts.selectOption('phase:peak');
+  const st0 = (await p.evaluate(() => window.__vfx.app.layer().start));
+  await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Delay$/ }) }).locator('input').fill('40');
+  await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Delay$/ }) }).locator('input').press('Enter');
+  const st1 = (await p.evaluate(() => window.__vfx.app.layer().start));
+  ok('a layer can start with a phase, and keeps it when its delay changes', st0.phase === 'peak' && st1.phase === 'peak' && st1.ms === 40, `${JSON.stringify(st0)} then ${JSON.stringify(st1)}`);
+  await p.keyboard.press('Control+z'); await p.keyboard.press('Control+z'); await p.keyboard.press('Control+z');
+  await p.click('text=From preset…');
+  await p.waitForSelector('dialog[open] >> text=Heavy: big blast', { timeout: 15000 });
+  const nFx = (await st()).effects.length;
+  await p.click('dialog[open] >> text=Heavy: big blast');
+  await p.waitForTimeout(200);
+  const after2 = await p.evaluate(() => { const a = window.__vfx.app; return { n: a.debugState().effects.length, id: a.effect()?.id, scene: a.previewForChecks.scene.id }; });
+  ok('New from preset copies a ready-made effect in, with its scene', after2.n === nFx + 1 && after2.id === 'hit_heavy_blast' && after2.scene === 'hit-ground', JSON.stringify(after2));
+  await p.keyboard.press('Control+z');
+
   // -- the transport, on the tank shell (about 1 s long)
   await p.click('text=Tank shell flight (demo)');
   await p.click('.transport .play');

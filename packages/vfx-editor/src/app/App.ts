@@ -3,8 +3,8 @@
  * timeline under it), and one panel on the right. Effects play through vfx-runtime, the code the game ships.
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { FACTION_IDS, newEffect } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Layer, Palette, Vec3 } from '@shamble/vfx-format';
+import { FACTION_IDS, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Layer, Palette, ShapeKind, ShapeLayer, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
@@ -12,7 +12,7 @@ import type { Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
 import type { AtlasImage } from '../atlas/pack';
 import {
-  addEffect, addLayer, duplicateLayer, effectById, freeEffectId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
+  addEffect, addLayer, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
   replaceLayer as replaceLayerIn, setEffectValue, setLayerValue,
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
@@ -31,6 +31,11 @@ const palette = paletteJson as Palette;
 const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
+const SHAPE_KINDS: ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
+const SHAPE_TEXT: Record<ShapeKind, string> = {
+  shards: 'star of shards', flash: 'muzzle flash', cloud: 'cloud blast', smoke: 'smoke', ring: 'ring', dots: 'halftone dots', scorch: 'scorch mark',
+  lines: 'speed lines', glow: 'glow', trail: 'trail behind a projectile', band: 'beam', beads: 'beads along a beam', flames: 'flame tongues', bed: 'fire bed',
+};
 
 export class App implements AppApi {
   readonly palette = palette;
@@ -224,13 +229,21 @@ export class App implements AppApi {
 
     const effects = h('div', { class: 'list effects-list' });
     const layers = h('div', { class: 'list layers-list' });
+    const addMenu = h('select', { class: 'add-layer', attrs: { 'aria-label': 'Add a layer', title: 'Add a layer' } },
+      h('option', { attrs: { value: '' }, text: '＋ Add…' }),
+      h('option', { attrs: { value: 'sprite' }, text: 'Sprite (an image)' }),
+      h('option', { attrs: { value: 'projectile' }, text: 'Projectile (a path in flight)' }),
+      ...SHAPE_KINDS.map((k) => h('option', { attrs: { value: `shape:${k}` }, text: `Shape: ${SHAPE_TEXT[k]}` })),
+      h('option', { attrs: { value: 'burst' }, text: 'Burst (pieces thrown out)' }),
+      h('option', { attrs: { value: 'word' }, text: 'Word (a comic sound)' }));
+    addMenu.addEventListener('change', () => { const v = addMenu.value; addMenu.value = ''; if (v) this.addLayer(v); });
     const left = h('aside', { class: 'left' },
       h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
-        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'New effect', on: { click: () => this.newEffect() } }, icon('plus'), 'New')), effects),
+        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'New effect', on: { click: () => this.newEffect() } }, icon('plus'), 'New'),
+        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'A copy of a ready-made effect: the drawing board\'s four, and the comic hits', on: { click: () => void this.presetDialog() } }, 'From preset…')), effects),
       h('section', { class: 'card grow' }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
         h('div', { class: 'layer-tools' },
-          h('button', { class: 'mini', attrs: { type: 'button' }, title: 'Add a sprite layer', on: { click: () => this.addLayer('sprite') } }, icon('sprite'), 'Sprite'),
-          h('button', { class: 'mini', attrs: { type: 'button' }, title: 'Add a projectile layer', on: { click: () => this.addLayer('projectile') } }, icon('projectile'), 'Projectile')),
+          addMenu),
         layers,
         h('div', { class: 'layer-tools' },
           h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move up' }, title: 'Move up (draws over more)', on: { click: () => this.moveSelected(1) } }, icon('up')),
@@ -311,6 +324,10 @@ export class App implements AppApi {
     this.selEffect = effects[0]?.id ?? null;
     this.selLayer = null;
     this.mainTime = 0;
+    // Show the first effect in the scene it remembers.
+    const scene = this.sceneOf(this.selEffect);
+    if (this.preview && this.preview.scene.id !== scene) { this.preview.setScene(scene); this.distanceBox?.set(this.preview.viewerDistanceM); }
+    this.sceneCtl?.set(scene);
     this.renderAll();
     this.say(bad.length ? `Opened ${contents.name}, with problems: ${bad.join(' | ')}` : `Opened ${contents.name}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0);
     return true;
@@ -423,6 +440,43 @@ export class App implements AppApi {
     }
   }
 
+  /** Ready-made effects: every effect in the example projects. Picking one copies it into this project. */
+  private async presetDialog(): Promise<void> {
+    if (!this.project) return;
+    let listing;
+    try { listing = await this.store.list(); } catch (e) { this.say((e as Error).message, true); return; }
+    const d = this.els.dialog;
+    const groups: HTMLElement[] = [];
+    for (const p of listing.projects.filter((x) => !x.writable)) {
+      let contents: ProjectContents;
+      try { contents = await this.store.open(p.id); } catch { continue; }
+      let scenes: Record<string, { scene?: string }> = {};
+      try { scenes = ((await readJson(this.store, p.id, 'project.json')) as { preview?: typeof scenes }).preview ?? {}; } catch { /* no scenes */ }
+      const items: HTMLElement[] = [];
+      for (const file of contents.effects) {
+        let fx: EffectFile | undefined;
+        try { fx = checkEffect(await readJson(this.store, p.id, `effects/${file}`), { palette }).effect; } catch { fx = undefined; }
+        if (!fx) continue;
+        const preset = fx, scene = scenes[fx.id]?.scene;
+        items.push(h('li', {}, h('button', { class: 'linkish', attrs: { type: 'button' }, text: fx.name, on: { click: () => { d.close(); this.addFromPreset(preset, scene); } } }),
+          h('span', { class: 'hint', text: ` ${fx.layers.length} layers` })));
+      }
+      if (items.length) groups.push(h('h3', { text: p.name }), h('ul', { class: 'plist' }, ...items));
+    }
+    d.replaceChildren(h('h2', { text: 'New from preset' }), h('p', { class: 'hint', text: 'A copy goes into this project; the preset itself stays as it is.' }), ...groups,
+      h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
+    d.showModal();
+  }
+
+  private addFromPreset(preset: EffectFile, scene?: string): void {
+    const id = freeEffectId(this.history.doc, preset.id);
+    const fx: EffectFile = { ...structuredClone(preset), id, name: id === preset.id ? preset.name : `${preset.name} (copy)` };
+    this.history.apply('New from preset', addEffect(this.history.doc, fx));
+    if (scene && SCENES.some((x) => x.id === scene)) { this.previewScenes[id] = scene; this.metaDirty = true; }
+    this.selectEffect(id);
+    this.say(`Added "${fx.name}" from the presets.`);
+  }
+
   private async projectsDialog(): Promise<void> {
     let listing;
     try { listing = await this.store.list(); } catch (e) { this.say((e as Error).message, true); return; }
@@ -493,12 +547,28 @@ export class App implements AppApi {
     this.selectEffect(id);
   }
 
-  private addLayer(kind: 'sprite' | 'projectile'): void {
+  /** Add a layer: 'sprite', 'projectile', 'shape:<kind>', 'burst' or 'word'. */
+  private addLayer(kind: string): void {
     const fx = this.effect();
     if (!fx) return;
     const image = this.imageNames().find((n) => n !== 'white.png') ?? this.imageNames()[0] ?? 'white.png';
-    const layer = kind === 'sprite' ? newSprite(fx, image) : newProjectile(fx);
-    this.history.apply(kind === 'sprite' ? 'Add sprite' : 'Add projectile', addLayer(this.history.doc, fx.id, layer, this.selLayer ?? undefined));
+    let layer: Layer;
+    if (kind === 'sprite') layer = newSprite(fx, image);
+    else if (kind === 'projectile') layer = newProjectile(fx);
+    else if (kind.startsWith('shape:')) {
+      const k = kind.slice(6) as ShapeKind;
+      const id = freeLayerId(fx, k);
+      layer = newShapeLayer(id, SHAPE_TEXT[k].replace(/^./, (c) => c.toUpperCase()), k);
+      // A trail rides a projectile: on the newest one, or a new one made for it.
+      if (k === 'trail') {
+        let p: Layer | undefined = [...fx.layers].reverse().find((l) => l.type === 'projectile');
+        if (!p) { p = newProjectile(fx); this.history.apply('Add projectile', addLayer(this.history.doc, fx.id, p, this.selLayer ?? undefined)); }
+        layer = { ...(layer as ShapeLayer), at: { layer: p.id } };
+        delete (layer as Partial<ShapeLayer>).durationMs;
+      }
+    } else if (kind === 'burst') layer = newBurstLayer(freeLayerId(fx, 'burst'), 'Burst');
+    else layer = newWordLayer(freeLayerId(fx, 'word'), 'Word');
+    this.history.apply(`Add ${layer.type}`, addLayer(this.history.doc, fx.id, layer, this.selLayer ?? undefined));
     this.selectLayer(layer.id);
   }
 
@@ -662,7 +732,7 @@ export class App implements AppApi {
     // Shown top of the drawing order first.
     list.replaceChildren(...[...fx.layers].reverse().map((l) => h('button', {
       class: l.id === this.selLayer ? 'item layer-item sel' : 'item layer-item', attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
-    }, icon(l.type === 'projectile' ? 'projectile' : 'sprite'), h('span', { text: l.name }), h('code', { text: layerTag(l) }))));
+    }, icon(l.type), h('span', { text: l.name }), h('code', { text: layerTag(l) }))));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }
 
