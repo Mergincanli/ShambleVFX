@@ -13,7 +13,7 @@ import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
 
-export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier' | 'export';
+export type ProblemKind = 'format' | 'version' | 'schema' | 'colour' | 'role' | 'gradient' | 'image' | 'link' | 'duration' | 'id' | 'letters' | 'phase' | 'place' | 'tier' | 'export';
 
 export interface Problem {
   kind: ProblemKind;
@@ -214,6 +214,9 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
       const found: { path: string; role: string }[] = [];
       rolesIn(l, ['layers', i], found);
       for (const r of found) if (r.role !== MAIN_ROLE && !known.has(r.role)) err('role', r.path, `"${r.role}" is not a role in the palette`);
+      if (l.type === 'shape' && l.shape.kind === 'glow' && l.shape.gradient && !opts.palette!.gradients?.[l.shape.gradient]) {
+        err('gradient', `layers[${i}].shape.gradient`, `"${l.shape.gradient}" is not a gradient in the palette`);
+      }
     });
   }
 

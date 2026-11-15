@@ -7,7 +7,7 @@
  *   vfx.palette = fx.palette;  vfx.setAtlas(fx.atlas);
  *   player.start(fx.effectFor('rifle.shot')!.id, { ... });   // then vfx.drawPlaying(player, now, fx.lookup)
  */
-import { EXPORT_FORMAT, EXPORT_VERSION, FORMAT_ID, FORMAT_VERSION } from '@shamble/vfx-format';
+import { EXPORT_FORMAT, EXPORT_VERSION, FORMAT_ID, FORMAT_VERSION, upgradePalette } from '@shamble/vfx-format';
 import type { AtlasMap, EffectFile, ExportManifest, Palette } from '@shamble/vfx-format';
 import type { Atlas } from './three/atlas';
 
@@ -86,8 +86,8 @@ export async function loadExport(folderUrl: string | URL, opts: LoadOptions = {}
   const manifest = m as ExportManifest;
 
   // The palette, the effects and the atlas map, all at once.
-  const [palette, map, ...files] = await Promise.all([
-    json(manifest.palette) as Promise<Palette>,
+  const [paletteRaw, map, ...files] = await Promise.all([
+    json(manifest.palette),
     json(manifest.atlas.map) as Promise<AtlasMap>,
     ...manifest.effects.map((e) => json(e.file)),
   ]);
@@ -99,7 +99,8 @@ export async function loadExport(folderUrl: string | URL, opts: LoadOptions = {}
     if (fx.id !== e.id) throw new VfxLoadError(`${url(e.file)} holds the effect "${String(fx.id)}", but the manifest says "${e.id}"`);
     effects.set(e.id, fx as EffectFile);
   });
-  if (!palette || typeof palette !== 'object' || !('roles' in palette)) throw new VfxLoadError(`${url(manifest.palette)} is not a palette`);
+  if (!paletteRaw || typeof paletteRaw !== 'object' || !('roles' in paletteRaw)) throw new VfxLoadError(`${url(manifest.palette)} is not a palette`);
+  const palette: Palette = upgradePalette(paletteRaw);
   if (!map || map.width !== manifest.atlas.width || map.height !== manifest.atlas.height || !map.rects) {
     throw new VfxLoadError(`${url(manifest.atlas.map)} does not match the manifest's atlas size`);
   }

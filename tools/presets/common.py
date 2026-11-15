@@ -57,7 +57,7 @@ def apply_tiers(fx, low_drop=(), medium_drop=(), only=None):
     return fx
 
 def effect(id, name, phases, layers, colour="heat.1"):
-    return {"format": "shamble-vfx", "version": 3, "id": id, "name": name,
+    return {"format": "shamble-vfx", "version": 4, "id": id, "name": name,
             "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": colour},
             "phases": {"windupMs": phases[0], "peakMs": phases[1], "fadeMs": phases[2]}, "layers": layers}
 

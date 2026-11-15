@@ -10,7 +10,7 @@ import { promises as fs } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { FORMAT_VERSION, checkPalette } from '@shamble/vfx-format';
+import { FORMAT_VERSION, checkPalette, upgradePalette } from '@shamble/vfx-format';
 import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { checkEffect, checkEvents, checkExport, EXPORT_FORMAT, EXPORT_VERSION, problemLines } from '@shamble/vfx-format/validate';
 import type { AtlasMap, ExportManifest } from '@shamble/vfx-format/validate';
@@ -117,9 +117,10 @@ export async function exportProject(projectDir: string, outDir: string): Promise
   const own = await readJsonFile(join(projectDir, 'palette.json')).catch((e: NodeJS.ErrnoException) => (e.code === 'ENOENT' ? undefined : e));
   if (own instanceof Error) errors.push(`palette.json: is not readable JSON (${own.message})`);
   else if (own !== undefined) {
-    const wrong = checkPalette(own as Palette);
+    const upgraded = upgradePalette(own);
+    const wrong = checkPalette(upgraded);
     if (wrong.length) errors.push(...wrong.map((w) => `palette.json: ${w}`));
-    else palette = own as Palette;
+    else palette = upgraded;
   }
 
   // Read and check every effect (upgraded to the current version).
@@ -219,7 +220,7 @@ export async function readExport(dir: string) {
     } catch { /* reported as missing */ }
   }
   const atlas = await readJsonFile(join(dir, manifest?.atlas?.map ?? 'atlas.json')).catch(() => undefined);
-  const pal = (await readJsonFile(join(dir, manifest?.palette ?? 'palette.json')).catch(() => builtInPalette)) as Palette;
+  const pal = upgradePalette(await readJsonFile(join(dir, manifest?.palette ?? 'palette.json')).catch(() => builtInPalette));
   const check = checkExport({ manifest, atlas, files, palette: pal });
   return { manifest, atlas: atlas as AtlasMap | undefined, files, texts, check, palette: pal };
 }

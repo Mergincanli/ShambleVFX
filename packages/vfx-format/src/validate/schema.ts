@@ -154,6 +154,7 @@ const shapeSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('glow'), radiusM: pos().max(100), role: roleSchema, alpha: unit, soft: z.boolean(), grow: z.tuple([num.min(0).max(10), num.min(0).max(10)]), flicker: num.min(0).max(2),
+    gradient: z.string().regex(/^[a-z][a-z0-9]*(\.[a-z0-9]+)*$/, { error: 'must be a gradient name such as glow.ramp' }).optional(),
   }),
   z.strictObject({
     kind: z.literal('trail'), length: unit, widthPx: z.tuple([px, px]), role: roleSchema,

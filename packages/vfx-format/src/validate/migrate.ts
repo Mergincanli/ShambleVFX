@@ -45,7 +45,15 @@ function v2to3(doc: Obj): Obj {
 }
 
 /** Version n -> n + 1. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3 };
+/**
+ * Version 3 -> 4: a glow may take its colours from a gradient in the palette ("gradient", optional). Nothing in a
+ * version 3 file changes; the number goes up so an older runtime refuses an effect it could not draw.
+ */
+function v3to4(doc: Obj): Obj {
+  return { ...doc, version: 4 };
+}
+
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3, 3: v3to4 };
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; from: number; steps: number }

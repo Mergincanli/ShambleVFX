@@ -14,19 +14,69 @@ export interface PaletteEntry {
   note?: string;
 }
 
+/** One colour of a gradient: where it sits (0 = the middle or start, 1 = the rim or end), a role or a hex, and how solid it is. */
+export interface GradientStop {
+  at: number;
+  role?: string;
+  hex?: string;
+  /** 0 = see-through, 1 = solid (the default). */
+  alpha?: number;
+}
+
+/**
+ * A gradient: colours along one line, from 0 to 1. "smooth" blends from stop to stop; "banded" holds each stop's colour
+ * until the next one (hard steps, as comic shading does). What the line is depends on the layer: a glow runs it from its
+ * middle to its rim. Stops naming a role follow the faction, as the role does.
+ */
+export interface Gradient {
+  kind: 'smooth' | 'banded';
+  stops: GradientStop[];
+  from: PaletteSource;
+  note?: string;
+}
+
+/** The palette file's own version. 2 added gradients. */
+export const PALETTE_VERSION = 2 as const;
+
 export interface Palette {
-  version: 1;
+  version: typeof PALETTE_VERSION;
   about?: string;
   factions: Record<FactionId, { name: string; roles: Record<string, PaletteEntry> }>;
   roles: Record<string, PaletteEntry>;
+  /** Named gradients (palette version 2). */
+  gradients: Record<string, Gradient>;
 }
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
+/** A gradient's name, like a role's: lowercase words joined by dots, such as glow.ramp. */
+export const GRADIENT_NAME = /^[a-z][a-z0-9]*(\.[a-z0-9]+)*$/;
+
+/**
+ * Any palette file as the current version: version 1 had no gradients, so it gets an empty list. Anything that is not
+ * a palette comes back unchanged, for checkPalette to name.
+ */
+export function upgradePalette(raw: unknown): Palette {
+  if (!raw || typeof raw !== 'object') return raw as Palette;
+  const p = raw as Record<string, unknown>;
+  if (p.version === 1) return { ...(p as object), version: PALETTE_VERSION, gradients: {} } as Palette;
+  if (p.version === PALETTE_VERSION && !p.gradients) return { ...(p as object), gradients: {} } as Palette;
+  return raw as Palette;
+}
+
+/** A gradient's stops as hex colours for a faction, sorted by place. Undefined for an unknown gradient. */
+export function resolveGradient(palette: Palette, name: string, faction: FactionId): { kind: Gradient['kind']; stops: { at: number; hex: string; alpha: number }[] } | undefined {
+  const g = palette.gradients?.[name];
+  if (!g) return undefined;
+  const stops = g.stops
+    .map((s) => ({ at: s.at, hex: (s.role ? resolveRole(palette, s.role, faction) : s.hex) ?? '#FFFFFF', alpha: s.alpha ?? 1 }))
+    .sort((a, b) => a.at - b.at);
+  return { kind: g.kind, stops };
+}
 
 /** Every role an effect file may name (shared roles and faction roles), sorted. */
 export function roleNames(palette: Palette): string[] {
   const names = new Set<string>(Object.keys(palette.roles));
-  for (const f of FACTION_IDS) for (const r of Object.keys(palette.factions[f].roles)) names.add(r);
+  for (const f of FACTION_IDS) for (const r of Object.keys(palette.factions[f]?.roles ?? {})) names.add(r);
   return [...names].sort();
 }
 
@@ -56,7 +106,8 @@ export function srgbToLinear(c: number): number {
 /** Problems with the palette itself, in plain words. Empty when it is fine. */
 export function checkPalette(palette: Palette): string[] {
   const out: string[] = [];
-  if (palette.version !== 1) out.push(`palette version ${String(palette.version)} is not 1`);
+  if (!palette || typeof palette !== 'object' || !palette.factions || !palette.roles) return ['not a palette: it needs "factions" and "roles"'];
+  if (palette.version !== PALETTE_VERSION) out.push(`palette version ${String(palette.version)} is not ${PALETTE_VERSION} (read it with upgradePalette first)`);
   const first = FACTION_IDS[0]!;
   const want = Object.keys(palette.factions[first]?.roles ?? {}).sort().join(',');
   for (const f of FACTION_IDS) {
@@ -71,6 +122,22 @@ export function checkPalette(palette: Palette): string[] {
   }
   for (const [r, e] of Object.entries(palette.roles)) {
     if (!HEX.test(e.hex)) out.push(`${r}: "${e.hex}" is not a #RRGGBB colour`);
+  }
+  const roles = new Set(roleNames(palette));
+  for (const [name, g] of Object.entries(palette.gradients ?? {})) {
+    const at = `gradient ${name}`;
+    if (!GRADIENT_NAME.test(name)) out.push(`${at}: the name must be lowercase words joined by dots, such as glow.ramp`);
+    if (g.kind !== 'smooth' && g.kind !== 'banded') out.push(`${at}: kind must be "smooth" or "banded"`);
+    if (!Array.isArray(g.stops) || g.stops.length < 2) { out.push(`${at}: needs at least two stops`); continue; }
+    if (g.stops.length > 16) out.push(`${at}: has more than 16 stops`);
+    g.stops.forEach((s, i) => {
+      const where = `${at}, stop ${i + 1}`;
+      if (typeof s.at !== 'number' || !(s.at >= 0 && s.at <= 1)) out.push(`${where}: "at" must be between 0 and 1`);
+      if (s.alpha !== undefined && !(typeof s.alpha === 'number' && s.alpha >= 0 && s.alpha <= 1)) out.push(`${where}: alpha must be between 0 and 1`);
+      if ((s.role === undefined) === (s.hex === undefined)) out.push(`${where}: give either a role or a hex`);
+      if (s.role !== undefined && !roles.has(s.role)) out.push(`${where}: "${s.role}" is not a role in the palette`);
+      if (s.hex !== undefined && !HEX.test(s.hex)) out.push(`${where}: "${s.hex}" is not a #RRGGBB colour`);
+    });
   }
   return out;
 }

@@ -43,6 +43,14 @@ export interface DrawCtx {
   point: (input: 'origin' | 'target', offset: [number, number, number]) => [number, number, number];
   /** Where an image sits in the atlas (undefined when the atlas does not have it). */
   image?: (name: string) => { u0: number; v0: number; u1: number; v1: number } | undefined;
+  /** A gradient from the palette, its stops in the renderer's colours (undefined when the palette does not have it). */
+  gradient?: (name: string) => GradientRamp | undefined;
+}
+
+/** A palette gradient ready to draw: stops sorted by place, colours as the renderer wants them. */
+export interface GradientRamp {
+  banded: boolean;
+  stops: { at: number; c: RGBA }[];
 }
 
 export type EdgeLook = 'ink' | 'broken' | 'none';

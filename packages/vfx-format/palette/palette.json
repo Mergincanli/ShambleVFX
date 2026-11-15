@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "about": "The only place where effect colours have hex values. Effect files name roles only. 'from' says whose value it is: mustafa = his decision; art-lead = the Art lead's working value (instruction of 2026-11-14); board-v7 = the Art lead's proposal on the VFX drawing board v7; derived = computed by Shamble VFX from those values with the board's own formula; assumed = Shamble VFX's guess, waiting for a decision.",
   "factions": {
     "soviets": {
@@ -223,5 +223,6 @@
       "from": "derived",
       "note": "smoke x 0.45: the line round your own team's smoke billow (board v7)"
     }
-  }
+  },
+  "gradients": {}
 }

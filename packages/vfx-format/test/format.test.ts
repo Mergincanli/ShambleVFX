@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../palette/palette.json';
-import { FACTION_IDS, FORMAT_VERSION, checkPalette, newEffect, newProjectileLayer, newSpriteLayer, resolveRole, roleNames } from '../src/index';
+import { FACTION_IDS, FORMAT_VERSION, PALETTE_VERSION, checkPalette, newEffect, newProjectileLayer, newSpriteLayer, resolveGradient, resolveRole, roleNames, upgradePalette } from '../src/index';
 import type { EffectFile, Palette } from '../src/index';
 import { MIGRATIONS, checkEffect, migrate, problemLines } from '../src/validate/index';
 import { newBurstLayer, newShapeLayer, newWordLayer } from '../src/index';
@@ -153,7 +153,7 @@ describe('checkEffect', () => {
   });
 });
 
-describe('version 1 -> 3', () => {
+describe('version 1 -> current', () => {
   const v1 = {
     format: 'shamble-vfx', version: 1, id: 'old_shot', name: 'Old shot', controls: { size: 1, intensity: 1, duration: 1, colour: 'glow' },
     layers: [
@@ -166,7 +166,7 @@ describe('version 1 -> 3', () => {
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(1);
     const fx = r.effect!;
-    expect(fx.version).toBe(3);
+    expect(fx.version).toBe(FORMAT_VERSION);
     expect(fx.phases).toEqual({ windupMs: 0, peakMs: 0, fadeMs: 0 });
     expect(fx.layers[0]).toMatchObject({ type: 'projectile', flight: { mode: 'speed', mps: 800 }, arcM: 0 });
     expect('speedMps' in fx.layers[0]!).toBe(false);
@@ -176,8 +176,8 @@ describe('version 1 -> 3', () => {
   it('gives back the upgraded file even when it has problems, so an old file never reaches the runtime as it was', () => {
     const r = checkEffect(v1, { palette, images: ['other.png'] });
     expect(r.ok).toBe(false);
-    expect((r.upgraded as { version: number }).version).toBe(3);
-    expect(r.effect?.version).toBe(3);
+    expect((r.upgraded as { version: number }).version).toBe(FORMAT_VERSION);
+    expect(r.effect?.version).toBe(FORMAT_VERSION);
   });
 });
 
@@ -266,7 +266,7 @@ describe('version 2 -> 3: quality tiers', () => {
 describe('versions and upgrades', () => {
   it('refuses a file from a newer version and says so', () => {
     const fx = { ...goodEffect(), version: FORMAT_VERSION + 1 };
-    expect(messages(fx)[0]).toMatch(/newer Shamble VFX \(file version 4\); this one reads up to version 3/);
+    expect(messages(fx)[0]).toMatch(new RegExp(`newer Shamble VFX \\(file version ${FORMAT_VERSION + 1}\\); this one reads up to version ${FORMAT_VERSION}`));
   });
 
   it('leaves a current file unchanged and does not touch the input', () => {
@@ -280,11 +280,58 @@ describe('versions and upgrades', () => {
 
   it('runs upgrade steps in order (tested with a made-up version 0)', () => {
     const v0 = { format: 'shamble-vfx', version: 0, id: 'old', title: 'Old effect', controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' }, layers: [] };
-    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]! };
+    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]!, 3: MIGRATIONS[3]! };
     const r = checkEffect(v0, { palette, images, migrations: fake });
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(0);
     expect(r.effect?.name).toBe('Old effect');
     expect(messages(v0)[0]).toMatch(/there is no upgrade from version 0 to 1/);
+  });
+});
+
+describe('version 3 -> 4, and gradients', () => {
+  it('upgrades a version 3 file by its number only', () => {
+    const v3 = { ...goodEffect(), version: 3 };
+    const r = checkEffect(v3, { palette, images });
+    expect(r.upgradedFrom).toBe(3);
+    expect(r.effect).toEqual({ ...goodEffect(), version: 4 });
+  });
+
+  it('reads a version 1 palette as version 2, with no gradients', () => {
+    const v1 = { ...palette, version: 1 } as Record<string, unknown>;
+    delete v1.gradients;
+    const up = upgradePalette(v1);
+    expect(up.version).toBe(PALETTE_VERSION);
+    expect(up.gradients).toEqual({});
+    expect(checkPalette(up)).toEqual([]);
+  });
+
+  it('checks gradients in the palette', () => {
+    const p: Palette = { ...palette, gradients: {
+      'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow.hot' }, { at: 0.5, role: 'glow' }, { at: 1, role: 'glow', alpha: 0 }] },
+      'Bad Name': { kind: 'banded', from: 'mustafa', stops: [{ at: 0, hex: '#FFFFFF' }] },
+      'two.ways': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'ink', hex: '#000000' }, { at: 2, role: 'no.such', alpha: 3 }] },
+    } };
+    expect(checkPalette(p)).toEqual([
+      'gradient Bad Name: the name must be lowercase words joined by dots, such as glow.ramp',
+      'gradient Bad Name: needs at least two stops',
+      'gradient two.ways, stop 1: give either a role or a hex',
+      'gradient two.ways, stop 2: "at" must be between 0 and 1',
+      'gradient two.ways, stop 2: alpha must be between 0 and 1',
+      'gradient two.ways, stop 2: "no.such" is not a role in the palette',
+    ]);
+    expect(resolveGradient(p, 'glow.ramp', 'allies')).toEqual({ kind: 'smooth', stops: [
+      { at: 0, hex: resolveRole(palette, 'glow.hot', 'allies'), alpha: 1 }, { at: 0.5, hex: resolveRole(palette, 'glow', 'allies'), alpha: 1 },
+      { at: 1, hex: resolveRole(palette, 'glow', 'allies'), alpha: 0 }] });
+    expect(resolveGradient(p, 'nothing', 'allies')).toBeUndefined();
+  });
+
+  it('names a glow gradient the palette does not have', () => {
+    const fx = newEffect('g', 'G');
+    const glow = newShapeLayer('glow', 'Glow', 'glow');
+    fx.layers = [{ ...glow, shape: { ...(glow.shape as object), gradient: 'glow.ramp' } } as typeof glow];
+    expect(messages(fx)).toContain('layers[0].shape.gradient: "glow.ramp" is not a gradient in the palette');
+    const p: Palette = { ...palette, gradients: { 'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow' }, { at: 1, role: 'glow', alpha: 0 }] } } };
+    expect(checkEffect(fx, { palette: p, images }).problems.filter((x) => x.kind === 'gradient')).toEqual([]);
   });
 });

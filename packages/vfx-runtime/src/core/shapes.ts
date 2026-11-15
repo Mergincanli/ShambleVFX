@@ -365,6 +365,12 @@ function drawLines(sp: LinesShape, ctx: DrawCtx): void {
 
 function drawGlow(sp: GlowShape, ctx: DrawCtx): void {
   const R = sp.radiusM * ctx.s * (sp.grow[0] + (sp.grow[1] - sp.grow[0]) * ctx.t) * (1 + ctx.parity * sp.flicker);
+  // With a gradient from the palette: its colours from the middle to the rim, times the glow's alpha.
+  const ramp = sp.gradient ? ctx.gradient?.(sp.gradient) : undefined;
+  if (ramp) {
+    ctx.p.rampDisc(0, 0, R, R, ramp.stops.map((st) => ({ at: st.at, c: [st.c[0], st.c[1], st.c[2], st.c[3] * sp.alpha] as RGBA })), ramp.banded);
+    return;
+  }
   const c = ctx.rgba(sp.role, sp.alpha);
   if (sp.soft) ctx.p.softDisc(0, 0, R, R, c);
   else ctx.p.disc(0, 0, R, R, c, 40);

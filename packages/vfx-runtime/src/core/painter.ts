@@ -145,6 +145,51 @@ export class Painter {
     }
   }
 
+  /**
+   * A disc coloured by a gradient from its middle (0) to its rim (1). Smooth: blends from stop to stop. Banded: each
+   * stop's colour holds until the next stop, with a hard edge. Rings of `segs` points; one ring per stop.
+   */
+  rampDisc(cx: number, cy: number, rx: number, ry: number, stops: readonly { at: number; c: RGBA }[], banded: boolean, segs = 40): void {
+    if (rx <= 0 || ry <= 0 || stops.length === 0) return;
+    const s = [...stops].sort((a, b) => a.at - b.at);
+    const rings: { t: number; c: RGBA }[] = [];
+    if (banded) {
+      s.forEach((st, k) => {
+        const t0 = k === 0 ? 0 : Math.min(1, Math.max(0, st.at)), t1 = k + 1 < s.length ? Math.min(1, Math.max(0, s[k + 1]!.at)) : 1;
+        if (t1 > t0) rings.push({ t: t0, c: st.c }, { t: t1, c: st.c });
+      });
+    } else {
+      if (s[0]!.at > 0) rings.push({ t: 0, c: s[0]!.c });
+      for (const st of s) rings.push({ t: Math.min(1, Math.max(0, st.at)), c: st.c });
+      if (s[s.length - 1]!.at < 1) rings.push({ t: 1, c: s[s.length - 1]!.c });
+    }
+    if (rings.length < 2 || rings.every((r) => r.c[3] <= 0)) return;
+    const ring = (t: number, c: RGBA): number[] => {
+      if (t <= 0) { const v = this.vtx(cx, cy, c); return Array.from({ length: segs }, () => v); }
+      const out: number[] = [];
+      for (let i = 0; i < segs; i++) {
+        const a = (TAU * i) / segs;
+        out.push(this.vtx(cx + Math.cos(a) * rx * t, cy + Math.sin(a) * ry * t, c));
+      }
+      return out;
+    };
+    let inner = ring(rings[0]!.t, rings[0]!.c);
+    let innerT = rings[0]!.t;
+    for (let k = 1; k < rings.length; k++) {
+      const r = rings[k]!;
+      // Two rings at one place (a band's hard edge) need no triangles between them.
+      if (r.t <= innerT && k > 0) { inner = ring(r.t, r.c); innerT = r.t; continue; }
+      const outer = ring(r.t, r.c);
+      for (let i = 0; i < segs; i++) {
+        const j = (i + 1) % segs;
+        if (innerT <= 0) this.buf.tri(inner[0]!, outer[i]!, outer[j]!);
+        else { this.buf.tri(inner[i]!, outer[i]!, outer[j]!); this.buf.tri(inner[i]!, outer[j]!, inner[j]!); }
+      }
+      inner = outer;
+      innerT = r.t;
+    }
+  }
+
   /** A quad from four corners. */
   quad(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, c: RGBA): void {
     if (c[3] <= 0) return;

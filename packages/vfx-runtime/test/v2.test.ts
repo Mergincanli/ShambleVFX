@@ -553,3 +553,43 @@ describe('items drawn (the cost panel\'s "sprites alive")', () => {
     expect(sink.items).toBe(0);
   });
 });
+
+describe('glows coloured by a palette gradient', () => {
+  const withRamps: Palette = {
+    ...palette,
+    gradients: {
+      'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, hex: '#FFFFFF' }, { at: 0.5, role: 'team' }, { at: 1, role: 'team', alpha: 0 }] },
+      'glow.bands': { kind: 'banded', from: 'mustafa', stops: [{ at: 0, hex: '#FFFFFF' }, { at: 0.3, hex: '#FF0000' }, { at: 0.7, hex: '#0000FF' }] },
+    },
+  };
+  const glowWith = (gradient?: string) => oneShape('glow', (l) => { l.blend = 'normal'; if (l.shape.kind === 'glow') { l.shape.gradient = gradient; l.shape.alpha = 1; l.shape.flicker = 0; l.shape.grow = [1, 1]; } });
+  const colours = (sink: DrawSink) => {
+    const out: string[] = [];
+    for (const g of BLEND_GROUPS) { const b = sink.groups[g]; for (let i = 0; i < b.vcount; i++) out.push(Array.from(b.col.slice(i * 4, i * 4 + 4)).map((v) => v.toFixed(3)).join(',')); }
+    return out;
+  };
+
+  it('runs a smooth gradient from the middle to the rim, team stops following the faction', () => {
+    const fx = glowWith('glow.ramp');
+    const soviets = drawn(fx, ctx(0, { palette: withRamps, faction: 'soviets', colourSpace: 'srgb' })).sink;
+    const allies = drawn(fx, ctx(0, { palette: withRamps, faction: 'allies', colourSpace: 'srgb' })).sink;
+    const c = colours(soviets);
+    expect(c[0]).toBe('1.000,1.000,1.000,1.000');
+    const team = parseHex(resolveRole(palette, 'team', 'soviets')!).map((v) => (v / 255).toFixed(3)).join(',');
+    expect(c).toContain(`${team},1.000`);
+    expect(c).toContain(`${team},0.000`);
+    expect(colours(allies)).not.toEqual(c);
+  });
+
+  it('holds each band with a hard edge', () => {
+    const { sink } = drawn(glowWith('glow.bands'), ctx(0, { palette: withRamps, colourSpace: 'srgb' }));
+    const c = new Set(colours(sink));
+    expect(c).toEqual(new Set(['1.000,1.000,1.000,1.000', '1.000,0.000,0.000,1.000', '0.000,0.000,1.000,1.000']));
+  });
+
+  it('draws the plain glow when the gradient is missing (the checker names it)', () => {
+    const plain = drawn(glowWith(undefined), ctx(0, { palette: withRamps })).sink;
+    const missing = drawn(glowWith('no.such'), ctx(0, { palette: withRamps })).sink;
+    expect(colours(missing)).toEqual(colours(plain));
+  });
+});

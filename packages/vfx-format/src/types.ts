@@ -11,7 +11,7 @@
  */
 
 export const FORMAT_ID = 'shamble-vfx' as const;
-export const FORMAT_VERSION = 3 as const;
+export const FORMAT_VERSION = 4 as const;
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
@@ -365,6 +365,8 @@ export interface GlowShape {
   role: RoleName;
   alpha: number;
   soft: boolean;
+  /** A gradient in the palette, from the middle to the rim. With it, the glow takes its colours from the gradient (times alpha), not from role. */
+  gradient?: string;
   /** Size over the life, as [start, end] factors. */
   grow: Vec2;
   /** Every other step it is this much larger (flicker). */

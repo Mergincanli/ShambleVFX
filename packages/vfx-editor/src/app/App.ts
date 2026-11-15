@@ -3,7 +3,7 @@
  * timeline under it), and one panel on the right. Effects play through vfx-runtime, the code the game ships.
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer } from '@shamble/vfx-format';
+import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer, upgradePalette } from '@shamble/vfx-format';
 import type { EffectFile, FactionId, Layer, Palette, PaletteEntry, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import { roleNames } from '@shamble/vfx-format';
@@ -516,7 +516,8 @@ export class App implements AppApi {
     let projectPalette = builtInPalette;
     if (contents.palette) {
       try {
-        const raw = (await readJson(this.store, id, 'palette.json')) as Palette;
+        // An older palette.json (version 1, no gradients) is read as the current version.
+        const raw = upgradePalette(await readJson(this.store, id, 'palette.json'));
         const wrong = checkPalette(raw);
         if (wrong.length) bad.push(`palette.json: ${wrong.slice(0, 2).join('; ')} (the built-in palette is used instead)`);
         else projectPalette = raw;

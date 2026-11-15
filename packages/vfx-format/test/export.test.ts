@@ -84,7 +84,7 @@ describe('the export checker', () => {
   it('refuses an export of another effect version', () => {
     const ex = goodExport();
     ex.manifest.effectVersion = FORMAT_VERSION + 1;
-    expect(lines(ex)[0]).toMatch(/the effects are version 4; this Shamble VFX reads version 3/);
+    expect(lines(ex)[0]).toMatch(new RegExp(`the effects are version ${FORMAT_VERSION + 1}; this Shamble VFX reads version ${FORMAT_VERSION}`));
   });
 
   it('checks the manifest against the effect files', () => {

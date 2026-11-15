@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 3,
+  "version": 4,
   "id": "hit_heavy_blast",
   "name": "Heavy: big blast",
   "controls": {

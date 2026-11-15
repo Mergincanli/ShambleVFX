@@ -8,7 +8,8 @@ import type { EffectFile, FactionId, Palette, ProjectileLayer, SpriteLayer, Tier
 import { applyControls } from './controls';
 import type { ResolvedControls } from './controls';
 import { curveAt } from './draw';
-import type { DrawCtx, Relation } from './draw';
+import type { DrawCtx, GradientRamp, Relation } from './draw';
+import type { RGBA } from './painter';
 import { clamp, cross, length, normalize, scale, sub } from './math';
 import { Painter } from './painter';
 import type { Frame3 } from './painter';
@@ -139,6 +140,28 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     return col;
   };
 
+  // Palette gradients, resolved once per call: stops naming a role follow the faction; hexes convert like roles do.
+  const ramps = new Map<string, GradientRamp | undefined>();
+  const gradientOf = (name: string): GradientRamp | undefined => {
+    if (ramps.has(name)) return ramps.get(name);
+    const g = ctx.palette.gradients?.[name];
+    let ramp: GradientRamp | undefined;
+    if (g && g.stops.length) {
+      const stops = g.stops.map((st) => {
+        let rgb: [number, number, number];
+        if (st.role) rgb = rgbOf(st.role);
+        else {
+          const [r, gg, b] = st.hex && /^#[0-9A-Fa-f]{6}$/.test(st.hex) ? parseHex(st.hex) : [255, 255, 255];
+          rgb = ctx.colourSpace === 'srgb' ? [r / 255, gg / 255, b / 255] : [srgbToLinear(r / 255), srgbToLinear(gg / 255), srgbToLinear(b / 255)];
+        }
+        return { at: st.at, c: [rgb[0], rgb[1], rgb[2], st.alpha ?? 1] as RGBA };
+      }).sort((a, b) => a.at - b.at);
+      ramp = { banded: g.kind === 'banded', stops };
+    }
+    ramps.set(name, ramp);
+    return ramp;
+  };
+
   const tier = ctx.tier ?? 'high';
   for (let i = 0; i < fx.layers.length; i++) {
     const l = fx.layers[i]!;
@@ -204,6 +227,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
       ...(where.ride ? { ride: where.ride } : {}),
       point: (input, offset) => inputPoint(ctx.inputs, tl.frame, { input, offset }, c.size),
       image: (name) => ctx.imageRect(name),
+      gradient: gradientOf,
       viewerDistanceM,
     };
     if (l.type === 'shape') drawShape(l.shape, dctx);
