@@ -230,12 +230,29 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
     return field(key, p, parent);
   };
 
+  // A glow's gradient: a choice of the palette's gradients (made in the colour picker's Gradients section).
+  const gradientField = (): HTMLElement => {
+    const current = () => (get(['gradient']) as string | undefined) ?? '';
+    const opts = () => {
+      const names = Object.keys(app.palette.gradients ?? {}).sort();
+      const list = [{ value: '', label: 'None: one colour (the Colour above)' }, ...names.map((g) => ({ value: g, label: g }))];
+      if (current() && !names.includes(current())) list.push({ value: current(), label: `${current()} (not in the palette)` });
+      return list;
+    };
+    const c = selectField({ label: 'Gradient, middle to rim', options: opts(), value: current(), onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
+    parts.push({ refresh: () => { c.setOptions(opts()); c.set(current()); } });
+    return h('div', { class: 'gradient-field' }, c.el,
+      h('p', { class: 'hint', text: 'Gradients live in the palette: click a colour swatch, then Gradients, to make or change one. With a gradient, the glow takes its colours from it.' }));
+  };
+
   const obj = get([]) as Record<string, unknown> | undefined;
   if (!obj) return [];
-  const keys = Object.keys(obj).filter((k) => !skip.includes(k));
+  const keys = Object.keys(obj).filter((k) => !skip.includes(k) && !(kind === 'glow' && k === 'gradient'));
   // Optional parts the object does not have yet still get their switch, so they can be added.
   const optional = optionalKeysFor(kind).filter((k) => !keys.includes(k) && !skip.includes(k));
-  return [...keys, ...optional].map((k) => row(k, [k], '')).filter(Boolean) as HTMLElement[];
+  const out = [...keys, ...optional].map((k) => row(k, [k], '')).filter(Boolean) as HTMLElement[];
+  if (kind === 'glow' && !skip.includes('gradient')) out.push(gradientField());
+  return out;
 }
 
 /** The optional parts each kind of thing may have (shown as switches even when off). */

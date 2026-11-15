@@ -168,6 +168,30 @@ describe('a project with its own colours', () => {
     expect(read(join(back, 'palette.json'))).toBe(read(join(out, 'palette.json')));
   });
 
+  it('carries a gradient a glow uses, and names one the palette lacks', async () => {
+    const dir = join(tmp, 'gradient-glow');
+    cpSync(join(repo, 'examples', 'hits-collection'), dir, { recursive: true });
+    const pal = JSON.parse(read(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json')));
+    pal.gradients['glow.ramp'] = { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow.hot' }, { at: 0.5, hex: '#FF8800', alpha: 0.8 }, { at: 1, role: 'glow', alpha: 0 }] };
+    writeFileSync(join(dir, 'palette.json'), toJson(pal));
+    const file = join(dir, 'effects', 'hit_energy_pulse.vfx.json');
+    const fx = json(file) as { layers: { id: string; shape?: Record<string, unknown> }[] };
+    fx.layers.find((l) => l.id === 'glow')!.shape!.gradient = 'glow.ramp';
+    writeFileSync(file, toJson(fx));
+    const out = join(tmp, 'gradient-glow-export');
+    const r = await exportProject(dir, out);
+    expect(r.errors).toEqual([]);
+    expect((json(join(out, 'palette.json')) as { gradients: Record<string, unknown> }).gradients['glow.ramp']).toEqual(pal.gradients['glow.ramp']);
+    const back = join(tmp, 'gradient-glow-back');
+    expect((await importExport(out, back)).ok).toBe(true);
+    expect(read(join(back, 'effects', 'hit_energy_pulse.vfx.json'))).toBe(read(file));
+    // Without the gradient in the palette, the export is refused and says why.
+    delete pal.gradients['glow.ramp'];
+    writeFileSync(join(dir, 'palette.json'), toJson(pal));
+    const refused = await exportProject(dir, join(tmp, 'gradient-glow-refused'));
+    expect(refused.errors).toContain('effects/hit_energy_pulse.vfx.json: layers[2].shape.gradient: "glow.ramp" is not a gradient in the palette');
+  });
+
   it('names a broken palette.json and exports nothing', async () => {
     const dir = join(tmp, 'bad-colours');
     cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });

@@ -1,5 +1,5 @@
 /** What the panels may ask of the app. */
-import type { EffectFile, FactionId, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
 import type { Budgets, CostMetric, CostReport } from '../cost/measure';
@@ -40,6 +40,8 @@ export interface AppApi {
   addColour(role: string, perFaction: boolean, hex: string): string | null;
   /** Work team.dark or glow.hot out again from its base. */
   deriveColour(role: string, faction?: FactionId): void;
+  /** Add a gradient to the project's palette, or change one (mergeKey: one undo step per drag or typing run). */
+  setGradient(name: string, g: Gradient, opts?: { mergeKey?: string }): void;
   /** Make a role the current effect's main colour. */
   setMainColour(role: string): void;
   /** Open the colour picker on a role, next to a swatch. */

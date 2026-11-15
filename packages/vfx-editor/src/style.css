@@ -320,7 +320,7 @@ table.cost.stale .cv, table.cost.stale .cs { color: var(--text-faint); }
 .icon-insignia, .icon-faction-soviets, .icon-faction-allies, .icon-faction-empire { overflow: visible; }
 
 /* The colour picker. */
-.cpick { position: fixed; inset: auto; margin: 0; width: 304px; max-height: calc(100vh - 16px); overflow: auto; padding: 12px 14px 14px;
+.cpick { position: fixed; inset: auto; margin: 0; width: 336px; max-height: calc(100vh - 16px); overflow: auto; padding: 12px 14px 14px;
   background: var(--menu); color: var(--text); border: 2px solid var(--line); box-shadow: 0 10px 34px var(--shadow); font-size: 13px; }
 .cpick::backdrop { background: transparent; }
 .cp-head { display: flex; align-items: center; gap: 10px; }
@@ -376,3 +376,41 @@ table.cost.stale .cv, table.cost.stale .cs { color: var(--text-faint); }
 
 /* The night mode switch in the top bar. */
 .theme-toggle .icon { width: 16px; height: 16px; }
+
+/* Gradients, in the colour picker. */
+.gr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gr-tile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px; border: 2px solid transparent; background: transparent; color: var(--text); }
+.gr-tile:hover { background: var(--hover-soft); }
+.gr-tile.sel { border-color: var(--line); background: var(--field); }
+.gr-tile-disc { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line-soft); background-size: auto, 10px 10px; }
+.gr-tile-name { font-size: 10.5px; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+.gr-editor { margin-top: 10px; border: 1px solid var(--line-soft); padding: 0 8px 8px; }
+.gr-editor > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 7px 0 5px; font: 700 13.5px/1 var(--display); letter-spacing: 0.7px; text-transform: uppercase; list-style: none; }
+.gr-editor > summary .icon { width: 15px; height: 15px; }
+.gr-head { margin: 2px 0 6px; }
+.gr-title { font: 600 14px/1.2 var(--mono); }
+.gr-create { display: flex; gap: 6px; }
+.gr-create[hidden], .gr-body[hidden] { display: none; }
+.gr-create input.text { font-family: var(--mono); }
+.gr-preview { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: center; }
+.gr-disc { width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid var(--line-soft); background-size: auto, 10px 10px; }
+.gr-side { display: flex; flex-direction: column; gap: 8px; }
+.gr-bar { height: 22px; border: 1.5px solid var(--line-soft); background-size: auto, 10px 10px; }
+.gr-stops { display: flex; flex-direction: column; gap: 4px; }
+.gr-stop { display: grid; grid-template-columns: 16px minmax(0, 1fr) 52px 52px 24px; gap: 5px; align-items: center; }
+.gr-stop-head { font-size: 10.5px; color: var(--text-sub); }
+.gr-colour { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gr-stop select { padding: 2px 3px; font-size: 12px; }
+.gr-stop .gr-hex { padding: 2px 4px; font: 12px/1.3 var(--mono); }
+.gr-stop .gr-hex[hidden] { display: none; }
+.gr-stop input.num { width: 100%; padding: 1px 3px; }
+.gr-chip { width: 16px; height: 16px; border: 1.5px solid var(--line); }
+.gr-stop .mini.icon-only { padding: 1px 3px; }
+.gr-body > .mini { margin-top: 6px; }
+.gr-ramp { margin-top: 10px; }
+.gr-ramp > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.gr-ramprow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px; gap: 6px; margin: 6px 0; }
+.gr-ramprow label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-sub); }
+.gr-ramprow select { padding: 2px 3px; font-size: 12px; }
+.gr-ramprow input.num { width: 100%; }
+.gradient-field .hint { margin-top: 2px; }

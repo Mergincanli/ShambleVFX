@@ -2,7 +2,7 @@
  * Edits as pure functions: each takes a document and returns a new one. Nothing is changed in place.
  */
 import { FACTION_IDS, newProjectileLayer, newSpriteLayer, parseHex } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Layer, Palette, PaletteEntry } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry } from '@shamble/vfx-format';
 import type { EditorDoc } from './history';
 
 export type Path = readonly (string | number)[];
@@ -171,6 +171,14 @@ export function setRoleColour(doc: EditorDoc, role: string, faction: FactionId, 
   const e = roleEntry(doc.palette, role, faction);
   if (!e || !HEX.test(up) || (e.hex === up && e.from === 'mustafa')) return doc;
   return { ...doc, palette: withEntry(doc.palette, role, faction, { ...e, hex: up, from: 'mustafa' }) };
+}
+
+/** Add a gradient to the palette, or change one. It becomes Mustafa's. */
+export function setGradient(doc: EditorDoc, name: string, g: Gradient): EditorDoc {
+  const p = doc.palette;
+  const next: Gradient = { ...g, from: 'mustafa' };
+  if (JSON.stringify(p.gradients?.[name]) === JSON.stringify(next)) return doc;
+  return { ...doc, palette: { ...p, gradients: { ...(p.gradients ?? {}), [name]: next } } };
 }
 
 /** Put a role's entry back as it was (its colour, whose value it is, its note): the picker's Revert. */

@@ -4,7 +4,7 @@
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
 import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer, upgradePalette } from '@shamble/vfx-format';
-import type { EffectFile, FactionId, Layer, Palette, PaletteEntry, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
+import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import { roleNames } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
@@ -15,7 +15,7 @@ import { measureCost, readBudgets } from '../cost/measure';
 import type { Budgets, CostConditions, CostMetric, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
 import {
-  ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
+  ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, setGradient, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
   replaceLayer as replaceLayerIn, setEffectValue, setLayerValue, setRoleColour,
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
@@ -27,6 +27,7 @@ import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
+import { GradientPanel } from './gradients';
 import { h, icon, segmented, selectField } from './dom';
 import { buildInspector } from './inspector';
 import { buildTimeline } from './timeline';
@@ -104,6 +105,7 @@ export class App implements AppApi {
   /** The atlas the preview draws with (the cost panel measures with it too). */
   private atlas: Atlas | null = null;
   private picker!: ColourPicker;
+  private gradients!: GradientPanel;
 
   static async start(root: HTMLElement): Promise<App> {
     const app = new App();
@@ -241,6 +243,10 @@ export class App implements AppApi {
     this.history.endGesture();
   }
 
+  setGradient(name: string, g: Gradient, opts: { mergeKey?: string } = {}): void {
+    this.history.apply(`Gradient ${name}`, setGradient(this.history.doc, name, g), { mergeKey: opts.mergeKey && `gradient:${name}:${opts.mergeKey}` });
+  }
+
   setMainColour(role: string): void {
     this.editEffect(['controls', 'colour'], role, { label: 'Main colour' });
     this.commit();
@@ -248,6 +254,7 @@ export class App implements AppApi {
 
   openColourPicker(role: string, anchor: HTMLElement): void {
     this.picker.open(role, anchor);
+    this.gradients.refresh();
   }
 
   events(): string[] {
@@ -381,6 +388,8 @@ export class App implements AppApi {
       ? 'Drawing with the WebGPU renderer. Add ?backend=webgl to the address to try the WebGL 2 fallback.'
       : 'Drawing with the WebGL 2 fallback of the WebGPU renderer.';
     this.picker = new ColourPicker(this);
+    this.gradients = new GradientPanel(this);
+    this.picker.extraSlot.append(this.gradients.el);
     this.inspector = buildInspector(this);
     root.querySelector('.right')!.append(this.inspector.el);
     this.timelineView = buildTimeline(this, (ms, done) => this.scrub(ms, done));
@@ -945,6 +954,7 @@ export class App implements AppApi {
     this.renderLayers();
     this.inspector.refresh();
     this.picker.refresh();
+    if (this.picker.isOpen) this.gradients.refresh();
     this.timelineView.refresh();
     this.renderTopbar();
     if (why === 'undo' || why === 'redo') this.say(`${why === 'undo' ? 'Undid' : 'Redid'}.`);
