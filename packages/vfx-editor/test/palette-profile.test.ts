@@ -14,7 +14,7 @@ import { BLEND_GROUPS, DrawSink, evaluate } from '@shamble/vfx-runtime';
 import type { CameraBasis, EvalContext } from '@shamble/vfx-runtime';
 import { GRADIENT_PRESETS } from '../src/doc/gradient-presets';
 import {
-  BUILT_IN_GRADIENTS_PROFILE, BUILT_IN_PROFILE, MOLOTOV_BED_TONES, PROFILE_FORMAT, bedTonePlace, chooseImportProfile, defaultProfiles,
+  BUILT_IN_GRADIENTS_PROFILE, BUILT_IN_PROFILE, MOLOTOV_BED_TONES, PROFILE_FORMAT, bedToneStops, chooseImportProfile, defaultProfiles,
   importProfileName, nameBase, numberedName, profileName, profileNameProblem, profileSummary, profileSwatches, readProfileFile, sameColours,
   sameName, toProfileJson,
 } from '../src/io/palette-profile';
@@ -190,9 +190,9 @@ describe('the default profiles', () => {
     expect(builtIn).toEqual(onDisk);
   });
 
-  it('holds the colour picker\'s ready-made gradients as they are, then the fire\'s bed, cooling sparks and thinning smoke', () => {
+  it('holds the colour picker\'s ready-made gradients as they are, then the fire\'s bed, cooling sparks and lightening smoke', () => {
     const p = withGradients!.palette;
-    expect(Object.keys(p.gradients)).toEqual([...GRADIENT_PRESETS.map((x) => x.name), 'fire.bed', 'sparks.cool', 'smoke.thin']);
+    expect(Object.keys(p.gradients)).toEqual([...GRADIENT_PRESETS.map((x) => x.name), 'fire.bed', 'sparks.cool', 'smoke.lighten']);
     for (const pr of GRADIENT_PRESETS) {
       const { from, note, ...g } = p.gradients[pr.name]!;
       expect(g, pr.name).toEqual(pr.gradient);
@@ -200,22 +200,28 @@ describe('the default profiles', () => {
       expect(from).toBe('assumed');
     }
     expect(p.gradients['sparks.cool']).toMatchObject({ kind: 'smooth', stops: [{ at: 0, role: 'heat.4' }, { at: 0.3, role: 'heat.3' }, { at: 0.65, role: 'heat.1' }, { at: 1, role: 'heat.dark', alpha: 0 }] });
-    expect(p.gradients['smoke.thin']).toMatchObject({ kind: 'smooth', stops: [{ at: 0, role: 'fire.smoke' }, { at: 0.6, role: 'fire.smoke' }, { at: 1, role: 'fire.smoke', alpha: 0 }] });
+    // The smoke gradient is colours only: a see-through puff would show its rounds where they overlap.
+    expect(p.gradients['smoke.lighten']).toEqual({
+      kind: 'smooth', from: 'assumed', note: expect.stringContaining('Colours only'),
+      stops: [{ at: 0, role: 'fire.smoke' }, { at: 0.4, role: 'fire.smoke' }, { at: 1, role: 'fire.smoke.light' }],
+    });
   });
 
   const molotov = JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'board_molotov.vfx.json'), 'utf8')) as EffectFile;
   const bedLayers = molotov.layers.filter((l): l is ShapeLayer => l.type === 'shape' && l.shape.kind === 'bed');
 
-  it('the bed gradient has the Molotov bed\'s tones in their order, at the places its bands take without a gradient', () => {
+  it('the bed gradient has the Molotov bed\'s tones from the middle out, with band edges where its bands are without a gradient', () => {
     expect(bedLayers.map((l) => l.id)).toEqual(['bed', 'bed_detail']);
+    // The bed lists its tones from the rim to the middle; the gradient runs from the middle (0) to the rim (1), as a glow's.
     for (const l of bedLayers) expect(l.shape.kind === 'bed' && l.shape.tones).toEqual([...MOLOTOV_BED_TONES]);
     const g = withGradients!.palette.gradients['fire.bed']!;
     expect(g.kind).toBe('banded');
-    expect(g.stops.map((s) => s.role)).toEqual([...MOLOTOV_BED_TONES]);
-    expect(g.stops.map((s) => s.at)).toEqual([0, 0.2233, 0.4467, 0.67]);
-    // The runtime's places, unrounded: 0.58 k / 3 + 0.03 k.
-    g.stops.forEach((s, k) => expect(Math.abs(s.at - (0.58 * (k / 3) + 0.03 * k))).toBeLessThan(5e-5));
-    expect(bedTonePlace(0, 1)).toBe(0);
+    expect(g.stops.map((s) => s.role)).toEqual(['heat.3', 'heat.2', 'heat.1', 'heat.dark']);
+    expect(g.stops.map((s) => s.at)).toEqual([0, 0.33, 0.5533, 0.7767]);
+    // The runtime's band edges, unrounded: band k of 4 (from the rim) reaches out to 1 - 0.58 k / 3 - 0.03 k.
+    [3, 2, 1].forEach((k, j) => expect(Math.abs(g.stops[j + 1]!.at - (1 - 0.58 * (k / 3) - 0.03 * k))).toBeLessThan(5e-5));
+    expect(bedToneStops(['heat.1'])).toEqual([{ at: 0, role: 'heat.1' }]);
+    expect(bedToneStops(['heat.dark', 'heat.3'])).toEqual([{ at: 0, role: 'heat.3' }, { at: 0.39, role: 'heat.dark' }]); // the inner band reaches out to 1 - 0.58 - 0.03
   });
 
   it('draws the Molotov\'s bed as today, both parts, with the real runtime (the places are rounded: under a millimetre apart)', () => {
@@ -267,7 +273,7 @@ describe('the default profiles', () => {
     const fx = structuredClone(molotov);
     for (const l of fx.layers) {
       if (l.type === 'shape' && l.shape.kind === 'bed') l.shape.gradient = 'fire.bed';
-      if (l.type === 'shape' && l.shape.kind === 'smoke') l.shape.gradient = 'smoke.thin';
+      if (l.type === 'shape' && l.shape.kind === 'smoke') l.shape.gradient = 'smoke.lighten';
       if (l.type === 'burst' && l.id.startsWith('sparks')) l.gradient = 'sparks.cool';
     }
     const r = checkEffect(fx, { palette: withGradients!.palette });

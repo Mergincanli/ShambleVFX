@@ -25,8 +25,9 @@ export interface GradientStop {
 
 /**
  * A gradient: colours along one line, from 0 to 1. "smooth" blends from stop to stop; "banded" holds each stop's colour
- * until the next one (hard steps, as comic shading does). What the line is depends on the layer: a glow runs it from its
- * middle to its rim. Stops naming a role follow the faction, as the role does.
+ * until the next one (hard steps, as comic shading does). What the line is depends on the layer: a glow and a fire's bed
+ * run it from the middle to the rim; smoke and bursts over each puff's or piece's life. Stops naming a role follow the
+ * faction, as the role does.
  */
 export interface Gradient {
   kind: 'smooth' | 'banded';

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../palette/palette.json';
 import { FACTION_IDS, FORMAT_VERSION, PALETTE_VERSION, checkPalette, newEffect, newProjectileLayer, newSpriteLayer, resolveGradient, resolveRole, roleNames, upgradePalette } from '../src/index';
-import type { BedShape, EffectFile, Palette, SmokeShape, SoundWord, WordLayer } from '../src/index';
-import { MIGRATIONS, checkEffect, migrate, problemLines } from '../src/validate/index';
+import type { BedShape, EffectFile, Layer, Palette, ShapeLayer, SmokeShape, SoundWord, WordLayer } from '../src/index';
+import { BED_BAND_STOPS_WARN, MIGRATIONS, checkEffect, migrate, problemLines } from '../src/validate/index';
 import { newBurstLayer, newShapeLayer, newWordLayer } from '../src/index';
 
 const palette = paletteJson as Palette;
@@ -458,12 +458,34 @@ describe('version 4 -> 5: words with chances, gradients on smoke, the bed and bu
       if (withDetail) fx.layers.push({ ...bed, id: 'bed_detail', name: 'Bed detail', shape: { ...sp, part: 'detail', ...(detail ? { gradient: detail } : {}) } });
       return problemLines(checkEffect(fx, { palette: p, images }).problems);
     };
-    const why = 'the detail\'s halftone would not sit where the bands meet. Give both bed layers the same gradient';
+    const why = 'the detail\'s halftone would not match the bands (their colours, or where they meet). Give both bed layers the same gradient';
     expect(fire('fire.bed', undefined)).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients (none and "fire.bed"): ${why}`]);
     expect(fire(undefined, 'fire.bed')).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients ("fire.bed" and none): ${why}`]);
     expect(fire('fire.bed', 'fire.blue')).toEqual([`warning: layers[1].shape.gradient: "Bed detail" and "Bed" use different gradients ("fire.blue" and "fire.bed"): ${why}`]);
     expect(fire('fire.bed', 'fire.bed')).toEqual([]);
     expect(fire(undefined, undefined)).toEqual([]);
     expect(fire('fire.bed', undefined, false)).toEqual([]); // no detail: nothing to sit where the bands meet
+  });
+
+  it("warns when a fire's bed uses a banded gradient with more than 8 stops: each stop is a band of lumps", () => {
+    expect(BED_BAND_STOPS_WARN).toBe(8);
+    const gradient = (n: number, kind: 'banded' | 'smooth') => ({ kind, from: 'mustafa' as const, stops: Array.from({ length: n }, (_, k) => ({ at: k / n, role: 'heat.1' })) });
+    const lines = (g: ReturnType<typeof gradient>, layers: Layer[]) => {
+      const fx = newEffect('f', 'F');
+      fx.layers = layers;
+      return problemLines(checkEffect(fx, { palette: { ...palette, gradients: { 'fire.many': g } }, images }).problems);
+    };
+    const bed = newShapeLayer('bed', 'Bed', 'bed');
+    const lumps: Layer = { ...bed, shape: { ...(bed.shape as BedShape), gradient: 'fire.many' } };
+    const detail: Layer = { ...bed, id: 'bed_detail', name: 'Bed detail', shape: { ...(bed.shape as BedShape), part: 'detail', gradient: 'fire.many' } };
+    const many = (name: string, i: number, n: number) => `warning: layers[${i}].shape.gradient: "${name}": the gradient "fire.many" is banded and has ${n} stops. On a fire's bed, each stop is a band of lumps, so the triangles grow with every stop. Keep it to 8 stops or fewer`;
+    expect(lines(gradient(8, 'banded'), [lumps])).toEqual([]);
+    expect(lines(gradient(9, 'banded'), [lumps])).toEqual([many('Bed', 0, 9)]);
+    // Both parts draw one band per stop, so both are named.
+    expect(lines(gradient(16, 'banded'), [lumps, detail])).toEqual([many('Bed', 0, 16), many('Bed detail', 1, 16)]);
+    // A smooth gradient keeps the tones' bands, whatever its stops; a glow draws rings, not bands of lumps.
+    expect(lines(gradient(16, 'smooth'), [lumps, detail])).toEqual([]);
+    const glow = newShapeLayer('glow', 'Glow', 'glow');
+    expect(lines(gradient(16, 'banded'), [{ ...glow, shape: { ...glow.shape, gradient: 'fire.many' } as ShapeLayer['shape'] }])).toEqual([]);
   });
 });

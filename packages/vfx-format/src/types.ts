@@ -267,7 +267,8 @@ export interface SmokeShape {
   /**
    * A gradient in the palette: the body colour over each puff's life, from its start (0) to its end (1). With it, the
    * body takes its colour from the gradient, not from role; the light top and the rim keep their own colours. The
-   * gradient's alpha multiplies the whole puff's opacity.
+   * gradient's alpha multiplies the whole puff's opacity; each round is see-through on its own, so where rounds overlap
+   * they show.
    */
   gradient?: string;
   /** The lighter top of a billow. */
@@ -462,12 +463,13 @@ export interface FlamesShape {
 export interface BedShape {
   kind: 'bed';
   radiusM: number;
-  /** Rim to middle. Used when there is no gradient. */
+  /** Rim to middle: one band of lumps per tone. Used when there is no gradient. */
   tones: RoleName[];
   /**
-   * A gradient in the palette: the bands from the rim (0) to the middle (1), in place of tones. A banded gradient gives
-   * one band per stop, with the band edges at the stops; a smooth one blends from band to band. Both parts (lumps and
-   * detail) read it, so the detail's halftone sits where the bands meet: give both bed layers of a fire the same one.
+   * A gradient in the palette, from the middle (0) to the rim (1), as a glow's, in place of the tones' colours. A banded
+   * gradient gives one band per stop, with the band edges at the stops. A smooth one keeps the tones' bands (one per
+   * tone, in their places) and blends its colours over them. Both parts (lumps and detail) read it, so the detail's
+   * halftone sits where the bands meet: give both bed layers of a fire the same one.
    */
   gradient?: string;
   lumps: number;

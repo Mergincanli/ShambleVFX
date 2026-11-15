@@ -22,10 +22,12 @@ Profiles live on this computer, not in a project, so one set of colours can go i
 - **The two defaults**: the first time the editor needs the folder, it makes it with two profiles:
   - **Built-in**: the built-in palette, as it is.
   - **Built-in with gradients**: the same colours, plus gradients made only of built-in colours (no new hexes): the nine
-    ready-made ones, and three for smoke, the fire's bed and bursts. **fire.bed** is the Molotov bed's four tones from the rim
-    to the middle, in the places its bands have today, so it draws today's bed. **sparks.cool**: a spark goes from white-hot to
-    yellow, orange and burnt orange as it fades out. **smoke.thin**: a fire's smoke puff, solid until 60 % of its life, then
-    thinning to nothing. All proposals.
+    ready-made ones, and three for smoke, the fire's bed and bursts. **fire.bed** is the Molotov bed's four tones from the
+    middle out (`heat.3` in the middle, then `heat.2`, `heat.1` and `heat.dark` at the rim), with the band edges where its
+    bands are without a gradient, so it draws today's bed. **sparks.cool**: a spark goes from white-hot to yellow, orange and
+    burnt orange as it fades out. **smoke.lighten**: a fire's smoke puff, dark at first, then lighter as it thins out, up to
+    the colour of its lit top. It uses colours only, no see-through: a see-through puff shows its rounds where they overlap.
+    All proposals.
 
   They are ordinary profiles: change them, rename them, delete them. A deleted default does not come back by itself:
   **Restore the default profiles** adds back the ones whose name is missing, never twice, and leaves one that is there as
@@ -97,26 +99,32 @@ In the picker, **Gradients**:
 - A glow's form has **Gradient, middle to rim**: pick one, or none for one flat colour.
 
 What the game can draw: a gradient is colours along one line, smooth or banded: rings from the middle out on a glow, bands
-from the rim in on the fire's bed, and colours over time on smoke and bursts. Blurred, mesh and image gradients (as in some
+from the middle out on the fire's bed, and colours over time on smoke and bursts. Blurred, mesh and image gradients (as in some
 colour tools) are not offered, because the runtime cannot draw them.
 
 ### What a gradient runs along
 
-A gradient goes from 0 to 1. The layer decides what that line is (the picker's stops say "middle" and "rim", as for a glow):
+A gradient goes from 0 to 1. The layer decides what that line is (the picker's stops say "middle" and "rim": a glow and the
+fire's bed read it that way):
 
 - **A glow**: from its middle (0) to its rim (1). Its colours come from the gradient, times the glow's alpha.
 - **Smoke**: over each puff's life, from its start (0) to its end (1). It colours the body of the puff; the light top and
   the rim keep their own colours. Billows that keep coming each have their own age, so young and old ones differ. The
-  gradient's alpha makes the whole puff see-through (where its rounds overlap, it looks denser).
-- **The fire's bed**: from the rim (0) to the very middle (1). One band of lumps per stop, its edge at the stop. Banded:
-  each band is its stop's colour. Smooth: the colour blends from band to band. Give the bed's lumps and its detail the same
-  gradient, so the halftone sits where the bands meet. As the fire cools, the middle goes first, as before.
+  gradient's alpha makes the whole puff see-through, but each round of the puff on its own: where rounds overlap they
+  show (darker overlaps, the rounds' edges and the billows behind showing through). For smoke that thins without those
+  marks, change its colours instead, as **smoke.lighten** does.
+- **The fire's bed**: from the middle (0) to the rim (1), as a glow. Banded: one band of lumps per stop, each band its
+  stop's colour, with the band edges at the stops; each stop adds a band of lumps, so the checker warns above 8 stops.
+  Smooth: the bed keeps its own bands (one per tone, where they always are), and the colours blend over them from the
+  middle out. Give the bed's lumps and its detail the same gradient, so the halftone sits where the bands meet. As the
+  fire cools, the middle goes first, as before.
 - **Bursts**: over each piece's life, from its birth (0) to its end (1). It colours the piece; an image piece is tinted by
   it. The speed streak and the ink edge keep their colours. The gradient's alpha fades the whole piece. Sparks that cool
   from white to dark red, then vanish, are one gradient.
 
-Mind the direction: 0 is the middle of a glow but the rim of a bed. The ready-made **Banding** starts hot, so on a bed it
-gives a hot rim and a dark middle.
+A glow and the fire's bed read a gradient the same way, from the middle out: one gradient looks the same on both, and the
+picker's round preview shows how both draw it. The ready-made **Banding** starts hot, so on a bed it gives a hot middle and
+a darker rim, as on a glow.
 
 In the editor, only a glow has a gradient choice so far. For smoke, the bed and bursts, a gradient already named in the file
 shows as a plain text box; the choice comes with the new UI. Without a gradient each layer uses its own colours, as before.

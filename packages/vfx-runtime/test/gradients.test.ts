@@ -1,7 +1,8 @@
 /**
- * Gradients drawn on smoke (over each puff's life), the fire's bed (from the rim to the middle) and bursts (over each
- * piece's life): the colours at given ages and places, banded edges at the stops, alpha, faction roles, and both bed
- * parts sharing one set of band edges. Colours are read back in sRGB (colour management off), so a hex reads as hex / 255.
+ * Gradients drawn on smoke (over each puff's life), the fire's bed (from the middle to the rim, as a glow's) and bursts
+ * (over each piece's life): the colours at given ages and places, banded edges at the stops, a smooth gradient keeping the
+ * tones' bands, alpha, faction roles, and both bed parts sharing one set of band edges. Colours are read back in sRGB
+ * (colour management off), so a hex reads as hex / 255.
  */
 import { describe, expect, it } from 'vitest';
 import paletteJson from '../../vfx-format/palette/palette.json';
@@ -18,9 +19,15 @@ const base = paletteJson as Palette;
 const hexStop = (at: number, hex: string, alpha?: number) => ({ at, hex, ...(alpha === undefined ? {} : { alpha }) });
 const smooth = (...stops: Gradient['stops']): Gradient => ({ kind: 'smooth', from: 'assumed', stops });
 const banded = (...stops: Gradient['stops']): Gradient => ({ kind: 'banded', from: 'assumed', stops });
-/** Where the bed's bands sit without a gradient, as places from the rim (0) to the middle (1): 0.58 k / (K - 1) + 0.03 k. */
-const tonePlaces = (K: number) => Array.from({ length: K }, (_, k) => (K > 1 ? 0.58 * (k / (K - 1)) + 0.03 * k : 0));
+/**
+ * How far the bed's bands reach without a gradient, as places from the middle (0) to the rim (1): band k of K (counted
+ * from the rim, as the tones are listed) reaches out to 1 - 0.58 k / (K - 1) - 0.03 k.
+ */
+const toneEdges = (K: number) => Array.from({ length: K }, (_, k) => 1 - (K > 1 ? 0.58 * (k / (K - 1)) : 0) - 0.03 * k);
+/** Rim to middle, as a bed lists them. */
 const MOLOTOV_TONES = ['heat.dark', 'heat.1', 'heat.2', 'heat.3'];
+/** The banded gradient that draws those tones in their places: from the middle out, each tone from the edge of the band inside it. */
+const toneStops = (tones: string[]) => tones.map((role, k) => ({ at: k + 1 < tones.length ? toneEdges(tones.length)[k + 1]! : 0, role })).reverse();
 
 const palette: Palette = {
   ...base,
@@ -31,7 +38,7 @@ const palette: Palette = {
     'test.gone': smooth(hexStop(0, '#00FF00'), hexStop(0.5, '#00FF00', 0), hexStop(1, '#00FF00', 0)),
     'test.team': banded({ at: 0, role: 'team' }, hexStop(0.5, '#00FF00')),
     'test.opaque': smooth(hexStop(0, '#FF00FF'), hexStop(1, '#00FFFF')),
-    'test.tones': banded(...tonePlaces(4).map((at, k) => ({ at, role: MOLOTOV_TONES[k]! }))),
+    'test.tones': banded(...toneStops(MOLOTOV_TONES)),
     'test.ramp': smooth(hexStop(0, '#0000FF'), hexStop(0.5, '#008080'), hexStop(1, '#00FF00')),
     'test.layered': smooth(hexStop(0, '#0000FF'), hexStop(1, '#00FF00')),
   },
@@ -269,7 +276,7 @@ describe('bursts coloured by a gradient over each piece life', () => {
   });
 });
 
-describe("the fire's bed coloured by a gradient from the rim to the middle", () => {
+describe("the fire's bed coloured by a gradient from the middle to the rim", () => {
   /** A bed layer lying flat on the ground, so its drawing's x and y are the ground's x and z (no tilt, no lift). */
   const bed = (edit: (s: BedShape) => void, id = 'bed'): EffectFile => {
     const fx = newEffect('t', 'T');
@@ -296,25 +303,32 @@ describe("the fire's bed coloured by a gradient from the rim to the middle", () 
     }
     return out;
   };
+  /** A drawing context for bedBands alone, with one gradient. */
+  const withRamp = (isBanded: boolean, ats: number[]) => ({ gradient: () => ({ banded: isBanded, stops: ats.map((at) => ({ at, c: [1, 1, 1, 1] })) }), rgba: () => [1, 1, 1, 1] }) as never;
+  /** test.ramp (smooth: blue in the middle, #008080 halfway, green at the rim) at a place, as drawn in sRGB. */
+  const rampHex = (t: number) => (t <= 0.5 ? mix([0, 0, 1], [0, 128 / 255, 128 / 255], t / 0.5) : mix([0, 128 / 255, 128 / 255], [0, 1, 0], (t - 0.5) / 0.5));
 
-  it('puts the band edges at the stops, the first band at the rim', () => {
+  it("puts the band edges at the stops: each stop's colour holds out to the next stop, the last one's to the rim", () => {
     const fx = bed((s) => { s.gradient = 'test.bands'; });
-    const bands = bedBands(shapeOf(fx), { gradient: () => ({ banded: true, stops: [0, 0.4, 0.7].map((at) => ({ at, c: [1, 1, 1, 1] })) }), rgba: () => [1, 1, 1, 1] } as never);
-    expect(bands.map((b) => 1 - b.rho - b.r0).map((p) => +p.toFixed(12))).toEqual([0, 0.4, 0.7]);
-    // As drawn: each band's lumps (one flat colour per band) reach out, on average, to the band's place.
+    // Rim first: blue from 0.7 to the rim, green from 0.4 to 0.7, red from the middle to 0.4.
+    const bands = bedBands(shapeOf(fx), withRamp(true, [0, 0.4, 0.7]));
+    expect(bands.map((b) => +(b.rho + b.r0).toFixed(12))).toEqual([1, 0.7, 0.4]);
+    expect(bands.map((b) => [b.lo, b.hi])).toEqual([[0.7, 1], [0.4, 0.7], [0, 0.4]]);
+    // As drawn: each band's lumps (one flat colour per band) reach out, on average, to the band's edge.
     const sink = drawn(fx, ctx(FULL));
     const R = shapeOf(fx).radiusM;
-    ['#FF0000', '#00FF00', '#0000FF'].forEach((hex, k) => {
+    ['#0000FF', '#00FF00', '#FF0000'].forEach((hex, k) => {
       // The band's base oval, then its lumps (as many as bandLumps makes); the white-hot spots come after.
       const n = Math.max(4, Math.round(14 * (bands[k]!.rho / 0.76)));
       const [oval, ...lumps] = discsOf(sink, rgb(hex)).slice(0, n + 1);
       expect(lumps).toHaveLength(n);
       const reach = lumps.reduce((m, q) => m + Math.hypot(q.x - oval!.x, q.y - oval!.y) + q.rx, 0) / lumps.length;
-      expect(Math.abs(reach / R - (1 - [0, 0.4, 0.7][k]!))).toBeLessThan(0.05);
+      expect(Math.abs(reach / R - [1, 0.7, 0.4][k]!)).toBeLessThan(0.05);
     });
   });
 
-  it("draws exactly today's tones picture from a banded gradient at the tones' places, both parts", () => {
+  it("draws exactly today's tones picture from a banded gradient with the tones' band edges as stops, both parts", () => {
+    expect(toneStops(MOLOTOV_TONES).map((st) => st.role)).toEqual(['heat.3', 'heat.2', 'heat.1', 'heat.dark']);
     for (const part of ['lumps', 'detail'] as const) {
       const tones = bed((s) => { s.part = part; s.tones = [...MOLOTOV_TONES]; });
       const grad = bed((s) => { s.part = part; s.tones = ['white']; s.gradient = 'test.tones'; });
@@ -339,16 +353,39 @@ describe("the fire's bed coloured by a gradient from the rim to the middle", () 
     expect([...c].filter((x) => x !== rgb('ink') && x !== rgb('heat.deep'))).toHaveLength(3);
   });
 
-  it('blends from band to band when smooth, and the middle cools when the inner band goes', () => {
+  it("keeps the tones' bands when smooth: one band of lumps per tone, in their places, whatever the stops", () => {
+    for (const part of ['lumps', 'detail'] as const) for (const t of [100, FULL, 2200, COOL]) {
+      const tones = drawn(bed((s) => { s.part = part; }), ctx(t));
+      for (const gradient of ['test.ramp', 'test.smooth', 'test.layered']) {
+        const smoothBed = drawn(bed((s) => { s.part = part; s.gradient = gradient; }), ctx(t));
+        expect(smoothBed.triangles, `${part} ${gradient} ${t} ms`).toBe(tones.triangles);
+        expect(positions(smoothBed)).toBe(positions(tones));
+      }
+    }
+    // Bands as the tones have them, the colours placed between each band's edge and the next band's.
+    const bands = bedBands(shapeOf(bed((s) => { s.gradient = 'test.ramp'; })), withRamp(false, [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]));
+    const edges = toneEdges(4);
+    expect(bands).toHaveLength(4);
+    bands.forEach((b, k) => {
+      expect(b.rho + b.r0).toBeCloseTo(edges[k]!, 12);
+      expect(b.hi).toBeCloseTo(edges[k]!, 12);
+      expect(b.lo).toBeCloseTo(k + 1 < 4 ? edges[k + 1]! : 0, 12);
+      expect(b.z).toBe(k);
+    });
+  });
+
+  it('blends from the middle out when smooth, and the middle cools when the inner bands go', () => {
     const fx = bed((s) => { s.gradient = 'test.ramp'; });
     const greens = (t: number) => vertices(drawn(fx, ctx(t))).filter((x) => x.rgba[0] === 0 && x.u === WHITE_U).map((x) => x.rgba[1]!);
     const full = greens(FULL);
-    // Many shades between the rim's blue and the middle's green, all on the gradient.
+    // Many shades between the middle's blue and the rim's green, all on the gradient.
     expect(new Set(full.map((g) => g.toFixed(2))).size).toBeGreaterThan(20);
     expect(Math.min(...full)).toBeLessThan(0.05);
-    expect(Math.max(...full)).toBeCloseTo(1, 6);
-    // Half cooled: the inner band (0.5 to the middle) is gone, so nothing is greener than the place 0.5 (#008080).
-    expect(Math.max(...greens(COOL))).toBeLessThanOrEqual(128 / 255 + 1e-6);
+    expect(Math.max(...full)).toBeGreaterThan(0.95);
+    // Half cooled: the two inner bands are gone, so nothing is bluer than the place where the second band starts
+    // (the edge of the third band, 0.5533...).
+    const start = toneEdges(4)[2]!, green = Number(rampHex(start).split(',')[1]);
+    expect(Math.min(...greens(COOL))).toBeGreaterThanOrEqual(green - 1e-3);
   });
 
   it("puts the detail's halftone in the next band's colour: its middle colour when smooth", () => {
@@ -356,18 +393,20 @@ describe("the fire's bed coloured by a gradient from the rim to the middle", () 
       const sink = drawn(bed((s) => { s.part = 'detail'; s.gradient = gradient; }), ctx(FULL, { dot: { u0: 0.6, v0: 0.6, u1: 0.7, v1: 0.7 } }));
       return new Set(vertices(sink).filter((x) => x.u >= 0.6 && x.u <= 0.7).map((x) => x.c));
     };
-    expect(dots('test.bands')).toEqual(new Set([rgb('#00FF00'), rgb('#0000FF')]));
-    // Smooth, two bands: the outer band's halftone is the inner band's colour halfway in (place 0.75).
-    expect(dots('test.ramp')).toEqual(new Set([mix([0, 128 / 255, 128 / 255], [0, 1, 0], 0.5)]));
+    // Banded, rim first blue, green, red: the blue band's halftone is green, the green band's red.
+    expect(dots('test.bands')).toEqual(new Set([rgb('#00FF00'), rgb('#FF0000')]));
+    // Smooth, the tones' four bands: each outer band's halftone is the next band's colour halfway into it.
+    const e = toneEdges(4), mids = [(e[1]! + e[2]!) / 2, (e[2]! + e[3]!) / 2, e[3]! / 2];
+    expect(dots('test.ramp')).toEqual(new Set(mids.map(rampHex)));
   });
 
   it("puts both parts' bands in the same places: each halftone dot lies on its band's lumps", () => {
     // Same layer id and seed, so both parts draw the very same lumps.
     const lumps = drawn(bed((s) => { s.gradient = 'test.bands'; }), ctx(FULL));
     const detail = drawn(bed((s) => { s.gradient = 'test.bands'; s.part = 'detail'; }), ctx(FULL, { dot: { u0: 0.6, v0: 0.6, u1: 0.7, v1: 0.7 } }));
-    const bands = ['#FF0000', '#00FF00', '#0000FF'].map((hex) => discsOf(lumps, rgb(hex)));
+    const bands = ['#0000FF', '#00FF00', '#FF0000'].map((hex) => discsOf(lumps, rgb(hex)));
     let n = 0;
-    ['#00FF00', '#0000FF'].forEach((hex, k) => {
+    ['#00FF00', '#FF0000'].forEach((hex, k) => {
       const vs = vertices(detail).filter((x) => x.u >= 0.6 && x.u <= 0.7 && x.c === rgb(hex));
       for (let i = 0; i + 4 <= vs.length; i += 4) {
         const [x, y] = flat([0, 1, 2].map((j) => (vs[i]!.pos[j]! + vs[i + 2]!.pos[j]!) / 2));
@@ -392,12 +431,12 @@ describe("the fire's bed coloured by a gradient from the rim to the middle", () 
   });
 
   it('keeps every band inside the last one, whatever the stops', () => {
-    const cases: GradientRamp['stops'][] = [
-      [0, 1], [0, 0.5, 0.5, 1], [0, 0.03, 0.06, 0.09, 0.12], [0, 0.97], [0.3, 0.6, 1],
+    const cases: number[][] = [
+      [0, 1], [0, 0.5, 0.5, 1], [0, 0.03, 0.06, 0.09, 0.12], [0, 0.97], [0.3, 0.6, 1], [0.88, 0.91, 0.94, 0.97],
       Array.from({ length: 16 }, (_, k) => k / 16), Array.from({ length: 16 }, (_, k) => k / 15),
-    ].map((ats) => ats.map((at) => ({ at, c: [1, 1, 1, 1] as [number, number, number, number] })));
-    for (const stops of cases) for (const isBanded of [true, false]) {
-      const bands = bedBands(shapeOf(bed((s) => { s.gradient = 'x'; })), { gradient: () => ({ banded: isBanded, stops }), rgba: () => [1, 1, 1, 1] } as never);
+    ];
+    for (const ats of cases) for (const isBanded of [true, false]) {
+      const bands = bedBands(shapeOf(bed((s) => { s.gradient = 'x'; })), withRamp(isBanded, ats));
       expect(bands.length).toBeGreaterThan(0);
       bands.forEach((b, j) => {
         expect(b.rho).toBeGreaterThan(0);
@@ -408,11 +447,12 @@ describe("the fire's bed coloured by a gradient from the rim to the middle", () 
     }
   });
 
-  it('leaves out a band with no room: two stops at one place, or a stop at the very middle', () => {
-    const g = (ats: number[]) => ({ gradient: () => ({ banded: true, stops: ats.map((at) => ({ at, c: [1, 1, 1, 1] })) }), rgba: () => [1, 1, 1, 1] }) as never;
+  it('leaves out a band with no room: two stops at one place, or a stop at the rim', () => {
     const sp = shapeOf(bed((s) => { s.gradient = 'x'; }));
-    expect(bedBands(sp, g([0, 0.5, 0.5, 1])).map((b) => [b.lo, b.hi])).toEqual([[0, 0.5], [0.5, 1]]);
-    expect(bedBands(sp, g([0, 1]))).toHaveLength(1);
+    expect(bedBands(sp, withRamp(true, [0, 0.5, 0.5, 1])).map((b) => [b.lo, b.hi])).toEqual([[0.5, 1], [0, 0.5]]);
+    expect(bedBands(sp, withRamp(true, [0, 1]))).toHaveLength(1);
+    // The first stop's colour holds from the very middle, wherever the stop is (as a glow draws it).
+    expect(bedBands(sp, withRamp(true, [0.3, 0.6, 1])).map((b) => [b.lo, b.hi])).toEqual([[0.6, 1], [0, 0.6]]);
   });
 
   it('draws its tones when the palette has no such gradient (the checker names it)', () => {

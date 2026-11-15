@@ -219,18 +219,23 @@ export function profileSummary(id: string, name: string, changed: Date, palette:
 
 // ---------------------------------------------------------------- the default profiles
 
-/** The Molotov bed's tones, from the rim to the middle (the bed layers of examples/demo-project's Molotov; a test compares them). */
+/** The Molotov bed's tones, from the rim to the middle, as a bed lists them (the bed layers of examples/demo-project's Molotov; a test compares them). */
 export const MOLOTOV_BED_TONES = ['heat.dark', 'heat.1', 'heat.2', 'heat.3'] as const;
 
-/**
- * Where band k of K sits on a fire's bed without a gradient, from the rim (0) to the middle (1): the runtime's
- * 0.58 k / (K - 1) + 0.03 k, to four decimals (a band moves less than a tenth of a millimetre on the Molotov's bed).
- */
-export function bedTonePlace(k: number, K: number): number {
-  return K > 1 ? Math.round((0.58 * (k / (K - 1)) + 0.03 * k) * 1e4) / 1e4 : 0;
-}
-
 const stop = (at: number, role: string, alpha?: number): GradientStop => ({ at, role, ...(alpha === undefined ? {} : { alpha }) });
+
+/**
+ * The stops of a banded gradient that draws a bed's tones (listed from the rim to the middle) in the places its bands
+ * take without a gradient. A bed's gradient runs from the middle (0) to the rim (1), as a glow's, so the stops go from
+ * the middle out: the innermost tone from 0, each other tone from the edge of the band inside it. Band k of K (counted
+ * from the rim) reaches out to 1 - 0.58 k / (K - 1) - 0.03 k: the runtime's places, to four decimals (a band moves less
+ * than a tenth of a millimetre on the Molotov's bed).
+ */
+export function bedToneStops(tones: readonly string[]): GradientStop[] {
+  const K = tones.length;
+  const edge = (k: number) => Math.round((1 - 0.58 * (K > 1 ? k / (K - 1) : 0) - 0.03 * k) * 1e4) / 1e4;
+  return tones.map((role, k) => stop(k + 1 < K ? edge(k + 1) : 0, role)).reverse();
+}
 
 /**
  * The gradients the default profile "Built-in with gradients" adds to the built-in colours: the ready-made ones the colour
@@ -242,18 +247,19 @@ export function defaultProfileGradients(): Record<string, Gradient> {
   for (const p of GRADIENT_PRESETS) out[p.name] = { ...structuredClone(p.gradient), from: 'assumed', note: `The ready-made gradient "${p.label}".` };
   out['fire.bed'] = {
     kind: 'banded', from: 'assumed',
-    note: 'A fire\'s bed, from the rim to the middle: the Molotov bed\'s four tones at the places its bands take without a gradient, so it draws today\'s bed.',
-    stops: MOLOTOV_BED_TONES.map((role, k) => stop(bedTonePlace(k, MOLOTOV_BED_TONES.length), role)),
+    note: 'A fire\'s bed, from the middle to the rim: the Molotov bed\'s four tones, hot in the middle and dark at the rim, with the band edges where its bands are without a gradient, so it draws today\'s bed.',
+    stops: bedToneStops(MOLOTOV_BED_TONES),
   };
   out['sparks.cool'] = {
     kind: 'smooth', from: 'assumed',
     note: 'A spark over its life: white-hot, then yellow, orange and burnt orange as it fades out.',
     stops: [stop(0, 'heat.4'), stop(0.3, 'heat.3'), stop(0.65, 'heat.1'), stop(1, 'heat.dark', 0)],
   };
-  out['smoke.thin'] = {
+  // Colours only: a see-through puff shows its rounds where they overlap.
+  out['smoke.lighten'] = {
     kind: 'smooth', from: 'assumed',
-    note: 'A fire\'s smoke over each puff\'s life: solid until 60 %, then thinning to nothing.',
-    stops: [stop(0, 'fire.smoke'), stop(0.6, 'fire.smoke'), stop(1, 'fire.smoke', 0)],
+    note: 'A fire\'s smoke over each puff\'s life: dark at first, then lighter as it thins out, up to the colour of its lit top. Colours only, so the puff stays solid.',
+    stops: [stop(0, 'fire.smoke'), stop(0.4, 'fire.smoke'), stop(1, 'fire.smoke.light')],
   };
   return out;
 }

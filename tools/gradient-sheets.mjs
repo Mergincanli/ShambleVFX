@@ -1,5 +1,6 @@
 // Contact sheets of the gradients the runtime draws on smoke, the fire's bed and bursts, with test gradients (not
-// proposals: crude colours on purpose, so direction and band edges are easy to judge).
+// proposals: crude colours on purpose, so direction and band edges are easy to judge). A bed's gradient runs from the
+// middle (0) to the rim (1), as a glow's.
 //   node tools/gradient-sheets.mjs [--faction=soviets] [--seed=7]
 // It writes a throwaway project into out/gradients/project/gradients/ (a palette.json with the test gradients, effects
 // made from the Molotov preset's layers, the hit star image), opens it in the editor's own preview (the real runtime, the
@@ -22,16 +23,20 @@ const dir = join(root, 'gradients');
 const palette = JSON.parse(readFileSync(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json'), 'utf8'));
 const role = (at, r, alpha) => ({ at, role: r, ...(alpha === undefined ? {} : { alpha }) });
 const hex = (at, h) => ({ at, hex: h });
-/** Where the bed's bands sit without a gradient (4 tones): a banded gradient with these stops draws today's bed. */
-const TONE_PLACES = [0, 0.58 / 3 + 0.03, (0.58 * 2) / 3 + 0.06, 0.58 + 0.09];
+/**
+ * How far the bed's four bands reach without a gradient, from the middle (0) to the rim (1): band k (from the rim) to
+ * 1 - 0.58 k / 3 - 0.03 k. A banded gradient with the tones from the middle out, each from the edge of the band inside
+ * it, draws today's bed.
+ */
+const TONE_EDGES = [0, 1, 2, 3].map((k) => 1 - (0.58 * k) / 3 - 0.03 * k);
 palette.gradients = {
   'sheet.rgb': { kind: 'banded', from: 'assumed', note: 'Test: red from 0, green from 0.4, blue from 0.7.', stops: [hex(0, '#E02020'), hex(0.4, '#20B020'), hex(0.7, '#2050E0')] },
   'sheet.smoke.hot': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.2'), role(0.25, 'heat.dark'), role(0.55, 'fire.smoke'), role(1, 'fire.smoke', 0.35)] },
   'sheet.smoke.thin': { kind: 'smooth', from: 'assumed', stops: [role(0, 'smoke.light'), role(0.5, 'smoke.dark', 0.75), role(1, 'smoke', 0.1)] },
-  'sheet.bed.tones': { kind: 'banded', from: 'assumed', note: "The Molotov bed's tones at the places its bands sit without a gradient.", stops: ['heat.dark', 'heat.1', 'heat.2', 'heat.3'].map((r, k) => role(TONE_PLACES[k], r)) },
-  'sheet.bed.bands': { kind: 'banded', from: 'assumed', stops: [role(0, 'heat.deep'), role(0.12, 'heat.dark'), role(0.3, 'heat.1'), role(0.55, 'heat.3'), role(0.8, 'heat.4')] },
-  'sheet.bed.smooth': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.deep'), role(0.25, 'heat.dark'), role(0.5, 'heat.1'), role(0.75, 'heat.3'), role(1, 'heat.4')] },
-  'sheet.bed.two': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.dark'), role(1, 'heat.4')] },
+  'sheet.bed.tones': { kind: 'banded', from: 'assumed', note: "The Molotov bed's tones from the middle out, with the band edges where its bands are without a gradient.", stops: [role(0, 'heat.3'), role(TONE_EDGES[3], 'heat.2'), role(TONE_EDGES[2], 'heat.1'), role(TONE_EDGES[1], 'heat.dark')] },
+  'sheet.bed.bands': { kind: 'banded', from: 'assumed', stops: [role(0, 'heat.4'), role(0.2, 'heat.3'), role(0.45, 'heat.1'), role(0.7, 'heat.dark'), role(0.88, 'heat.deep')] },
+  'sheet.bed.smooth': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.4'), role(0.25, 'heat.3'), role(0.5, 'heat.1'), role(0.75, 'heat.dark'), role(1, 'heat.deep')] },
+  'sheet.bed.two': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.4'), role(1, 'heat.dark')] },
   'sheet.sparks': { kind: 'smooth', from: 'assumed', stops: [role(0, 'white'), role(0.15, 'heat.4'), role(0.4, 'heat.3'), role(0.65, 'heat.1'), role(0.85, 'heat.dark'), role(1, 'heat.deep', 0)] },
   'sheet.team': { kind: 'smooth', from: 'assumed', stops: [role(0, 'white'), role(0.3, 'glow.hot'), role(0.65, 'team'), role(1, 'team.dark', 0)] },
   'sheet.image': { kind: 'smooth', from: 'assumed', stops: [role(0, 'heat.4'), role(0.35, 'heat.1'), role(0.7, 'smoke', 0.8), role(1, 'smoke', 0)] },
@@ -85,11 +90,11 @@ const sheets = [
   ] },
   { file: 'bed.png', scene: 'board-molotov', zoom: 1, times: [150, 1000, 1950, 2350], rows: [
     effect('g_bed_plain', "The Molotov bed's tones, no gradient", BED_PHASES, bedPair()),
-    effect('g_bed_tones', 'Banded: the same tones at the same places', BED_PHASES, bedPair('sheet.bed.tones')),
-    effect('g_bed_rgb', 'Banded red/green/blue: rim red, edges at 0.4 and 0.7', BED_PHASES, bedPair('sheet.rgb')),
-    effect('g_bed_bands', 'Banded, five stops (0, 0.12, 0.3, 0.55, 0.8)', BED_PHASES, bedPair('sheet.bed.bands')),
-    effect('g_bed_smooth', 'Smooth, five stops (0 to 1 by 0.25)', BED_PHASES, bedPair('sheet.bed.smooth')),
-    effect('g_bed_two', 'Smooth, two stops (0 and 1)', BED_PHASES, bedPair('sheet.bed.two')),
+    effect('g_bed_tones', 'Banded: the same tones, edges where the bands are', BED_PHASES, bedPair('sheet.bed.tones')),
+    effect('g_bed_rgb', 'Banded red/green/blue: red middle, edges at 0.4 and 0.7', BED_PHASES, bedPair('sheet.rgb')),
+    effect('g_bed_bands', 'Banded, five stops (0, 0.2, 0.45, 0.7, 0.88): five bands', BED_PHASES, bedPair('sheet.bed.bands')),
+    effect('g_bed_smooth', "Smooth, five stops (0 to 1 by 0.25): the tones' four bands", BED_PHASES, bedPair('sheet.bed.smooth')),
+    effect('g_bed_two', "Smooth, two stops (0 and 1): still the tones' four bands", BED_PHASES, bedPair('sheet.bed.two')),
   ] },
   { file: 'sparks.png', scene: 'board-molotov', zoom: 1.5, times: [60, 250, 450, 700], rows: [
     effect('g_sparks_plain', 'Sparks, no gradient', peak(900), [sparks()]),

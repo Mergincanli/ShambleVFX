@@ -46,34 +46,42 @@ interface Lump { x: number; y: number; rx: number; ry: number; a: number; i: num
 
 /**
  * One band of the bed, as shares of the bed's radius: its base oval (rho), its lumps (r0), and how far it sits towards
- * the camera (z, in tenths). Its lumps reach out to rho + r0, so its place from the rim (0) to the middle (1) is
- * 1 - rho - r0. c: its flat colour (tones, or a banded gradient). A smooth gradient (g) colours it by place instead,
- * between lo and hi: from its own place to the next band's.
+ * the camera (z, in tenths). Its lumps reach out to rho + r0 from the middle: its edge. Places on the bed run from the
+ * middle (0) to the rim (1), as on a glow. lo to hi: the places the band shows, from where the next band in takes over
+ * out to its own edge. c: its flat colour (a tone, or a banded gradient's stop). A smooth gradient (g) colours it by
+ * place instead, kept between lo and hi.
  */
 interface Band { rho: number; r0: number; z: number; c?: RGBA; g?: GradientRamp; lo: number; hi: number }
 
 /**
- * The bed's bands, rim first. From tones: one band per tone, as always. From a gradient: one band per stop; band j's
- * lumps reach out to its stop's place (the first band's to the rim) and it lasts to the next stop, so the band edges sit
- * at the stops. A band with no room (two stops at one place, a stop at the very middle) is left out.
+ * The bed's bands, rim first.
+ * - Tones, or a smooth gradient: one band per tone, in the places the bands have always had. A smooth gradient keeps
+ *   that layout and blends its colours over it, from the middle out.
+ * - A banded gradient: one band per stop. A stop's colour holds from its place out to the next stop (the last stop's to
+ *   the rim; the first stop's from the very middle), so the band edges sit at the stops. A band with no room (two stops
+ *   at one place, a stop at the rim) is left out.
  */
 export function bedBands(sp: BedShape, ctx: DrawCtx): Band[] {
   const g = sp.gradient ? ctx.gradient?.(sp.gradient) : undefined;
-  const K = sp.tones.length;
-  if (!g) return sp.tones.map((role, k) => ({ rho: 0.76 - 0.58 * (K > 1 ? k / (K - 1) : 0), r0: 0.24 - 0.03 * k, z: k, c: ctx.rgba(role), lo: 0, hi: 0 }));
-  const out: Band[] = [];
-  let z = 0, last = 0;
-  g.stops.forEach((st, j) => {
-    const p = j ? clamp01(st.at) : 0, hi = j + 1 < g.stops.length ? clamp01(g.stops[j + 1]!.at) : 1;
-    if (hi <= p) return;
+  if (!g?.banded) {
+    const K = sp.tones.length;
+    const out = sp.tones.map((role, k): Band => ({ rho: 0.76 - 0.58 * (K > 1 ? k / (K - 1) : 0), r0: 0.24 - 0.03 * k, z: k, ...(g ? { g } : { c: ctx.rgba(role) }), lo: 0, hi: 0 }));
+    out.forEach((b, k) => { b.hi = b.rho + b.r0; b.lo = k + 1 < K ? out[k + 1]!.rho + out[k + 1]!.r0 : 0; });
+    return out;
+  }
+  const s = g.stops, out: Band[] = [];
+  let z = 0, last = 1;
+  for (let j = s.length - 1; j >= 0; j--) {
+    const hi = j + 1 < s.length ? clamp01(s[j + 1]!.at) : 1, lo = j ? clamp01(s[j]!.at) : 0;
+    if (hi <= lo) continue;
     const k = out.length;
-    // Lumps as tones would have them, but never more than 0.6 of the band; a band shifts towards the camera by less
-    // when it is close to the last one, so it stays inside it.
-    const r0 = Math.min(Math.max(0.03, 0.24 - 0.03 * k), 0.6 * (1 - p));
-    if (k) z += Math.min(1, 9 * (p - last));
-    out.push({ rho: 1 - p - r0, r0, z, ...(g.banded ? { c: st.c } : { g }), lo: p, hi });
-    last = p;
-  });
+    // Lumps as tones would have them, but never more than 0.6 of the band's reach; a band shifts towards the camera by
+    // less when its edge is close to the last one's, so it stays inside it.
+    const r0 = Math.min(Math.max(0.03, 0.24 - 0.03 * k), 0.6 * hi);
+    if (k) z += Math.min(1, 9 * (last - hi));
+    out.push({ rho: hi - r0, r0, z, c: s[j]!.c, lo, hi });
+    last = hi;
+  }
   return out;
 }
 
@@ -102,17 +110,18 @@ function bandLumps(sp: BedShape, ctx: DrawCtx, b: Band, k: number, scale: number
 }
 
 /**
- * A lump coloured by a smooth gradient: each corner takes the colour of its place, as if the lump lay flat on the ground
- * (a circle of its own radius), kept between the band's own place and the next band's. Same triangles as a plain lump.
+ * A lump coloured by a smooth gradient: each corner takes the colour of its place (its distance from the band's middle
+ * on the ground, as a share of the radius), as if the lump lay flat on the ground (a circle of its own radius), kept
+ * between the band's lo and hi. So the middle cools when the inner bands go out. Same triangles as a plain lump.
  */
-function placeDisc(ctx: DrawCtx, q: Lump, R: number, b: Band): void {
-  const at = (ox: number, oz: number) => rampAt(b.g!, Math.min(b.hi, Math.max(b.lo, 1 - Math.hypot(q.d * Math.cos(q.a) + ox, q.d * Math.sin(q.a) + oz) / R)));
+function placeDisc(ctx: DrawCtx, q: Lump, R: number, b: Band, segs = 20): void {
+  const at = (ox: number, oz: number) => rampAt(b.g!, Math.min(b.hi, Math.max(b.lo, Math.hypot(q.d * Math.cos(q.a) + ox, q.d * Math.sin(q.a) + oz) / R)));
   const mid = ctx.p.vtx(q.x, q.y, at(0, 0)), rim: number[] = [];
-  for (let i = 0; i < 20; i++) {
-    const c = Math.cos((TAU * i) / 20), s = Math.sin((TAU * i) / 20);
+  for (let i = 0; i < segs; i++) {
+    const c = Math.cos((TAU * i) / segs), s = Math.sin((TAU * i) / segs);
     rim.push(ctx.p.vtx(q.x + c * q.rx, q.y + s * q.ry, at(c * q.rx, s * q.rx)));
   }
-  for (let i = 0; i < 20; i++) ctx.p.target.tri(mid, rim[i]!, rim[(i + 1) % 20]!);
+  for (let i = 0; i < segs; i++) ctx.p.target.tri(mid, rim[i]!, rim[(i + 1) % segs]!);
 }
 
 function insideLumps(x: number, y: number, list: Lump[]): boolean {
@@ -183,7 +192,7 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
       const y = gz * t.sa + 0.1 * t.ua;
       // A smooth gradient colours them by place as well, so they blend into the middle as a tone's do.
       if (b.c) ctx.p.disc(gx, y, r, r * 0.6, b.c, 16);
-      else placeDisc(ctx, { x: gx, y, rx: r, ry: r * 0.6, a: Math.atan2(gz - z, gx), i: m, d: Math.hypot(gx, gz - z) }, R, b);
+      else placeDisc(ctx, { x: gx, y, rx: r, ry: r * 0.6, a: Math.atan2(gz - z, gx), i: m, d: Math.hypot(gx, gz - z) }, R, b, 16);
     }
   }
 }

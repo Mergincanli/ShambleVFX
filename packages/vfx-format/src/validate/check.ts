@@ -2,8 +2,8 @@
  * The checker. It names every problem in plain words, with where it is:
  * schema errors, unknown colour roles (the ones a layer names, and the ones it draws without naming them: see colours.ts)
  * and gradients, missing images, hex colours, broken links between layers, missing lengths, and, as warnings, characters
- * we have not drawn yet, word chances that do not work as typed, a fire's bed layers with different gradients, and phases
- * with no length.
+ * we have not drawn yet, word chances that do not work as typed, a fire's bed layers with different gradients, a bed
+ * gradient with very many bands, and phases with no length.
  */
 import type { core } from 'zod';
 import { WORD_LETTERS } from '../defaults';
@@ -47,6 +47,12 @@ export interface CheckResult {
   problems: Problem[];
   upgradedFrom?: number;
 }
+
+/**
+ * A fire's bed draws one band of lumps per stop of a banded gradient, so its triangles grow with every stop. Above this
+ * many stops the checker warns. Assumed (not yet decided by the Art lead): 8, twice the four tones a bed has by default.
+ */
+export const BED_BAND_STOPS_WARN = 8;
 
 export function pathText(path: readonly PropertyKey[]): string {
   let s = '';
@@ -193,16 +199,16 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
     }
   });
 
-  // A fire's bed: the detail's halftone sits where the bands meet only when the detail and the lumps share one gradient
-  // (or both have none). Assumption, marked: the effect's bed layers belong to one fire, so every detail layer is
-  // compared with every lumps layer of the effect.
+  // A fire's bed: the detail's halftone matches the bands (their colours, and with a banded gradient where they meet) only
+  // when the detail and the lumps share one gradient (or both have none). Assumption, marked: the effect's bed layers
+  // belong to one fire, so every detail layer is compared with every lumps layer of the effect.
   const beds = fx.layers.flatMap((l, i) => (l.type === 'shape' && l.shape.kind === 'bed' ? [{ l, i, sp: l.shape as BedShape }] : []));
   for (const d of beds.filter((b) => b.sp.part === 'detail')) {
     const other = beds.find((b) => b.sp.part === 'lumps' && b.sp.gradient !== d.sp.gradient);
     if (!other) continue;
     const name = (g: string | undefined) => (g ? `"${g}"` : 'none');
     warn('gradient', `layers[${d.i}].shape.gradient`,
-      `"${d.l.name}" and "${other.l.name}" use different gradients (${name(d.sp.gradient)} and ${name(other.sp.gradient)}): the detail's halftone would not sit where the bands meet. Give both bed layers the same gradient`);
+      `"${d.l.name}" and "${other.l.name}" use different gradients (${name(d.sp.gradient)} and ${name(other.sp.gradient)}): the detail's halftone would not match the bands (their colours, or where they meet). Give both bed layers the same gradient`);
   }
 
   // Quality tiers: Low drops extras but must stay readable, so it must show something.
@@ -244,6 +250,13 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
       }
       for (const g of used.gradients) if (!palette.gradients?.[g.name]) err('gradient', g.path, `"${g.name}" is not a gradient in the palette`);
     });
+    // A banded gradient on a fire's bed: one band of lumps per stop.
+    for (const { l, i, sp } of beds) {
+      const g = sp.gradient ? palette.gradients?.[sp.gradient] : undefined;
+      if (g?.kind !== 'banded' || !Array.isArray(g.stops) || g.stops.length <= BED_BAND_STOPS_WARN) continue;
+      warn('gradient', `layers[${i}].shape.gradient`,
+        `"${l.name}": the gradient "${sp.gradient}" is banded and has ${g.stops.length} stops. On a fire's bed, each stop is a band of lumps, so the triangles grow with every stop. Keep it to ${BED_BAND_STOPS_WARN} stops or fewer`);
+    }
   }
 
   // Images.

@@ -24,6 +24,10 @@ triangles.
 Under the table: the three layers with the most triangles in High, at its busiest moment. They are where to look first when
 deciding what Low drops.
 
+A fire's bed draws one band of lumps per tone, or, with a banded gradient, one band per stop, so each stop adds triangles. The
+checker warns when a bed's banded gradient has more than 8 stops (an assumed limit, twice the four tones a bed starts with). A
+smooth gradient keeps the bed's own bands, so it costs no more triangles than the tones.
+
 The counts and areas are the same on every press (the browser check measures twice and compares). They never touch the GPU
 (they are counted from the triangles the runtime builds), so the backend does not change them. Only the milliseconds depend
 on the computer.

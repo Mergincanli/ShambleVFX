@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { FORMAT_VERSION } from '../types';
 import { effectSchema } from './schema';
 
-export { checkEffect, problemLines, pathText } from './check';
+export { checkEffect, problemLines, pathText, BED_BAND_STOPS_WARN } from './check';
 export type { CheckOptions, CheckResult, Problem, ProblemKind } from './check';
 export { layerColours, effectColours, colourRoles, INK_ROLE, WHITE_ROLE, BROKEN_EDGE_ROLE } from './colours';
 export type { ColourList, ColourOptions, ColourReason, ColourUse, GradientUse } from './colours';
