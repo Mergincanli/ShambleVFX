@@ -120,17 +120,26 @@ for (const backend of ['webgpu', 'webgl']) {
 // drawn on both backends and must match: draw order (sparks over the white frame), added light (the beam's glows),
 // light on the ground (screen) and stains (multiply) all go through the WebGPU path too.
 if (webgpu) {
-  const cases = [['board_shell', 'board-shell', 600, 'sparks over the white frame'], ['board_shell', 'board-shell', 1300, 'burst, scorch and ring'],
-    ['board_beam', 'board-beam', 1000, 'beam and added glows'], ['board_muzzle', 'board-muzzle', 45, 'flash, tracer and light on the ground']];
+  const cases = [
+    ['examples/demo-project', 'board_shell', 'board-shell', 600, 'sparks over the white frame'],
+    ['examples/demo-project', 'board_shell', 'board-shell', 1300, 'burst, scorch and ring'],
+    ['examples/demo-project', 'board_beam', 'board-beam', 1000, 'beam and added glows'],
+    ['examples/demo-project', 'board_muzzle', 'board-muzzle', 45, 'flash, tracer and light on the ground'],
+    ['examples/demo-project', 'board_molotov', 'board-molotov', 1200, 'fire: bed, tongues, halftone'],
+    ['examples/hits-collection', 'hit_burst_star', 'hit-unit', 300, 'a hit: halftone fill, shards, word'],
+  ];
   const pages = {};
-  for (const b of ['webgpu', 'webgl']) {
-    pages[b] = await open(`${base}/?offscreen=1&frame=1${b === 'webgl' ? '&backend=webgl' : ''}&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
-  }
-  for (const [effect, scene, ms, what] of cases) {
+  const pageFor = async (b, project) => {
+    const key = `${b}|${project}`;
+    if (!pages[key]) pages[key] = await open(`${base}/?offscreen=1&frame=1${b === 'webgl' ? '&backend=webgl' : ''}&project=${project}`, () => window.__vfx && window.__vfx.ready);
+    return pages[key];
+  };
+  for (const [project, effect, scene, ms, what] of cases) {
     const img = {};
+    let box = null;
     for (const b of ['webgpu', 'webgl']) {
-      const pg = pages[b].page;
-      await pg.evaluate(async ([effect, scene, ms]) => {
+      const pg = (await pageFor(b, project)).page;
+      box = await pg.evaluate(async ([effect, scene, ms]) => {
         const a = window.__vfx.app;
         window.__vfxManual = true;
         await a.setupForChecks({ effect, scene, faction: 'soviets', relation: 'enemy', distance: 4 });
@@ -138,24 +147,30 @@ if (webgpu) {
         await a.showAt(ms, 7);
         await a.showAt(ms, 7);
         document.querySelector('.status')?.classList.remove('show');
+        const [x, y] = a.previewForChecks.toCanvas(a.previewForChecks.target);
+        return { x: Math.round(x), y: Math.round(y) };
       }, [effect, scene, ms]);
       await pg.waitForTimeout(100);
       img[b] = PNG.sync.read(await pg.screenshot({ path: join(shots, `backends-${effect}-${ms}-${b}.png`) }));
     }
-    // Count pixels that differ by more than 40 levels in any channel (edges differ a little between the backends).
-    let off = 0, effectPx = 0;
-    const A = img.webgpu.data, B = img.webgl.data;
-    for (let i = 0; i < A.length; i += 4) {
-      const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
-      if (d > 40) off++;
-      if (Math.abs(B[i] - 0xb8) + Math.abs(B[i + 1] - 0xa6) + Math.abs(B[i + 2] - 0x83) > 30) effectPx++;
+    // Compare a box round the target, each image first averaged over 2 x 2 pixels (edges differ a little between the
+    // backends; a missing or misplaced shape does not average away).
+    const W = img.webgl.width, H = img.webgl.height;
+    const x0 = Math.max(0, box.x - 480), x1 = Math.min(W - 2, box.x + 480), y0 = Math.max(0, box.y - 420), y1 = Math.min(H - 2, box.y + 300);
+    const avg = (png, x, y, k) => (png.data[(y * W + x) * 4 + k] + png.data[(y * W + x + 1) * 4 + k] + png.data[((y + 1) * W + x) * 4 + k] + png.data[((y + 1) * W + x + 1) * 4 + k]) / 4;
+    let off = 0, n = 0;
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) {
+      let d = 0;
+      for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(avg(img.webgpu, x, y, k) - avg(img.webgl, x, y, k)));
+      if (d > 48) off++;
+      n++;
     }
-    const share = off / (A.length / 4);
-    ok(`board preset ${effect} at ${ms} ms looks the same on WebGPU and WebGL 2 (${what})`, share < 0.004, `${(share * 100).toFixed(3)} % of pixels differ, ${effectPx} pixels not plain ground`);
+    const share = off / n;
+    ok(`board preset ${effect} at ${ms} ms looks the same on WebGPU and WebGL 2 (${what})`, share < 0.0015, `${(share * 100).toFixed(3)} % of the box round the target differs`);
   }
-  for (const b of ['webgpu', 'webgl']) {
-    ok(`[${b}] board presets draw without errors`, pages[b].errors.length === 0, pages[b].errors.slice(0, 2).join(' | '));
-    await pages[b].page.close();
+  for (const [key, pg] of Object.entries(pages)) {
+    ok(`[${key}] presets draw without errors`, pg.errors.length === 0, pg.errors.slice(0, 2).join(' | '));
+    await pg.page.close();
   }
 }
 
@@ -295,10 +310,13 @@ if (webgpu) {
   const savedPage = await open(`${base}/?backend=webgl&project=projects/${name}`, () => window.__vfx && window.__vfx.ready);
   const reopened = await savedPage.page.evaluate(() => {
     const a = window.__vfx.app;
+    a.pickEffect('board_shell');
+    const scene = a.previewForChecks.scene.id;
     a.pickEffect('rifle_shot');
-    return { effects: a.debugState().effects.slice().sort(), size: a.effect()?.controls.size, name: document.querySelector('.project-name')?.textContent };
+    return { effects: a.debugState().effects.slice().sort(), size: a.effect()?.controls.size, name: document.querySelector('.project-name')?.textContent, scene };
   });
   ok('the saved project opens again, with the edit in it', reopened.effects.join() === kept.join() && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, rifle_shot size ${reopened.size}`);
+  ok('the saved copy has its own name and keeps each effect\'s scene', (reopened.name ?? '').toLowerCase().includes('browser-check') && reopened.scene === 'board-shell', `${reopened.name}, board_shell in ${reopened.scene}`);
   await savedPage.page.close();
   ok('the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'rifle_shot.vfx.json'), 'utf8')).controls.size === 1);
   rmSync(dir, { recursive: true, force: true });

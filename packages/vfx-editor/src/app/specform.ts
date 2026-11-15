@@ -38,6 +38,7 @@ const CHOICES: Record<string, string[]> = {
   part: ['lumps', 'detail'],
   depth: ['all', 'back', 'middle', 'front'],
   visibleTo: ['everyone', 'shooter'],
+  input: ['origin', 'target'],
 };
 const STYLE_CHOICES: Record<string, string[]> = {
   smoke: ['puff', 'billow'],
@@ -52,6 +53,7 @@ const DEFAULTS: Record<string, unknown> = {
   core: { role: 'white', px: 3, edge: 'enemy' }, loop: { count: 3, lifeMs: 1600 }, closing: { count: 3, periodMs: 900, fromM: 3, toM: 1 },
   streak: { role: 'white', lengthM: 0.5, widthPx: 3 }, separation: 'heat.3', inkRole: 'ink', squash: 1, areaM: [0.5, 0.5], dashAt: 0.5,
   lightRole: 'smoke.light', find: 'windup', letGo: 'fade',
+  scale: { steps: [1], life: [[0, 1], [1, 1]] }, alpha: { life: [[0, 1], [1, 1]] },
 };
 const OPTIONAL = new Set(Object.keys(DEFAULTS));
 
@@ -140,6 +142,15 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
         const fs = [0, 1, 2].map((i) => numberField({ label: i === 0 ? label : '', value: v[i] as number, step: 0.05, onChange: (x) => edit([...p, i], x, label) }));
         parts.push({ refresh: () => { const x = get(p) as number[]; fs.forEach((f, i) => f.set(x[i]!)); } });
         return h('div', { class: 'fieldrow' }, ...fs.map((f) => f.el));
+      }
+      // Any other list of numbers (per-step factors), typed as "1.18, 1.06".
+      if (v.every((x) => typeof x === 'number')) {
+        const c = textField({ label, value: (v as number[]).join(', '), onChange: (txt) => {
+          const nums = txt.split(',').map((q) => Number(q.trim())).filter((q) => Number.isFinite(q));
+          if (nums.length) edit(p, nums, label);
+        } });
+        parts.push({ refresh: () => c.set((get(p) as number[]).join(', ')) });
+        return c.el;
       }
       // A curve: [x, y] pairs, typed as "x:y, x:y".
       if (v.every((x) => Array.isArray(x) && x.length === 2)) {
@@ -240,6 +251,7 @@ function optionalKeysFor(kind: string): string[] {
     case 'flames': case 'bed': return ['breakUp'];
     case 'burst': return ['areaM', 'streak'];
     case 'word': return ['separation', 'breakUp'];
+    case 'anim': return ['scale', 'alpha'];
     default: return [];
   }
 }

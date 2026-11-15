@@ -70,6 +70,7 @@ function drawShards(sp: ShardsShape, ctx: DrawCtx): void {
     return;
   }
   let first = true;
+  const drawn: number[][] = [];
   sp.tones.forEach((tone, i) => {
     if (tone.vanishAt !== undefined && k2 >= tone.vanishAt) return;
     const pts = shardPoints(ctx, 11 + i * 12, sp.radiusM * tone.scale * sz, tone.points ?? sp.points, sp.inner, i === 0 ? sp.jitter : sp.jitter * 0.67, rot + i * 0.3 + boil, sp.squash);
@@ -78,30 +79,30 @@ function drawShards(sp: ShardsShape, ctx: DrawCtx): void {
       first = false;
     }
     ctx.p.fan(0, 0, pts, ctx.rgba(tone.role));
-    if (i === 0) {
-      if (sp.halftone) halftoneIn(ctx, pts, sp.halftone, sp.radiusM * sz);
-      if (sp.double) {
-        const inner = shardPoints(ctx, 97, sp.radiusM * tone.scale * sz * 0.72, tone.points ?? sp.points, sp.inner, sp.jitter, rot + 0.15 + boil, sp.squash);
-        ctx.p.stroke(inner, true, ctx.px(Math.max(1.5, sp.inkPx * 0.6)), ctx.rgba('ink'));
-      }
+    drawn.push(pts);
+    if (i === 0 && sp.double) {
+      const inner = shardPoints(ctx, 97, sp.radiusM * tone.scale * sz * 0.72, tone.points ?? sp.points, sp.inner, sp.jitter, rot + 0.15 + boil, sp.squash);
+      ctx.p.stroke(inner, true, ctx.px(Math.max(1.5, sp.inkPx * 0.6)), ctx.rgba('ink'));
     }
   });
+  // Halftone on top, in the outer band only (where the outer tone still shows).
+  if (sp.halftone && drawn.length) halftoneIn(ctx, drawn[0]!, sp.halftone, sp.radiusM * sz, drawn[1]);
 }
 
-/** Halftone dots inside a polygon, shrinking towards one side. */
-function halftoneIn(ctx: DrawCtx, pts: number[], h: HalftoneFill, R: number): void {
+/** Halftone dots inside a polygon (and outside `exclude`, when given), shrinking towards one side. */
+function halftoneIn(ctx: DrawCtx, pts: number[], h: HalftoneFill, R: number, exclude?: number[]): void {
   const step = ctx.px(h.stepPx), r0 = ctx.px(h.dotPx);
-  if (step <= 0) return;
+  if (!(step > 0) || R / step > 400) return;
   const dx = Math.cos(h.towardDeg * DEG), dy = Math.sin(h.towardDeg * DEG);
   const c = ctx.rgba(h.role);
   const n = Math.ceil(R / step) + 1;
   for (let j = -n; j <= n; j++) {
     for (let i = -n; i <= n; i++) {
       const x = (i + (j & 1) * 0.5) * step, y = j * step * 0.866;
-      if (!insidePolygon(x, y, pts)) continue;
+      if (!insidePolygon(x, y, pts) || (exclude && insidePolygon(x, y, exclude))) continue;
       const along = (x * dx + y * dy) / R; // -1 .. 1 towards the fade side
       const r = r0 * clamp01(0.55 - along * 0.5);
-      if (r > step * 0.06) ctx.p.disc(x, y, r, r, c, 6);
+      if (r > step * 0.06) ctx.p.dot(x, y, r, c);
     }
   }
 }
@@ -148,6 +149,7 @@ function drawCloud(sp: CloudShape, ctx: DrawCtx): void {
   const boil = ctx.parity * sp.boilDeg * DEG;
   const look = edgeLook(sp.edge, ctx.relation);
   let first = true;
+  const drawn: number[][] = [];
   sp.tones.forEach((tone, i) => {
     if (tone.vanishAt !== undefined && k2 >= tone.vanishAt) return;
     const R = sp.radiusM * tone.scale * sz;
@@ -160,8 +162,9 @@ function drawCloud(sp: CloudShape, ctx: DrawCtx): void {
       first = false;
     }
     ctx.p.fan(0, lift, pts, ctx.rgba(tone.role));
-    if (i === 0 && sp.halftone) halftoneIn(ctx, pts, sp.halftone, sp.radiusM * sz);
+    drawn.push(pts);
   });
+  if (sp.halftone && drawn.length) halftoneIn(ctx, drawn[0]!, sp.halftone, sp.radiusM * sz, drawn[1]);
 }
 
 /** Shamble VFX's own lump layouts: [x, y, radius] as shares of the puff's radius. */
@@ -200,19 +203,29 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
       const step = Math.max(ctx.px(5), R * 0.16);
       for (let j = 0; j < 4; j++) for (let i = -3; i <= 3; i++) {
         const x = cx + (i + (j & 1) * 0.5) * step, y = cy - R * 0.25 - j * step * 0.8;
-        if (parts.some(([px, py, pr]) => Math.hypot(x - px, y - py) < pr * 0.85)) ctx.p.disc(x, y, step * 0.22 * (1 - j / 5), step * 0.22 * (1 - j / 5), dot, 6);
+        if (parts.some(([px, py, pr]) => Math.hypot(x - px, y - py) < pr * 0.85)) ctx.p.dot(x, y, step * 0.22 * (1 - j / 5), dot);
       }
     }
   }
 }
 
+/**
+ * Shamble VFX's own billow: a body, a ring of six lumps round it (bigger on top, as smoke heaps up), and two crowning
+ * lumps; it breathes a little every other step.
+ */
 function billowParts(ctx: DrawCtx, seed: number, cx: number, cy: number, R: number): (readonly [number, number, number])[] {
-  const parts: [number, number, number][] = [[cx, cy, R * 0.6]];
-  for (let i = 0; i < 7; i++) {
-    const a = (TAU * i) / 7 + ctx.rnd(seed, i) * 0.7;
-    const d = R * (0.45 + 0.22 * ctx.rnd(seed, i + 9));
-    const r = R * (0.4 + 0.2 * ctx.rnd(seed, i + 19)) * (1 + 0.07 * (ctx.parity ? 1 : -1));
-    parts.push([cx + Math.cos(a) * d * 1.1, cy + Math.sin(a) * d * 0.85, r]);
+  const breathe = 1 + 0.06 * (ctx.parity ? 1 : -1);
+  const parts: [number, number, number][] = [[cx, cy, R * 0.58]];
+  for (let i = 0; i < 6; i++) {
+    const a = (TAU * (i + 0.25 + 0.35 * ctx.rnd(seed, i))) / 6;
+    const d = R * (0.5 + 0.18 * ctx.rnd(seed, i + 9));
+    const up = Math.max(0, Math.sin(a));
+    const r = R * (0.36 + 0.22 * ctx.rnd(seed, i + 19)) * (1 + 0.25 * up) * breathe;
+    parts.push([cx + Math.cos(a) * d * 1.15, cy + Math.sin(a) * d * 0.8, r]);
+  }
+  for (let i = 0; i < 2; i++) {
+    const x = (i ? 0.28 : -0.22) * R + (ctx.rnd(seed, i + 29) - 0.5) * 0.12 * R;
+    parts.push([cx + x, cy + R * (0.48 + 0.1 * ctx.rnd(seed, i + 31)), R * (0.34 + 0.08 * ctx.rnd(seed, i + 33)) * breathe]);
   }
   return parts;
 }
@@ -280,6 +293,8 @@ function drawDots(sp: DotsShape, ctx: DrawCtx): void {
   const R = (sp.radiusM * grow + ctx.parity * sp.flickerM) * ctx.s;
   const inner = sp.innerM * grow * ctx.s;
   const step = ctx.px(sp.stepPx), r0 = ctx.px(sp.dotPx) * (1 - k);
+  // A spacing too small for the field would mean millions of dots: draw nothing (the checker names the bad value).
+  if (!(step > 0) || R / step > 400) return;
   const c = ctx.rgba(sp.role, sp.alpha);
   const sq = sp.squash ?? 1;
   const nx = Math.ceil(R / step) + 1, ny = Math.ceil((R * sq) / (step * 0.866)) + 1;
@@ -289,7 +304,7 @@ function drawDots(sp: DotsShape, ctx: DrawCtx): void {
       const d = Math.hypot(x, y / sq);
       if (d >= R || d < inner) continue;
       const r = sp.edgeM > 0 ? r0 * clamp01((R - d) / (sp.edgeM * ctx.s)) : r0 * (1 - (d / R) * 0.85);
-      if (r > step * 0.05) ctx.p.disc(x, y, r, r, c, 6);
+      if (r > step * 0.05) ctx.p.dot(x, y, r, c);
     }
   }
 }
@@ -302,16 +317,19 @@ function drawScorch(sp: ScorchShape, ctx: DrawCtx): void {
   if (sp.style === 'oval') {
     ctx.p.disc(0, 0, R, R, c, 40);
   } else {
+    // Shamble VFX's own splat: a slow wobble and rounded lobes (bell-shaped bumps) placed from the seed.
     const pts: number[] = [];
-    const lobes = Array.from({ length: Math.max(0, sp.lobes) }, (_, k) => ({
-      a: (TAU * (k + 0.2 + 0.6 * ctx.rnd(31, k))) / Math.max(1, sp.lobes), h: 0.1 + 0.2 * ctx.rnd(32, k), w: 0.16 + 0.12 * ctx.rnd(33, k),
+    const n = Math.max(0, sp.lobes);
+    const lobes = Array.from({ length: n }, (_, k) => ({
+      a: (TAU * (k + 0.8 * ctx.rnd(31, k))) / Math.max(1, n), h: 0.08 + 0.18 * ctx.rnd(32, k), w: 0.12 + 0.14 * ctx.rnd(33, k),
     }));
+    const wob = ctx.rnd(34, 0) * TAU;
     for (let i = 0; i < 96; i++) {
       const a = (TAU * i) / 96;
-      let rr = 0.78;
+      let rr = 0.8 + 0.04 * Math.sin(3 * a + wob);
       for (const L of lobes) {
         const da = Math.abs((((a - L.a) % TAU) + TAU * 1.5) % TAU - Math.PI);
-        if (da < L.w) rr += L.h * Math.pow(1 - da / L.w, 1.4);
+        rr += L.h * Math.exp(-3 * (da / L.w) ** 2);
       }
       pts.push(Math.cos(a) * R * rr, Math.sin(a) * R * rr);
     }

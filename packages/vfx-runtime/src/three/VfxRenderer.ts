@@ -75,6 +75,7 @@ export class VfxRenderer {
   private texture: Texture;
   private lookup: (name: string) => UvRect | undefined = () => undefined;
   private whiteUv: [number, number] = [0.5, 0.5];
+  private dotRect: UvRect | undefined;
   private basis: CameraBasis = { right: [1, 0, 0], up: [0, 1, 0], forward: [0, 0, -1] };
   private effectsThisFrame = 0;
   private colourSpace: 'linear' | 'srgb' = 'linear';
@@ -100,7 +101,10 @@ export class VfxRenderer {
     this.object.name = 'shamble-vfx';
   }
 
-  /** Use a new atlas (after images were added or changed). The atlas should hold a white block named "__white". */
+  /**
+   * Use a new atlas (after images were added or changed). The atlas should hold a white block named "__white", and may
+   * hold a round white dot named "__dot" (16 px, radius 7): halftone dots then cost two triangles each.
+   */
   setAtlas(atlas: Atlas): void {
     const tex = atlas.image instanceof HTMLCanvasElement ? new CanvasTexture(atlas.image) : new Texture(atlas.image as TexImageSource);
     tex.flipY = false; // atlas v is measured from the top
@@ -115,6 +119,7 @@ export class VfxRenderer {
     this.lookup = atlasLookup(atlas);
     const w = this.lookup('__white');
     this.whiteUv = w ? [(w.u0 + w.u1) / 2, (w.v0 + w.v1) / 2] : [0.5, 0.5];
+    this.dotRect = this.lookup('__dot');
   }
 
   /** The atlas point that is plain white: shapes are drawn with it. */
@@ -151,6 +156,7 @@ export class VfxRenderer {
       imageRect: this.lookup,
       colourSpace: this.colourSpace,
       white: this.whiteUv,
+      ...(this.dotRect ? { dot: this.dotRect } : {}),
     }, this.sink);
   }
 

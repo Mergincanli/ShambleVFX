@@ -49,10 +49,13 @@ export interface AtlasImage {
 
 /** The block of plain white every atlas holds: shapes, words and particles are drawn with it. */
 export const WHITE_BLOCK = '__white';
+/** A round white dot (with a soft edge) for halftone: one textured square per dot instead of a many-sided disc. */
+export const DOT_BLOCK = '__dot';
+const DOT = 16;
 
 /** Paint the atlas page. Each image's edge pixels are repeated into its padding, so filtering never bleeds. */
 export function drawAtlas(images: readonly AtlasImage[], pad = 2): Atlas {
-  const packed = packRects([...images, { name: WHITE_BLOCK, width: 8, height: 8 }], { padding: pad });
+  const packed = packRects([...images, { name: WHITE_BLOCK, width: 8, height: 8 }, { name: DOT_BLOCK, width: DOT, height: DOT }], { padding: pad });
   const canvas = document.createElement('canvas');
   canvas.width = packed.width;
   canvas.height = packed.height;
@@ -61,6 +64,11 @@ export function drawAtlas(images: readonly AtlasImage[], pad = 2): Atlas {
   const w = packed.rects[WHITE_BLOCK]!;
   g.fillStyle = '#ffffff';
   g.fillRect(w.x - pad, w.y - pad, w.w + 2 * pad, w.h + 2 * pad);
+  // The dot: radius 7 of a 16 px square, so its corners stay clear.
+  const d = packed.rects[DOT_BLOCK]!;
+  g.beginPath();
+  g.arc(d.x + DOT / 2, d.y + DOT / 2, DOT / 2 - 1, 0, Math.PI * 2);
+  g.fill();
   for (const im of images) {
     const r = packed.rects[im.name]!;
     const { x, y, w, h } = r;

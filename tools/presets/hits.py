@@ -60,10 +60,9 @@ L = [
     burst("sparks", "Sparks bouncing off", facing="path", count=7, lifeMs=[180, 300], speedMps=[8, 13], direction="path", spreadDeg=38, drag=3,
           gravityMps2=6, sizeM=[0.025, 0.04], sizeOverLife=[[0, 1], [1, 0.5]], timing=SMOOTH,
           streak={"role": "heat.4", "lengthM": 0.55, "widthPx": 2.2}, look={"kind": "spark", "role": "glow", "inkPx": 1, "edge": "enemy"}, seed=7),
-    word("word", "Gun word", ["ZING", "PEOW"[0:0] or "ZING", "TSING"[1:] if False else "ZING"], untilPhaseEnd="fade", shiftM=[0.3, 0.38], letterPx=17,
+    word("word", "Gun word", ["ZING", "PING"], untilPhaseEnd="fade", shiftM=[0.3, 0.38], letterPx=17,
          colours=GUNWORD, tiltDeg=[8, 14], visibleTo="shooter", breakUp={"lastMs": 90}, seed=8),
 ]
-L[-1]["words"] = ["ZING", "PING"]
 save(effect("hit_bullet_ricochet", "Bullet hit: ricochet", (0, 70, 230), L), "hit-unit")
 
 # ================================================================ set 2: impact bursts (grenades, heavy guns on units)
@@ -98,7 +97,7 @@ L = [
           look={"kind": "puff", "role": "heat.2", "inkPx": 1.6, "edge": "ink"}, seed=21),
     burst("specks", "Debris specks", start=PEAK, count=16, lifeMs=[400, 650], speedMps=[3.5, 8], direction="out", drag=2, gravityMps2=6, startRadiusM=[0.5, 0.9],
           sizeM=[0.018, 0.03], look={"kind": "speck", "role": "ink", "inkPx": 0, "edge": "none"}, seed=22, timing=SMOOTH),
-    word("word", "Sound word", ["BOOM", "BLAM", "DOOM"], start=PEAK, untilPhaseEnd="fade", shiftM=[0.05, 0.05], letterPx=36, colours=WORD, separation="heat.3",
+    word("word", "Sound word", ["BOOM", "BLAM", "WHUMP"], start=PEAK, untilPhaseEnd="fade", shiftM=[0.05, 0.05], letterPx=36, colours=WORD, separation="heat.3",
          tiltDeg=[5, 11], ramp=0.22, breakUp={"phase": "fade"}, breakSteps=4, seed=23),
 ]
 save(effect("hit_burst_cloud", "Impact: cloud blast", (0, 280, 560), L), "hit-unit")

@@ -24,14 +24,23 @@ export class Painter {
   private wu = 0.5;
   private wv = 0.5;
   private layer = 0;
+  private dotRect: { u0: number; v0: number; u1: number; v1: number } | undefined;
 
-  /** Start drawing one layer into a buffer. */
-  begin(buf: TriBuffer, frame: Frame3, layer: number, white: [number, number]): void {
+  /** Start drawing one layer into a buffer. `dot`: a round white dot in the atlas, when it has one. */
+  begin(buf: TriBuffer, frame: Frame3, layer: number, white: [number, number], dot?: { u0: number; v0: number; u1: number; v1: number }): void {
     this.buf = buf;
     this.f = frame;
     this.layer = layer;
     this.wu = white[0];
     this.wv = white[1];
+    this.dotRect = dot;
+  }
+
+  /** A small round dot (halftone, specks): one textured square when the atlas has a dot, else a six-sided disc. */
+  dot(x: number, y: number, r: number, c: RGBA): void {
+    if (r <= 0 || c[3] <= 0) return;
+    if (this.dotRect) this.image(x, y, (r * 8) / 7, (r * 8) / 7, 0, this.dotRect, c);
+    else this.disc(x, y, r, r, c, 6);
   }
 
   /** Change the frame (for a part drawn at another place or angle). */

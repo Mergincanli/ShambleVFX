@@ -427,6 +427,9 @@ export class App implements AppApi {
       const copy = await this.store.copy(this.project.id, 'projects', name);
       const doc = this.history.doc;
       this.project = await this.store.open(copy.id);
+      // The copy's project.json is fresh (its own name, no scenes): start from it, and write the scenes into it.
+      try { this.projectMeta = (await readJson(this.store, copy.id, 'project.json')) as Record<string, unknown>; } catch { this.projectMeta = { name: copy.name }; }
+      this.metaDirty = true;
       // The copy holds every effect file the original had, deleted ones too: list them, so saving removes those.
       this.effectsOnDisk = new Set(this.project.effects.map((f) => f.replace(/\.vfx\.json$/, '')));
       await this.writeEffects(copy.id);
@@ -681,8 +684,10 @@ export class App implements AppApi {
       }
     }
     const lookup = (id: string) => effectById(this.history.doc, id);
+    // An effect the schema refuses (a value typed out of range) is not drawn until it is fixed: the checks panel says why.
+    const drawable = fx && !this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
     await this.preview.render((vfx) => {
-      if (fx && Number.isFinite(this.mainTime) && this.mainTime >= 0) {
+      if (fx && drawable && Number.isFinite(this.mainTime) && this.mainTime >= 0) {
         vfx.draw(fx, { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
       }
       vfx.drawPlaying(this.player, this.clock, lookup);

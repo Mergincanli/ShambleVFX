@@ -58,6 +58,8 @@ export interface EvalContext {
   colourSpace?: 'linear' | 'srgb';
   /** The atlas point that is plain white, for shapes drawn without an image. */
   white?: [number, number];
+  /** A round white dot in the atlas (radius 7/16 of its square), for halftone: two triangles a dot. */
+  dot?: UvRect;
   /** px on a 1080p screen per metre at the game camera. Default 100.7 (drawing board v7). */
   pxPerMetre?: number;
 }
@@ -172,7 +174,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     }
     const seedMix = ((l.perPlay ? ctx.seed : 0) ^ Math.imul(l.seed + 1, 0x9e3779b1) ^ hashText(l.id)) >>> 0;
     const v0 = buf.vcount;
-    painter.begin(buf, frame, i, white);
+    painter.begin(buf, frame, i, white, ctx.dot);
     const dctx: DrawCtx & { viewerDistanceM: number } = {
       p: painter,
       tau,
@@ -206,7 +208,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     // A flat layer lifted off the ground (a ring round a tank's middle) is pulled like a standing one, so the thing it
     // circles does not hide its far side: it is drawn over its target, as a comic panel would.
     const onGround = l.facing === 'ground' && !l.liftM;
-    setPull(buf, v0, where.p, cam, onGround ? 0 : pullPerMetre, onGround ? GROUND_PULL : STAND_OFF);
+    setPull(buf, v0, where.p, cam, onGround ? 0 : pullPerMetre, onGround ? GROUND_PULL : l.type === 'word' ? WORD_STAND_OFF : STAND_OFF);
     const a = l.alpha ? scaleAt(l.alpha, n, tau / life) : 1;
     const sign = l.blend === 'add' ? -1 : 1;
     if (a !== 1 || sign < 0) for (let k = v0; k < buf.vcount; k++) buf.col[k * 4 + 3] = buf.col[k * 4 + 3]! * a * sign;
@@ -286,6 +288,9 @@ const GROUND_PULL = 0.05;
  * edge); the drawing board draws effects over their own unit. Walls still hide what is clearly behind them.
  */
 const STAND_OFF = 0.4;
+
+/** Comic words sit over everything near them, as lettering over a panel (assumption, marked): a bigger stand-off. */
+const WORD_STAND_OFF = 1.5;
 
 /**
  * Depth pull (assumption, marked): the part of a layer that reaches below its anchor, seen along the camera's up, is

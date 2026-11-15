@@ -99,20 +99,22 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
     // Detail: halftone of the next tone on each lump's outer side, where one tone meets the next; brush strokes.
     const next = k + 1 < K ? ctx.rgba(sp.tones[k + 1]!) : ctx.rgba(sp.tones[K - 1]!);
     const step = ctx.px(10.1), dot = ctx.px(4.9);
-    for (const q of list) {
-      if (q.i < 0) continue;
+    for (let qi = 1; qi < list.length; qi++) {
+      const q = list[qi]!;
+      // Only the base oval and the lump's neighbours can hold its halftone patch: test against those, not every lump.
+      const near = [list[0]!, q, list[qi > 1 ? qi - 1 : list.length - 1]!, list[qi < list.length - 1 ? qi + 1 : 1]!];
       if (k + 1 < K) {
         const cx = q.x - Math.cos(q.a) * q.rx * 0.75, cy = q.y - Math.sin(q.a) * q.ry * 0.75;
         const nx = Math.ceil(q.rx / step) + 1;
         for (let j = -nx; j <= nx; j++) for (let i = -nx; i <= nx; i++) {
           const x = cx + (i + (j & 1) * 0.5) * step, y = cy + j * step * 0.866;
           const d = Math.hypot(x - cx, y - cy) / q.rx;
-          if (d >= 1 || !insideLumps(x, y, list)) continue;
+          if (d >= 1 || !insideLumps(x, y, near)) continue;
           const r = dot * (1 - d * 0.85);
-          if (r > step * 0.06) ctx.p.disc(x, y, r, r, next, 6);
+          if (r > step * 0.06) ctx.p.dot(x, y, r, next);
         }
       }
-      if (ctx.rnd(60 + k + boil, q.i) > 0.45) hatch(ctx, q, k === K - 1 ? next : next, list, boil);
+      if (ctx.rnd(60 + k + boil, q.i) > 0.45) hatch(ctx, q, next, near, boil);
     }
   }
   // White-hot spots low in the middle, while the whole bed burns.
@@ -259,10 +261,13 @@ export function drawFlames(sp: FlamesShape, ctx: DrawCtx): void {
     // The fire area races out at the start; tongues outside it wait. They go out one by one as it cools.
     if (Math.hypot(tg.x, tg.z) > sp.radiusM * reach * 0.98) continue;
     if (ctx.rnd(99, tg.i) < fadeK * 1.15) continue;
+    // Each tongue stretches over its cycle (easing out), snaps back on the last step as a lick lets go, and starts again.
     const q = (((frame + tg.offset) % tg.cycle) + tg.cycle) % tg.cycle;
     const released = q === tg.cycle - 1;
-    const g = released ? 0.68 : 0.76 + (0.28 * q) / tg.cycle;
-    const phase = (frame + tg.offset) / (tg.cycle * 1.3);
+    const sq = q / Math.max(1, tg.cycle - 2);
+    const g = released ? 0.7 : 0.8 + 0.24 * sq * (2 - sq);
+    // The S-bend travels up by one bend in a little more than a cycle.
+    const phase = ((frame + tg.offset) * 0.8) / tg.cycle;
     const H = tg.h * g * hk * ctx.s;
     const base = [body, mid, hot][tg.depth]!, light = [mid, hot, core][tg.depth]!, dark = [shade, body, mid][tg.depth]!;
     const big = tg.h > 0.9;
@@ -284,8 +289,8 @@ export function drawFlames(sp: FlamesShape, ctx: DrawCtx): void {
       const age = released ? 0 : q < 2 ? q + 1 : -1;
       if (age >= 0) {
         const tipX = r.cx[r.N]!, tipY = r.cy[r.N]!;
-        const sz = (0.2 - 0.045 * age) * tg.h * hk * ctx.s;
-        const lx = tipX + (0.06 + 0.07 * age) * tg.h * ctx.s, ly = tipY + (0.04 + 0.12 * age) * tg.h * ctx.s;
+        const sz = 0.19 * (1 - 0.22 * age) * tg.h * hk * ctx.s;
+        const lx = tipX + 0.05 * (1 + age) * tg.h * ctx.s, ly = tipY + (0.06 + 0.1 * age) * tg.h * ctx.s;
         const lick = lickPoints(lx, ly, sz, 0.24);
         if (line) ctx.p.stroke(lick, true, 2 * line.w * 0.8, line.col);
         ctx.p.poly(lick, base);

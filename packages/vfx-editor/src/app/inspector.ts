@@ -96,6 +96,7 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElemen
     box.append(placeFields(app, parts));
     if (layer.type === 'shape') box.append(fold(`Shape: ${layer.shape.kind}`, specForm(app, parts, ['shape'], layer.shape.kind, ['kind']), true));
     else box.append(fold(layer.type === 'burst' ? 'Pieces' : 'Word', specForm(app, parts, [], layer.type, COMMON_KEYS), true));
+    box.append(fold('Animation', specForm(app, parts, [], 'anim', Object.keys(layer).filter((k) => k !== 'scale' && k !== 'alpha')), false));
     box.append(fold('Seed', specForm(app, parts, [], 'seed', ALL_BUT_SEED(layer)), false));
   }
   box.append(timeFields(app, parts));

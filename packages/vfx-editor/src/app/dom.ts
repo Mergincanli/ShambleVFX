@@ -43,6 +43,7 @@ export function slider(o: {
   range.addEventListener('input', () => { box.value = fmt(+range.value, digits); o.onInput(+range.value); });
   range.addEventListener('change', () => o.onCommit?.());
   box.addEventListener('change', () => {
+    if (box.value.trim() === '') return;
     const v = Number(box.value);
     if (Number.isFinite(v)) { o.onInput(v); o.onCommit?.(); }
   });
@@ -69,7 +70,8 @@ export function numberField(o: { label: string; value: number; step?: number; mi
   const box = h('input', { class: 'num', attrs: { type: 'number', step: String(o.step ?? 0.01), 'aria-label': o.label } });
   if (o.min !== undefined) box.min = String(o.min);
   if (o.max !== undefined) box.max = String(o.max);
-  box.addEventListener('change', () => { const v = Number(box.value); if (Number.isFinite(v)) o.onChange(v); });
+  // An emptied box changes nothing (Number('') would be 0).
+  box.addEventListener('change', () => { if (box.value.trim() === '') return; const v = Number(box.value); if (Number.isFinite(v)) o.onChange(v); });
   const set = (v: number) => { if (document.activeElement !== box) box.value = fmt(v, 3); };
   set(o.value);
   const el = h('label', { class: 'field' }, h('span', { class: 'flab', text: o.label }), box, o.unit ? h('span', { class: 'unit', text: o.unit }) : null);

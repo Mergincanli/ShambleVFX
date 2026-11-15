@@ -95,7 +95,7 @@ function drawPiece(ctx: DrawCtx, kind: string, x: number, y: number, s: number, 
       return;
     }
     case 'speck':
-      ctx.p.disc(x, y, s * 0.5, s * 0.5, fill, 6);
+      ctx.p.dot(x, y, s * 0.5, fill);
       return;
     default:
       if (edge === 'ink') ctx.p.disc(x, y, s + inkW, s + inkW, ink, 10);
