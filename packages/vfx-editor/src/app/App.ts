@@ -292,7 +292,7 @@ export class App implements AppApi {
   costStale(): boolean {
     const r = this.costReport();
     if (!r) return false;
-    if (r.effect !== this.effect()) return true;
+    if (r.effect !== this.effect() || r.palette !== this.palette) return true;
     const a = r.conditions, b = this.costConditions();
     const key = (c: CostConditions) => JSON.stringify([c.scene, c.origin, c.target, c.faction, c.relation, c.viewerDistanceM]);
     return key(a) !== key(b);
@@ -1121,6 +1121,10 @@ export class App implements AppApi {
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) this.history.redo(); else this.history.undo(); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.history.redo(); return; }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void this.save(); return; }
+      // Undo, redo and save (above) work everywhere. Other keys pressed in the colour picker are the picker's (its wheel
+      // takes the arrows): never the editor's shortcuts. Escape puts the picker away from anywhere.
+      if (e.defaultPrevented || (e.target as HTMLElement).closest?.('.cpick')) return;
+      if (e.key === 'Escape' && this.picker.isOpen && !this.els.dialog.open) { this.picker.close(); return; }
       if (typing || mod || this.els.dialog.open) return;
       if (tag === 'BUTTON' && e.key === 'Enter') return;
       if (e.key === ' ') {

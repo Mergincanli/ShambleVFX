@@ -12,7 +12,8 @@ Effect files name colour **roles** (`heat.1`, `team`, `glow`, …), never hexes.
 
 ## Changing a colour
 
-Click a swatch under **Colour** in the right panel. The picker opens next to it:
+Click a swatch under **Colour** in the right panel. The picker opens next to it, and stays open while you play the effect or
+fire (Escape or Close puts it away). Keys pressed in it are its own; Ctrl+Z still undoes.
 
 - **The wheel**: drag the ring for the hue, the triangle for brightness and saturation. The arrow keys work too (←/→ hue,
   ↑/↓ brightness, Page Up/Down saturation).

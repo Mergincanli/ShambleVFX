@@ -76,7 +76,10 @@ export class ColourPicker {
   }
 
   close(): void {
-    if (this.isOpen) this.el.hidePopover();
+    if (!this.isOpen) return;
+    this.el.hidePopover();
+    // Back to where the work was: the swatches.
+    (document.querySelector('.swatches .swatch[aria-current="true"]') as HTMLElement | null)?.focus({ preventScroll: true });
   }
 
   /** Edit another role (or the same one for another faction). */
@@ -147,7 +150,7 @@ export class ColourPicker {
     const extra = h('div', { class: 'cp-extra' });
     void newShared;
 
-    const el = h('div', { class: 'cpick', attrs: { popover: 'auto', role: 'dialog', 'aria-label': 'Colour' } },
+    const el = h('div', { class: 'cpick', attrs: { popover: 'manual', role: 'dialog', 'aria-label': 'Colour' } },
       h('div', { class: 'cp-head' }, chip, h('div', { class: 'cp-name' }, title, scope), closeBtn),
       note, factions, canvas,
       h('div', { class: 'cp-hexrow' }, hex, copy, slidersBtn), sliders,
@@ -185,6 +188,8 @@ export class ColourPicker {
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('keydown', (e) => this.key(e));
+    // It stays open while you play the effect or fire; Escape (or Close) puts it away.
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); this.close(); } });
     canvas.addEventListener('keyup', () => this.app.commit());
 
     hex.addEventListener('change', () => this.typedHex());

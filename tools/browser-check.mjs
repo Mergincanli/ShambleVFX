@@ -397,6 +397,24 @@ if (webgpu) {
   const reverted = await p.evaluate(() => window.__vfx.app.palette.factions.soviets.roles.glow);
   ok('a drag on the wheel changes the colour and the preview at once; Revert puts it back as it was', dragged.hex !== glowBefore && dragged.preview === dragged.hex && dragged.undo === 'Colour glow' && reverted.hex === glowBefore && reverted.from === 'art-lead',
     `${glowBefore} -> ${dragged.hex} -> ${reverted.hex} (${reverted.from})`);
+  // Keys in the picker are the picker's: → turns the hue; the timeline does not step and Delete removes no layer. Undo still works.
+  const keysBefore = await p.evaluate(() => ({ t: window.__vfx.app.debugState().mainTime, n: window.__vfx.app.effect().layers.length, hue: window.__vfx.app.palette.factions.soviets.roles.glow.hex }));
+  await p.locator('.cp-wheel').focus();
+  await p.keyboard.press('ArrowRight');
+  await p.keyboard.press('Delete');
+  const keysAfter = await p.evaluate(() => ({ t: window.__vfx.app.debugState().mainTime, n: window.__vfx.app.effect().layers.length, hue: window.__vfx.app.palette.factions.soviets.roles.glow.hex }));
+  await p.keyboard.press('Control+z');
+  const keysUndone = await p.evaluate(() => window.__vfx.app.palette.factions.soviets.roles.glow.hex);
+  ok('keys in the colour picker are the picker\'s: → turns the hue, the timeline and the layers stay, undo still works',
+    keysAfter.hue !== keysBefore.hue && keysAfter.t === keysBefore.t && keysAfter.n === keysBefore.n && keysUndone === keysBefore.hue, `${keysBefore.hue} -> ${keysAfter.hue} -> ${keysUndone}; ${keysAfter.n} layers`);
+  // It stays open while you play the effect; Escape puts it away from anywhere.
+  await p.click('.transport .play');
+  const stillOpen = await p.locator('.cpick').evaluate((el) => el.matches(':popover-open'));
+  await p.click('.transport .play');
+  await p.keyboard.press('Escape');
+  const closedByEscape = await p.locator('.cpick').evaluate((el) => !el.matches(':popover-open'));
+  ok('the picker stays open while you play the effect, and Escape closes it', stillOpen && closedByEscape, `open after Play: ${stillOpen}, closed by Escape: ${closedByEscape}`);
+  await p.locator('.swatch', { hasText: /^glow$/ }).first().click();
   await p.locator('.cp-new summary').click();
   await p.locator('.cp-new input.text').fill('fire.blue');
   await p.locator('.cp-new button', { hasText: 'Add colour' }).click();
@@ -587,14 +605,16 @@ if (webgpu) {
     const out = join(repo, 'exports', '_check-gradient');
     const r = await exporter.exportProject(dir, out);
     ok('a glow coloured by a gradient exports', r.ok, r.errors.slice(0, 2).join(' | '));
-    const g = await open(`${tpBase}/?export=_check-gradient&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
-    const res = await g.page.evaluate(() => window.__test.renderAt('hit.energy.pulse', 150));
-    const png = decode(await g.page.evaluate(() => window.__test.snapshot()));
-    let green = 0, blue = 0;
-    for (let y = 0; y < png.height; y += 2) for (let x = 0; x < png.width; x += 2) { const c = hex(png, x, y); if (diff(c, '#00FF00') <= 2) green++; if (diff(c, '#0000FF') <= 2) blue++; }
-    ok('the test page draws the glow from the export\'s gradient: both bands, in their exact colours', res.triangles > 0 && green > 50 && blue > 50, `${green} green and ${blue} blue samples`);
-    writeFileSync(join(shots, 'testpage-gradient-glow.png'), PNG.sync.write(png));
-    await g.page.close();
+    for (const backend of ['webgpu', 'webgl']) {
+      const g = await open(`${tpBase}/?export=_check-gradient&offscreen=1${backend === 'webgl' ? '&backend=webgl' : ''}`, () => window.__test && window.__test.ready);
+      const res = await g.page.evaluate(() => window.__test.renderAt('hit.energy.pulse', 150));
+      const png = decode(await g.page.evaluate(() => window.__test.snapshot()));
+      let green = 0, blue = 0;
+      for (let y = 0; y < png.height; y += 2) for (let x = 0; x < png.width; x += 2) { const c = hex(png, x, y); if (diff(c, '#00FF00') <= 2) green++; if (diff(c, '#0000FF') <= 2) blue++; }
+      ok(`[test page, ${backend}] the glow is drawn from the export's gradient: both bands, in their exact colours`, res.triangles > 0 && green > 50 && blue > 50, `${green} green and ${blue} blue samples`);
+      writeFileSync(join(shots, `testpage-gradient-glow-${backend}.png`), PNG.sync.write(png));
+      await g.page.close();
+    }
     rmSync(dir, { recursive: true, force: true });
     rmSync(out, { recursive: true, force: true });
   }

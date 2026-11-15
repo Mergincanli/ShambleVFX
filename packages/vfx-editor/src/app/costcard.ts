@@ -72,7 +72,7 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     measure.disabled = !!busy || !app.effect();
     measureLabel.textContent = r ? 'Measure again' : 'Measure';
     status.textContent = busy ?? (!r ? 'Not measured yet. Measure plays the effect through in each tier; the preview waits meanwhile.'
-      : stale ? 'The effect or the scene changed after measuring: these numbers are out of date. Measure again.'
+      : stale ? 'The effect, its colours or the scene changed after measuring: these numbers are out of date. Measure again.'
         : `Measured over ${int(r.lengthMs)} ms (${int(r.frames)} frames).`);
     status.classList.toggle('bad', stale);
     table.classList.toggle('stale', stale || !r);

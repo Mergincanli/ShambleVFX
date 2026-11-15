@@ -105,7 +105,7 @@ its version guard; the screen-area count and the cost measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (136 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (139 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before
 leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version

@@ -55,6 +55,8 @@ export interface CostConditions {
 export interface CostReport {
   /** The effect object measured: when the editor's effect is another object, the numbers are out of date. */
   effect: EffectFile;
+  /** The palette it was measured with (a gradient changes a glow's triangles). */
+  palette: Palette;
   conditions: CostConditions;
   lengthMs: number;
   frames: number;
@@ -162,6 +164,7 @@ export async function measureCost(o: MeasureInput): Promise<CostReport> {
   }
   return {
     effect: fx,
+    palette: o.palette,
     conditions: { scene: o.scene, sceneName: o.sceneName, origin: o.origin, target: o.target, seed: o.seed, faction: o.faction, relation: o.relation, viewerDistanceM: o.viewerDistanceM },
     lengthMs, frames, tiers, heaviest, clockStepMs: clockStep(),
   };
