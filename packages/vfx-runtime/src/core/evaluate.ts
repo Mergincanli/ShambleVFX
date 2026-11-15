@@ -157,6 +157,10 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
       continue;
     }
 
+    if (l.type === 'burst' && l.look.kind === 'image' && !ctx.imageRect(l.look.image)) {
+      if (!missing.includes(l.look.image)) missing.push(l.look.image);
+      continue;
+    }
     // Shapes, bursts and words: drawn flat in the layer's frame by the painter. Along a path they lie in the screen's
     // plane, as drawn comic shapes do (a sprite along a path lies along the real path instead).
     const frame = frameFor(l.facing, where.p, where.dir, cam, true);
@@ -192,6 +196,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
       intensity: c.intensity,
       ...(where.ride ? { ride: where.ride } : {}),
       point: (input, offset) => inputPoint(ctx.inputs, tl.frame, { input, offset }, c.size),
+      image: (name) => ctx.imageRect(name),
       viewerDistanceM,
     };
     if (l.type === 'shape') drawShape(l.shape, dctx);

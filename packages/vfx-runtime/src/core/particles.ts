@@ -13,9 +13,14 @@ const DEG = Math.PI / 180;
 export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
   const count = Math.max(0, Math.round(l.count * ctx.intensity));
   const look = l.look.kind === 'image' ? null : l.look;
+  const img = l.look.kind === 'image' ? { rect: ctx.image?.(l.look.image), tint: l.look.tint } : null;
+  if (img && !img.rect) return;
   const edge = look ? edgeLook(look.edge, ctx.relation) : 'none';
-  const fill = look ? ctx.rgba(look.role) : ([1, 1, 1, 1] as RGBA);
+  const fill = look ? ctx.rgba(look.role) : img && img.tint.mode === 'multiply' ? ctx.rgba(img.tint.role) : ([1, 1, 1, 1] as RGBA);
   const ink = ctx.rgba(look?.inkRole ?? 'ink');
+  // The ground, in the layer's plane: pieces that stop on it never go lower than this (flat ground at height 0).
+  const f = ctx.p.frame;
+  const floor = l.groundStop && f.v[1] > 0.05 && Math.abs(f.u[1]) < 1e-6 ? -f.o[1] / f.v[1] : -Infinity;
   for (let i = 0; i < count; i++) {
     const life = pick(l.lifeMs, ctx.rnd(61, i));
     let age = ctx.tau;
@@ -38,7 +43,7 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
     const r0 = pick(l.startRadiusM, r(2));
     const ax = l.areaM ? (r(6) * 2 - 1) * l.areaM[0] : 0, ay = l.areaM ? (r(7) * 2 - 1) * l.areaM[1] : 0;
     const px = (ax + dx * (r0 + travel)) * ctx.s;
-    const py = (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s;
+    const py = Math.max(floor, (ay + dy * (r0 + travel) - 0.5 * l.gravityMps2 * sec * sec) * ctx.s);
     const size = pick(l.sizeM, r(3)) * curveAt(l.sizeOverLife, age / life) * ctx.s;
     if (size <= 0) continue;
     if (l.streak && travel > 1e-4) {
@@ -49,6 +54,7 @@ export function drawBurst(l: BurstLayer, ctx: DrawCtx): void {
       ctx.p.poly([px + nx * hw, py + ny * hw, px - dx * back, py - dy * back, px - nx * hw, py - ny * hw], ctx.rgba(l.streak.role));
     }
     const spin = r(4) * TAU + pick(l.spinDegPerS, r(5)) * DEG * sec;
+    if (img) { ctx.p.image(px, py, size, size, spin, img.rect!, fill); continue; }
     drawPiece(ctx, look?.kind ?? 'dot', px, py, size, spin, a, fill, ink, edge, look ? ctx.px(look.inkPx) : 0);
   }
 }
@@ -61,9 +67,10 @@ function drawPiece(ctx: DrawCtx, kind: string, x: number, y: number, s: number, 
       pts = [x, y + s * 1.5, x + s * 0.6, y, x, y - s * 1.5, x - s * 0.6, y];
       break;
     case 'chip': {
-      const rr = [1.2, 0.8, 1.1, 0.7];
+      // Shamble VFX's own broken-off chip: five uneven corners.
+      const rr = [1.15, 0.72, 1.02, 0.86, 0.66];
       pts = [];
-      [0, 1.5, 3.0, 4.4].forEach((o, k) => pts.push(x + Math.cos(spin + o) * s * rr[k]!, y + Math.sin(spin + o) * s * rr[k]!));
+      [0, 1.22, 2.35, 3.55, 4.95].forEach((o, k) => pts.push(x + Math.cos(spin + o) * s * rr[k]!, y + Math.sin(spin + o) * s * rr[k]!));
       break;
     }
     case 'spark':

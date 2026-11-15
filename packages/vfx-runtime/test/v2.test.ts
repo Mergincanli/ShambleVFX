@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import paletteJson from '../../vfx-format/palette/palette.json';
 import { WORD_LETTERS, newBurstLayer, newEffect, newProjectileLayer, newShapeLayer, newWordLayer, parseHex, resolveRole, srgbToLinear } from '@shamble/vfx-format';
-import type { EffectFile, Palette, ShapeLayer, Vec3 } from '@shamble/vfx-format';
+import type { BedShape, EffectFile, FlamesShape, Palette, ShapeLayer, Vec3 } from '@shamble/vfx-format';
 import { BLEND_GROUPS, DrawSink, applyControls, evaluate, resolveTimeline } from '../src/core/index';
 import type { CameraBasis, EvalContext } from '../src/core/index';
 import { LETTERS } from '../src/core/letters';
 import { flightPoint } from '../src/core/timeline';
+import { tongueLayout } from '../src/core/fire';
+import { Painter } from '../src/core/painter';
+import { random01 } from '../src/core/random';
 
 const palette = paletteJson as Palette;
 
@@ -327,4 +333,155 @@ describe('every shape kind', () => {
     const { r } = drawn(fx, ctx(250));
     expect(r.triangles).toBeGreaterThan(0);
   });
+});
+
+describe('newer fields', () => {
+  it('fades a layer by its alpha over life', () => {
+    const fx = oneShape('shards', (l) => { l.durationMs = 1000; l.timing = { mode: 'smooth' }; l.alpha = { life: [[0, 1], [1, 0]] }; });
+    const at = (t: number) => { const b = drawn(fx, ctx(t)).sink.groups.top; return b.col[3]!; };
+    expect(at(0)).toBeCloseTo(1, 5);
+    expect(at(500)).toBeCloseTo(0.5, 2);
+  });
+
+  it('lifts a flat layer off the ground', () => {
+    const fx = oneShape('ring', (l) => { l.facing = 'ground'; l.liftM = 1.2; });
+    const g = drawn(fx, ctx(100, { inputs: { origin: [0, 0, 0], target: [0, 0, 0] } })).sink.groups.ground;
+    expect(g.vcount).toBeGreaterThan(10);
+    for (let i = 0; i < g.vcount; i++) expect(g.pos[i * 4 + 1]).toBeCloseTo(1.2, 5);
+  });
+
+  it('squashes a ring and a dot field to a ground shape', () => {
+    const height = (fx: EffectFile) => {
+      const b = drawn(fx, ctx(200, { inputs: { origin: [0, 0, 0], target: [0, 0, 0] } })).sink.groups.top;
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < b.vcount; i++) { const d = b.pos[i * 4]! * cam.up[0] + b.pos[i * 4 + 1]! * cam.up[1] + b.pos[i * 4 + 2]! * cam.up[2]; lo = Math.min(lo, d); hi = Math.max(hi, d); }
+      return hi - lo;
+    };
+    for (const kind of ['ring', 'dots'] as const) {
+      const round = height(oneShape(kind, (l) => { l.facing = 'camera'; }));
+      const flat = height(oneShape(kind, (l) => { l.facing = 'camera'; (l.shape as { squash?: number }).squash = 0.5; }));
+      expect(flat / round, kind).toBeLessThan(0.62);
+    }
+  });
+
+  it('colours a piece edge by its own role when given', () => {
+    const fx = newEffect('b', 'B');
+    fx.layers = [{ ...newBurstLayer('b', 'B'), look: { kind: 'chip', role: 'stone', inkPx: 1.5, edge: 'ink', inkRole: 'stone.rim' } }];
+    const { sink } = drawn(fx, ctx(100));
+    expect(verticesOf(sink, resolveRole(palette, 'stone.rim', 'soviets')!)).toBeGreaterThan(0);
+    expect(verticesOf(sink, resolveRole(palette, 'ink', 'soviets')!)).toBe(0);
+  });
+
+  it('draws a speed streak behind each piece', () => {
+    const base = { ...newBurstLayer('b', 'B'), gravityMps2: 0, look: { kind: 'dot' as const, role: 'team', inkPx: 0, edge: 'none' as const } };
+    const fx = newEffect('b', 'B');
+    fx.layers = [base];
+    const without = drawn(fx, ctx(200)).r.triangles;
+    fx.layers = [{ ...base, streak: { role: 'white', lengthM: 0.5, widthPx: 3 } }];
+    expect(drawn(fx, ctx(200)).r.triangles).toBeGreaterThan(without);
+  });
+
+  it('stops pieces on the ground', () => {
+    const fx = newEffect('b', 'B');
+    const b = { ...newBurstLayer('b', 'B'), gravityMps2: 30, speedMps: [1, 1] as [number, number], direction: 'up' as const, spreadDeg: 0, drag: 0, startRadiusM: [0, 0] as [number, number],
+      sizeM: [0.05, 0.05] as [number, number], sizeOverLife: [[0, 1], [1, 1]] as [number, number][], lifeMs: [900, 900] as [number, number],
+      look: { kind: 'dot' as const, role: 'team', inkPx: 0, edge: 'none' as const } };
+    const lowest = (groundStop: boolean) => {
+      fx.layers = [{ ...b, groundStop }];
+      const t = drawn(fx, ctx(800, { inputs: { origin: [0, 0.3, 0], target: [0, 0.3, 0] } })).sink.groups.top;
+      let lo = Infinity;
+      for (let i = 0; i < t.vcount; i++) lo = Math.min(lo, t.pos[i * 4 + 1]!);
+      return lo;
+    };
+    expect(lowest(false)).toBeLessThan(-1);
+    expect(lowest(true)).toBeGreaterThan(-0.1);
+  });
+
+  it('spreads pieces over a start area', () => {
+    const fx = newEffect('b', 'B');
+    const b = { ...newBurstLayer('b', 'B'), speedMps: [0, 0] as [number, number], gravityMps2: 0, startRadiusM: [0, 0] as [number, number], count: 20,
+      look: { kind: 'dot' as const, role: 'team', inkPx: 0, edge: 'none' as const } };
+    const width = (area?: [number, number]) => {
+      fx.layers = [area ? { ...b, areaM: area } : b];
+      const t = drawn(fx, ctx(10)).sink.groups.top;
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < t.vcount; i++) { const d = t.pos[i * 4]! * cam.right[0] + t.pos[i * 4 + 2]! * cam.right[2]; lo = Math.min(lo, d); hi = Math.max(hi, d); }
+      return hi - lo;
+    };
+    expect(width()).toBeLessThan(0.3);
+    expect(width([1.5, 0.2])).toBeGreaterThan(2);
+  });
+
+  it('draws image pieces from the atlas, and names a missing image', () => {
+    const fx = newEffect('b', 'B');
+    fx.layers = [{ ...newBurstLayer('b', 'B'), look: { kind: 'image', image: 'chip.png', tint: { mode: 'keep' } } }];
+    const atlas = (name: string) => (name === 'chip.png' ? { u0: 0.25, v0: 0.25, u1: 0.5, v1: 0.5 } : undefined);
+    const { sink, r } = drawn(fx, ctx(100, { imageRect: atlas }));
+    const t = sink.groups.top;
+    expect(r.triangles).toBe(2 * 9);
+    for (let i = 0; i < t.vcount; i++) { expect(t.uv[i * 2]!).toBeGreaterThanOrEqual(0.25); expect(t.uv[i * 2]!).toBeLessThanOrEqual(0.5); }
+    const miss = drawn(fx, ctx(100, { imageRect: () => undefined }));
+    expect(miss.r.missingImages).toEqual(['chip.png']);
+    expect(miss.r.triangles).toBe(0);
+  });
+});
+
+describe('fire', () => {
+  it('spreads each row of tongues across the fire, back ones taller than front ones', () => {
+    const sp = { ...(newShapeLayer('f', 'F', 'flames').shape as FlamesShape), count: 22 };
+    const p = new Painter();
+    const sink = new DrawSink(16);
+    p.begin(sink.groups.top, { o: [0, 0, 0], u: [...cam.right], v: [...cam.up] }, 0, [0.5, 0.5]);
+    const c = { p, rnd: (a: number, b = 0) => random01(9, a, b), s: 1 } as unknown as Parameters<typeof tongueLayout>[1];
+    const ts = tongueLayout(sp, c);
+    expect(ts.length).toBe(22);
+    const rowOf = (d: number) => ts.filter((t) => t.depth === d && Math.abs(t.x) < sp.radiusM * 0.75).map((t) => t.x).sort((a, b) => a - b);
+    for (const d of [0, 1]) {
+      const xs = rowOf(d);
+      for (let i = 1; i < xs.length; i++) expect(xs[i]! - xs[i - 1]!, `row ${d}`).toBeLessThan(sp.radiusM * 0.75);
+    }
+    const mean = (d: number) => { const h = ts.filter((t) => t.depth === d).map((t) => t.h); return h.reduce((a, b) => a + b, 0) / h.length; };
+    expect(mean(0)).toBeGreaterThan(mean(2));
+    expect(mean(1)).toBeGreaterThan(mean(2));
+    expect(Math.max(...ts.filter((t) => t.depth === 0).map((t) => t.h))).toBeGreaterThan(Math.max(...ts.filter((t) => t.depth === 2).map((t) => t.h)));
+  });
+
+  it('cools the bed from the middle out', () => {
+    const fx = newEffect('m', 'M');
+    fx.phases = { windupMs: 0, peakMs: 1000, fadeMs: 1000 };
+    const bed = { ...newShapeLayer('bed', 'Bed', 'bed'), untilPhaseEnd: 'fade' as const };
+    (bed.shape as BedShape).breakUp = { phase: 'fade' };
+    (bed.shape as BedShape).growMs = 0;
+    delete (bed as Partial<ShapeLayer>).durationMs;
+    fx.layers = [bed];
+    const tris = (t: number) => drawn(fx, ctx(t)).r.triangles;
+    expect(tris(500)).toBeGreaterThan(tris(1500));
+    expect(tris(1500)).toBeGreaterThan(tris(1950));
+    expect(tris(1950)).toBeGreaterThan(0);
+  });
+});
+
+describe('the example effects', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'examples');
+  for (const project of readdirSync(root)) {
+    for (const file of readdirSync(join(root, project, 'effects'))) {
+      it(`${project}/${file} draws finite triangles all through`, () => {
+        const fx = JSON.parse(readFileSync(join(root, project, 'effects', file), 'utf8')) as EffectFile;
+        const inputs = { origin: [-4, 1.5, 3] as Vec3, target: [3, 0.8, -2] as Vec3 };
+        const len = resolveTimeline(fx, inputs, applyControls(fx.controls)).lengthMs;
+        const sink = new DrawSink(256);
+        for (let t = 0; t < len; t += 37) {
+          for (const relation of ['enemy', 'team'] as const) {
+            sink.clear();
+            evaluate(fx, ctx(t, { inputs, relation }), sink);
+            for (const g of BLEND_GROUPS) {
+              const b = sink.groups[g];
+              for (let i = 0; i < b.vcount * 4; i++) if (!Number.isFinite(b.pos[i]!)) throw new Error(`${g} position not finite at ${t} ms`);
+              for (let i = 0; i < b.icount; i++) if (b.idx[i]! >= b.vcount) throw new Error(`${g} index out of range at ${t} ms`);
+            }
+          }
+        }
+      });
+    }
+  }
 });

@@ -58,6 +58,21 @@ export class Painter {
     );
   }
 
+  /** An image from the atlas on a quad centred at (cx, cy), hw x hh half size, turned by rot. rect: atlas uv, v from the top. */
+  image(cx: number, cy: number, hw: number, hh: number, rot: number, rect: { u0: number; v0: number; u1: number; v1: number }, c: RGBA): void {
+    if (hw <= 0 || hh <= 0 || c[3] <= 0) return;
+    const f = this.f, cr = Math.cos(rot), sr = Math.sin(rot);
+    const corner = (sx: number, sy: number, u: number, v: number) => {
+      const x = cx + sx * hw * cr - sy * hh * sr, y = cy + sx * hw * sr + sy * hh * cr;
+      return this.buf.vertex(f.o[0] + f.u[0] * x + f.v[0] * y, f.o[1] + f.u[1] * x + f.v[1] * y, f.o[2] + f.u[2] * x + f.v[2] * y,
+        0, u, v, c[0], c[1], c[2], c[3], this.layer);
+    };
+    // Image rows go down from the top: the quad's top edge (+y) takes v0.
+    const a = corner(-1, -1, rect.u0, rect.v1), b = corner(1, -1, rect.u1, rect.v1), d = corner(1, 1, rect.u1, rect.v0), e = corner(-1, 1, rect.u0, rect.v0);
+    this.buf.tri(a, b, d);
+    this.buf.tri(a, d, e);
+  }
+
   /** A filled polygon that every point of can be seen from (cx, cy): a fan from that point. pts = [x0, y0, x1, y1, ...]. */
   fan(cx: number, cy: number, pts: ArrayLike<number>, c: RGBA): void {
     const n = pts.length / 2;

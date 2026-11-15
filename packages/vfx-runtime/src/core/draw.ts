@@ -41,6 +41,8 @@ export interface DrawCtx {
   ride?: { flight: Flight; k: number };
   /** World points of the shot, for bands and beads. */
   point: (input: 'origin' | 'target', offset: [number, number, number]) => [number, number, number];
+  /** Where an image sits in the atlas (undefined when the atlas does not have it). */
+  image?: (name: string) => { u0: number; v0: number; u1: number; v1: number } | undefined;
 }
 
 export type EdgeLook = 'ink' | 'broken' | 'none';

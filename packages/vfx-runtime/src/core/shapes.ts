@@ -185,7 +185,8 @@ function drawSmoke(sp: SmokeShape, ctx: DrawCtx): void {
     const g = curveAt([[0, sp.grow[0]], [0.78, sp.grow[1]], [1, sp.grow[2]]], it.age);
     const R = sp.radiusM * ctx.s * g;
     if (R < ctx.px(1.5)) continue;
-    const cx = sp.driftM[0] * it.age, cy = sp.riseM * it.age;
+    // Drift: right, and forward (away from the camera on the ground, which shows up the screen by the camera's tilt).
+    const cx = sp.driftM[0] * it.age, cy = sp.riseM * it.age + sp.driftM[1] * it.age * awayOnScreen(ctx);
     const parts = sp.style === 'puff'
       ? PUFF.map(([x, y, r]) => [cx + x * R, cy + y * R, r * R] as const)
       : billowParts(ctx, it.seed, cx, cy, R);
@@ -452,4 +453,12 @@ function drawBeads(sp: BeadsShape, ctx: DrawCtx): void {
     if (sp.glowRole) ctx.p.softDisc(x, y, hl * 1.75, hl * 1.75, ctx.rgba(sp.glowRole, 0.6));
     ctx.p.poly([x + d[0]! * hl, y + d[1]! * hl, x + n[0]! * hw, y + n[1]! * hw, x - d[0]! * hl * 1.6, y - d[1]! * hl * 1.6, x - n[0]! * hw, y - n[1]! * hw], ctx.rgba(sp.role));
   }
+}
+
+/** How much one metre away from the camera, on the ground, shows up the layer's plane (the sine of the camera's tilt). */
+function awayOnScreen(ctx: DrawCtx): number {
+  const f = ctx.p.frame;
+  const ax = f.u[2], az = -f.u[0];
+  const l = Math.hypot(ax, az) || 1;
+  return (ax * f.v[0] + az * f.v[2]) / l;
 }
