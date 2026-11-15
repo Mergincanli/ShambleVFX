@@ -107,13 +107,31 @@ describe('export refusals', () => {
     expect(existsSync(out)).toBe(false);
   });
 
-  it('replaces the export folder, so a deleted effect does not stay in it', async () => {
+  it('replaces an earlier export as a whole, so a deleted effect does not stay in it', async () => {
     const out = join(tmp, 'replaced');
-    mkdirSync(join(out, 'effects'), { recursive: true });
-    writeFileSync(join(out, 'effects', 'old_effect.vfx.json'), '{}');
+    expect((await exportProject(join(repo, 'examples', 'hits-collection'), out)).ok).toBe(true);
     const r = await exportProject(join(repo, 'examples', 'demo-project'), out);
     expect(r.ok).toBe(true);
-    expect(existsSync(join(out, 'effects', 'old_effect.vfx.json'))).toBe(false);
+    expect(readdirSync(join(out, 'effects')).sort()).toEqual(readdirSync(join(repo, 'examples', 'demo-project', 'effects')).sort());
+    expect(readdirSync(tmp).filter((f) => f.startsWith('.replaced'))).toEqual([]);
+  });
+
+  it('never deletes a folder that is not an export, nor the project itself', async () => {
+    const dir = copy('safety');
+    const busy = join(tmp, 'my-art');
+    mkdirSync(busy, { recursive: true });
+    writeFileSync(join(busy, 'sketch.png'), 'art');
+    const notExport = await exportProject(dir, busy);
+    expect(notExport.ok).toBe(false);
+    expect(notExport.errors[0]).toMatch(/already holds files and is not an earlier export/);
+    expect(read(join(busy, 'sketch.png'))).toBe('art');
+    for (const out of [dir, join(dir, 'export'), tmp]) {
+      const r = await exportProject(dir, out);
+      expect(r.ok, out).toBe(false);
+      expect(r.errors[0]).toMatch(/must be outside the project folder|is not an earlier export/);
+    }
+    expect(existsSync(join(dir, 'project.json'))).toBe(true);
+    expect(existsSync(join(dir, 'export'))).toBe(false);
   });
 
   it('exports an older effect as its upgraded copy', async () => {

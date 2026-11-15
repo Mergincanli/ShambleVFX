@@ -5,8 +5,9 @@
  * An export folder holds manifest.json, palette.json, atlas.png, atlas.json, effects/<id>.vfx.json and editor.json
  * (see packages/vfx-format/src/validate/export.ts). Pixels are copied exactly (pngjs), not through a canvas.
  */
+import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 import paletteJson from '@shamble/vfx-format/palette.json';
 import { FORMAT_VERSION } from '@shamble/vfx-format';
@@ -61,13 +62,52 @@ export function imagesUsed(fx: EffectFile): string[] {
   return [...out];
 }
 
+/** The real path of a folder that may not exist yet: its nearest existing parent's real path, plus the rest. */
+async function realPath(p: string): Promise<string> {
+  const abs = resolve(p);
+  try {
+    return await fs.realpath(abs);
+  } catch {
+    const parent = dirname(abs);
+    return parent === abs ? abs : join(await realPath(parent), basename(abs));
+  }
+}
+
+const within = (child: string, parent: string) => {
+  const r = relative(parent, child);
+  return r === '' || (!isAbsolute(r) && r.split(/[\\/]/)[0] !== '..');
+};
+
 /**
- * Export a project folder into `outDir`. Checks first: on any error nothing is written. The folder is replaced, never
- * merged into, so an effect deleted from the project does not stay in the export.
+ * Why `outDir` may not take an export, or undefined when it may: it must be outside the project, and be missing, empty,
+ * or an earlier export (so a wrong path never deletes a project or other files).
+ */
+export async function exportFolderProblem(projectDir: string, outDir: string): Promise<string | undefined> {
+  const [proj, out] = await Promise.all([realPath(projectDir), realPath(outDir)]);
+  if (within(out, proj) || within(proj, out)) return `the export folder (${out}) must be outside the project folder (${proj})`;
+  let entries: string[];
+  try {
+    entries = await fs.readdir(out);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    return `${out} cannot be used: ${(e as Error).message}`;
+  }
+  if (!entries.length) return undefined;
+  const m = (await readJsonFile(join(out, 'manifest.json')).catch(() => null)) as { format?: unknown } | null;
+  if (!m || m.format !== EXPORT_FORMAT) return `${out} already holds files and is not an earlier export: pick a new or empty folder`;
+  return undefined;
+}
+
+/**
+ * Export a project folder into `outDir`. Checks first: on any error nothing is written. An earlier export there is
+ * replaced as a whole, never merged into, so an effect deleted from the project does not stay in the export; the new
+ * export is written next to it first and swapped in, so a failed export keeps the old one.
  */
 export async function exportProject(projectDir: string, outDir: string): Promise<ExportReport> {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const where = await exportFolderProblem(projectDir, outDir);
+  if (where) return { ok: false, errors: [where], warnings, files: [], effects: 0, events: 0 };
   const meta = ((await readJsonFile(join(projectDir, 'project.json')).catch(() => ({}))) ?? {}) as ProjectMeta;
   const name = typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : 'Shamble VFX export';
   const imageFiles = await listFiles(join(projectDir, 'images'), '.png');
@@ -135,9 +175,21 @@ export async function exportProject(projectDir: string, outDir: string): Promise
     ['editor.json', toJson(editor)],
     ...effects.map(({ fx, text }) => [`effects/${fx.id}.vfx.json`, text] as [string, string]),
   ];
-  await fs.rm(outDir, { recursive: true, force: true });
-  await fs.mkdir(join(outDir, 'effects'), { recursive: true });
-  for (const [path, body] of files) await fs.writeFile(join(outDir, path), body);
+  const out = resolve(outDir);
+  const tag = randomBytes(6).toString('hex');
+  const fresh = join(dirname(out), `.${basename(out)}.new-${tag}`);
+  const old = join(dirname(out), `.${basename(out)}.old-${tag}`);
+  try {
+    await fs.mkdir(join(fresh, 'effects'), { recursive: true });
+    for (const [path, body] of files) await fs.writeFile(join(fresh, path), body);
+    const hadOne = await fs.stat(out).then(() => true, () => false);
+    if (hadOne) await fs.rename(out, old);
+    await fs.rename(fresh, out);
+    if (hadOne) await fs.rm(old, { recursive: true, force: true });
+  } catch (e) {
+    await fs.rm(fresh, { recursive: true, force: true });
+    return { ok: false, errors: [`could not write the export: ${(e as Error).message}`], warnings, files: [], effects: 0, events: 0 };
+  }
 
   // Read it back through the export checker: what the game will get must pass it.
   const back = await readExport(outDir);

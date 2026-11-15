@@ -427,8 +427,11 @@ export class App implements AppApi {
       const copy = await this.store.copy(this.project.id, 'projects', name);
       const doc = this.history.doc;
       this.project = await this.store.open(copy.id);
-      // The copy's project.json is fresh (its own name, no scenes): start from it, and write the scenes into it.
-      try { this.projectMeta = (await readJson(this.store, copy.id, 'project.json')) as Record<string, unknown>; } catch { this.projectMeta = { name: copy.name }; }
+      // The copy's project.json is fresh (its own name only). Keep everything the project said (its events, budgets,
+      // notes), under the copy's own name, and write the scenes into it.
+      let fresh: Record<string, unknown> = { name: copy.name };
+      try { fresh = (await readJson(this.store, copy.id, 'project.json')) as Record<string, unknown>; } catch { /* keep the name */ }
+      this.projectMeta = { ...this.projectMeta, ...fresh };
       this.metaDirty = true;
       // The copy holds every effect file the original had, deleted ones too: list them, so saving removes those.
       this.effectsOnDisk = new Set(this.project.effects.map((f) => f.replace(/\.vfx\.json$/, '')));

@@ -6,7 +6,7 @@
  * The runtime follows ColorManagement.enabled, so a game that turns colour management off gets the palette hexes there too.
  *
  * Address options: ?export=demo-project (a folder in exports/)  &event=rifle.shot  &tier=low|medium|high
- *   &faction=soviets|allies|empire  &by=enemy|team|you  &backend=webgl (WebGL 2 instead of WebGPU)
+ *   &faction=soviets|allies|empire  &by=enemy|team|self  &backend=webgl (WebGL 2 instead of WebGPU)
  *   &offscreen=1 (draw into a texture and copy it to the page: for headless browsers, which cannot show a WebGPU canvas)
  */
 import {
@@ -19,7 +19,13 @@ import {
 import type { EffectFile, EffectInputs, FactionId, LoadedExport, Relation, TierName } from '@shamble/vfx-runtime';
 
 const W = 1920, H = 1080;
+const RELATIONS: readonly Relation[] = ['enemy', 'team', 'self'];
 const params = new URLSearchParams(location.search);
+/** An address option, if it is one of the allowed values. */
+function option<T extends string>(name: string, allowed: readonly T[]): T | undefined {
+  const v = params.get(name);
+  return v !== null && (allowed as readonly string[]).includes(v) ? (v as T) : undefined;
+}
 const offscreen = params.get('offscreen') === '1';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ui = {
@@ -73,6 +79,12 @@ let paused = false;
 let lastEvent = '';
 const frameMs: number[] = [];
 let copying = false;
+let copies: Promise<void> = Promise.resolve();
+/** Copies run one after another, so a slow copy from the play loop never lands over a newer picture. */
+function queueCopy(): Promise<void> {
+  copies = copies.then(copyOut, copyOut);
+  return copies;
+}
 
 function inputs(): EffectInputs {
   const h = Number(ui.height.value) || 0;
@@ -124,7 +136,7 @@ function frame(): void {
   renderer.render(scene, camera);
   frameMs.push(performance.now() - t0);
   if (frameMs.length > 60) frameMs.shift();
-  if (offscreen && !copying) { copying = true; void copyOut().finally(() => { copying = false; }); }
+  if (offscreen && !copying) { copying = true; void queueCopy().finally(() => { copying = false; }); }
   if (ui.repeat.checked && player.count === 0 && lastEvent) play(lastEvent);
   if (now - lastStatus > 250) showStats(now);
 }
@@ -185,7 +197,7 @@ async function renderAt(event: string, timeMs: number, o: { tier?: TierName; fac
   vfx.end();
   renderer.render(scene, camera);
   const ms = performance.now() - t0;
-  await copyOut();
+  await queueCopy();
   return { id: fx.id, lengthMs: lengthOf(fx), ...vfx.stats, ms };
 }
 
@@ -216,7 +228,7 @@ async function probe(f: FactionId = 'allies') {
   v.end();
   renderer.render(scene, camera);
   for (const m of standIns) m.visible = true;
-  await copyOut();
+  await queueCopy();
   return out;
 }
 
@@ -253,9 +265,9 @@ async function main(): Promise<void> {
   standIns.push(ring);
 
   ui.faction.replaceChildren(...FACTION_IDS.map((f) => new Option(f[0]!.toUpperCase() + f.slice(1), f)));
-  ui.faction.value = (params.get('faction') as FactionId) ?? 'allies';
-  if (params.get('tier')) ui.tier.value = params.get('tier')!;
-  if (params.get('by')) ui.by.value = params.get('by')!;
+  ui.faction.value = option('faction', FACTION_IDS) ?? 'allies';
+  ui.tier.value = option('tier', TIER_NAMES) ?? 'high';
+  ui.by.value = option('by', RELATIONS) ?? 'enemy';
 
   const list = await listExports();
   const folder = params.get('export') ?? list[0]?.folder ?? 'demo-project';
@@ -285,7 +297,10 @@ async function main(): Promise<void> {
 }
 
 function fail(e: unknown): void {
-  const msg = e instanceof Error ? e.message : String(e);
+  let msg = e instanceof Error ? e.message : String(e);
+  if (/manifest\.json \(the server said 404\)/.test(msg)) {
+    msg += '. There is no export there yet: make one with "npm run export -- examples/demo-project", or with the Export button in the editor.';
+  }
   setStatus(`Could not load: ${msg}`, true);
   (window as unknown as { __test: unknown }).__test = { ready: true, error: msg };
 }
