@@ -97,26 +97,28 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (473): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (482): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
-has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances; the colours each
-layer can use, checked against the real runtime (every example drawn at 60 frames a second for every made-by, tier and
-faction, and made-up layers of every kind, edge and gradient: the list holds every colour the runtime asks the palette
-for), and the checker naming one the palette lacks; the layers the runtime cannot draw, and why; palettes with gradients
-and their upgrade; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and bursts
-(colours at given ages and places, banded edges at the stops, alpha, faction roles, both bed parts on the same band edges,
-and a banded gradient at the tones' places drawing today's bed exactly); the palette; same-seed playback; steps, phases,
-flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive";
-the letters (A to Z and !, built from their data, no stroke thinner than the board's); the fire's layout; every example
-effect drawn all through; undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1
-(written back byte for byte, a newer version refused); budgets at three levels (which one counts, every edit, only what
-differs written); `editor.json` version 2 and the older one; the export checker; export, import and export again giving the
-same files on both examples, on a version 1 project with budgets and on a version 2 project with budgets at all three levels
-and a palette profile (a project with no palette profile gets one at import, so the second `editor.json` names it; the files
-are the same from then on); palette profiles (names, the very same colours, the two defaults, the folder made on first use,
-every route and store function, import adding or finding a profile, loading a profile keeping what the effects use, and the
-default bed gradient drawing the Molotov's bed as today); the runtime's loader and its version guard; the screen-area count
-and the cost measurement.
+has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances; a space in a word
+drawn as a gap; the colours each layer can use, checked against the real runtime (every example drawn at 60 frames a second
+for every made-by and faction, each layer in a tier it shows in, and made-up layers of every kind, edge and gradient: the
+list holds every colour the runtime asks the palette for; a test holds the runtime to drawing a layer the same in each tier
+it shows in), and the checker naming one the palette lacks; the layers the runtime cannot draw, and why; palettes with
+gradients and their upgrade; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and
+bursts (colours at given ages and places, banded edges at the stops, a smooth gradient keeping the bed's own bands, alpha,
+faction roles, both bed parts on the same band edges, and a banded gradient with the tones' band edges drawing today's bed
+exactly); the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps,
+phases, flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites
+alive"; the letters (A to Z and !, built from their data, no stroke thinner than the board's); the fire's layout; every
+example effect drawn all through; undo and redo; the project file server; `project.json` version 2 and its upgrade from
+version 1 (the examples written back byte for byte; the tests' own version 1 files written as today's examples; a newer
+version refused); budgets at three levels (which one counts, every edit, only what differs written); `editor.json` version 2
+and the older one; the export checker; export, import and export again giving the same files on both examples, on a version
+1 project with budgets and on a version 2 project with budgets at all three levels and a palette profile (a project with no
+palette profile gets one at import, so the second `editor.json` names it; the files are the same from then on); palette
+profiles (names, the very same colours, the two defaults, the folder made on first use, every route and store function,
+import adding or finding a profile, loading a profile keeping what the effects use, and the default bed gradient drawing the
+Molotov's bed as today); the runtime's loader and its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
@@ -134,7 +136,9 @@ backends (exact palette colours, every event plays, Low draws less, the version 
 gradient in its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
 a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying the project's
 palette.json. It saves screenshots to `out/screenshots/`.
-It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
+It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
+software, so a second editor page opened while the first one redraws starts slowly (half a minute or more): the check gives
+page loads 60 s and notes how long that page took.
 
 ```bash
 npm run typecheck
@@ -154,9 +158,10 @@ These write pictures to `out/` (kept out of git):
 - `node tools/gradient-sheets.mjs` draws test gradients on smoke, the fire's bed, sparks and image pieces, one sheet each, in
   `out/gradients/` (`--faction=allies` for another faction). It makes a throwaway project in `out/gradients/project/`.
 - `node tools/letter-sheet.mjs` draws our letters with the real runtime, in the comic word style: the alphabet upright and in
-  the comic layout, J, Q, V, X and Y close up between the board's letters, words that use them, and the same words at game
-  size. It writes `out/letters/letters.png`, and `out/letters/game-size.png` (the game-size row 3 times larger, pixel for
-  pixel), from a throwaway project in `out/letters/project/`.
+  the comic layout, J, Q, V, X and Y close up between the board's letters, words that use them, the same words at game size,
+  and words with a space in them, close up and at game size. It writes `out/letters/letters.png`, and
+  `out/letters/game-size.png` and `game-size-spaces.png` (the game-size rows 3 times larger, pixel for pixel), from a
+  throwaway project in `out/letters/project/`.
 - `npm run export`, `npm run check:export` and `npm run import`: see [docs/export.md](docs/export.md).
 - `node tools/shoot.mjs <effect> <scene> <ms,ms>` takes the game screen of one effect at chosen moments.
 - `tools/presets/*.py` wrote the preset files (Python 3, optional: the JSON files are what counts, and the editor edits them).
@@ -166,12 +171,14 @@ These write pictures to `out/` (kept out of git):
 - **Effect files, version 5** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2, 3 and 4.
   - **Colours per project**: the project's own `palette.json` (version 2, with gradients), edited with the colour picker;
     the built-in palette for projects without one ([docs/colours.md](docs/colours.md)).
-  - **Gradients**: smooth or banded ramps in the palette. A glow runs one from its middle to its rim, smoke over each
-    puff's life, the fire's bed from its rim to its middle (one band per stop), and a burst over each piece's life.
+  - **Gradients**: smooth or banded ramps in the palette. A glow and the fire's bed run one from the middle to the rim (on
+    the bed, banded: one band of lumps per stop; smooth: the bed's own bands, the colours blended), smoke over each puff's
+    life, and a burst over each piece's life.
   - **Quality tiers**: every visible layer says in which tiers it shows (Low, Medium, High). The game picks one tier; the
     timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
-    shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters, A to Z and !).
+    shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters, A to Z and !; a space
+    draws as a gap, so one layer can show two words, such as KA BOOM).
   - **Words with chances** (version 5): each word of a word layer can have a chance in percent; words without one share what
     is left, and when every word has one and they add up to less than 100, the rest of the plays show no word. A word layer
     with no chances shows the same word for every seed as before. Setting chances in the editor comes with the new UI; the
@@ -274,15 +281,14 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     even where nothing would show it. The built-in palette has them all.
   - A colour a field names is always listed, even where nothing draws it (a scorch core of size 0, the tones a bed's
     gradient replaces, a fifth flame tone): the checker checks every named colour, so a palette must keep it.
-  - The test that compares the list with the runtime draws each example at 60 frames a second for every made-by, tier and
-    faction. In the examples the runtime asks for every colour on the list. The made-up layers name the roles it never asks
-    for, and why.
+  - The test that compares the list with the runtime draws each example at 60 frames a second for every made-by and
+    faction, each layer in the first tier it shows in (a tier only leaves whole layers out; another test checks that a layer
+    draws the same in each tier it shows in). In the examples the runtime asks for every colour on the list. The made-up
+    layers name the roles it never asks for, and why.
 - **Layers that cannot draw**: a note is about the moment shown (the runtime's note on the last frame), so a layer that is
   not on at that moment gets none. Both notes name the image ("the image dust_puff.png is not in the project").
 - **Budgets at three levels and `project.json` version 2** (the levels, "off until switched on", which one counts, the three
   starting classes and "old budgets become the project's, switched off" are the approved plan; these details are ours):
-  - The example projects keep their version 1 `project.json`: the plan does not ask to change them, and
-    `tools/presets/hits.py` writes one. They open, export and import as before.
   - A class has an `id`, made from its first name and kept when it is renamed; an effect's entry names that `id`. A class
     name has 1 to 64 letters, no tabs or line breaks, and is unique without regard to upper and lower case (the rule planned
     for palette profile names). A file's class that an effect names but the list lacks is read as no class.
@@ -295,18 +301,27 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     is not opened, exported or written over; the same goes for importing an `editor.json` like that.
 - **A fire's bed and its gradient**: the checker treats all the bed layers of one effect as one fire, so it compares every
   detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
-- **How the runtime draws gradients on the bed** (the plan says only "band edges at the stops" and "a smooth one blends"):
-  - A place on the bed is 1 minus its distance from the middle, divided by the bed's radius. A band's edge is where its lumps
-    reach on average. Without a gradient the tones keep their places (0.58 k / (K − 1) + 0.03 k), so a banded gradient at
-    those places draws exactly today's bed.
-  - A smooth gradient gets the same bands as a banded one (one per stop; a stop at the very middle gives none). Each point
-    takes the colour of its place, kept inside its band, so the middle still cools first. The detail's halftone takes the
-    next band's colour (smooth: halfway into it). The white-hot spots are more of the middle band (smooth: coloured by place).
+- **How the runtime draws gradients on the bed** (the direction, from the middle to the rim, one band per stop when banded
+  and the bed's own bands when smooth, are decided; these details are ours):
+  - A place on the bed is its distance from the middle, divided by the bed's radius. A band's edge is where its lumps reach
+    on average. The first stop's colour holds from the very middle, wherever the stop is (as a glow draws it).
+  - On a smooth gradient each point takes the colour of its place, kept inside its band, so the middle still cools first.
+    The detail's halftone takes the next band's colour (smooth: halfway into it). The white-hot spots are more of the middle
+    band (smooth: coloured by place).
   - Lumps are never more than 0.6 of a band, and bands close together shift towards the camera less, so each stays inside
     the last. A stop's alpha makes its band see-through.
+  - The checker warns when a bed's banded gradient has more than 8 stops (each stop is a band of lumps): 8 is our guess,
+    twice the four tones a bed starts with.
+  - No new format version for turning the bed's gradient round: version 5 had been pushed the same day, no example or
+    default effect uses a bed gradient, and no effect file changes. A palettes folder made in between keeps the old
+    `fire.bed` (stops from the rim); restoring the defaults does not replace a profile that is there.
 - **Alpha in smoke and burst gradients** fades every part of the puff or piece: rim, light top and halftone; ink edge and
-  speed streak (they keep their colours). Each part is see-through on its own, so overlapping rounds look denser, as with a
-  layer's alpha. A puff or piece at alpha 0 is not drawn, and not counted in "sprites alive".
+  speed streak (they keep their colours). Each part is see-through on its own, so the rounds of a puff show where they
+  overlap (darker overlaps, edges showing through), as with a layer's alpha. A puff or piece at alpha 0 is not drawn, and
+  not counted in "sprites alive".
+- **A space in a word** is 2.4 of the letters' 7 units wide, on top of the 0.5 after every letter: at 30 px and up the ground
+  between the two words is then about as wide as an I (1.9), after the black outline and the pushed-back copy. An I's width
+  alone left too little ground at 16 px. Spaces at either end add nothing.
 - **The letters J, Q, V, X and Y** are our own drawing in the board's style: proposals that wait for the Art lead's review
   (marked in `letters.json` and in the header of `letters.ts`). Each is built from the board's own letters:
   - J is the U's right half with a short hook (up to 2.9 of 7). Q is the O with a tail, cut flat 1 unit under the line.
@@ -334,10 +349,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     fell back to the built-in palette when opened): its colours cannot be kept as a profile.
   - A list shows each faction's team colour, then the first shared colours, eight in all, as swatches.
   - "Built-in with gradients" holds all nine ready-made gradients (they all use roles), then `fire.bed`, `sparks.cool` and
-    `smoke.thin`, all marked `"from": "assumed"`. The ready-made gradients now live in `src/doc/gradient-presets.ts`, shared
-    by the colour picker and the default profile, so a change to them changes what a fresh palettes folder gets.
-  - The sparks and smoke gradients are our proposals; the thinning smoke starts at 60 % of each puff's life, so the
-    see-through rounds overlap only near the end.
+    `smoke.lighten`, all marked `"from": "assumed"`. The ready-made gradients now live in `src/doc/gradient-presets.ts`,
+    shared by the colour picker and the default profile, so a change to them changes what a fresh palettes folder gets.
+  - The sparks and smoke gradients are our proposals, and so is the name `smoke.lighten` (it uses colours only, as decided):
+    a fire's smoke stays `fire.smoke` until 40 % of each puff's life, then lightens to `fire.smoke.light`, the colour of the
+    puff's lit top, which at the very end merges with the body.
   - `VFX_PALETTES_DIR` picks another palettes folder (the browser check uses a temporary one).
 
 ## Claude skills

@@ -106,26 +106,31 @@ if it had no gradient. What the gradient runs along:
 - **smoke**: the body colour over each puff's life, from its start (0) to its end (1). A looping billow has its own life,
   so billows of different ages show different colours at once. It replaces `role`. The light top (`lightRole`) and the rim
   (`rimRole`) keep their colours. The gradient's alpha makes the whole puff more see-through: rim, body, light top and
-  halftone. Each round of the puff is see-through on its own, so where rounds overlap the puff looks denser (as with a
-  layer's `alpha`). Where the alpha is 0 the puff is not drawn at all.
-- **bed**: from the rim (0) to the very middle (1). A place on the bed is 1 minus its distance from the middle, divided by
-  the bed's radius, so a stop at 0.5 is halfway in. The gradient replaces `tones` (`tones` stay, and count when there is
-  no gradient).
-  - One band of lumps per stop. A band's lumps reach out to its stop's place (on average; the first band's to the rim),
-    and the band lasts until the next stop. So the band edges sit at the stops. A band with no room is left out (two
-    stops at one place, or a stop at 1).
-  - Banded: each band is its stop's colour. Smooth: the same bands, but each point takes the gradient's colour at its
-    place, kept between its band's place and the next band's. So the colour blends from band to band, and the middle still
-    cools when the inner bands go out.
-  - The detail's halftone and brush strokes take the next band's colour (smooth: the next band's colour halfway in). Both
-    parts read the gradient, so the halftone sits where the bands meet: give a fire's lumps and its detail the same
-    gradient (the checker warns when they differ).
-  - Without a gradient, the tones sit where a banded gradient with stops at 0.58 k / (K − 1) + 0.03 k would put them (k
-    counts from 0, K tones). For 4 tones that is 0, 0.2233…, 0.4467… and 0.67. A banded gradient with the same tones at
-    exactly those stops draws today's bed; with the stops rounded to four decimals, the bands of the Molotov's bed move by
-    less than a millimetre.
-  - A stop's alpha makes its band see-through. A ready-made gradient made for a glow runs from the middle: on a bed it
-    runs from the rim, so a hot-first gradient gives a hot rim.
+  halftone. Each round of the puff is see-through on its own, so where rounds overlap they show: the overlaps look darker,
+  the rounds' edges show through each other, and billows behind show through (as with a layer's `alpha`). For smoke that
+  thins without those marks, use colours only, as the default `smoke.lighten` does ([colours.md](colours.md)). Where the
+  alpha is 0 the puff is not drawn at all.
+- **bed**: from the middle (0) to the rim (1), as on a glow, so one gradient looks the same on a glow and on a bed. A place
+  on the bed is its distance from the middle, divided by the bed's radius, so a stop at 0.5 is halfway out. The gradient
+  takes the place of the tones' colours (`tones` stay, and count when there is no gradient).
+  - **Banded**: one band of lumps per stop. A stop's colour holds from its place out to the next stop: the last stop's band
+    reaches the rim, and the first stop's band reaches the very middle, wherever its stop is (as a glow draws it). So the
+    band edges sit at the stops: a band's lumps reach out to the next stop (on average). A band with no room is left out
+    (two stops at one place, or a stop at 1). Each stop is a band of lumps, so every stop adds triangles: the checker warns
+    when a bed's banded gradient has more than 8 stops (an assumed limit).
+  - **Smooth**: the bed keeps its own bands: one band of lumps per tone, in the places they have without a gradient. Each
+    point takes the gradient's colour at its place, kept between where its band starts and where the next band in takes
+    over. So the colours blend from the middle out, and the middle still cools when the inner bands go out. The stops do
+    not change the bands, so a smooth gradient costs no more triangles than the tones.
+  - Both bed parts lay out their bands the same way, so the detail's halftone sits where the bands meet. The halftone and
+    brush strokes take the next band's colour (smooth: the next band's colour halfway into it). Give a fire's lumps and its
+    detail the same gradient (the checker warns when they differ).
+  - To draw the tones with a banded gradient, list them from the middle out, each from the edge of the band inside it. Band
+    k of K (counted from the rim, as `tones` lists them, k from 0) reaches out to 1 − 0.58 k / (K − 1) − 0.03 k. For the
+    Molotov's four tones that is `heat.3` at 0, `heat.2` at 0.33, `heat.1` at 0.5533… and `heat.dark` at 0.7766… Such a
+    gradient draws today's bed; with the stops rounded to four decimals, the bands of the Molotov's bed move by less than a
+    tenth of a millimetre.
+  - A stop's alpha makes its band see-through.
 - **burst**: each piece's colour over its own life, from its birth (0) to its end (1) (see the burst layer below).
 
 ## Burst layer (`"type": "burst"`)
@@ -146,7 +151,10 @@ ink edges stay. Where the alpha is 0 the piece is not drawn at all.
 
 A comic sound word in our own block letters. It always faces the screen. The letters are A to Z and !, and words are drawn in
 capitals. J, Q, V, X and Y are Shamble VFX's own drawing in the drawing board's style, waiting for the Art lead's review; the
-others are the board's. Other characters are left out, and the checker warns about them.
+others are the board's. A space is a gap: 2.4 of the letters' 7 units, on top of the 0.5 after every letter, so the letters
+on either side are 3.4 units apart, and at the usual sizes the ground that shows between the two words is about as wide as
+an I (an assumed width). Each space between letters adds one gap; spaces before the first letter or after the last add
+nothing. Other characters are left out, and the checker warns about them.
 `words` (one picked per play, see below), `letterPx`, `colours` (`top`, `bottom`, `back`: two flat tones and the pushed-back copy),
 optional `separation` (a thin line between two black outlines), `tiltDeg` (range), `sizeJitter`, `ramp`, `bounce`, `turnDeg`,
 `slantDeg`, `pop` (`scale`, `steps`), optional `breakUp` and `breakSteps`, `riseM`, `distance` (`curve` of [metres, size share]
@@ -208,7 +216,8 @@ projects are written as version 2.
 - **Version 1 → 2**: `paletteProfile` is new, and `budgets` changes shape. Version 1 had one set of budgets for the whole
   project (per tier, per row); it becomes the project's budgets, **switched off**, numbers kept. Nothing else changes. A
   version 1 project opens as it is, and its `project.json` is written as version 2 the next time the project is saved.
-  The example projects keep their version 1 `project.json`.
+  The example projects are version 2 (`tools/presets/hits.py` writes version 2); the tests keep version 1 files of their
+  own for the upgrade.
 - A `project.json` of a newer version (or one whose `version` is not a whole number) is not opened, exported or written
   over: the editor says so in plain words.
 
@@ -230,6 +239,11 @@ The checker upgrades an old file when it reads it, one version at a time. Save t
 Note: a few optional fields were added to version 2 after its first push, before anyone used it (`alpha`, `liftM`, `areaM`,
 `streak`, `inkRole`, the `spike` piece, `squash` on rings and dots). They are optional, so every version 2 file stays valid;
 no version number was spent on them.
+
+Note: in version 5 as first pushed, the fire's bed ran its gradient from the rim to the middle, and a smooth gradient made one
+band per stop. The same day, before any effect used it, it was turned round to run from the middle to the rim, as a glow's,
+and a smooth gradient now keeps the tones' bands. No effect file changes, so no version number was spent on it (an
+assumption).
 
 ## Planned (each with an upgrade step)
 
