@@ -12,7 +12,8 @@
   /* Text and lines: the comic look draws panels and controls in black ink */
   --text: #11121A;
   --text-sub: #4C4E58;
-  --text-faint: #8E8D86;
+  --text-faint: #6E6D67;
+  --focus: #B26B00;
   --line: #11121A;
   --frame: #11121A;
   --line-soft: #C4C3BC;
@@ -56,7 +57,8 @@
   --row-sel: rgba(255, 255, 255, 0.08);
   --text: #ECEAE4;
   --text-sub: #B0AFB7;
-  --text-faint: #8C8B93;
+  --text-faint: #9998A0;
+  --focus: #FFB02E;
   --line: #85858F;
   --frame: #47474E;
   --line-soft: #3D3D43;
@@ -83,7 +85,7 @@ html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--text); font: 14px/1.4 var(--body); overflow: hidden; }
 button, input, select { font: inherit; color: var(--text); }
 button { cursor: pointer; border-radius: 0; }
-button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--heat); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 #app { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; min-width: 1100px; }
 h2 { margin: 0 0 6px; font: 700 18px/1 var(--display); letter-spacing: 0.8px; text-transform: uppercase; }
 code, kbd { font-family: var(--mono); }
@@ -335,7 +337,7 @@ table.cost.stale .cv, table.cost.stale .cs { color: var(--text-faint); }
 .cp-faction:hover:not([aria-pressed="true"]) { background: var(--hover); }
 .cp-dot { width: 10px; height: 10px; margin-left: auto; border: 1.5px solid currentColor; flex: none; }
 .cp-wheel { display: block; width: 224px; height: 224px; margin: 12px auto 4px; touch-action: none; cursor: crosshair; border-radius: 50%; }
-.cp-wheel:focus-visible { outline: 3px solid var(--heat); outline-offset: 3px; }
+.cp-wheel:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .cp-hexrow { display: flex; gap: 6px; align-items: stretch; margin-top: 8px; }
 .cp-hexrow .cp-hex { font: 600 15px/1.2 var(--mono); letter-spacing: 0.5px; text-transform: uppercase; }
 .cp-hexrow .mini { padding: 3px 7px; }
