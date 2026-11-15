@@ -61,9 +61,10 @@ async function open(url, ready) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  // A page opened while another editor page is still drawing can take about 30 s to start here: this headless browser
-  // draws in software, and the new page's start-up waits for it (measured: its modules load in under half a second, then
-  // nothing is pending for about 25 s). So the load gets as long as the app gets to be ready.
+  // A page opened while another editor page is still drawing can take about 30 s to start here (measured: its modules load
+  // in under half a second, then nothing is pending for about 25 s before the page's start-up ends). Likely, not proven:
+  // this headless browser draws in software, and the new page waits for it. So the load gets as long as the app gets to be
+  // ready.
   await page.goto(url, { timeout: 60000 });
   await page.waitForFunction(ready, null, { timeout: 60000 });
   return { page, errors };

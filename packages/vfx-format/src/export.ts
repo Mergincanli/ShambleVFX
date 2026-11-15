@@ -6,7 +6,7 @@
  *   palette.json          the colour roles (team colours per faction)
  *   atlas.png, atlas.json one packed image page, and where each image sits on it
  *   effects/<id>.vfx.json one effect file each, in the current effect format version
- *   editor.json           the editor's own notes (preview scenes, budgets); the game ignores it
+ *   editor.json           the editor's own notes (preview scenes, budgets, the palette profile's name); the game ignores it
  */
 
 export const EXPORT_FORMAT = 'shamble-vfx-export' as const;
