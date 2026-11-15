@@ -1,5 +1,5 @@
 {
- "about": "Our own block letters for comic sound words, drawn from straight edges (no font). From the Art lead's VFX drawing board, version 7. Committed with Mustafa's permission (2026-11-15). Cap height 7 units, y up; each letter: w = width, c = contours (outlines one way round, holes the other).",
+ "about": "Our own block letters for comic sound words, drawn from straight edges (no font). From the Art lead's VFX drawing board, version 7. Committed with Mustafa's permission (2026-11-15). Letters marked \"from\": \"shamble-vfx\" are not from the board: Shamble VFX drew them in the board's style, and they wait for the Art lead's review. Cap height 7 units, y up; each letter: w = width, c = contours (outlines one way round, holes the other). Every letter sits inside 0 to w and 0 to 7, except the tail of the Q: it reaches 1 unit below the line and 0.4 past the Q's width, under the next letter.",
  "letters": {
   "A": {
    "w": 5.6,
@@ -472,6 +472,54 @@
     ]
    ]
   },
+  "J": {
+   "w": 4.8,
+   "from": "shamble-vfx",
+   "c": [
+    [
+     [
+      0.8,
+      0
+     ],
+     [
+      4,
+      0
+     ],
+     [
+      4.8,
+      0.8
+     ],
+     [
+      4.8,
+      7
+     ],
+     [
+      3.05,
+      7
+     ],
+     [
+      3.05,
+      1.5
+     ],
+     [
+      1.75,
+      1.5
+     ],
+     [
+      1.75,
+      2.9
+     ],
+     [
+      0,
+      2.9
+     ],
+     [
+      0,
+      0.8
+     ]
+    ]
+   ]
+  },
   "K": {
    "w": 5.4,
    "c": [
@@ -774,6 +822,72 @@
     ]
    ]
   },
+  "Q": {
+   "w": 5.4,
+   "from": "shamble-vfx",
+   "c": [
+    [
+     [
+      0.8,
+      0
+     ],
+     [
+      3.3,
+      0
+     ],
+     [
+      3.9,
+      -1
+     ],
+     [
+      5.8,
+      -1
+     ],
+     [
+      5,
+      0.333
+     ],
+     [
+      5,
+      6.2
+     ],
+     [
+      4.2,
+      7
+     ],
+     [
+      0.8,
+      7
+     ],
+     [
+      0,
+      6.2
+     ],
+     [
+      0,
+      0.8
+     ]
+    ],
+    [
+     [
+      1.75,
+      5.55
+     ],
+     [
+      3.25,
+      5.55
+     ],
+     [
+      3.25,
+      1.45
+     ],
+     [
+      1.75,
+      1.45
+     ]
+    ]
+   ]
+  },
   "R": {
    "w": 5.2,
    "c": [
@@ -1000,6 +1114,42 @@
     ]
    ]
   },
+  "V": {
+   "w": 5.6,
+   "from": "shamble-vfx",
+   "c": [
+    [
+     [
+      2,
+      0
+     ],
+     [
+      3.6,
+      0
+     ],
+     [
+      5.6,
+      7
+     ],
+     [
+      3.85,
+      7
+     ],
+     [
+      2.8,
+      3.325
+     ],
+     [
+      1.75,
+      7
+     ],
+     [
+      0,
+      7
+     ]
+    ]
+   ]
+  },
   "W": {
    "w": 6.4,
    "c": [
@@ -1051,6 +1201,106 @@
      [
       0,
       7
+     ]
+    ]
+   ]
+  },
+  "X": {
+   "w": 5.4,
+   "from": "shamble-vfx",
+   "c": [
+    [
+     [
+      0,
+      0
+     ],
+     [
+      1.85,
+      0
+     ],
+     [
+      2.7,
+      1.75
+     ],
+     [
+      3.55,
+      0
+     ],
+     [
+      5.4,
+      0
+     ],
+     [
+      3.625,
+      3.654
+     ],
+     [
+      5.25,
+      7
+     ],
+     [
+      3.4,
+      7
+     ],
+     [
+      2.7,
+      5.559
+     ],
+     [
+      2,
+      7
+     ],
+     [
+      0.15,
+      7
+     ],
+     [
+      1.775,
+      3.654
+     ]
+    ]
+   ]
+  },
+  "Y": {
+   "w": 5.6,
+   "from": "shamble-vfx",
+   "c": [
+    [
+     [
+      1.9,
+      0
+     ],
+     [
+      3.7,
+      0
+     ],
+     [
+      3.7,
+      2.925
+     ],
+     [
+      5.6,
+      7
+     ],
+     [
+      3.72,
+      7
+     ],
+     [
+      2.8,
+      5.027
+     ],
+     [
+      1.88,
+      7
+     ],
+     [
+      0,
+      7
+     ],
+     [
+      1.9,
+      2.925
      ]
     ]
    ]

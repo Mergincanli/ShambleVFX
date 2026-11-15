@@ -547,7 +547,10 @@ export interface SoundWord {
 /** A comic sound word in our own block letters. It always faces the screen. */
 export interface WordLayer extends VisibleCommon {
   type: 'word';
-  /** One is picked per play, from the seed. Letters we have not drawn yet are left out (the checker warns). */
+  /**
+   * One is picked per play, from the seed. Drawn in capitals; characters other than A to Z and ! are left out (the checker
+   * warns).
+   */
   words: SoundWord[];
   /** Letter height in px on a 1080p screen, at full size. */
   letterPx: number;

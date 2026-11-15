@@ -189,16 +189,17 @@ describe('version 2 rules', () => {
     fx.layers.push(newBurstLayer('b', 'Bits'), newWordLayer('w', 'Word'));
     expect(messages(fx)).toEqual([]);
   });
-  it('warns about letters we have not drawn yet, and still accepts the file', () => {
+  it('warns about characters we have not drawn yet, and still accepts the file', () => {
     const fx = newEffect('w', 'W');
     const w = newWordLayer('w', 'Word');
-    w.words = [{ text: 'KA-BLAM' }, { text: 'YAY' }];
+    // Every letter from A to Z is drawn now (J, Q, V, X and Y too): YAY and quake get no warning.
+    w.words = [{ text: 'KA-BLAM' }, { text: 'YAY' }, { text: 'BAM #2' }, { text: 'quake' }];
     fx.layers.push(w);
     const r = checkEffect(fx, { palette, images });
     expect(r.ok).toBe(true);
     expect(problemLines(r.problems)).toEqual([
-      'warning: layers[0].words[0].text: "KA-BLAM": "-" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
-      'warning: layers[0].words[1].text: "YAY": "Y" is not drawn yet and will be left out (drawn: ABCDEFGHIKLMNOPRSTUWZ!)',
+      'warning: layers[0].words[0].text: "KA-BLAM": "-" is not drawn yet and will be left out (drawn: ABCDEFGHIJKLMNOPQRSTUVWXYZ!)',
+      'warning: layers[0].words[2].text: "BAM #2": "#", "2" are not drawn yet and will be left out (drawn: ABCDEFGHIJKLMNOPQRSTUVWXYZ!)',
     ]);
   });
   it('checks places and lengths: multiply lies on the ground, words face the screen, a trail rides a projectile, one length only', () => {

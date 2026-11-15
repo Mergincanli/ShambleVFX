@@ -1,5 +1,6 @@
 /**
- * Comic sound words in our own block letters (committed with Mustafa's permission, 2026-11-15).
+ * Comic sound words in our own block letters: the drawing board's (committed with Mustafa's permission, 2026-11-15), and
+ * J, Q, V, X and Y, drawn by Shamble VFX in the board's style and waiting for the Art lead's review (see letters.ts).
  * A word is built back to front: a dark copy pushed down and to the side, a black outline, then the letter in two flat
  * tones with a hard edge between them. Each letter turns a little and sits a little off the line; the whole word leans.
  */

@@ -1,7 +1,7 @@
 /**
  * The checker. It names every problem in plain words, with where it is:
  * schema errors, unknown colour roles and gradients, missing images, hex colours, broken links between layers, missing
- * lengths, and, as warnings, letters we have not drawn yet, word chances that do not work as typed, a fire's bed layers
+ * lengths, and, as warnings, characters we have not drawn yet, word chances that do not work as typed, a fire's bed layers
  * with different gradients, and phases with no length.
  */
 import type { core } from 'zod';

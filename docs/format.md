@@ -144,8 +144,9 @@ ink edges stay. Where the alpha is 0 the piece is not drawn at all.
 
 ## Word layer (`"type": "word"`)
 
-A comic sound word in our own block letters (A B C D E F G H I K L M N O P R S T U W Z and !; the checker warns about others).
-It always faces the screen.
+A comic sound word in our own block letters. It always faces the screen. The letters are A to Z and !, and words are drawn in
+capitals. J, Q, V, X and Y are Shamble VFX's own drawing in the drawing board's style, waiting for the Art lead's review; the
+others are the board's. Other characters are left out, and the checker warns about them.
 `words` (one picked per play, see below), `letterPx`, `colours` (`top`, `bottom`, `back`: two flat tones and the pushed-back copy),
 optional `separation` (a thin line between two black outlines), `tiltDeg` (range), `sizeJitter`, `ramp`, `bounce`, `turnDeg`,
 `slantDeg`, `pop` (`scale`, `steps`), optional `breakUp` and `breakSteps`, `riseM`, `distance` (`curve` of [metres, size share]

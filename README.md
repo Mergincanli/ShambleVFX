@@ -95,15 +95,16 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (294): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (300): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
 has a chance); the words box keeping chances; palettes with gradients and their upgrade; colour edits and their undo; glows
 drawn from gradients; gradients on smoke, the fire's bed and bursts (colours at given ages and places, banded edges at the
 stops, alpha, faction roles, both bed parts on the same band edges, and a banded gradient at the tones' places drawing
 today's bed exactly); the palette; same-seed playback; steps, phases, flights and arcs; every shape kind, bursts and words;
-friend or foe; quality tiers; the item count behind "sprites alive"; the letters; the fire's layout; every example effect
-drawn all through; undo and redo; the project file server; the export checker; export, import and export again giving the
-same files on both examples; the runtime's loader and its version guard; the screen-area count and the cost measurement.
+friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !, built from their data, no
+stroke thinner than the board's); the fire's layout; every example effect drawn all through; undo and redo; the project file
+server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
+its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
@@ -136,6 +137,10 @@ These write pictures to `out/` (kept out of git):
   board presets, or `--project=… --effects=… --times=…` for others. For judging whether Low stays readable.
 - `node tools/gradient-sheets.mjs` draws test gradients on smoke, the fire's bed, sparks and image pieces, one sheet each, in
   `out/gradients/` (`--faction=allies` for another faction). It makes a throwaway project in `out/gradients/project/`.
+- `node tools/letter-sheet.mjs` draws our letters with the real runtime, in the comic word style: the alphabet upright and in
+  the comic layout, J, Q, V, X and Y close up between the board's letters, words that use them, and the same words at game
+  size. It writes `out/letters/letters.png`, and `out/letters/game-size.png` (the game-size row 3 times larger, pixel for
+  pixel), from a throwaway project in `out/letters/project/`.
 - `npm run export`, `npm run check:export` and `npm run import`: see [docs/export.md](docs/export.md).
 - `node tools/shoot.mjs <effect> <scene> <ms,ms>` takes the game screen of one effect at chosen moments.
 - `tools/presets/*.py` wrote the preset files (Python 3, optional: the JSON files are what counts, and the editor edits them).
@@ -150,11 +155,13 @@ These write pictures to `out/` (kept out of git):
   - **Quality tiers**: every visible layer says in which tiers it shows (Low, Medium, High). The game picks one tier; the
     timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
-    shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters).
+    shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters, A to Z and !).
   - **Words with chances** (version 5): each word of a word layer can have a chance in percent; words without one share what
     is left, and when every word has one and they add up to less than 100, the rest of the plays show no word. A word layer
     with no chances shows the same word for every seed as before. Setting chances in the editor comes with the new UI; the
     words box keeps them when you type the list again.
+  - **The letters J, Q, V, X and Y**: drawn by Shamble VFX in the drawing board's style, so a word can use every letter from A
+    to Z. They wait for the Art lead's review (see Assumptions).
   - **Phases**: wind-up, peak and fade. Layers start with a phase, last until one ends, or break up during one.
   - **Friend or foe** per layer, by edge: solid ink for an enemy's, thin and broken for your own team's.
 - **The drawing board's four effects** as presets, compared side by side with the board at its key moments, both sides and
@@ -235,6 +242,16 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **Alpha in smoke and burst gradients** fades every part of the puff or piece: rim, light top and halftone; ink edge and
   speed streak (they keep their colours). Each part is see-through on its own, so overlapping rounds look denser, as with a
   layer's alpha. A puff or piece at alpha 0 is not drawn, and not counted in "sprites alive".
+- **The letters J, Q, V, X and Y** are our own drawing in the board's style: proposals that wait for the Art lead's review
+  (marked in `letters.json` and in the header of `letters.ts`). Each is built from the board's own letters:
+  - J is the U's right half with a short hook (up to 2.9 of 7). Q is the O with a tail, cut flat 1 unit under the line.
+    V is the A upside down, without its bar. X crosses a little above the middle (its top is 0.15 narrower on each side).
+    Y has arms 25° from upright and a stem 1.8 wide. Their strokes are 1.45 to 1.8 units thick, inside the board's own range
+    (1.1 for the A's bar to 1.9 for the I).
+  - The Q's tail is the only part of any letter below the line. It also reaches 0.4 past the Q's width, under the next
+    letter, so the gap after the Q's round part is as wide as the other gaps.
+  - No new format version: the files keep their shape. A word with these letters used to leave them out (the checker
+    warned); now it draws them.
 
 ## Claude skills
 

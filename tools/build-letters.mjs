@@ -11,6 +11,10 @@ const src = JSON.parse(readFileSync(join(root, 'packages/vfx-runtime/data/letter
 const area = (c) => { let a = 0; for (let i = 0; i < c.length; i++) { const [x0, y0] = c[i], [x1, y1] = c[(i + 1) % c.length]; a += x0 * y1 - x1 * y0; } return a / 2; };
 const inside = (x, y, c) => { let r = false; for (let i = 0, j = c.length - 1; i < c.length; j = i++) { const [xi, yi] = c[i], [xj, yj] = c[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) r = !r; } return r; };
 
+// Letters marked "from": "shamble-vfx" are our own drawing in the board's style, not the board's: the header names them.
+const ours = Object.entries(src.letters).filter(([, g]) => g.from === 'shamble-vfx').map(([ch]) => ch);
+const list = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}` : a.join(''));
+
 const letters = {};
 for (const [ch, g] of Object.entries(src.letters)) {
   // Outlines go one way round (positive area), holes the other. Each hole belongs to the outline around it.
@@ -31,7 +35,7 @@ for (const [ch, g] of Object.entries(src.letters)) {
 
 const body = `/**
  * Our own block letters, cut into triangles. Made by tools/build-letters.mjs from data/letters.json: do not edit by hand.
- * ${src.about}
+ * ${src.about}${ours.length ? `\n * Drawn by Shamble VFX in the board's style, waiting for the Art lead's review: ${list(ours)}.` : ''}
  */
 export interface Letter {
   /** Width in letter units (the cap height is 7). */

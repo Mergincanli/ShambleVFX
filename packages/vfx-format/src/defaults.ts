@@ -5,8 +5,12 @@ import type { BurstLayer, EffectFile, ProjectileLayer, ShapeKind, ShapeLayer, Sh
 /** The comic step rate: shapes hold for 1/12 s, like drawn animation (drawing board v7). */
 export const DEFAULT_STEPS_PER_SECOND = 12;
 
-/** The letters drawn so far in our own block alphabet (drawing board v7). Other characters are left out of a word. */
-export const WORD_LETTERS = 'ABCDEFGHIKLMNOPRSTUWZ!';
+/**
+ * The letters drawn so far in our own block alphabet: A to Z and !. All are from drawing board v7, except J, Q, V, X
+ * and Y: Shamble VFX drew those in the board's style, and they wait for the Art lead's review. Other characters are
+ * left out of a word.
+ */
+export const WORD_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ!';
 
 /** The word size by distance from you (Mustafa, 2026-11-14; 0-2 m and 5-8 m are the Art lead's reading). */
 export const DEFAULT_WORD_DISTANCE: [number, number][] = [[0, 1], [2, 1], [5, 0.6], [8, 0.6], [11, 0]];
