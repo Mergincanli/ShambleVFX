@@ -142,7 +142,7 @@ function frame(): void {
 }
 
 let lastStatus = 0;
-function showStats(now: number): void {
+function showStats(now: number, oneFrame = false): void {
   if (!vfx || !loaded) return;
   lastStatus = now;
   const s = vfx.stats;
@@ -151,7 +151,8 @@ function showStats(now: number): void {
   setStatus(
     `${backendName()}  ·  ${loaded.manifest.name}: ${loaded.events.length} events, effects version ${FORMAT_VERSION}` +
       `  ·  ${fx ? `"${lastEvent || ui.event.value}" plays ${fx.name} (${Math.round(lengthOf(fx))} ms)` : ''}` +
-      `  ·  tier ${vfx.tier}: ${s.triangles} triangles, ${s.drawCalls} draws, ${avg.toFixed(2)} ms a frame (CPU, whole frame)`,
+      `  ·  tier ${vfx.tier}: ${s.triangles} triangles, ${s.drawCalls} draws, ` +
+      (oneFrame ? `${avg.toFixed(2)} ms for this one frame (CPU; a first frame includes building the shaders)` : `${avg.toFixed(2)} ms a frame (CPU, whole frame, last 60 frames)`),
   );
 }
 
@@ -198,6 +199,13 @@ async function renderAt(event: string, timeMs: number, o: { tier?: TierName; fac
   renderer.render(scene, camera);
   const ms = performance.now() - t0;
   await queueCopy();
+  // The line at the bottom tells about this moment.
+  lastEvent = event;
+  ui.event.value = event;
+  ui.tier.value = vfx.tier;
+  frameMs.length = 0;
+  frameMs.push(ms);
+  showStats(performance.now(), true);
   return { id: fx.id, lengthMs: lengthOf(fx), ...vfx.stats, ms };
 }
 

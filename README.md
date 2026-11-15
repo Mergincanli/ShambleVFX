@@ -4,7 +4,9 @@ The effects editor for **Shamble Frontlines**, and the small runtime that plays 
 
 You make an effect, see it exactly as the game will show it (same camera, same code, same data), and save files the game loads unchanged.
 
-Status: **milestone 2** (comic shapes, bursts, words, phases, friend or foe, the drawing board's four effects, and a collection of comic hits). Milestone 3 (cost, quality tiers, export) is not built yet. See [What works now](#what-works-now).
+Status: **milestone 3**: cost per effect, quality tiers, and the export folder the game loads, with a test page that plays
+it using only the runtime. Milestones 1 and 2 built the editor, the comic shapes and words, the drawing board's four effects
+and a collection of comic hits. See [What works now](#what-works-now).
 
 ## Run it
 
@@ -22,6 +24,18 @@ The editor opens in your browser at http://127.0.0.1:5173. Stop it with Ctrl+C i
 
 - It uses the **WebGPU** renderer when your browser has it, and the **WebGL 2** fallback otherwise. The badge at the top right says which. To try the fallback on purpose, open http://127.0.0.1:5173/?backend=webgl.
 - Saving goes through the editor's own local server, not the browser's folder picker (which Brave blocks by default). Brave on Windows is not tested yet; if the preview stays empty, use the address with `?backend=webgl`.
+
+The game-side **test page** (it loads only the runtime and an export folder):
+
+```bash
+npm run export -- examples/demo-project
+```
+
+```bash
+npm run testpage
+```
+
+It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 
 ## What to click
 
@@ -44,8 +58,15 @@ The editor opens in your browser at http://127.0.0.1:5173. Stop it with Ctrl+C i
 6. The right panel: the four **big controls**, the three **phase** lengths, then the selected **layer**. Shapes, bursts and
    words show every setting the file has, with optional parts behind a switch.
 7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project.
-8. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
-   never goes to this public repo.
+8. **Tier** (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the list and on
+   the timeline. A layer's **Shows in** boxes set its tiers.
+9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
+   effect already answers is named as you type.
+10. **Cost** (lower in the right panel; the triangle count above the preview jumps there): press **Measure** for draws, sprites
+    alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers. See [docs/cost.md](docs/cost.md).
+11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one.
+12. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
+    never goes to this public repo.
 
 Keys: press **Keys** in the top bar.
 
@@ -55,11 +76,13 @@ Keys: press **Keys** in the top bar.
 |---|---|
 | `packages/vfx-format` | The effect file: its types, the version number and the palette. In `/validate`: the schema, the checker and the upgrades between versions. |
 | `packages/vfx-runtime` | Plays effect files on three.js. It has no editor code: this is what ships in the game. It imports only three.js. |
-| `packages/vfx-editor` | The editor web app, and the small local server that saves and opens project folders. |
+| `packages/vfx-editor` | The editor web app, and the small local server that saves, opens, exports and imports project folders. |
+| `packages/vfx-testpage` | The game-side test page: loads only `vfx-runtime` and an export folder, and plays effects by event name. |
 
 How the runtime works, in one line: give it an effect, a seed, a time and the inputs (origin, target, faction), and it draws that moment. It keeps no hidden state, so the same seed and time always give the same picture.
 
-The effect file format is described in plain words in [docs/format.md](docs/format.md).
+The effect file format is described in plain words in [docs/format.md](docs/format.md), the export folder in
+[docs/export.md](docs/export.md), and the cost numbers in [docs/cost.md](docs/cost.md).
 
 ## Checks
 
@@ -67,18 +90,21 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (155): the format, the checker and the upgrade from version 1; the palette; same-seed playback; steps,
-phases, flights and arcs; every shape kind, bursts and words; friend or foe; the letters (their triangles cover their outlines
-exactly); the fire's layout; every example effect drawn all through without a broken number; undo and redo; the project
-file server.
+The unit tests (208): the format, the checker and the upgrades from versions 1 and 2; the palette; same-seed playback;
+steps, phases, flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind
+"sprites alive"; the letters; the fire's layout; every example effect drawn all through; undo and redo; the project file
+server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
+its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (78 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (123 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
-the generated forms, the add menu, phase starts, New from preset and Save as. It saves screenshots to `out/screenshots/`.
+the generated forms, the add menu, phase starts, New from preset, tiers, game events, the cost panel and budgets, Save as,
+Export and Import; the test page on both backends (exact palette colours, every event plays, Low draws less, the version
+guard) and its bundle (no checker, no editor code). It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
 
 ```bash
@@ -90,16 +116,21 @@ npm run typecheck
 These write pictures to `out/` (kept out of git):
 
 - `npm run compare` puts the drawing board (left) and Shamble VFX (right) side by side, at the board's key moments. Add an
-  effect name to do one (`npm run compare -- shell`), and `--both-sides` or `--all-factions`. It needs the board file in
-  `style-guide/`.
+  effect name to do one (`npm run compare -- shell`), and `--both-sides`, `--all-factions` or `--low` (the board's Low
+  setting next to our Low tier). It needs the board file in `style-guide/`.
 - `node tools/contact-sheet.mjs --project=examples/hits-collection` shows every effect of a project at four moments on one
-  picture (`--relation=team`, `--zoom=1` for big effects).
+  picture (`--relation=team`, `--zoom=1` for big effects, `--tier=low`).
+- `node tools/tier-sheet.mjs` puts Low, Medium and High side by side at the game camera, at the game's real size: the four
+  board presets, or `--project=… --effects=… --times=…` for others. For judging whether Low stays readable.
+- `npm run export`, `npm run check:export` and `npm run import`: see [docs/export.md](docs/export.md).
 - `node tools/shoot.mjs <effect> <scene> <ms,ms>` takes the game screen of one effect at chosen moments.
 - `tools/presets/*.py` wrote the preset files (Python 3, optional: the JSON files are what counts, and the editor edits them).
 
 ## What works now
 
-- **Effect files, version 2** ([docs/format.md](docs/format.md)), with an upgrade from version 1.
+- **Effect files, version 3** ([docs/format.md](docs/format.md)), with upgrades from versions 1 and 2.
+  - **Quality tiers**: every visible layer says in which tiers it shows (Low, Medium, High). The game picks one tier; the
+    timing stays the same in every tier. All examples have tiers (proposals, see below).
   - Five layer types: **sprite**, **projectile** (by speed, a fixed time or one phase; with an arc), **shape** (14 comic
     shapes made in code), **burst** (pieces thrown out) and **word** (sound words in our own letters).
   - **Phases**: wind-up, peak and fade. Layers start with a phase, last until one ends, or break up during one.
@@ -114,8 +145,15 @@ These write pictures to `out/` (kept out of git):
   for every edit, save and open of project folders.
 - **Drawing**: everything is triangles in at most four draw calls per frame (stains, light on the ground, the rest on the
   ground, everything over the scene), in strict layer order.
+- **Cost** per effect and tier ([docs/cost.md](docs/cost.md)): draws, sprites alive, triangles, screen area and CPU ms,
+  against budgets you type. None is decided, so none is made up.
+- **The export** ([docs/export.md](docs/export.md)): one folder with a manifest (effect names, versions and the game events
+  each answers), one JSON file per effect, one packed atlas with its map. A checker names missing images, unknown roles and
+  schema errors. Importing an export gives back the same effects.
+- **The test page**: loads only the runtime and an export folder and plays an effect by event name, on WebGPU or WebGL 2.
 
-Not yet (milestone 3): the cost panel, quality tiers, the export folder and the game test page.
+Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
+layer (such as tones in a star), not only whole layers.
 
 ## Assumptions
 
@@ -143,9 +181,16 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **Smoke, dust and chips do not darken in shade.** The board shades them inside its band of shadow; the runtime has no
   shade input yet (a question for milestone 3).
 - **Scenes and the tank blockout** use the drawing board's positions and sizes, so the side-by-side pictures line up.
+- **Milestone 3 proposals**: what each example drops in Low and Medium (Low follows the drawing board's own Low setting
+  where it has one); the Medium tier itself; the game event names (`rifle.shot`, `tank.shot`, `hammer.leech`,
+  `molotov.land`, `hit.bullet.metal`, …); `palette.json` travelling inside each export; one set of budgets per project.
+- **"Sprites alive"** counts items (each sprite, particle, dot, letter, flame tongue and shape once), since the runtime draws
+  triangles, not sprites. A halftone field counts each dot.
+- **The test page** repeats the board's camera numbers and the rifle scene's positions; the game brings its own.
 
 ## Folders kept out of git
 
 - `style-guide/`: Mustafa's style files (the drawing board, the sheets).
 - `projects/`: your effect projects.
 - `out/`: screenshots and other output of the checks.
+- `exports/`: export folders (they hold the project's images).

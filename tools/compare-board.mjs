@@ -2,6 +2,7 @@
 // and "made by", both as one 1080p game screen shown at 1280 x 720.
 //   npm run compare            all four board effects at their key moments
 //   npm run compare -- shell   one effect
+//   npm run compare -- --low   the board's Low setting next to our Low tier
 // The drawing board is Mustafa's file: it stays in style-guide/ (git ignores it). Without it, this tool says so and stops.
 // Pictures go to out/compare/ (also ignored by git).
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -31,6 +32,7 @@ export const CASES = {
 const only = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const factions = process.argv.includes('--all-factions') ? ['Soviets', 'Allies', 'Empire'] : ['Soviets'];
 const sides = process.argv.includes('--both-sides') ? ['enemy', 'ours'] : ['enemy'];
+const low = process.argv.includes('--low');
 
 const server = await createServer({ root: join(repo, 'packages', 'vfx-editor'), configFile: join(repo, 'packages', 'vfx-editor', 'vite.config.ts'), logLevel: 'error', server: { port: 0, host: '127.0.0.1', open: false } });
 await server.listen();
@@ -49,28 +51,28 @@ await ours.goto(`${base}/?backend=webgl&frame=1&project=examples/demo-project`);
 await ours.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
 
 async function boardAt(fx, t, fac, side) {
-  const url = await boardPage.evaluate(([fx, t, fac, side]) => {
+  const url = await boardPage.evaluate(([fx, t, fac, side, low]) => {
     const b = window.vfxBoard;
-    Object.assign(b.S, { fx, fac, side, view: 'game', low: 'full', colour: 'heat', ff: 'shape', dist: 4, shellword: 'KABOOM', word: 'on', dark: 'burnt' });
+    Object.assign(b.S, { fx, fac, side, view: 'game', low: low ? 'low' : 'full', colour: 'heat', ff: 'shape', dist: 4, shellword: 'KABOOM', word: 'on', dark: 'burnt' });
     b.run(0);
     b.sync();
     b.at(t);
     return document.getElementById('stage').toDataURL('image/png');
-  }, [fx, t, fac, side]);
+  }, [fx, t, fac, side, low]);
   return PNG.sync.read(Buffer.from(url.split(',')[1], 'base64'));
 }
 
 async function oursAt(c, t, fac, side) {
-  const shown = await ours.evaluate(async ([c, t, fac, side]) => {
+  const shown = await ours.evaluate(async ([c, t, fac, side, low]) => {
     const a = window.__vfx.app;
     window.__vfxManual = true;
     const relation = side === 'enemy' ? 'enemy' : 'team';
-    const ok = a.setupForChecks ? await a.setupForChecks({ effect: c.effect, scene: c.scene, faction: fac.toLowerCase(), relation, distance: 4 }) : a.pickEffect(c.effect);
+    const ok = a.setupForChecks ? await a.setupForChecks({ effect: c.effect, scene: c.scene, faction: fac.toLowerCase(), relation, distance: 4, tier: low ? 'low' : 'high' }) : a.pickEffect(c.effect);
     await a.showAt(t, 7);
     await a.showAt(t, 7);
     document.querySelector('.status')?.classList.remove('show');
     return ok;
-  }, [c.ours, t, fac, side]);
+  }, [c.ours, t, fac, side, low]);
   await ours.waitForTimeout(80);
   return { png: PNG.sync.read(await ours.screenshot()), shown };
 }
@@ -99,7 +101,7 @@ for (const [fx, c] of Object.entries(CASES)) {
   for (const fac of factions) for (const side of sides) for (const t of c.times) {
     const left = await boardAt(fx, t, fac, side);
     const right = await oursAt(c, t, fac, side);
-    const name = `${fx}-${String(t).padStart(4, '0')}ms-${fac.toLowerCase()}-${side}.png`;
+    const name = `${fx}-${String(t).padStart(4, '0')}ms-${fac.toLowerCase()}-${side}${low ? '-low' : ''}.png`;
     writeFileSync(join(out, name), sideBySide(left, right.png, name));
     console.log(`${name}${right.shown ? '' : '  (ours: not built yet)'}`);
     n++;

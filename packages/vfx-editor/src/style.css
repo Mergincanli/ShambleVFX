@@ -75,7 +75,8 @@ code, kbd { font-family: var(--mono); }
 .vbar { display: flex; align-items: center; gap: 12px; padding: 8px 10px; flex-wrap: wrap; }
 .vbar .row, .transport .row { margin: 0; flex-direction: row; align-items: center; gap: 6px; }
 .vbar .row .lab, .transport .row .lab { font-size: 12px; color: var(--sub); font-weight: 600; }
-.stats { margin-left: auto; font: 12px/1 var(--mono); color: var(--sub); }
+.stats { margin-left: auto; font: 12px/1 var(--mono); color: var(--sub); background: transparent; border: 0; padding: 4px 0; text-decoration: underline dotted; text-underline-offset: 3px; }
+.stats:hover { color: var(--ink); }
 .viewport-wrap { position: relative; margin: 0 10px; border: 3px solid var(--ink); background: var(--ground); min-height: 0; overflow: hidden; }
 .viewport { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
 .vhint { position: absolute; left: 8px; bottom: 8px; font-size: 12px; background: rgba(243, 242, 238, 0.9); border: 2px solid var(--ink); padding: 3px 8px; pointer-events: none; }

@@ -7,9 +7,12 @@
 //      a half-transparent sprite is compared with what Canvas 2D (the drawing board) shows, as a number;
 //    - the editor: opens the demo project, pauses at set times (never waits on a running animation), and saves
 //      1920 x 1080 screenshots to out/screenshots/.
-// 3. On WebGL 2, drives the editor: an edit and its undo, Fire, Save as into projects/ (deleted again after).
+// 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets,
+//    Save as into projects/, Export and Import (everything made is deleted again after).
+// 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
+//    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
-import { mkdirSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer } from 'vite';
@@ -32,6 +35,16 @@ const note = (name, detail) => { results.push({ name, pass: true, detail, note: 
   ok('runtime imports only three.js', imports.every((i) => i === 'three/webgpu' || i === 'three/tsl' || i === 'three'), imports.join(', '));
   ok('runtime holds no checker (zod) and no editor code', !/zod|ZodError|vfx-editor|Preview|DevServerStore|History/.test(js));
   note('runtime size', `${(js.length / 1024).toFixed(1)} kB minified`);
+}
+
+// ---------------------------------------------------------------- 1b. the test page alone, as built
+{
+  const root = join(repo, 'packages', 'vfx-testpage');
+  await build({ root, configFile: join(root, 'vite.config.ts'), logLevel: 'silent' });
+  const dir = join(root, 'dist', 'assets');
+  const js = readdirSync(dir).filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+  ok('test page holds no checker (zod) and no editor code', !/zod|ZodError|vfx-editor|DevServerStore|checkEffect|effectSchema|Preview\b/.test(js));
+  note('test page size (three.js included)', `${(js.length / 1024).toFixed(0)} kB minified`);
 }
 
 // ---------------------------------------------------------------- 2. the dev server and the browser
@@ -295,6 +308,68 @@ if (webgpu) {
   }
   await p.click('.vbar >> text=Whole screen');
 
+  // -- quality tiers: the preview draws only the chosen tier; layers it leaves out fade in the list
+  const tierInfo = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    window.__vfxManual = true;
+    await a.setupForChecks({ effect: 'board_molotov', scene: 'board-molotov', tier: 'low' });
+    await a.showAt(1200, 7);
+    const lowTris = a.previewForChecks.vfx.stats.triangles;
+    const faded = document.querySelectorAll('.layers-list .layer-item.off').length;
+    const expected = a.effect().layers.filter((l) => l.type !== 'projectile' && !l.tiers.includes('low')).length;
+    a.setTierForChecks('high');
+    await a.showAt(1200, 7);
+    const highTris = a.previewForChecks.vfx.stats.triangles;
+    const fadedHigh = document.querySelectorAll('.layers-list .layer-item.off').length;
+    window.__vfxManual = false;
+    a.resumeForChecks();
+    return { lowTris, highTris, faded, expected, fadedHigh };
+  });
+  ok('the Low tier leaves out the layers not in it, and fades them in the list', tierInfo.lowTris < tierInfo.highTris && tierInfo.faded === tierInfo.expected && tierInfo.faded > 0 && tierInfo.fadedHigh === 1,
+    `${tierInfo.lowTris} triangles in Low, ${tierInfo.highTris} in High; ${tierInfo.faded} layers faded in Low (want ${tierInfo.expected}), ${tierInfo.fadedHigh} in High (the Low-only flames)`);
+  // "Shows in": a layer in one tier cannot lose it; ticking a box edits the layer, and undo puts it back.
+  await p.evaluate(() => window.__vfx.app.selectLayer('flames_low'));
+  await p.waitForTimeout(100);
+  const onlyLow = await p.evaluate(() => [...document.querySelectorAll('.tier-boxes input')].map((b) => ({ on: b.checked, off: b.disabled })));
+  ok('"Shows in" keeps the last tier: a Low-only layer cannot lose Low', onlyLow[0].on && onlyLow[0].off && !onlyLow[1].on && !onlyLow[2].on, JSON.stringify(onlyLow));
+  await p.evaluate(() => window.__vfx.app.selectLayer('flames'));
+  await p.waitForTimeout(100);
+  await p.locator('.tier-boxes input').first().check();
+  const ticked = await p.evaluate(() => window.__vfx.app.layer().tiers.join(','));
+  await p.keyboard.press('Control+z');
+  const untouched = await p.evaluate(() => window.__vfx.app.layer().tiers.join(','));
+  ok('ticking Low adds the tier to the layer, and undo takes it away', ticked === 'low,medium,high' && untouched === 'medium,high', `${ticked}, after undo ${untouched}`);
+
+  // -- game events: checked as typed
+  await p.evaluate(() => window.__vfx.app.pickEffect('board_shell'));
+  await p.waitForTimeout(100);
+  const events = p.locator('.events input');
+  await events.fill('tank.shot, rifle.shot');
+  const clash = await p.locator('.event-problems').innerText();
+  await events.fill('tank.shot, tank.shell.check');
+  await events.press('Tab');
+  const clean = await p.locator('.event-problems').innerText();
+  ok('an event another effect answers is named as you type', /"rifle\.shot" is already answered by "Rifle shot \(board\)"/.test(clash) && clean.trim() === '', clash.replace(/\n/g, ' | '));
+
+  // -- the cost panel: the same counts on every press, milliseconds measured; a budget colours its cell
+  const cost = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    const strip = (r) => Object.fromEntries(Object.entries(r.tiers).map(([t, c]) => [t, { draws: c.draws, sprites: c.sprites, triangles: c.triangles, area: c.area, overlap: c.areaWithOverlap }]));
+    const r1 = await a.measureForChecks();
+    const r2 = await a.measureForChecks();
+    return { one: strip(r1), two: strip(r2), ms: Object.fromEntries(Object.entries(r2.tiers).map(([t, c]) => [t, c.ms])), frames: r2.frames, clock: r2.clockStepMs };
+  });
+  ok('the cost panel gives the same counts and area on every press', JSON.stringify(cost.one) === JSON.stringify(cost.two) && cost.one.high.triangles > 0 && cost.frames > 0, JSON.stringify(cost.one.high));
+  ok('the cost panel measures milliseconds in every tier', Object.values(cost.ms).every((m) => Number.isFinite(m.avg) && m.avg > 0 && m.worst >= m.p95 && m.p95 > 0), Object.entries(cost.ms).map(([t, m]) => `${t} ${m.avg.toFixed(2)}/${m.p95.toFixed(2)}/${m.worst.toFixed(2)}`).join(', '));
+  note('tank shell (board) cost', ['low', 'medium', 'high'].map((t) => `${t}: ${cost.one[t].draws} draws, ${cost.one[t].sprites} sprites, ${cost.one[t].triangles} triangles, ${(cost.one[t].area * 100).toFixed(1)} % of the screen`).join('; ') + `; clock step ${cost.clock} ms`);
+  const budget = p.locator('table.cost input.budget').nth(2); // draws, High
+  await budget.fill('1');
+  await budget.press('Enter');
+  await p.waitForTimeout(100);
+  const over = await p.evaluate(() => document.querySelectorAll('table.cost td.over').length);
+  ok('a typed budget colours the cell when the effect goes over it', over === 1, `${over} cell(s) over`);
+  await p.screenshot({ path: join(shots, 'editor-cost-panel.png') });
+
   // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
   const kept = (await st()).effects.filter((id) => id !== 'shell_flight').sort();
   await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
@@ -317,11 +392,121 @@ if (webgpu) {
   });
   ok('the saved project opens again, with the edit in it', reopened.effects.join() === kept.join() && reopened.size === 2, `${reopened.name}: ${reopened.effects.join(', ')}, rifle_shot size ${reopened.size}`);
   ok('the saved copy has its own name and keeps each effect\'s scene', (reopened.name ?? '').toLowerCase().includes('browser-check') && reopened.scene === 'board-shell', `${reopened.name}, board_shell in ${reopened.scene}`);
+  const meta = JSON.parse(readFileSync(join(dir, 'project.json'), 'utf8'));
+  ok('the saved copy keeps the game events and the budgets', meta.events?.board_shell?.join() === 'tank.shot,tank.shell.check' && meta.events?.board_muzzle?.join() === 'rifle.shot' && !meta.events?.shell_flight && meta.budgets?.high?.draws === 1,
+    JSON.stringify({ events: meta.events?.board_shell, budgets: meta.budgets }));
+
+  // -- Export from the editor, then Import the export as a new project: the same effects come back
+  const exported = await savedPage.page.evaluate(() => window.__vfx.app.exportNow());
+  const exportDir = join(repo, 'exports', name);
+  const manifest = existsSync(join(exportDir, 'manifest.json')) ? JSON.parse(readFileSync(join(exportDir, 'manifest.json'), 'utf8')) : null;
+  ok('Export writes the folder the game loads', !!exported?.ok && manifest?.events?.['tank.shell.check'] === 'board_shell' && manifest.effects.length === kept.length,
+    exported ? `${exported.folder}: ${exported.effects} effects, ${exported.events} events${exported.errors.length ? `; ${exported.errors[0]}` : ''}` : 'no answer');
+  const imported = await savedPage.page.evaluate(async (name) => {
+    const res = await fetch('/__vfx/api/import', { method: 'POST', headers: { 'X-Shamble-VFX': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ export: name, root: 'projects', name: `${name} imported` }) });
+    return { status: res.status, body: await res.json() };
+  }, name);
+  const importDir = imported.body?.id ? join(repo, 'projects', imported.body.id.split('/')[1]) : null;
+  const sameFiles = importDir && kept.every((id) => readFileSync(join(importDir, 'effects', `${id}.vfx.json`), 'utf8') === readFileSync(join(dir, 'effects', `${id}.vfx.json`), 'utf8'));
+  ok('Import gives back the same effects, byte for byte, with their events', imported.status === 201 && !!sameFiles && JSON.parse(readFileSync(join(importDir, 'project.json'), 'utf8')).events?.board_shell?.join() === 'tank.shot,tank.shell.check',
+    `${imported.status} ${imported.body?.id ?? JSON.stringify(imported.body)}`);
   await savedPage.page.close();
+  if (importDir) rmSync(importDir, { recursive: true, force: true });
+  rmSync(exportDir, { recursive: true, force: true });
   ok('the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'rifle_shot.vfx.json'), 'utf8')).controls.size === 1);
   rmSync(dir, { recursive: true, force: true });
   ok('editor (driven) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await p.close();
+}
+
+// ---------------------------------------------------------------- 4. the game-side test page, on both backends
+{
+  const exporter = await server.ssrLoadModule('/server/export.ts');
+  for (const project of ['demo-project', 'hits-collection']) {
+    const r = await exporter.exportProject(join(repo, 'examples', project), join(repo, 'exports', project));
+    ok(`npm run export: examples/${project} exports`, r.ok, r.errors.slice(0, 2).join(' | ') || `${r.effects} effects, ${r.events} events`);
+  }
+  const tpRoot = join(repo, 'packages', 'vfx-testpage');
+  const tp = await createServer({ root: tpRoot, configFile: join(tpRoot, 'vite.config.ts'), logLevel: 'error', server: { port: 0, host: '127.0.0.1', open: false } });
+  await tp.listen();
+  const tpBase = tp.resolvedUrls.local[0].replace(/\/$/, '');
+  const demoManifest = JSON.parse(readFileSync(join(repo, 'exports', 'demo-project', 'manifest.json'), 'utf8'));
+  const ground = '#B8A683';
+  const decode = (url) => PNG.sync.read(Buffer.from(url.split(',')[1], 'base64'));
+  const drawnPixels = (png) => { let n = 0; for (let y = 0; y < png.height; y += 4) for (let x = 0; x < png.width; x += 4) if (diff(hex(png, x, y), ground) > 6) n++; return n; };
+  const moments = { 'rifle.shot': 60, 'tank.shot': 1300, 'molotov.land': 1200, 'hammer.leech': 1000, 'demo.rifle.shot': 30, 'demo.tank.shot': 600 };
+  const snaps = {};
+  for (const backend of ['webgpu', 'webgl']) {
+    const label = `test page, ${backend}`;
+    const { page, errors } = await open(`${tpBase}/?export=demo-project&offscreen=1${backend === 'webgl' ? '&backend=webgl' : ''}`, () => window.__test && window.__test.ready);
+    const info = await page.evaluate(() => ({ error: window.__test.error, backend: window.__test.backend, events: window.__test.events }));
+    if (info.error) { ok(`[${label}] loads the export`, false, info.error); await page.close(); continue; }
+    ok(`[${label}] loads the export and lists its game events`, info.events.join() === Object.keys(demoManifest.events).sort().join(), `${info.backend}: ${info.events.join(', ')}`);
+    const probes = await page.evaluate(() => window.__test.probe('allies'));
+    const pp = decode(await page.evaluate(() => window.__test.snapshot()));
+    const bad = probes.filter((q) => diff(hex(pp, q.x, q.y), q.expect) > 1).map((q) => `${q.label}: got ${hex(pp, q.x, q.y)}, want ${q.expect}`);
+    ok(`[${label}] palette colours come out exactly (from the export's palette.json)`, bad.length === 0, bad.join('; ') || probes.map((q) => q.label).join(', '));
+    snaps[backend] = {};
+    for (const [event, t] of Object.entries(moments)) {
+      const r = await page.evaluate(([e, t]) => window.__test.renderAt(e, t), [event, t]);
+      const png = decode(await page.evaluate(() => window.__test.snapshot()));
+      snaps[backend][event] = png;
+      if (['rifle.shot', 'tank.shot', 'molotov.land', 'hammer.leech'].includes(event)) writeFileSync(join(shots, `testpage-${event.replace(/\./g, '-')}-${backend}.png`), PNG.sync.write(png));
+      ok(`[${label}] "${event}" plays ${r.id}`, r.id === demoManifest.events[event] && r.triangles > 0 && drawnPixels(png) > 50, `${r.triangles} triangles, ${drawnPixels(png)} samples drawn`);
+    }
+    const low = await page.evaluate(() => window.__test.renderAt('tank.shot', 1300, { tier: 'low' }));
+    const high = await page.evaluate(() => window.__test.renderAt('tank.shot', 1300, { tier: 'high' }));
+    ok(`[${label}] the Low tier draws less of the tank shell than High`, low.triangles < high.triangles, `${low.triangles} triangles in Low, ${high.triangles} in High`);
+    ok(`[${label}] has no errors`, errors.length === 0, errors.slice(0, 2).join(' | '));
+    await page.close();
+  }
+  if (snaps.webgpu && snaps.webgl && webgpu) {
+    for (const event of ['tank.shot', 'molotov.land', 'hammer.leech']) {
+      const a = snaps.webgpu[event], b = snaps.webgl[event];
+      const W = a.width, H = a.height;
+      const avg = (png, x, y, k) => (png.data[(y * W + x) * 4 + k] + png.data[(y * W + x + 1) * 4 + k] + png.data[((y + 1) * W + x) * 4 + k] + png.data[((y + 1) * W + x + 1) * 4 + k]) / 4;
+      let off = 0, n = 0;
+      for (let y = 0; y < H - 2; y += 2) for (let x = 0; x < W - 2; x += 2) {
+        let d = 0;
+        for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(avg(a, x, y, k) - avg(b, x, y, k)));
+        if (d > 48) off++;
+        n++;
+      }
+      ok(`test page: "${event}" looks the same on WebGPU and WebGL 2`, off / n < 0.0015, `${((off / n) * 100).toFixed(3)} % of the screen differs`);
+    }
+  }
+  // The hits collection: every event plays.
+  {
+    const { page, errors } = await open(`${tpBase}/?export=hits-collection&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
+    const evs = await page.evaluate(() => window.__test.events ?? []);
+    const silent = [];
+    for (const e of evs) {
+      const r = await page.evaluate((e) => window.__test.renderAt(e, 200), e);
+      const png = decode(await page.evaluate(() => window.__test.snapshot()));
+      if (!(r.triangles > 0) || drawnPixels(png) < 20) silent.push(e);
+    }
+    ok('test page: every hit in the hits export plays by its event', evs.length === 10 && silent.length === 0, silent.length ? `nothing drawn for ${silent.join(', ')}` : `${evs.length} events`);
+    ok('test page (hits) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
+    await page.close();
+  }
+  // The version guard and a missing export, in plain words.
+  {
+    const old = join(repo, 'exports', '_check-old-effects');
+    cpSync(join(repo, 'exports', 'demo-project'), old, { recursive: true });
+    const m = JSON.parse(readFileSync(join(old, 'manifest.json'), 'utf8'));
+    m.effectVersion = 2;
+    writeFileSync(join(old, 'manifest.json'), JSON.stringify(m, null, 2) + '\n');
+    const g1 = await open(`${tpBase}/?export=_check-old-effects&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
+    const e1 = await g1.page.evaluate(() => window.__test.error ?? '');
+    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 3: export them again/.test(e1), e1);
+    await g1.page.close();
+    rmSync(old, { recursive: true, force: true });
+    const g2 = await open(`${tpBase}/?export=_check-missing&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
+    const e2 = await g2.page.evaluate(() => window.__test.error ?? '');
+    ok('test page: a missing export names the command that makes one', /npm run export/.test(e2), e2.slice(0, 140));
+    await g2.page.close();
+  }
+  await tp.close();
 }
 
 await browser.close();

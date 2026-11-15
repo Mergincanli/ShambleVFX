@@ -1,6 +1,7 @@
 // A contact sheet: several effects, each at a few moments, close up, on one picture (for judging a collection).
 //   node tools/contact-sheet.mjs [--project=examples/hits-collection] [--effects=a,b] [--scene=hit-unit]
-//        [--relation=enemy] [--faction=soviets] [--seed=7] [--times=auto|ms,ms,...] [--view=close|game] [--zoom=2] [--out=out/sheets/hits.png]
+//        [--relation=enemy] [--faction=soviets] [--seed=7] [--times=auto|ms,ms,...] [--view=close|game] [--zoom=2] [--tier=high|medium|low]
+//        [--out=out/sheets/hits.png]
 // "auto" picks four moments from the effect's phases: early in the peak, late in the peak, early and late in the fade.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,6 +21,7 @@ const timesArg = arg('times', 'auto');
 const view = arg('view', 'close');
 const zoom = Number(arg('zoom', '2'));
 const seed = Number(arg('seed', '7'));
+const tier = arg('tier', 'high');
 const out = join(repo, arg('out', 'out/sheets/contact.png'));
 mkdirSync(dirname(out), { recursive: true });
 
@@ -38,10 +40,10 @@ const list = only.length ? only : effects;
 const CW = 560, CH = 400; // one cell: the middle of the close-up
 const rows = [];
 for (const id of list) {
-  const times = await page.evaluate(([id, scene, faction, relation, timesArg]) => {
+  const times = await page.evaluate(([id, scene, faction, relation, timesArg, tier]) => {
     const a = window.__vfx.app;
     window.__vfxManual = true;
-    return a.setupForChecks({ effect: id, ...(scene ? { scene } : {}), faction, relation, distance: 1 }).then(() => {
+    return a.setupForChecks({ effect: id, ...(scene ? { scene } : {}), faction, relation, distance: 1, tier }).then(() => {
       if (timesArg !== 'auto') return timesArg.split(',').map(Number);
       const tl = a.timeline();
       const p = tl.phases;
@@ -49,7 +51,7 @@ for (const id of list) {
       if (peak + fade <= 0) return [0.1, 0.3, 0.55, 0.8].map((k) => k * tl.lengthMs);
       return [p.peak.startMs + Math.min(40, peak * 0.15), p.peak.startMs + peak * 0.7, p.fade.startMs + fade * 0.25, p.fade.startMs + fade * 0.7];
     });
-  }, [id, scene, faction, relation, timesArg]);
+  }, [id, scene, faction, relation, timesArg, tier]);
   const cells = [];
   for (const t of times) {
     await page.evaluate(async ([t, view, zoom, seed]) => {

@@ -289,6 +289,13 @@ export class App implements AppApi {
     this.inspector.refresh();
   }
 
+  /** Scroll the right panel to the cost card. */
+  private showCostCard(): void {
+    const card = this.els.root.querySelector('.costcard');
+    card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    (card?.querySelector('button') as HTMLButtonElement | null)?.focus({ preventScroll: true });
+  }
+
   private setTier(t: TierName): void {
     this.tier = t;
     this.preview.vfx.tier = t;
@@ -393,7 +400,8 @@ export class App implements AppApi {
       options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
       onChange: (t) => this.setTier(t) });
     const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
-    const stats = h('span', { class: 'stats' });
+    const stats = h('button', { class: 'stats', attrs: { type: 'button' }, title: 'This frame. Click for the cost panel: the effect measured over its whole length, per tier',
+      on: { click: () => this.showCostCard() } });
     const viewport = h('div', { class: 'viewport' });
     const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
@@ -930,7 +938,7 @@ export class App implements AppApi {
       vfx.drawPlaying(this.player, this.clock, lookup);
     });
     const s = this.preview.vfx.stats;
-    this.els.stats.textContent = `${s.triangles} triangle${s.triangles === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`;
+    this.els.stats.textContent = `${s.triangles} triangle${s.triangles === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'} · cost…`;
     this.renderTime(len);
     if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
   }
@@ -1063,13 +1071,14 @@ export class App implements AppApi {
   }
 
   /** For the compare and browser checks: an effect in a scene, for a faction, made by someone, at a distance. */
-  async setupForChecks(o: { effect: string; scene?: string; faction?: FactionId; relation?: Relation; distance?: number }): Promise<boolean> {
+  async setupForChecks(o: { effect: string; scene?: string; faction?: FactionId; relation?: Relation; distance?: number; tier?: TierName }): Promise<boolean> {
     if (!effectById(this.history.doc, o.effect)) return false;
     this.selectEffect(o.effect);
     if (o.scene) this.chooseScene(o.scene);
     if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.factionCtl.set(o.faction); }
     if (o.relation) { this.preview.setRelation(o.relation); this.relationCtl.set(o.relation); }
     if (o.distance !== undefined) { this.preview.setDistance(o.distance); this.distanceBox.set(this.preview.viewerDistanceM); }
+    if (o.tier) this.setTier(o.tier);
     this.metaDirty = false;
     this.renderTopbar();
     return true;

@@ -1,8 +1,10 @@
-# The effect file, version 2
+# The effect file, version 3
 
 One effect is one JSON file: `effects/<id>.vfx.json` in a project folder, next to `images/` (PNG files) and `project.json`.
-The exact schema is `packages/vfx-format/schema/effect.v2.schema.json`; the types are `packages/vfx-format/src/types.ts`.
-Files of version 1 open unchanged: the checker upgrades them (see the end).
+The exact schema is `packages/vfx-format/schema/effect.v3.schema.json`; the types are `packages/vfx-format/src/types.ts`.
+Files of versions 1 and 2 open unchanged: the checker upgrades them (see the end).
+
+What the game loads is an **export folder** made from a project: see [export.md](export.md).
 
 ## Rules for every file
 
@@ -44,6 +46,9 @@ effect, who made it seen from the player looking (`enemy`, `team` or `self`), an
   upright), `ground` (flat on the ground under its anchor), `upright` (stands up like a sign: true heights).
 - `blend`: `normal`, `add` (adds light), `screen` (lightens the ground; ground only), `multiply` (darkens the ground, for
   scorch marks; ground only). Normal and added light share one draw call, in layer order.
+- `tiers`: the quality tiers it shows in, any of `low`, `medium` and `high` (at least one). The game picks one tier for all
+  effects; layers not in it are left out, and the timing of everything else stays the same. Low drops extras but must stay
+  readable (decided principle 7). A projectile has no tiers: it is invisible, and other layers ride it in every tier.
 - How long it lasts, one of: `durationMs`; `untilPhaseEnd` (`windup`, `peak` or `fade`); or nothing, which means
   automatic: as long as the projectile it rides flies, one step per frame for a flipbook, the longest piece life for a burst.
 - Optional: `scale` and `alpha` (`{ "steps": [1.18, 1.06] }` one factor per step from the start, and/or `{ "life": [[0, 1], [1, 0]] }`
@@ -110,10 +115,20 @@ optional `separation` (a thin line between two black outlines), `tiltDeg` (range
 from the player looking, and `minPx` under which it is not drawn), `visibleTo` (`everyone`, or `shooter` for a gun's word),
 `seed`, `perPlay`.
 
-## From version 1
+## The project file (`project.json`)
 
-The checker upgrades a version 1 file when it reads it: it adds empty phases, gives every sprite `"blend": "normal"`, and turns
-`"speedMps": 40` into `"flight": { "mode": "speed", "mps": 40 }, "arcM": 0`. Save the file to keep the upgraded copy.
+Not part of an effect, but the editor keeps these next to the effects: `name`; `events` (effect id → the game events it
+answers, such as `"board_muzzle": ["rifle.shot"]`); `preview` (the scene each effect is shown in); `budgets` (the cost budgets
+typed in the editor, per tier). The export copies the events into its manifest and the rest into `editor.json`.
+
+## From older versions
+
+The checker upgrades an old file when it reads it, one version at a time. Save the file (or export it) to keep the upgraded copy.
+
+- **1 → 2**: it adds empty phases, gives every sprite `"blend": "normal"`, and turns `"speedMps": 40` into
+  `"flight": { "mode": "speed", "mps": 40 }, "arcM": 0`.
+- **2 → 3**: every visible layer gets `"tiers": ["low", "medium", "high"]`, so an old effect looks the same in every tier
+  until someone decides what Low drops.
 
 Note: a few optional fields were added to version 2 after its first push, before anyone used it (`alpha`, `liftM`, `areaM`,
 `streak`, `inkRole`, the `spike` piece, `squash` on rings and dots). They are optional, so every version 2 file stays valid;
@@ -121,6 +136,5 @@ no version number was spent on them.
 
 ## Planned (each with an upgrade step)
 
-- Milestone 3: which quality tiers each layer shows in; the export manifest with the game events each effect answers.
 - Later: sound, camera shake and hit-stop as their own layer types, on the same timeline; a shade input from the game, so
   smoke and dust darken in shadow.
