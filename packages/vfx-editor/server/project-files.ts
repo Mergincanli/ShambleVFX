@@ -28,6 +28,12 @@
  *   GET    file?id=&path=                one file's bytes
  *   PUT    file?id=&path=                write one file (JSON must parse, PNG must be a PNG)
  *   DELETE file?id=&path=                delete one effect or image file
+ *   GET    exports                       list the export folders in exports/
+ *   POST   export     {id}               export a project (as saved on disk) to exports/<folder>/, replacing it
+ *   POST   import     {export, root, name}  make a new project from exports/<export>/
+ *
+ * Export and import run the code in ./export.ts (the same as `npm run export`), loaded through Vite, so they can use the
+ * TypeScript packages as they are.
  */
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -36,6 +42,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
+import type * as ExportModule from './export';
 
 export const API_PREFIX = '/__vfx/api/';
 export const CLIENT_HEADER = 'x-shamble-vfx';
@@ -56,6 +63,10 @@ export interface ProjectFilesOptions {
   roots?: ProjectRoot[];
   /** Largest request body accepted, in bytes. Default 16 MB. */
   maxBodyBytes?: number;
+  /** Where exports go. Default: the repo's exports/ folder (git ignores it). */
+  exportsDir?: string;
+  /** Loads ./export.ts. The Vite plugin loads it through the dev server; tests can import it directly. */
+  loadExport?: () => Promise<typeof ExportModule>;
 }
 
 const ROOT_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -80,6 +91,11 @@ export function defaultRoots(env: NodeJS.ProcessEnv = process.env): ProjectRoot[
     roots.push({ id: `extra${i + 1}`, label: resolve(dir), dir: resolve(dir), writable: true });
   });
   return roots;
+}
+
+/** The repo's exports/ folder. */
+export function defaultExportsDir(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'exports');
 }
 
 /** Turn a project name into a folder name: lowercase letters, digits, _ and -. */
@@ -115,6 +131,11 @@ interface Project {
 export function createProjectFilesHandler(opts: ProjectFilesOptions = {}) {
   const roots = opts.roots ?? defaultRoots();
   const maxBody = opts.maxBodyBytes ?? DEFAULT_MAX_BODY;
+  const exportsDir = opts.exportsDir ?? defaultExportsDir();
+  const loadExport = async () => {
+    if (!opts.loadExport) throw new ApiError(501, 'Export is not set up on this server');
+    return opts.loadExport();
+  };
   for (const r of roots) {
     if (!ROOT_ID.test(r.id)) throw new Error(`Project root id "${r.id}" must be lowercase letters, digits, _ or -`);
   }
@@ -163,7 +184,30 @@ export function createProjectFilesHandler(opts: ProjectFilesOptions = {}) {
         }
         throw new ApiError(405, `${method} is not allowed here`);
       }
-      if (['projects', 'copy', 'project'].includes(route)) throw new ApiError(405, `${method} is not allowed here`);
+      if (route === 'exports' && method === 'GET') return send(res, 200, await listExports(exportsDir));
+      if (route === 'export' && method === 'POST') {
+        const body = await readJsonBody(req, maxBody);
+        const p = await openProject(roots, str(body.id, 'id'));
+        const out = join(exportsDir, p.folder);
+        const report = await (await loadExport()).exportProject(p.dir, out);
+        return send(res, report.ok ? 200 : 422, { folder: `exports/${p.folder}`, ...report });
+      }
+      if (route === 'import' && method === 'POST') {
+        const body = await readJsonBody(req, maxBody);
+        const folder = str(body.export, 'export');
+        if (!FOLDER.test(folder) || folder.includes('..')) throw new ApiError(400, `"${folder}" is not an export folder name`);
+        const dir = join(exportsDir, folder);
+        if (!(await isFolder(dir)) || !(await realInside(dir, exportsDir))) throw new ApiError(404, `There is no export "exports/${folder}"`);
+        const root = writableRoot(roots, str(body.root, 'root'));
+        const made = await makeProjectFolder(root, str(body.name, 'name'));
+        const r = await (await loadExport()).importExport(dir, made.dir, made.name).catch((e: unknown) => ({ ok: false, errors: [String((e as Error)?.message ?? e)], effects: 0, images: 0 }));
+        if (!r.ok) {
+          await fs.rm(made.dir, { recursive: true, force: true });
+          return send(res, 422, { ok: false, errors: r.errors });
+        }
+        return send(res, 201, { ok: true, id: `${root.id}/${made.folder}`, name: made.name, root: root.id, writable: true, effects: r.effects, images: r.images });
+      }
+      if (['projects', 'copy', 'project', 'exports', 'export', 'import'].includes(route)) throw new ApiError(405, `${method} is not allowed here`);
       throw new ApiError(404, 'Not found');
     } catch (e) {
       if (e instanceof ApiError) send(res, e.status, { error: e.message });
@@ -178,7 +222,10 @@ export function projectFiles(opts: ProjectFilesOptions = {}): Plugin {
     name: 'shamble-vfx-project-files',
     apply: 'serve',
     configureServer(server) {
-      const handle = createProjectFilesHandler(opts);
+      const handle = createProjectFilesHandler({
+        loadExport: () => server.ssrLoadModule('/server/export.ts') as Promise<typeof ExportModule>,
+        ...opts,
+      });
       server.middlewares.use((req, res, next) => {
         void handle(req, res, next);
       });
@@ -362,6 +409,36 @@ async function copyProject(roots: ProjectRoot[], fromId: string, rootId: string,
 
 function projectJson(name: string): Buffer {
   return Buffer.from(JSON.stringify({ format: PROJECT_FORMAT, version: 1, name }, null, 2) + '\n');
+}
+
+// ---------------------------------------------------------------- exports
+
+async function isFolder(dir: string): Promise<boolean> {
+  try {
+    return (await fs.stat(dir)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function listExports(exportsDir: string) {
+  const out: { folder: string; name: string; effects: number; events: number }[] = [];
+  let entries: Dirent[] = [];
+  try {
+    entries = await fs.readdir(exportsDir, { withFileTypes: true });
+  } catch {
+    // no exports yet
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || !FOLDER.test(e.name)) continue;
+    try {
+      const m = JSON.parse(await fs.readFile(join(exportsDir, e.name, 'manifest.json'), 'utf8')) as { name?: unknown; effects?: unknown[]; events?: object };
+      out.push({ folder: e.name, name: typeof m.name === 'string' ? m.name : e.name, effects: m.effects?.length ?? 0, events: Object.keys(m.events ?? {}).length });
+    } catch {
+      // not an export
+    }
+  }
+  return { exports: out.sort((a, b) => a.folder.localeCompare(b.folder)) };
 }
 
 // ---------------------------------------------------------------- files

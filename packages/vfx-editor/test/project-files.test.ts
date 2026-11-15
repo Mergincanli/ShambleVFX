@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -287,6 +287,74 @@ describe('inside Vite', () => {
       expect((await call('GET', 'projects', { to: p, headers: { host: `127.0.0.1:${p}`, 'x-shamble-vfx': undefined } })).status).toBe(403);
     } finally {
       await vite.close();
+    }
+  });
+});
+
+describe('export and import', () => {
+  it('exports a project to exports/, lists it, and imports it as a new project (through the dev server)', async () => {
+    const box = join(tmp, 'export-box');
+    const exRoots: ProjectRoot[] = [
+      { id: 'examples', label: 'Examples (read-only)', dir: join(box, 'examples'), writable: false },
+      { id: 'projects', label: 'My projects', dir: join(box, 'projects'), writable: true },
+    ];
+    mkdirSync(join(box, 'examples'), { recursive: true });
+    cpSync(join(import.meta.dirname, '..', '..', '..', 'examples', 'hits-collection'), join(box, 'examples', 'hits'), { recursive: true });
+    const exportsDir = join(box, 'exports');
+    // The editor package is Vite's root here, so the plugin loads server/export.ts the way `npm run dev` does.
+    const vite = await createViteServer({
+      configFile: false, root: join(import.meta.dirname, '..'), logLevel: 'silent', appType: 'custom',
+      plugins: [projectFiles({ roots: exRoots, exportsDir })], server: { host: '127.0.0.1', port: 0, hmr: false, ws: false },
+    });
+    await vite.listen();
+    const p = (vite.httpServer!.address() as AddressInfo).port;
+    const at = { to: p, headers: { host: `127.0.0.1:${p}`, 'content-type': 'application/json' } };
+    try {
+      expect((await call('GET', 'exports', { to: p, headers: { host: `127.0.0.1:${p}` } })).json()).toEqual({ exports: [] });
+      const ex = await call('POST', 'export', { ...at, body: JSON.stringify({ id: 'examples/hits' }) });
+      expect(ex.status).toBe(200);
+      expect(ex.json()).toMatchObject({ ok: true, folder: 'exports/hits', effects: 10, events: 10, errors: [] });
+      expect(existsSync(join(exportsDir, 'hits', 'manifest.json'))).toBe(true);
+      expect((await call('GET', 'exports', { to: p, headers: { host: `127.0.0.1:${p}` } })).json()).toEqual({ exports: [{ folder: 'hits', name: 'Comic hits', effects: 10, events: 10 }] });
+
+      const im = await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'projects', name: 'Hits back' }) });
+      expect(im.status).toBe(201);
+      expect(im.json()).toMatchObject({ ok: true, id: 'projects/hits-back', name: 'Hits back', effects: 10, images: 0 });
+      const back = JSON.parse(readFileSync(join(box, 'projects', 'hits-back', 'project.json'), 'utf8'));
+      expect(back.name).toBe('Hits back');
+      expect(back.events.hit_bullet_spark).toEqual(['hit.bullet.metal']);
+      expect(back.preview.hit_heavy_blast).toEqual({ scene: 'hit-ground' });
+
+      // A taken name, a read-only root and an unknown export are refused, and leave nothing behind.
+      expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'projects', name: 'Hits back' }) })).status).toBe(409);
+      expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'examples', name: 'X' }) })).status).toBe(403);
+      expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'nothing', root: 'projects', name: 'Y' }) })).status).toBe(404);
+      expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: '../examples', root: 'projects', name: 'Z' }) })).status).toBe(400);
+      expect(existsSync(join(box, 'projects', 'y'))).toBe(false);
+    } finally {
+      await vite.close();
+    }
+  }, 30000);
+
+  it('names the problems and writes nothing when the project cannot be exported', async () => {
+    const box = join(tmp, 'export-bad');
+    mkdirSync(join(box, 'projects', 'bad', 'effects'), { recursive: true });
+    writeFileSync(join(box, 'projects', 'bad', 'project.json'), JSON.stringify({ format: 'shamble-vfx-project', version: 1, name: 'Bad' }));
+    writeFileSync(join(box, 'projects', 'bad', 'effects', 'shot.vfx.json'), '{"format":"shamble-vfx","version":3,"id":"shot"}');
+    const s = await listen(createProjectFilesHandler({
+      roots: [{ id: 'projects', label: 'My projects', dir: join(box, 'projects'), writable: true }],
+      exportsDir: join(box, 'exports'),
+      loadExport: () => import('../server/export'),
+    }));
+    const p = (s.address() as AddressInfo).port;
+    try {
+      const r = await call('POST', 'export', { to: p, headers: { host: `127.0.0.1:${p}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: 'projects/bad' }) });
+      expect(r.status).toBe(422);
+      expect(r.json().ok).toBe(false);
+      expect(r.json().errors.join('\n')).toMatch(/effects\/shot\.vfx\.json: /);
+      expect(existsSync(join(box, 'exports'))).toBe(false);
+    } finally {
+      s.close();
     }
   });
 });
