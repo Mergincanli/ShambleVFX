@@ -11,8 +11,10 @@ import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
 import type { Atlas, Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
-import { measureCost, readBudgets } from '../cost/measure';
-import type { Budgets, CostConditions, CostMetric, CostReport } from '../cost/measure';
+import { defaultBudgets, dropMissingEffects, forgetEffect, setLevelOn, setLimit } from '../cost/budgets';
+import type { Budgets, CostMetric } from '../cost/budgets';
+import { measureCost } from '../cost/measure';
+import type { CostConditions, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
 import {
   ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, setGradient, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
@@ -22,7 +24,9 @@ import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
 import { notDrawnNotes } from '../doc/not-drawn';
 import type { NotDrawnNote } from '../doc/not-drawn';
-import { DevServerStore, StoreError, effectPath, imagePath, readJson, writeJson } from '../io/store';
+import { newProjectFile } from '../io/project-file';
+import type { ProjectFile } from '../io/project-file';
+import { DevServerStore, StoreError, effectPath, imagePath, readJson, readProject, writeJson, writeProject } from '../io/store';
 import type { ExportResult, ExportSummary, ProjectContents, ProjectStore } from '../io/store';
 import { makeGameCamera } from '../preview/camera';
 import { Preview, SCENES } from '../preview/Preview';
@@ -90,7 +94,13 @@ export class App implements AppApi {
   private distanceBox!: { el: HTMLElement; set(v: number): void };
   /** The preview scene each effect was last shown in (kept in project.json, under "preview"). */
   private previewScenes: Record<string, string> = {};
-  private projectMeta: Record<string, unknown> = {};
+  /**
+   * project.json as read, upgraded to version 2. Saving writes it back with the scenes, events and budgets of the moment,
+   * so what the editor does not edit (the name, the palette profile, notes such as "about") is kept.
+   */
+  private projectFile: ProjectFile = newProjectFile('');
+  /** project.json was an older version: the next save writes it as version 2, as saving does with old effect files. */
+  private projectFileOld = false;
   private metaDirty = false;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
@@ -99,8 +109,11 @@ export class App implements AppApi {
   private tier: TierName = 'high';
   /** The game events each effect answers (project.json "events"). Deleted effects keep theirs here, so undo brings them back. */
   private eventsValue: Record<string, string[]> = {};
-  /** Budgets typed for this project, per tier (project.json "budgets"). */
-  private budgetsValue: Budgets = {};
+  /**
+   * The budgets at three levels (project.json "budgets"). Entries of deleted effects stay here, so undo brings them back;
+   * saving leaves them out.
+   */
+  private budgetsValue: Budgets = defaultBudgets();
   private costReports = new Map<string, CostReport>();
   /** While measuring: what is being measured (the preview waits). */
   private measuring: string | null = null;
@@ -319,11 +332,9 @@ export class App implements AppApi {
   }
 
   setBudget(tier: TierName, metric: CostMetric, value: number | undefined): void {
-    const b: Budgets = structuredClone(this.budgetsValue);
-    if (value === undefined) {
-      delete b[tier]?.[metric];
-      if (b[tier] && !Object.keys(b[tier]!).length) delete b[tier];
-    } else (b[tier] ??= {})[metric] = value;
+    let b = setLimit(this.budgetsValue, 'project', tier, metric, value);
+    // Until the new Cost card (UI redesign, phase 6), the card edits the project's budgets: a number typed switches them on.
+    if (value !== undefined) b = setLevelOn(b, 'project', true);
     this.budgetsValue = b;
     this.metaDirty = true;
     this.renderTopbar();
@@ -523,9 +534,15 @@ export class App implements AppApi {
       if (!quiet) this.say(`Could not open the project: ${(e as Error).message}`, true);
       return false;
     }
+    // project.json first: one of a newer version is not opened, so it is never written over.
+    const meta = await readProject(this.store, id);
+    if (!meta.ok) {
+      this.say(`Could not open ${contents.name}: ${meta.error}.`, true);
+      return false;
+    }
     this.project = contents;
     try { localStorage.setItem(LAST_PROJECT, id); } catch { /* ignore */ }
-    await this.readProjectMeta();
+    this.useProjectFile(meta.project ?? newProjectFile(contents.name), meta.upgradedFrom !== undefined);
     await this.loadImages();
     const effects: EffectFile[] = [];
     const bad: string[] = [];
@@ -574,26 +591,22 @@ export class App implements AppApi {
     return true;
   }
 
-  /** project.json: the name, the scene each effect is shown in, the game events each answers, and the budgets. */
-  private async readProjectMeta(): Promise<void> {
-    this.projectMeta = {};
+  /**
+   * project.json as read (version 2; old: it was an older version): the scene each effect is shown in, the game events
+   * each answers, and the budgets. A project without a readable project.json opens with a fresh one.
+   */
+  private useProjectFile(p: ProjectFile, old: boolean): void {
+    this.projectFile = p;
+    this.projectFileOld = old;
     this.previewScenes = {};
-    this.eventsValue = {};
-    this.budgetsValue = {};
+    for (const [fx, v] of Object.entries(p.preview ?? {})) {
+      const scene = (v as { scene?: unknown } | null)?.scene;
+      if (typeof scene === 'string' && SCENES.some((x) => x.id === scene)) this.previewScenes[fx] = scene;
+    }
+    this.eventsValue = readEvents(p.events);
+    this.budgetsValue = p.budgets;
     this.costReports.clear();
     this.metaDirty = false;
-    try {
-      const meta = await readJson(this.store, this.project!.id, 'project.json');
-      if (meta && typeof meta === 'object') this.projectMeta = meta as Record<string, unknown>;
-      const pv = this.projectMeta.preview;
-      if (pv && typeof pv === 'object') {
-        for (const [fx, v] of Object.entries(pv as Record<string, { scene?: unknown }>)) {
-          if (v && typeof v.scene === 'string' && SCENES.some((x) => x.id === v.scene)) this.previewScenes[fx] = v.scene;
-        }
-      }
-      this.eventsValue = readEvents(this.projectMeta.events);
-      this.budgetsValue = readBudgets(this.projectMeta.budgets);
-    } catch { /* a project without a readable project.json still opens */ }
   }
 
   /** Show the chosen scene, and remember it for the effect shown. */
@@ -655,18 +668,23 @@ export class App implements AppApi {
         await writeJson(this.store, projectId, 'palette.json', doc.palette);
         this.paletteOnDisk = doc.palette;
       }
-      if (this.metaDirty || projectId !== this.project?.id) {
+      if (this.metaDirty || this.projectFileOld || projectId !== this.project?.id) {
         const preview: Record<string, { scene: string }> = {};
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
-        const name = projectId === this.project?.id ? (this.projectMeta.name ?? this.project?.name) : undefined;
-        const current = projectId === this.project?.id ? this.projectMeta : await readJson(this.store, projectId, 'project.json').catch(() => ({}));
         const events: Record<string, string[]> = {};
         for (const fx of doc.effects) if (this.eventsValue[fx.id]?.length) events[fx.id] = [...this.eventsValue[fx.id]!];
-        const meta: Record<string, unknown> = { ...(current as Record<string, unknown>), ...(name ? { name } : {}), events, preview };
-        if (Object.keys(this.budgetsValue).length) meta.budgets = this.budgetsValue;
-        else delete meta.budgets;
-        await writeJson(this.store, projectId, 'project.json', meta);
-        if (projectId === this.project?.id) this.projectMeta = meta;
+        let base = this.projectFile;
+        if (projectId !== this.project?.id) {
+          // Another project's file: keep what it says (never write over one of a newer version).
+          const other = await readProject(this.store, projectId);
+          if (!other.ok) throw new Error(other.error);
+          base = other.project ?? newProjectFile(this.project?.name ?? projectId);
+        }
+        const name = projectId === this.project?.id ? (this.projectFile.name ?? this.project?.name) : base.name;
+        // Budgets of effects that are gone are left out of the file (they stay here, so undo brings them back).
+        const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(this.budgetsValue, doc.effects.map((e) => e.id)) };
+        await writeProject(this.store, projectId, file);
+        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; }
         this.metaDirty = false;
       }
       this.history.markSaved();
@@ -684,11 +702,9 @@ export class App implements AppApi {
       const copy = await this.store.copy(this.project.id, 'projects', name);
       const doc = this.history.doc;
       this.project = await this.store.open(copy.id);
-      // The copy's project.json is fresh (its own name only). Keep everything the project said (its events, budgets,
-      // notes), under the copy's own name, and write the scenes into it.
-      let fresh: Record<string, unknown> = { name: copy.name };
-      try { fresh = (await readJson(this.store, copy.id, 'project.json')) as Record<string, unknown>; } catch { /* keep the name */ }
-      this.projectMeta = { ...this.projectMeta, ...fresh };
+      // The copy's project.json is fresh (its own name only). Keep everything the project said (its events, scenes,
+      // budgets, palette profile and notes) under the copy's own name: saving writes it into the copy, as version 2.
+      this.projectFile = { ...this.projectFile, name: copy.name };
       this.metaDirty = true;
       // The copy holds every effect file the original had, deleted ones too: list them, so saving removes those.
       this.effectsOnDisk = new Set(this.project.effects.map((f) => f.replace(/\.vfx\.json$/, '')));
@@ -713,8 +729,8 @@ export class App implements AppApi {
     for (const p of listing.projects.filter((x) => !x.writable)) {
       let contents: ProjectContents;
       try { contents = await this.store.open(p.id); } catch { continue; }
-      let scenes: Record<string, { scene?: string }> = {};
-      try { scenes = ((await readJson(this.store, p.id, 'project.json')) as { preview?: typeof scenes }).preview ?? {}; } catch { /* no scenes */ }
+      const meta = await readProject(this.store, p.id);
+      const scenes = ((meta.ok ? meta.project?.preview : undefined) ?? {}) as Record<string, { scene?: string } | undefined>;
       const items: HTMLElement[] = [];
       for (const file of contents.effects) {
         let fx: EffectFile | undefined;
@@ -736,6 +752,7 @@ export class App implements AppApi {
     const fx: EffectFile = { ...structuredClone(preset), id, name: id === preset.id ? preset.name : `${preset.name} (copy)` };
     // A preset's game events stay with the preset: one event plays one effect.
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
+    this.forgetBudgetOf(id);
     this.history.apply('New from preset', addEffect(this.history.doc, fx));
     if (scene && SCENES.some((x) => x.id === scene)) { this.previewScenes[id] = scene; this.metaDirty = true; }
     this.selectEffect(id);
@@ -895,8 +912,15 @@ export class App implements AppApi {
     const id = freeEffectId(this.history.doc, 'new_effect');
     const fx = newEffect(id, 'New effect');
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
+    this.forgetBudgetOf(id);
     this.history.apply('New effect', addEffect(this.history.doc, fx));
     this.selectEffect(id);
+  }
+
+  /** A new effect that takes the id of a deleted one starts without that one's budgets and class. */
+  private forgetBudgetOf(id: string): void {
+    const b = forgetEffect(this.budgetsValue, id);
+    if (b !== this.budgetsValue) { this.budgetsValue = b; this.metaDirty = true; }
   }
 
   /** Add a layer: 'sprite', 'projectile', 'shape:<kind>', 'burst' or 'word'. */

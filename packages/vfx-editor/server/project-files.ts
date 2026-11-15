@@ -5,7 +5,8 @@
  * and Mustafa uses Brave. This works in every browser.
  *
  * A project folder:
- *   project.json             {"format":"shamble-vfx-project","version":1,"name":"..."}
+ *   project.json             {"format":"shamble-vfx-project","version":2,"name":"..."} (read and written by the one
+ *                            reader and writer in ../src/io/project-file.ts; version 1 still opens)
  *   effects/<id>.vfx.json    one file per effect
  *   images/<name>.png        the images the effects use
  *   palette.json             the project's colours (optional: without it the built-in palette is used)
@@ -34,7 +35,8 @@
  *   POST   import     {export, root, name}  make a new project from exports/<export>/
  *
  * Export and import run the code in ./export.ts (the same as `npm run export`), loaded through Vite, so they can use the
- * TypeScript packages as they are.
+ * TypeScript packages as they are. This file itself is also loaded by Vite's config loader (vite.config.ts imports it),
+ * which cannot load the workspace packages: it imports only Node, types and plain files of the editor (project-file.ts).
  */
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -43,11 +45,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
+import { PROJECT_FORMAT, newProjectFile, readProjectJson, toProjectJson } from '../src/io/project-file.ts';
 import type * as ExportModule from './export';
 
 export const API_PREFIX = '/__vfx/api/';
 export const CLIENT_HEADER = 'x-shamble-vfx';
-export const PROJECT_FORMAT = 'shamble-vfx-project';
+export { PROJECT_FORMAT };
 
 export interface ProjectRoot {
   /** Short id used in project ids: "<root id>/<folder>". Lowercase letters, digits, _ and -. */
@@ -276,7 +279,10 @@ async function listProjects(roots: ProjectRoot[]) {
   return { roots: roots.map((r) => ({ id: r.id, label: r.label, writable: r.writable })), projects };
 }
 
-/** project.json, or undefined when the folder is not a project. A broken project.json still counts (named after the folder). */
+/**
+ * project.json's name, or undefined when the folder is not a project. A broken project.json still counts (named after the
+ * folder), and so does one of a newer version (the editor says so when it is opened).
+ */
 async function readMeta(dir: string): Promise<{ name: string } | undefined> {
   let text: string;
   try {
@@ -284,13 +290,14 @@ async function readMeta(dir: string): Promise<{ name: string } | undefined> {
   } catch {
     return undefined;
   }
+  let name: string | undefined;
   try {
-    const j = JSON.parse(text) as { name?: unknown };
-    if (typeof j.name === 'string' && j.name.trim()) return { name: j.name.trim() };
+    const r = readProjectJson(JSON.parse(text));
+    name = r.ok ? r.project.name : r.name;
   } catch {
-    // fall through
+    // not JSON: named after the folder
   }
-  return { name: dir.split(sep).pop() ?? 'project' };
+  return { name: name?.trim() ? name.trim() : dir.split(sep).pop() ?? 'project' };
 }
 
 async function openProject(roots: ProjectRoot[], id: string): Promise<Project> {
@@ -413,8 +420,9 @@ async function copyProject(roots: ProjectRoot[], fromId: string, rootId: string,
   return { id: `${root.id}/${made.folder}`, name: made.name, root: root.id, writable: true };
 }
 
+/** A new project's project.json (version 2): its name only. */
 function projectJson(name: string): Buffer {
-  return Buffer.from(JSON.stringify({ format: PROJECT_FORMAT, version: 1, name }, null, 2) + '\n');
+  return Buffer.from(JSON.stringify(toProjectJson(newProjectFile(name)), null, 2) + '\n');
 }
 
 // ---------------------------------------------------------------- exports
@@ -485,6 +493,9 @@ async function writeProjectFile(p: Project, path: string, body: Buffer): Promise
       if (!j || typeof j !== 'object' || j.format !== PROJECT_FORMAT || typeof j.name !== 'string' || !j.name.trim()) {
         throw new ApiError(400, `project.json must be an object with "format": "${PROJECT_FORMAT}" and a "name"`);
       }
+      // A version the reader knows (1 or 2). Nothing else is checked: the reader leaves out what it cannot use.
+      const r = readProjectJson(parsed);
+      if (!r.ok) throw new ApiError(400, r.error);
     }
     if (path === 'palette.json') {
       const j = parsed as { version?: unknown; factions?: unknown; roles?: unknown } | null;

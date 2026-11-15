@@ -9,7 +9,7 @@ exports/demo-project/
   atlas.png                every image the effects use, packed on one page (plus two small blocks of the runtime's own)
   atlas.json               where each image sits on the page
   effects/<id>.vfx.json    one effect file each, in the current effect format (version 5)
-  editor.json              the editor's own notes (preview scenes, budgets): the game ignores it
+  editor.json              the editor's own notes (preview scenes, budgets, the palette profile's name): the game ignores it
 ```
 
 `exports/` is kept out of git: an export holds the project's images.
@@ -28,8 +28,9 @@ npm run export -- examples/demo-project
 That writes `exports/demo-project/`. A second argument picks another folder.
 
 Export **checks first and writes nothing when something is wrong**: schema errors, unknown colour roles, missing images,
-an event written badly, or one event answered by two effects. It warns (and still exports) when an effect answers no event,
-and when an image is in the project but no effect uses it (it is left out of the atlas).
+an event written badly, one event answered by two effects, or a `project.json` of a newer version than this Shamble VFX
+reads. It warns (and still exports) when an effect answers no event, and when an image is in the project but no effect uses
+it (it is left out of the atlas).
 
 The folder is replaced as a whole, never merged into, so an effect deleted from the project does not stay in the export.
 It only ever replaces an earlier export: a folder that holds other files, or one inside the project, is refused.
@@ -49,8 +50,33 @@ not match the files. The game's build can run the same checker (`checkExport` in
 - From the command line: `npm run import -- exports/demo-project projects/demo-back "Demo back"`.
 
 Import makes a **new** project (it never writes into a folder that has files): the effect files exactly as they are in the
-export, each image cut back out of the atlas pixel for pixel, the game events, and the preview scenes and budgets from
-`editor.json`. Exporting that project again gives the same files, byte for byte (the tests check this on both examples).
+export, each image cut back out of the atlas pixel for pixel, the game events, and the preview scenes, the budgets and the
+palette profile's name from `editor.json`. The new project's `project.json` is version 2. Exporting that project again gives
+the same files, byte for byte (the tests check this on both examples, on a version 1 project with budgets, and on a
+version 2 project with budgets at all three levels and a palette profile).
+
+## editor.json
+
+The editor's own notes. The game ignores this file.
+
+```json
+{
+  "note": "For the Shamble VFX editor only (preview scenes, budgets, the palette profile's name). The game ignores this file.",
+  "version": 2,
+  "paletteProfile": "Soviets dark",
+  "preview": { "board_shell": { "scene": "board-shell" } },
+  "budgets": { "project": { "on": true, "limits": { "high": { "triangles": 5000 } } } }
+}
+```
+
+- `version` is 2, as in `project.json` version 2 (the budgets have the same shape).
+- `paletteProfile`: the name of the palette profile the project's colours came from, when the project has one.
+- `preview`: the scene each effect is shown in, as in `project.json`.
+- `budgets`: the budgets at three levels, as in `project.json`: only what differs from the defaults, and only for the
+  effects in the export ([cost.md](cost.md)).
+- Import also reads the older `editor.json`, which has no `version` and whose `budgets` were one set for the whole project:
+  they become the project's budgets, switched off, numbers kept. An `editor.json` of a newer version is refused with a
+  plain message, and nothing is made.
 
 ## The manifest
 

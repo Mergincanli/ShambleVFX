@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import paletteJson from '@shamble/vfx-format/palette.json';
 import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { Coverage } from '../src/cost/area';
-import { budgetOf, measureCost, measuredOf, readBudgets } from '../src/cost/measure';
+import { budgetOf, budgetsFromVersion1, readLimits } from '../src/cost/budgets';
+import { measureCost, measuredOf } from '../src/cost/measure';
 import { makeGameCamera } from '../src/preview/camera';
 
 const palette = paletteJson as Palette;
@@ -78,8 +79,12 @@ describe('measuring an effect', () => {
 
 describe('budgets', () => {
   it('keeps only numbers from project.json, and compares area in percent and ms at the 95th percentile', () => {
-    const b = readBudgets({ low: { draws: 3, ms: 'fast', area: -1 }, high: { sprites: 200, area: 5 }, ultra: { draws: 1 } });
+    // One level's numbers (a version 1 project.json kept one such set for the whole project).
+    const raw = { low: { draws: 3, ms: 'fast', area: -1 }, high: { sprites: 200, area: 5 }, ultra: { draws: 1 } };
+    const b = readLimits(raw);
     expect(b).toEqual({ low: { draws: 3 }, high: { sprites: 200, area: 5 } });
+    // From a version 1 project.json, the same numbers become the project level, switched off.
+    expect(budgetsFromVersion1(raw).project).toEqual({ on: false, limits: { low: { draws: 3 }, high: { sprites: 200, area: 5 } } });
     expect(budgetOf(b, 'low', 'draws')).toBe(3);
     expect(budgetOf(b, 'medium', 'draws')).toBeUndefined();
     const c = { draws: 2, sprites: 10, triangles: 300, area: 0.042, areaWithOverlap: 0.08, ms: { avg: 0.3, p95: 0.5, worst: 0.9 } };

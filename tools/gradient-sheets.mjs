@@ -115,7 +115,7 @@ for (const s of sheets) for (const fx of s.rows) {
   writeFileSync(join(dir, 'effects', `${fx.id}.vfx.json`), `${JSON.stringify(fx, null, 2)}\n`);
   preview[fx.id] = { scene: s.scene };
 }
-writeFileSync(join(dir, 'project.json'), `${JSON.stringify({ format: 'shamble-vfx-project', version: 1, name: 'Gradient sheets', events: {}, preview }, null, 2)}\n`);
+writeFileSync(join(dir, 'project.json'), `${JSON.stringify({ format: 'shamble-vfx-project', version: 2, name: 'Gradient sheets', events: {}, preview }, null, 2)}\n`);
 
 // ---------------------------------------------------------------- the pictures, through the editor's preview
 process.env.VFX_PROJECT_ROOTS = root;

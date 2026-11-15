@@ -2,7 +2,8 @@
 import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
-import type { Budgets, CostMetric, CostReport } from '../cost/measure';
+import type { Budgets, CostMetric } from '../cost/budgets';
+import type { CostReport } from '../cost/measure';
 import type { Path } from '../doc/edits';
 import type { NotDrawnNote } from '../doc/not-drawn';
 
@@ -68,7 +69,11 @@ export interface AppApi {
   /** While measuring: what is being measured. */
   costProgress(): string | null;
   measureCost(): void;
-  /** The budgets typed for this project (shared by its effects). */
+  /** The project's budgets at three levels: the project's, the classes' and each effect's own (project.json "budgets"). */
   budgets(): Budgets;
+  /**
+   * Set or clear one of the project's budgets (the project level). A number switches the project level on. Until the new
+   * Cost card comes (UI redesign, phase 6), this is all the card edits.
+   */
   setBudget(tier: TierName, metric: CostMetric, value: number | undefined): void;
 }

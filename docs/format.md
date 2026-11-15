@@ -175,11 +175,41 @@ Besides the roles an effect names, the checker asks the palette for the ones its
 (a star's white first step), `heat.rim` (your own team's broken edge) and the roles of their gradients' stops (see
 [colours.md](colours.md)).
 
-## The project file (`project.json`)
+## The project file (`project.json`, version 2)
 
-Not part of an effect, but the editor keeps these next to the effects: `name`; `events` (effect id → the game events it
-answers, such as `"board_muzzle": ["rifle.shot"]`); `preview` (the scene each effect is shown in); `budgets` (the cost budgets
-typed in the editor, per tier). The export copies the events into its manifest and the rest into `editor.json`.
+Not part of an effect, but the editor keeps these next to the effects:
+
+```json
+{
+  "format": "shamble-vfx-project",
+  "version": 2,
+  "name": "Demo project",
+  "paletteProfile": "Soviets dark",
+  "events": { "board_muzzle": ["rifle.shot"] },
+  "preview": { "board_muzzle": { "scene": "board-muzzle" } },
+  "budgets": { "project": { "on": true, "limits": { "high": { "triangles": 5000 } } } }
+}
+```
+
+- `name`: the project's name.
+- `paletteProfile` (optional): the name of the palette profile the project's colours came from.
+- `events`: effect id → the game events it answers.
+- `preview`: the scene each effect is shown in.
+- `budgets`: the cost budgets at three levels (the project's, classes, an effect's own), each off until switched on. Only
+  what differs from the defaults is written. See [cost.md](cost.md).
+- Anything else in the file (such as `about`) is kept as it is when the editor saves.
+
+The export copies the events into its manifest and the rest into `editor.json` ([export.md](export.md)).
+
+The local server, the command line and the editor read `project.json` with the same code (one reader, with the upgrade). New
+projects are written as version 2.
+
+- **Version 1 → 2**: `paletteProfile` is new, and `budgets` changes shape. Version 1 had one set of budgets for the whole
+  project (per tier, per row); it becomes the project's budgets, **switched off**, numbers kept. Nothing else changes. A
+  version 1 project opens as it is, and its `project.json` is written as version 2 the next time the project is saved.
+  The example projects keep their version 1 `project.json`.
+- A `project.json` of a newer version (or one whose `version` is not a whole number) is not opened, exported or written
+  over: the editor says so in plain words.
 
 ## From older versions
 

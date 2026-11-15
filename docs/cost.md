@@ -30,12 +30,56 @@ on the computer.
 
 ## Budgets
 
-Type a number in a box under a measured value. A budget is per tier and per row; the milliseconds budget is compared with the
-95th percentile frame, the area budget with the screen share in percent.
+A budget is a number per tier and per row, like the boxes under the measured values. The milliseconds budget is compared with
+the 95th percentile frame, the area budget with the screen share in percent.
 
-Assumed (tell us if wrong): **one set of budgets per project**, shown on every effect's card, saved in `project.json` as
-`budgets` (and copied into an export's `editor.json`). If budgets should be per effect, or per size class (small, big), that
-is a small change.
+### Three levels
+
+Budgets come at three levels. **Each level is off until you switch it on** (Mustafa: "optional for all three, and toggled
+off").
+
+- **The project's**: one set for every effect in the project.
+- **Classes**: named classes of effects, each with its own set. A project starts with three, **Small**, **Normal** and **Big**,
+  with no numbers ("Medium" is already a tier name). You can rename them, add more and delete them. An effect is in one
+  class, or in none; when its class is deleted, it is in none. The class level is switched on or off as a whole.
+- **The effect's own**: one set for one effect, switched on or off for that effect.
+
+### Which one counts
+
+**The closest level that is on counts, as a whole set**: the effect's own; else its class (when the class level is on and the
+effect has a class); else the project's. Nothing is mixed: an empty box in the set that counts means no limit for that
+number, even when another level has one. When no level is on, nothing is compared and nothing turns red or green.
+
+### On the card today
+
+Until the editor's new Cost card comes (in the UI redesign), the card shows and edits **the project's budgets**: typing a
+number switches them on. A line under the card says which level counts for the effect shown, and the colours compare with
+that level's numbers. Classes and an effect's own budgets can be set only in `project.json` for now.
+
+### In the files
+
+`project.json` keeps them under `budgets`, and an export copies them into `editor.json`. A file holds **only what differs from
+the defaults**: a level that is off and has no numbers is left out, the three starting classes are left out while they are
+unchanged, and so is an effect with nothing set. A changed class list is written whole (an empty list too, so deleted classes
+do not come back). An effect names its class by the class's `id`, which stays when the class is renamed.
+
+```json
+"budgets": {
+  "project": { "on": true, "limits": { "high": { "triangles": 5000 } } },
+  "classes": { "on": true, "list": [ { "id": "small", "name": "Small" }, { "id": "normal", "name": "Normal" },
+                                     { "id": "big", "name": "Big", "limits": { "high": { "triangles": 9000 } } } ] },
+  "effects": { "board_shell": { "class": "big" }, "board_muzzle": { "on": true, "limits": { "low": { "draws": 2 } } } }
+}
+```
+
+Here the tank shell (in Big, with the class level on) is compared with 9000 triangles in High, the rifle shot with its own
+2 draws in Low and nothing else, and every other effect with the project's 5000 triangles in High.
+
+A project made before (`project.json` version 1) had one set of budgets for the whole project. It becomes the project's
+budgets, **switched off**, with its numbers kept (the approved plan). On today's card, change one of them to switch them on.
+
+When the project is saved, the budgets of effects it no longer has are left out (until then, undo can bring an effect back
+with its budgets). An export leaves out those of effects that are not in it.
 
 For reference only, not used anywhere: the game's research notes (the ADR 0003 draft) suggest ≤ 2 ms at the 99th percentile
 in Low and ≤ 1 ms in High, for **all effects together**. The panel measures one effect at a time, on this computer.

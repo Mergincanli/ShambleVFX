@@ -81,7 +81,7 @@ for (const r of rows) {
   writeFileSync(join(dir, 'effects', `${r.fx.id}.vfx.json`), `${JSON.stringify(r.fx, null, 2)}\n`);
   preview[r.fx.id] = { scene: 'board-molotov' };
 }
-writeFileSync(join(dir, 'project.json'), `${JSON.stringify({ format: 'shamble-vfx-project', version: 1, name: 'Letter sheet', events: {}, preview }, null, 2)}\n`);
+writeFileSync(join(dir, 'project.json'), `${JSON.stringify({ format: 'shamble-vfx-project', version: 2, name: 'Letter sheet', events: {}, preview }, null, 2)}\n`);
 
 // ---------------------------------------------------------------- the pictures, through the editor's preview
 process.env.VFX_PROJECT_ROOTS = root;

@@ -61,7 +61,10 @@ async function open(url, ready) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(url);
+  // A page opened while another editor page is still drawing can take about 30 s to start here: this headless browser
+  // draws in software, and the new page's start-up waits for it (measured: its modules load in under half a second, then
+  // nothing is pending for about 25 s). So the load gets as long as the app gets to be ready.
+  await page.goto(url, { timeout: 60000 });
   await page.waitForFunction(ready, null, { timeout: 60000 });
   return { page, errors };
 }
@@ -414,11 +417,17 @@ if (webgpu) {
   ok('the cost panel measures milliseconds in every tier', Object.values(cost.ms).every((m) => Number.isFinite(m.avg) && m.avg > 0 && m.worst >= m.p95 && m.p95 > 0), Object.entries(cost.ms).map(([t, m]) => `${t} ${m.avg.toFixed(2)}/${m.p95.toFixed(2)}/${m.worst.toFixed(2)}`).join(', '));
   note('tank shell (board) cost', ['low', 'medium', 'high'].map((t) => `${t}: ${cost.one[t].draws} draws, ${cost.one[t].sprites} sprites, ${cost.one[t].triangles} triangles, ${(cost.one[t].area * 100).toFixed(1)} % of the screen`).join('; ') + `; clock step ${cost.clock} ms`);
   const budget = p.locator('table.cost input.budget').nth(2); // draws, High
+  const levelBefore = await p.locator('.costcard .cost-level').innerText();
   await budget.fill('1');
   await budget.press('Enter');
   await p.waitForTimeout(100);
   const over = await p.evaluate(() => document.querySelectorAll('table.cost td.over').length);
   ok('a typed budget colours the cell when the effect goes over it', over === 1, `${over} cell(s) over`);
+  // The boxes are the project's budgets: a typed number switches them on, and the card's hint line says they count.
+  const levelAfter = await p.locator('.costcard .cost-level').innerText();
+  const projectBudgets = await p.evaluate(() => window.__vfx.app.budgets().project);
+  ok('a typed budget switches on the project\'s budgets, and the card says they count', levelBefore.trim() === 'No budgets are on. Type a number to switch on the project\'s budgets.'
+    && levelAfter.trim() === 'The project\'s budgets count for this effect.' && projectBudgets.on === true && projectBudgets.limits.high?.draws === 1, `"${levelBefore.trim()}" -> "${levelAfter.trim()}"`);
   await p.screenshot({ path: join(shots, 'editor-cost-panel.png') });
 
   // -- the colour picker: a typed colour, a drag on the wheel and its undo, a new colour, Revert
@@ -521,8 +530,10 @@ if (webgpu) {
   ok('the saved copy keeps its colours and gradients in its own palette.json', savedPalette?.version === 2 && savedPalette.roles.dust.hex === '#3A7BFF' && !!savedPalette.roles['fire.blue'] && !!savedPalette.gradients['glow.ramp']
     && savedBeam.layers.find((l) => l.id === 'emitter_glow').shape.gradient === 'glow.ramp', savedPalette ? `dust ${savedPalette.roles.dust.hex}, gradients ${Object.keys(savedPalette.gradients).join(', ')}` : 'no palette.json');
   ok('the built-in palette and the examples stay unchanged', JSON.parse(readFileSync(join(repo, 'packages', 'vfx-format', 'palette', 'palette.json'), 'utf8')).roles.dust.hex === '#DCC8A0' && !existsSync(join(repo, 'examples', 'demo-project', 'palette.json')));
-  ok('the saved copy keeps the game events and the budgets', meta.events?.board_shell?.join() === 'tank.shot,tank.shell.check' && meta.events?.board_muzzle?.join() === 'rifle.shot' && !meta.events?.shell_flight && meta.budgets?.high?.draws === 1,
-    JSON.stringify({ events: meta.events?.board_shell, budgets: meta.budgets }));
+  // project.json version 2: the budgets typed on the card are the project level, switched on; nothing else is written.
+  const savedBudgets = JSON.stringify({ project: { on: true, limits: { high: { draws: 1 } } } });
+  ok('the saved copy is project.json version 2 and keeps the game events and the budgets', meta.version === 2 && meta.events?.board_shell?.join() === 'tank.shot,tank.shell.check' && meta.events?.board_muzzle?.join() === 'rifle.shot' && !meta.events?.shell_flight
+    && JSON.stringify(meta.budgets) === savedBudgets, JSON.stringify({ version: meta.version, events: meta.events?.board_shell, budgets: meta.budgets }));
 
   // -- Export from the editor, then Import the export as a new project: the same effects come back
   const exported = await savedPage.page.evaluate(() => window.__vfx.app.exportNow());
@@ -540,6 +551,10 @@ if (webgpu) {
     && JSON.parse(readFileSync(join(exportDir, 'palette.json'), 'utf8')).gradients['glow.ramp'] !== undefined);
   ok('Import gives back the same effects, byte for byte, with their events', imported.status === 201 && !!sameFiles && JSON.parse(readFileSync(join(importDir, 'project.json'), 'utf8')).events?.board_shell?.join() === 'tank.shot,tank.shell.check',
     `${imported.status} ${imported.body?.id ?? JSON.stringify(imported.body)}`);
+  const notes = existsSync(join(exportDir, 'editor.json')) ? JSON.parse(readFileSync(join(exportDir, 'editor.json'), 'utf8')) : null;
+  const importedMeta = importDir && existsSync(join(importDir, 'project.json')) ? JSON.parse(readFileSync(join(importDir, 'project.json'), 'utf8')) : null;
+  ok('Export writes editor.json version 2 with the budgets, and Import gives them back in project.json version 2', notes?.version === 2 && JSON.stringify(notes.budgets) === savedBudgets
+    && importedMeta?.version === 2 && JSON.stringify(importedMeta.budgets) === savedBudgets, JSON.stringify({ editor: { version: notes?.version, budgets: notes?.budgets }, imported: { version: importedMeta?.version, budgets: importedMeta?.budgets } }));
   await savedPage.page.close();
   if (importDir) rmSync(importDir, { recursive: true, force: true });
   rmSync(exportDir, { recursive: true, force: true });
@@ -568,6 +583,25 @@ if (webgpu) {
     const heldAfter = await leaveHeld();
     ok('typed game events are unsaved changes: leaving the page asks first', !heldBefore && heldAfter, `held back before typing: ${heldBefore}, after: ${heldAfter}`);
     await g.page.close();
+  }
+
+  // -- a project whose project.json is a newer version is not opened, so it is never written over; the editor says why.
+  {
+    const future = `browser-check-future-${Date.now()}`;
+    const fdir = join(repo, 'projects', future);
+    mkdirSync(join(fdir, 'effects'), { recursive: true });
+    const futureText = `${JSON.stringify({ format: 'shamble-vfx-project', version: 3, name: 'From the future' }, null, 2)}\n`;
+    writeFileSync(join(fdir, 'project.json'), futureText);
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const tried = await g.page.evaluate(async (id) => {
+      const opened = await window.__vfx.app.openProject(id);
+      return { opened, status: document.querySelector('.status')?.textContent ?? '', name: document.querySelector('.project-name')?.textContent ?? '' };
+    }, `projects/${future}`);
+    await g.page.close();
+    const untouched = readFileSync(join(fdir, 'project.json'), 'utf8') === futureText;
+    rmSync(fdir, { recursive: true, force: true });
+    ok('a project whose project.json is a newer version is not opened, and the editor says why', tried.opened === false && untouched && tried.name.startsWith('Demo project')
+      && tried.status === 'Could not open From the future: project.json is version 3, and this Shamble VFX reads version 2 and older: update Shamble VFX to open this project.', `${tried.status} (still on ${tried.name})`);
   }
 }
 

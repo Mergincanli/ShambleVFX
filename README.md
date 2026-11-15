@@ -63,7 +63,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
 10. **Cost** (lower in the right panel; the triangle count above the preview jumps there): press **Measure** for draws, sprites
-    alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers. See [docs/cost.md](docs/cost.md).
+    alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they are the project's budgets, and
+    typing one switches them on. See [docs/cost.md](docs/cost.md).
 11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one.
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
     under **Gradients** start from a ready-made gradient or make your own; a glow can use one, and smoke, the fire's bed and
@@ -95,7 +96,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (379): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (413): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
 has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances; the colours each
 layer can use, checked against the real runtime (every example drawn at 60 frames a second for every made-by, tier and
@@ -106,19 +107,23 @@ and their upgrade; colour edits and their undo; glows drawn from gradients; grad
 and a banded gradient at the tones' places drawing today's bed exactly); the palette; same-seed playback; steps, phases,
 flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive";
 the letters (A to Z and !, built from their data, no stroke thinner than the board's); the fire's layout; every example
-effect drawn all through; undo and redo; the project file server; the export checker; export, import and export again
-giving the same files on both examples; the runtime's loader and its version guard; the screen-area count and the cost
-measurement.
+effect drawn all through; undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1
+(written back byte for byte, a newer version refused); budgets at three levels (which one counts, every edit, only what
+differs written); `editor.json` version 2 and the older one; the export checker; export, import and export again giving the
+same files on both examples, on a version 1 project with budgets and on a version 2 project with budgets at all three levels
+and a palette profile; the runtime's loader and its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (141 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (144 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked
-about before leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact
+about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card says
+which level counts), Save as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), a project
+whose `project.json` is a newer version (not opened, and the editor says why); the test page on both backends (exact
 palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in its exact
 colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
 a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying the project's
@@ -182,6 +187,12 @@ These write pictures to `out/` (kept out of git):
   ground, everything over the scene), in strict layer order.
 - **Cost** per effect and tier ([docs/cost.md](docs/cost.md)): draws, sprites alive, triangles, screen area and CPU ms,
   against budgets you type. None is decided, so none is made up.
+  - **Budgets at three levels**: the project's, classes (Small, Normal and Big to start with) and an effect's own, each off
+    until it is switched on. The closest level that is on counts, as a whole set. The card shows which one; today it edits
+    the project's.
+  - **`project.json` version 2** (with `paletteProfile` and the new budgets), read and written by one reader shared by the
+    local server, the command line and the editor. Version 1 projects still open; an export's `editor.json` is version 2,
+    and import reads the older one too.
 - **The colours each layer uses**: the checker knows every colour a layer can use, named or not: the roles its fields name,
   the black ink outline, a star's white first step, your own team's broken edge (`heat.rim`) and its gradient's stops. It
   names any the palette lacks, and what the layer needs it for ([docs/colours.md](docs/colours.md)).
@@ -199,7 +210,9 @@ These write pictures to `out/` (kept out of git):
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
 (the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds,
-the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them).
+the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
+an effect's own budgets in the editor (the files hold them, and the functions are there; the new Cost card comes with the new
+UI).
 
 ## Assumptions
 
@@ -229,7 +242,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **Scenes and the tank blockout** use the drawing board's positions and sizes, so the side-by-side pictures line up.
 - **Milestone 3 proposals**: what each example drops in Low and Medium (Low follows the drawing board's own Low setting
   where it has one); the Medium tier itself; the game event names (`rifle.shot`, `tank.shot`, `hammer.leech`,
-  `molotov.land`, `hit.bullet.metal`, …); `palette.json` travelling inside each export; one set of budgets per project.
+  `molotov.land`, `hit.bullet.metal`, …); `palette.json` travelling inside each export.
 - **"Sprites alive"** counts items (each sprite, particle, dot, letter, flame tongue and shape once), since the runtime draws
   triangles, not sprites. A halftone field counts each dot.
 - **The test page** repeats the board's camera numbers and the rifle scene's positions; the game brings its own.
@@ -253,6 +266,20 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     for, and why.
 - **Layers that cannot draw**: a note is about the moment shown (the runtime's note on the last frame), so a layer that is
   not on at that moment gets none. Both notes name the image ("the image dust_puff.png is not in the project").
+- **Budgets at three levels and `project.json` version 2** (the levels, "off until switched on", which one counts, the three
+  starting classes and "old budgets become the project's, switched off" are the approved plan; these details are ours):
+  - The example projects keep their version 1 `project.json`: the plan does not ask to change them, and
+    `tools/presets/hits.py` writes one. They open, export and import as before.
+  - A class has an `id`, made from its first name and kept when it is renamed; an effect's entry names that `id`. A class
+    name has 1 to 64 letters, no tabs or line breaks, and is unique without regard to upper and lower case (the rule planned
+    for palette profile names). A file's class that an effect names but the list lacks is read as no class.
+  - Until the new Cost card: the boxes show and edit the project's budgets, and the colours compare with the level that
+    counts. Changing a number switches the project's budgets on; clearing one does not switch them off.
+  - Saving leaves out the budgets of effects the project no longer has (undo can bring an effect back with them until then),
+    and a new effect that takes a deleted one's id starts without them. An export leaves out those of effects not in it.
+  - Saving a version 1 project writes its `project.json` as version 2, as saving does with old effect files. A
+    `project.json` with no `version` is read as version 1. One of a newer version, or whose `version` is not a whole number,
+    is not opened, exported or written over; the same goes for importing an `editor.json` like that.
 - **A fire's bed and its gradient**: the checker treats all the bed layers of one effect as one fire, so it compares every
   detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
 - **How the runtime draws gradients on the bed** (the plan says only "band edges at the stops" and "a smooth one blends"):

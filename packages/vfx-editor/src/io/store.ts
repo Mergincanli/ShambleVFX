@@ -5,7 +5,10 @@
  *
  * A project folder holds project.json, effects/<id>.vfx.json and images/<name>.png.
  * Paths given to read/write/remove are relative to the project folder and use "/".
+ * project.json is read and written through readProject and writeProject (the one reader and writer, ./project-file.ts).
  */
+import { toProjectJson, readProjectJson } from './project-file';
+import type { ProjectFile } from './project-file';
 
 export interface RootSummary {
   id: string;
@@ -95,6 +98,28 @@ export async function readJson<T = unknown>(store: ProjectStore, id: string, pat
 /** JSON with two-space indents and a final newline, so files read well and diff cleanly. */
 export async function writeJson(store: ProjectStore, id: string, path: string, value: unknown): Promise<void> {
   await store.write(id, path, new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' }));
+}
+
+/**
+ * A project's project.json, read as version 2 (an older one is upgraded; upgradedFrom says from which version).
+ * A missing, unreadable or broken file gives undefined: the project opens without it, as before. A newer version, or a
+ * version that is not a number, is refused (ok: false) so the editor never writes over it.
+ */
+export async function readProject(store: ProjectStore, id: string): Promise<{ ok: true; project?: ProjectFile; upgradedFrom?: number } | { ok: false; error: string }> {
+  let raw: unknown;
+  try {
+    raw = await readJson(store, id, 'project.json');
+  } catch {
+    return { ok: true };
+  }
+  const r = readProjectJson(raw);
+  if (r.ok) return { ok: true, project: r.project, ...(r.upgradedFrom !== undefined ? { upgradedFrom: r.upgradedFrom } : {}) };
+  return r.kind === 'version' ? { ok: false, error: r.error } : { ok: true };
+}
+
+/** Write project.json (version 2) through the one writer. */
+export async function writeProject(store: ProjectStore, id: string, project: ProjectFile): Promise<void> {
+  await writeJson(store, id, 'project.json', toProjectJson(project));
 }
 
 /** Talks to the local dev server started by `npm run dev`. */

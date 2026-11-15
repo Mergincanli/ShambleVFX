@@ -1,11 +1,17 @@
 /**
  * The cost card: an effect's cost per quality tier, next to budgets Mustafa types. No budget is decided yet, so the boxes
  * start empty and nothing is coloured until a number is typed.
+ *
+ * Budgets come at three levels (the project's, a class's, the effect's own: see ../cost/budgets.ts). Until the UI redesign
+ * rebuilds this card (its phase 6), the boxes show and edit the project's budgets, a number typed switches them on, the
+ * colours compare with the level that counts for the effect, and one hint line says which level that is.
  */
 import { TIER_NAMES } from '@shamble/vfx-format';
 import type { TierName } from '@shamble/vfx-format';
-import { budgetOf, COST_METRICS, FRAMES_PER_SECOND, measuredOf } from '../cost/measure';
-import type { CostMetric, CostReport, TierCost } from '../cost/measure';
+import { budgetOf, budgetThatCounts, COST_METRICS, hasLimits } from '../cost/budgets';
+import type { Budgets, CostMetric, CountingBudget } from '../cost/budgets';
+import { FRAMES_PER_SECOND, measuredOf } from '../cost/measure';
+import type { CostReport, TierCost } from '../cost/measure';
 import type { AppApi } from './api';
 import { h, icon } from './dom';
 
@@ -21,6 +27,18 @@ const METRIC_TITLE: Record<CostMetric, string> = {
 
 const int = (n: number) => Math.round(n).toLocaleString('en-US');
 const pct = (f: number) => `${(f * 100).toFixed(1)} %`;
+
+/** One line: whose budgets the colours compare with. */
+function levelText(c: CountingBudget, b: Budgets): string {
+  switch (c.level) {
+    case 'effect': return 'This effect\'s own budgets count (set in project.json; the boxes show the project\'s).';
+    case 'class': return `The budgets of its class "${c.class?.name ?? ''}" count for this effect (set in project.json; the boxes show the project's).`;
+    case 'project': return 'The project\'s budgets count for this effect.';
+    case 'none': return hasLimits(b.project.limits)
+      ? 'No budgets are on. The project\'s numbers are kept but off: change one to switch them on.'
+      : 'No budgets are on. Type a number to switch on the project\'s budgets.';
+  }
+}
 
 function valueText(c: TierCost, m: CostMetric): { main: string; sub: string } {
   switch (m) {
@@ -47,7 +65,7 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
       box.addEventListener('change', () => {
         const s = box.value.trim();
         const v = s === '' ? undefined : Number(s);
-        if (v !== undefined && !(Number.isFinite(v) && v >= 0)) { box.value = String(budgetOf(app.budgets(), t, m) ?? ''); return; }
+        if (v !== undefined && !(Number.isFinite(v) && v >= 0)) { box.value = String(budgetOf(app.budgets().project.limits, t, m) ?? ''); return; }
         app.setBudget(t, m, v);
       });
       const cell = h('td', {}, main, sub, box);
@@ -59,11 +77,13 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     h('tbody', {}, ...rows));
   const heavy = h('p', { class: 'hint' });
   const cond = h('p', { class: 'hint cost-cond' });
+  const level = h('p', { class: 'hint cost-level' });
   const el = h('section', { class: 'card costcard' },
     h('div', { class: 'card-head' }, h('h2', { text: 'Cost' }), measure),
     status, table, heavy, cond,
     h('p', { class: 'hint', text: `Each number is the most at any moment of the effect (${FRAMES_PER_SECOND} frames a second, fixed seed); hover a row name for what it counts. Budgets: none is decided yet, so type your own; red is over, green within. ` +
-      'They are shared by every effect in this project and saved in project.json (an assumption: say if budgets should be per effect).' }));
+      'The boxes are the project\'s budgets, saved in project.json.' }),
+    level);
 
   const refresh = () => {
     const r: CostReport | undefined = app.costReport();
@@ -77,6 +97,9 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     status.classList.toggle('bad', stale);
     table.classList.toggle('stale', stale || !r);
     const budgets = app.budgets();
+    const fx = app.effect();
+    const counting = fx ? budgetThatCounts(budgets, fx.id) : undefined;
+    level.textContent = counting ? levelText(counting, budgets) : '';
     for (const m of COST_METRICS) {
       for (const t of TIER_NAMES) {
         const c = cells.get(`${m}:${t}`)!;
@@ -84,8 +107,10 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
         const v = cost ? valueText(cost, m) : { main: '–', sub: '' };
         c.main.textContent = v.main;
         c.sub.textContent = v.sub;
-        const b = budgetOf(budgets, t, m);
-        if (document.activeElement !== c.box) c.box.value = b === undefined ? '' : String(b);
+        // The box shows the project's budget; the colour compares with the budget that counts.
+        const shown = budgetOf(budgets.project.limits, t, m);
+        if (document.activeElement !== c.box) c.box.value = shown === undefined ? '' : String(shown);
+        const b = counting ? budgetOf(counting.limits, t, m) : undefined;
         const over = cost && b !== undefined && !stale ? measuredOf(cost, m) > b : undefined;
         c.cell.classList.toggle('over', over === true);
         c.cell.classList.toggle('within', over === false);

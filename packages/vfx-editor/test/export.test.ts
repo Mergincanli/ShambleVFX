@@ -4,6 +4,8 @@ import { join, relative, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 import { afterAll, describe, expect, it } from 'vitest';
 import { exportProject, importExport, readExport, toJson } from '../server/export';
+import { budgetThatCounts } from '../src/cost/budgets';
+import { EDITOR_NOTE, readProjectJson } from '../src/io/project-file';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
 const tmp = mkdtempSync(join(tmpdir(), 'shamble-vfx-export-'));
@@ -250,5 +252,109 @@ describe('import refusals', () => {
     expect(r.ok).toBe(false);
     expect(r.errors.join('\n')).toMatch(/"effects\/hit_energy_zap\.vfx\.json" is missing from the export/);
     expect(existsSync(join(tmp, 'never'))).toBe(false);
+  });
+});
+
+describe('project.json version 2 and editor.json', () => {
+  /** Every file of an export folder, by path. */
+  const files = (dir: string) => walk(dir).map((f) => relative(dir, f)).sort();
+  /** Export, import, export again: the two exports must hold the same files, byte for byte. Returns both and the project. */
+  async function roundTrip(label: string, project: string) {
+    const out = join(tmp, `${label}-export`), back = join(tmp, `${label}-back`), again = join(tmp, `${label}-again`);
+    const first = await exportProject(project, out);
+    expect(first.errors).toEqual([]);
+    const imported = await importExport(out, back);
+    expect(imported.errors).toEqual([]);
+    const second = await exportProject(back, again);
+    expect(second.errors).toEqual([]);
+    expect(files(again)).toEqual(files(out));
+    for (const f of files(out)) expect(readFileSync(join(again, f)).equals(readFileSync(join(out, f))), f).toBe(true);
+    return { out, back };
+  }
+  const demo = json(join(repo, 'examples', 'demo-project', 'project.json')) as { name: string; events: Record<string, string[]>; preview: Record<string, unknown> };
+
+  it('a version 1 project with budgets: they travel as the project level, switched off, and export, import, export gives the same files', async () => {
+    const dir = join(tmp, 'v1-budgets');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    writeFileSync(join(dir, 'project.json'), toJson({ ...demo, budgets: { high: { triangles: 5000, draws: 3 }, low: { ms: 1.5 } } }));
+    expect(json(join(dir, 'project.json')).version).toBe(1);
+    const { out, back } = await roundTrip('v1-budgets', dir);
+    // The first export, pinned: editor.json version 2, the numbers kept at the project level, off (no "on").
+    expect(read(join(out, 'editor.json'))).toBe(toJson({
+      note: EDITOR_NOTE, version: 2, preview: demo.preview, budgets: { project: { limits: { low: { ms: 1.5 }, high: { draws: 3, triangles: 5000 } } } },
+    }));
+    // The imported project is version 2, and says the same.
+    const now = json(join(back, 'project.json'));
+    expect(now.version).toBe(2);
+    expect(now.name).toBe(demo.name);
+    expect(now.events).toEqual(demo.events);
+    expect(now.preview).toEqual(demo.preview);
+    expect(now.budgets).toEqual({ project: { limits: { low: { ms: 1.5 }, high: { draws: 3, triangles: 5000 } } } });
+    expect(now.paletteProfile).toBeUndefined();
+  });
+
+  it('a version 2 project with budgets at all three levels and a palette profile: export, import, export gives the same files', async () => {
+    const dir = join(tmp, 'v2-budgets');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    const budgets = {
+      project: { on: true, limits: { high: { triangles: 5000 } } },
+      classes: { on: true, list: [{ id: 'small', name: 'Small' }, { id: 'normal', name: 'Normal' }, { id: 'big', name: 'Huge', limits: { high: { triangles: 9000 } } }, { id: 'tiny', name: 'Tiny' }] },
+      effects: { board_shell: { class: 'big' }, board_muzzle: { on: true, limits: { low: { draws: 2 } } }, rifle_shot: { class: 'tiny', limits: { medium: { ms: 0.5 } } } },
+    };
+    // An entry for an effect the project no longer has: the export leaves it out.
+    const withGone = { ...budgets, effects: { ...budgets.effects, gone_effect: { on: true } } };
+    writeFileSync(join(dir, 'project.json'), toJson({ format: 'shamble-vfx-project', version: 2, name: demo.name, paletteProfile: 'Soviets dark', events: demo.events, preview: demo.preview, budgets: withGone }));
+    const { out, back } = await roundTrip('v2-budgets', dir);
+    expect(read(join(out, 'editor.json'))).toBe(toJson({ note: EDITOR_NOTE, version: 2, paletteProfile: 'Soviets dark', preview: demo.preview, budgets }));
+    const text = read(join(back, 'project.json'));
+    const now = JSON.parse(text) as Record<string, unknown>;
+    expect(Object.keys(now)).toEqual(['format', 'version', 'name', 'paletteProfile', 'events', 'preview', 'budgets']);
+    expect(now.version).toBe(2);
+    expect(now.paletteProfile).toBe('Soviets dark');
+    expect(now.budgets).toEqual(budgets);
+    // What counts for each effect survives the trip.
+    const r = readProjectJson(now);
+    if (!r.ok) throw new Error(r.error);
+    expect(budgetThatCounts(r.project.budgets, 'board_shell')).toEqual({ level: 'class', class: { id: 'big', name: 'Huge' }, limits: { high: { triangles: 9000 } } });
+    expect(budgetThatCounts(r.project.budgets, 'board_muzzle')).toEqual({ level: 'effect', limits: { low: { draws: 2 } } });
+    expect(budgetThatCounts(r.project.budgets, 'rifle_shot').class?.name).toBe('Tiny');
+    expect(budgetThatCounts(r.project.budgets, 'shell_flight').level).toBe('project');
+  });
+
+  it('imports an older editor.json (no version, one set of budgets): they become the project level, switched off', async () => {
+    const out = join(tmp, 'old-notes-export');
+    expect((await exportProject(join(repo, 'examples', 'demo-project'), out)).ok).toBe(true);
+    writeFileSync(join(out, 'editor.json'), toJson({ note: 'For the Shamble VFX editor only (preview scenes, budgets). The game ignores this file.', preview: demo.preview, budgets: { high: { draws: 3 } } }));
+    const back = join(tmp, 'old-notes-back');
+    expect((await importExport(out, back)).errors).toEqual([]);
+    const now = json(join(back, 'project.json'));
+    expect(now.version).toBe(2);
+    expect(now.preview).toEqual(demo.preview);
+    expect(now.budgets).toEqual({ project: { limits: { high: { draws: 3 } } } });
+    // Exported again, editor.json is version 2 with the same numbers.
+    const again = join(tmp, 'old-notes-again');
+    expect((await exportProject(back, again)).ok).toBe(true);
+    expect(json(join(again, 'editor.json'))).toEqual({ note: EDITOR_NOTE, version: 2, preview: demo.preview, budgets: { project: { limits: { high: { draws: 3 } } } } });
+  });
+
+  it('refuses an editor.json of a newer version, and makes nothing', async () => {
+    const out = join(tmp, 'newer-notes-export');
+    expect((await exportProject(join(repo, 'examples', 'hits-collection'), out)).ok).toBe(true);
+    writeFileSync(join(out, 'editor.json'), toJson({ note: 'from the future', version: 3, budgets: {} }));
+    const back = join(tmp, 'newer-notes-back');
+    const r = await importExport(out, back);
+    expect(r).toEqual({ ok: false, errors: ['editor.json is version 3, and this Shamble VFX reads version 2 and older: update Shamble VFX to import this export'], effects: 0, images: 0 });
+    expect(existsSync(back)).toBe(false);
+  });
+
+  it('refuses to export a project whose project.json is a newer version, and writes nothing', async () => {
+    const dir = join(tmp, 'newer-project');
+    cpSync(join(repo, 'examples', 'demo-project'), dir, { recursive: true });
+    writeFileSync(join(dir, 'project.json'), toJson({ ...demo, version: 3 }));
+    const out = join(tmp, 'newer-project-export');
+    const r = await exportProject(dir, out);
+    expect(r.ok).toBe(false);
+    expect(r.errors).toEqual(['project.json is version 3, and this Shamble VFX reads version 2 and older: update Shamble VFX to open this project']);
+    expect(existsSync(out)).toBe(false);
   });
 });

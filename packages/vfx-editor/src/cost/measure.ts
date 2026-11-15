@@ -13,12 +13,7 @@ import type { EffectFile, FactionId, Palette, TierName } from '@shamble/vfx-form
 import { BLEND_GROUPS, VfxRenderer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
 import type { Atlas, EffectInputs, Relation } from '@shamble/vfx-runtime';
 import { Coverage } from './area';
-
-/** What a budget can be set for. "ms" is compared with the 95th percentile frame. */
-export const COST_METRICS = ['draws', 'sprites', 'triangles', 'area', 'ms'] as const;
-export type CostMetric = (typeof COST_METRICS)[number];
-/** Budgets typed in the editor: per tier, per metric. Empty means no budget. Kept in project.json as "budgets". */
-export type Budgets = Partial<Record<TierName, Partial<Record<CostMetric, number>>>>;
+import type { CostMetric } from './budgets';
 
 export const FRAMES_PER_SECOND = 60;
 /** Each timed batch runs at least this long, so a coarse browser clock still gives a usable number. */
@@ -186,12 +181,6 @@ function heaviestLayers(fx: EffectFile, vfx: VfxRenderer): CostReport['heaviest'
     .map(([i, n]) => ({ id: fx.layers[i]?.id ?? String(i), name: fx.layers[i]?.name ?? `layer ${i}`, share: n / Math.max(1, all) }));
 }
 
-/** A budget value as typed, or undefined for an empty or unusable box. */
-export function budgetOf(b: Budgets, tier: TierName, metric: CostMetric): number | undefined {
-  const v = b[tier]?.[metric];
-  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
-}
-
 /** The measured number a budget is compared with (area in percent of the screen, ms the 95th percentile). */
 export function measuredOf(c: TierCost, metric: CostMetric): number {
   switch (metric) {
@@ -201,19 +190,4 @@ export function measuredOf(c: TierCost, metric: CostMetric): number {
     case 'area': return c.area * 100;
     case 'ms': return c.ms.p95;
   }
-}
-
-/** Budgets from project.json, keeping only well-formed numbers. */
-export function readBudgets(v: unknown): Budgets {
-  const out: Budgets = {};
-  if (!v || typeof v !== 'object') return out;
-  for (const tier of TIER_NAMES) {
-    const t = (v as Record<string, unknown>)[tier];
-    if (!t || typeof t !== 'object') continue;
-    for (const m of COST_METRICS) {
-      const n = (t as Record<string, unknown>)[m];
-      if (typeof n === 'number' && Number.isFinite(n) && n >= 0) (out[tier] ??= {})[m] = n;
-    }
-  }
-  return out;
 }

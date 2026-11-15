@@ -116,7 +116,7 @@ describe('projects', () => {
     expect(r.status).toBe(201);
     expect(r.json()).toEqual({ id: 'projects/my-first-fx', name: 'My First FX', root: 'projects', writable: true });
     const dir = join(tmp, 'projects', 'my-first-fx');
-    expect(JSON.parse(readFileSync(join(dir, 'project.json'), 'utf8'))).toEqual({ format: 'shamble-vfx-project', version: 1, name: 'My First FX' });
+    expect(readFileSync(join(dir, 'project.json'), 'utf8')).toBe(`${JSON.stringify({ format: 'shamble-vfx-project', version: 2, name: 'My First FX' }, null, 2)}\n`);
     expect(existsSync(join(dir, 'effects'))).toBe(true);
     expect(existsSync(join(dir, 'images'))).toBe(true);
   });
@@ -144,6 +144,8 @@ describe('projects', () => {
     expect(c.json()).toEqual({ id: 'projects/demo-copy', name: 'Demo copy', writable: true, palette: false, effects: ['shot.vfx.json'], images: [{ name: 'flash.png', bytes: PNG.length }] });
     expect(existsSync(join(tmp, 'projects', 'demo-copy', 'effects', 'notes.txt'))).toBe(false);
     expect(existsSync(join(tmp, 'projects', 'demo-copy', 'images', 'photo.jpg'))).toBe(false);
+    // The copy's project.json is fresh, version 2, with its own name (the editor then writes the rest into it).
+    expect(JSON.parse(readFileSync(join(tmp, 'projects', 'demo-copy', 'project.json'), 'utf8'))).toEqual({ format: 'shamble-vfx-project', version: 2, name: 'Demo copy' });
     expect((await call('POST', 'copy', json({ from: 'examples/demo', root: 'projects', name: 'Demo copy' }))).status).toBe(409);
     expect((await call('POST', 'copy', json({ from: 'examples/demo', root: 'examples', name: 'Again' }))).status).toBe(403);
   });
@@ -201,6 +203,27 @@ describe('files', () => {
     const body = JSON.stringify({ format: 'shamble-vfx-project', version: 1, name: 'Renamed' });
     expect((await call('PUT', `file?${q(id, 'project.json')}`, { body, headers: { 'content-type': 'application/json' } })).status).toBe(200);
     expect((await call('GET', `project?${q(id)}`)).json().name).toBe('Renamed');
+  });
+
+  it('takes project.json version 2 with any parts the reader knows, and refuses a newer version or one that is not a number', async () => {
+    const put = (v: unknown) => call('PUT', `file?${q(id, 'project.json')}`, { body: JSON.stringify(v), headers: { 'content-type': 'application/json' } });
+    const v2 = { format: 'shamble-vfx-project', version: 2, name: 'Renamed', paletteProfile: 'Soviets dark', budgets: { project: { on: true, limits: { high: { triangles: 5000 } } } } };
+    expect((await put(v2)).status).toBe(200);
+    const newer = await put({ ...v2, version: 3 });
+    expect(newer.status).toBe(400);
+    expect(newer.json().error).toBe('project.json is version 3, and this Shamble VFX reads version 2 and older: update Shamble VFX to open this project');
+    expect((await put({ ...v2, version: '2' })).status).toBe(400);
+    // The refused files were not written: the version 2 one is still there.
+    expect(JSON.parse(readFileSync(join(tmp, 'projects', 'my-first-fx', 'project.json'), 'utf8'))).toEqual(v2);
+  });
+
+  it('lists a project whose project.json is a newer version, by its name (the editor says why it cannot open it)', async () => {
+    const dir = join(tmp, 'projects', 'from-the-future');
+    mkdirSync(join(dir, 'effects'), { recursive: true });
+    writeFileSync(join(dir, 'project.json'), JSON.stringify({ format: 'shamble-vfx-project', version: 3, name: 'From the future' }));
+    const listed = (await call('GET', 'projects')).json().projects as { id: string; name: string }[];
+    expect(listed.find((p) => p.id === 'projects/from-the-future')?.name).toBe('From the future');
+    expect((await call('GET', `project?${q('projects/from-the-future')}`)).json().name).toBe('From the future');
   });
 
   it('deletes effects and images, never project.json', async () => {
