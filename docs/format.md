@@ -171,6 +171,9 @@ reach 100 %, and when a word has a 0 % chance (it never shows).
 per faction), `roles` (shared by everyone), and `gradients`. Each role is `{ "hex", "from", "note"? }`: `from` says whose value
 it is (`mustafa`, `art-lead`, `board-v7`, `derived`, `assumed`). A gradient is `{ "kind": "smooth" | "banded", "stops", "from" }`;
 each stop is `{ "at": 0..1, "role" or "hex", "alpha"? }`. Version 1 palettes (no gradients) are read as version 2.
+Besides the roles an effect names, the checker asks the palette for the ones its layers draw without naming them: `ink`, `white`
+(a star's white first step), `heat.rim` (your own team's broken edge) and the roles of their gradients' stops (see
+[colours.md](colours.md)).
 
 ## The project file (`project.json`)
 

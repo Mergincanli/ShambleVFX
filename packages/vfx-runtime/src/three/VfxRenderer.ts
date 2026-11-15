@@ -26,7 +26,7 @@ import {
 import type { Camera } from 'three/webgpu';
 import type { EffectFile, FactionId, Palette, TierName } from '@shamble/vfx-format';
 import { evaluate } from '../core/evaluate';
-import type { CameraBasis, EvalResult, UvRect } from '../core/evaluate';
+import type { CameraBasis, EvalResult, NotDrawn, UvRect } from '../core/evaluate';
 import type { Relation } from '../core/draw';
 import type { EffectLookup, EffectPlayer } from '../core/player';
 import { BLEND_GROUPS, DrawSink } from '../core/sink';
@@ -57,6 +57,11 @@ export interface VfxStats {
   items: number;
   /** Effects drawn this frame. */
   effects: number;
+  /**
+   * The layers that should have drawn this frame but could not, because the atlas does not have their image: one entry
+   * per effect and layer, however often the effect was drawn. A layer the tier leaves out is never listed.
+   */
+  notDrawn: NotDrawn[];
 }
 
 const BLEND_OF: Record<BlendGroup, BlendMode> = { 'ground-multiply': 'multiply', 'ground-screen': 'screen', ground: 'over', top: 'over' };
@@ -82,6 +87,7 @@ export class VfxRenderer {
   private dotRect: UvRect | undefined;
   private basis: CameraBasis = { right: [1, 0, 0], up: [0, 1, 0], forward: [0, 0, -1] };
   private effectsThisFrame = 0;
+  private notDrawnThisFrame: NotDrawn[] = [];
   private colourSpace: 'linear' | 'srgb' = 'linear';
 
   /** renderOrder: the ground groups draw at renderOrder .. +2, the top group at renderOrder + 10. */
@@ -137,6 +143,8 @@ export class VfxRenderer {
   begin(camera: Camera): void {
     this.sink.clear();
     this.effectsThisFrame = 0;
+    // A new list, so one handed out with last frame's stats stays as it was.
+    this.notDrawnThisFrame = [];
     this.colourSpace = ColorManagement.enabled ? 'linear' : 'srgb';
     camera.updateMatrixWorld();
     const e = camera.matrixWorld.elements;
@@ -150,7 +158,7 @@ export class VfxRenderer {
   /** Add one moment of one effect. */
   draw(effect: EffectFile, p: DrawParams): EvalResult {
     this.effectsThisFrame++;
-    return evaluate(effect, {
+    const r = evaluate(effect, {
       seed: p.seed,
       timeMs: p.timeMs,
       inputs: p.inputs,
@@ -165,6 +173,9 @@ export class VfxRenderer {
       ...(this.dotRect ? { dot: this.dotRect } : {}),
       tier: this.tier,
     }, this.sink);
+    const list = this.notDrawnThisFrame;
+    for (const m of r.notDrawn) if (!list.some((x) => x.effect === m.effect && x.index === m.index)) list.push(m);
+    return r;
   }
 
   /** Add every effect the player has running at nowMs. */
@@ -207,7 +218,7 @@ export class VfxRenderer {
   }
 
   get stats(): VfxStats {
-    return { triangles: this.sink.triangles, drawCalls: this.sink.drawCalls, items: this.sink.items, effects: this.effectsThisFrame };
+    return { triangles: this.sink.triangles, drawCalls: this.sink.drawCalls, items: this.sink.items, effects: this.effectsThisFrame, notDrawn: this.notDrawnThisFrame };
   }
 
   dispose(): void {

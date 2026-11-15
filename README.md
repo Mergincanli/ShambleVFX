@@ -95,29 +95,34 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (300): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
+The unit tests (379): the format, the checker and the upgrades from versions 1, 2, 3 and 4; word chances (the four rules,
 the checker's warnings, and the word each play shows: what is drawn, and the same as version 4 for every seed when no word
-has a chance); the words box keeping chances; palettes with gradients and their upgrade; colour edits and their undo; glows
-drawn from gradients; gradients on smoke, the fire's bed and bursts (colours at given ages and places, banded edges at the
-stops, alpha, faction roles, both bed parts on the same band edges, and a banded gradient at the tones' places drawing
-today's bed exactly); the palette; same-seed playback; steps, phases, flights and arcs; every shape kind, bursts and words;
-friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !, built from their data, no
-stroke thinner than the board's); the fire's layout; every example effect drawn all through; undo and redo; the project file
-server; the export checker; export, import and export again giving the same files on both examples; the runtime's loader and
-its version guard; the screen-area count and the cost measurement.
+has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances; the colours each
+layer can use, checked against the real runtime (every example drawn at 60 frames a second for every made-by, tier and
+faction, and made-up layers of every kind, edge and gradient: the list holds every colour the runtime asks the palette
+for), and the checker naming one the palette lacks; the layers the runtime cannot draw, and why; palettes with gradients
+and their upgrade; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and bursts
+(colours at given ages and places, banded edges at the stops, alpha, faction roles, both bed parts on the same band edges,
+and a banded gradient at the tones' places drawing today's bed exactly); the palette; same-seed playback; steps, phases,
+flights and arcs; every shape kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive";
+the letters (A to Z and !, built from their data, no stroke thinner than the board's); the fire's layout; every example
+effect drawn all through; undo and redo; the project file server; the export checker; export, import and export again
+giving the same files on both examples; the runtime's loader and its version guard; the screen-area count and the cost
+measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (140 checks): palette colours read back exactly; the ground and walls cut
-what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging, the
-generated forms, the words box (a word typed again keeps its chance), the add menu, phase starts, New from preset, tiers,
-game events (unsaved ones are asked about before leaving), the cost panel and budgets, Save as, Export and Import; the test
-page on both backends (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an
-exported gradient in its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a
-drag and Revert, a new colour), a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and
-Import carrying the project's palette.json. It saves screenshots to `out/screenshots/`.
+A headless browser check on WebGPU and WebGL 2 (141 checks): palette colours read back exactly; the ground and walls cut
+what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
+the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
+not load, one not in the project), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked
+about before leaving), the cost panel and budgets, Save as, Export and Import; the test page on both backends (exact
+palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in its exact
+colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
+a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying the project's
+palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine).
 
 ```bash
@@ -159,7 +164,8 @@ These write pictures to `out/` (kept out of git):
   - **Words with chances** (version 5): each word of a word layer can have a chance in percent; words without one share what
     is left, and when every word has one and they add up to less than 100, the rest of the plays show no word. A word layer
     with no chances shows the same word for every seed as before. Setting chances in the editor comes with the new UI; the
-    words box keeps them when you type the list again.
+    words box keeps them when you type the list again. The odds are counted over 1,000 plays with the runtime's own pick,
+    ready for the new UI to show.
   - **The letters J, Q, V, X and Y**: drawn by Shamble VFX in the drawing board's style, so a word can use every letter from A
     to Z. They wait for the Art lead's review (see Assumptions).
   - **Phases**: wind-up, peak and fade. Layers start with a phase, last until one ends, or break up during one.
@@ -176,6 +182,12 @@ These write pictures to `out/` (kept out of git):
   ground, everything over the scene), in strict layer order.
 - **Cost** per effect and tier ([docs/cost.md](docs/cost.md)): draws, sprites alive, triangles, screen area and CPU ms,
   against budgets you type. None is decided, so none is made up.
+- **The colours each layer uses**: the checker knows every colour a layer can use, named or not: the roles its fields name,
+  the black ink outline, a star's white first step, your own team's broken edge (`heat.rim`) and its gradient's stops. It
+  names any the palette lacks, and what the layer needs it for ([docs/colours.md](docs/colours.md)).
+- **Layers that cannot draw**: the runtime notes, frame by frame, each layer it skips because its image is not in the atlas.
+  The editor turns that into plain words ("the image muzzle_flash.png did not load", "the image … is not in the
+  project"), ready for the new UI. A layer the tier leaves out is not a fault and gets no note.
 - **The export** ([docs/export.md](docs/export.md)): one folder with a manifest (effect names, versions and the game events
   each answers), one JSON file per effect, one packed atlas with its map. A checker names missing images, unknown roles and
   schema errors. Importing an export gives back the same effects.
@@ -186,7 +198,8 @@ These write pictures to `out/` (kept out of git):
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
-(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients.
+(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds,
+the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them).
 
 ## Assumptions
 
@@ -228,6 +241,18 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. In the
   words box, a word typed again keeps its chance when its text is the same, capitals or not (words are drawn in capitals); a
   word typed twice is matched in order (the first BOOM takes the first old BOOM's chance).
+- **The colours a layer can use** (the plan says which ones; how far the list reaches is ours):
+  - The list holds every colour the runtime looks up for the layer, which is a little more than it can show: a burst's ink
+    when its pieces have no ink edge (and an image burst's), a dashed or closing ring's ink, a burst's own colour when a
+    gradient colours its pieces. The checker asks the palette for all of them, so it can name a colour the palette lacks
+    even where nothing would show it. The built-in palette has them all.
+  - A colour a field names is always listed, even where nothing draws it (a scorch core of size 0, the tones a bed's
+    gradient replaces, a fifth flame tone): the checker checks every named colour, so a palette must keep it.
+  - The test that compares the list with the runtime draws each example at 60 frames a second for every made-by, tier and
+    faction. In the examples the runtime asks for every colour on the list. The made-up layers name the roles it never asks
+    for, and why.
+- **Layers that cannot draw**: a note is about the moment shown (the runtime's note on the last frame), so a layer that is
+  not on at that moment gets none. Both notes name the image ("the image dust_puff.png is not in the project").
 - **A fire's bed and its gradient**: the checker treats all the bed layers of one effect as one fire, so it compares every
   detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
 - **How the runtime draws gradients on the bed** (the plan says only "band edges at the stops" and "a smooth one blends"):

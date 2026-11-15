@@ -20,6 +20,8 @@ import {
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
+import { notDrawnNotes } from '../doc/not-drawn';
+import type { NotDrawnNote } from '../doc/not-drawn';
 import { DevServerStore, StoreError, effectPath, imagePath, readJson, writeJson } from '../io/store';
 import type { ExportResult, ExportSummary, ProjectContents, ProjectStore } from '../io/store';
 import { makeGameCamera } from '../preview/camera';
@@ -172,6 +174,12 @@ export class App implements AppApi {
       this.timelineCache = { fx, where, tl: resolveTimeline(fx, this.inputs(), applyControls(fx.controls)) };
     }
     return this.timelineCache.tl;
+  }
+
+  layersNotDrawn(): NotDrawnNote[] {
+    const fx = this.effect();
+    if (!fx) return [];
+    return notDrawnNotes(fx, this.preview.vfx.stats.notDrawn, (this.project?.images ?? []).map((im) => im.name));
   }
 
   problems(): Problem[] {

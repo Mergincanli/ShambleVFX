@@ -67,11 +67,27 @@ export interface EvalContext {
   tier?: TierName;
 }
 
+/**
+ * A layer that should have drawn at this moment but could not: the atlas does not have its image. A layer the tier
+ * leaves out, or one that is not on at this moment, is not one of these.
+ */
+export interface NotDrawn {
+  /** The effect's id. */
+  effect: string;
+  /** The layer's id, and its place in the effect's list. */
+  layer: string;
+  index: number;
+  /** The image it needs. */
+  image: string;
+}
+
 export interface EvalResult {
   /** Triangles this call added to the sink. */
   triangles: number;
   /** Images the effect names that the atlas does not have (those layers were skipped). */
   missingImages: string[];
+  /** The layers skipped at this moment because the atlas does not have their image, one entry each. */
+  notDrawn: NotDrawn[];
   /** When the effect's last layer ends, for these inputs. */
   lengthMs: number;
 }
@@ -115,6 +131,11 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
   const tl = timeline ?? resolveTimeline(fx, ctx.inputs, c);
   const before = sink.triangles;
   const missing: string[] = [];
+  const notDrawn: NotDrawn[] = [];
+  const skip = (index: number, image: string) => {
+    if (!missing.includes(image)) missing.push(image);
+    notDrawn.push({ effect: fx.id, layer: fx.layers[index]!.id, index, image });
+  };
   const colours = new Map<string, [number, number, number]>();
   const cam = ctx.camera;
   // How far towards the camera a point must move to rise by one metre on screen: cot(pitch).
@@ -180,7 +201,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     if (l.type === 'sprite') {
       const rect = ctx.imageRect(l.image);
       if (!rect) {
-        if (!missing.includes(l.image)) missing.push(l.image);
+        skip(i, l.image);
         continue;
       }
       drawSprite(l, i, span, tau, n, rect, where, cam, c, buf, rgbOf, pullPerMetre);
@@ -188,7 +209,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     }
 
     if (l.type === 'burst' && l.look.kind === 'image' && !ctx.imageRect(l.look.image)) {
-      if (!missing.includes(l.look.image)) missing.push(l.look.image);
+      skip(i, l.look.image);
       continue;
     }
     // Shapes, bursts and words: drawn flat in the layer's frame by the painter. Along a path they lie in the screen's
@@ -242,7 +263,7 @@ export function evaluate(fx: EffectFile, ctx: EvalContext, sink: DrawSink, timel
     const sign = l.blend === 'add' ? -1 : 1;
     if (a !== 1 || sign < 0) for (let k = v0; k < buf.vcount; k++) buf.col[k * 4 + 3] = buf.col[k * 4 + 3]! * a * sign;
   }
-  return { triangles: sink.triangles - before, missingImages: missing, lengthMs: tl.lengthMs };
+  return { triangles: sink.triangles - before, missingImages: missing, notDrawn, lengthMs: tl.lengthMs };
 }
 
 /** Size factor from the layer's size animation: per step, and over its life. */

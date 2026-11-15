@@ -236,6 +236,40 @@ if (webgpu) {
     shownWords === 'KABOOM, KRAKOOM, BADOOM, WHAM' && JSON.stringify(typedWords) === JSON.stringify([{ text: 'WHAM' }, { text: 'KRAKOOM', chance: 30 }, { text: 'ZAP' }])
       && JSON.stringify(wordsBack) === JSON.stringify([{ text: 'KABOOM' }, { text: 'KRAKOOM' }, { text: 'BADOOM' }, { text: 'WHAM' }]),
     `"${shownWords}" -> ${JSON.stringify(typedWords)}, after two undos ${JSON.stringify(wordsBack)}`);
+  // Layers that cannot draw at the moment shown, and why (from the runtime's note on the frame): an image that did not
+  // load (in the project, not in the atlas), an image not in the project. A layer the tier leaves out gets no note.
+  const notDrawn = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    const notes = () => a.layersNotDrawn().map((n) => `${n.layer} ${n.why}: ${n.text}`);
+    a.pickEffect('rifle_shot');
+    await a.showAt(20);
+    const clean = notes();
+    const atlas = a.atlas;
+    a.previewForChecks.setAtlas({ ...atlas, rects: Object.fromEntries(Object.entries(atlas.rects).filter(([k]) => k !== 'muzzle_flash.png')) });
+    await a.showAt(20);
+    const notLoaded = notes();
+    a.previewForChecks.setAtlas(atlas);
+    a.selectLayer('flash');
+    a.editLayer(['image'], 'no_such.png');
+    a.commit();
+    await a.showAt(20);
+    const missing = notes();
+    a.editLayer(['tiers'], ['high']);
+    a.commit();
+    a.setTierForChecks('low');
+    await a.showAt(20);
+    const leftOut = notes();
+    a.setTierForChecks('high');
+    return { clean, notLoaded, missing, leftOut };
+  });
+  await p.keyboard.press('Control+z');
+  await p.keyboard.press('Control+z');
+  const flashBack = await p.evaluate(() => { const l = window.__vfx.app.effect().layers.find((x) => x.id === 'flash'); return `${l.image} ${l.tiers.join(',')}`; });
+  ok('layers that cannot draw are named in plain words (an image that did not load, one not in the project); a layer the tier leaves out gets no note',
+    notDrawn.clean.length === 0 && notDrawn.notLoaded.join() === 'flash not-loaded: the image muzzle_flash.png did not load'
+      && notDrawn.missing.join() === 'flash missing: the image no_such.png is not in the project' && notDrawn.leftOut.length === 0 && flashBack === 'muzzle_flash.png low,medium,high',
+    `${JSON.stringify(notDrawn)}; after two undos ${flashBack}`);
+  await p.evaluate(() => window.__vfx.app.pickEffect('board_shell'));
   await p.evaluate(() => window.__vfx.app.selectLayer('burst'));
   const before = (await p.evaluate(() => window.__vfx.app.effect().layers.length));
   await p.selectOption('select.add-layer', 'shape:cloud');

@@ -8,6 +8,8 @@ import { effectSchema } from './schema';
 
 export { checkEffect, problemLines, pathText } from './check';
 export type { CheckOptions, CheckResult, Problem, ProblemKind } from './check';
+export { layerColours, effectColours, colourRoles, INK_ROLE, WHITE_ROLE, BROKEN_EDGE_ROLE } from './colours';
+export type { ColourList, ColourOptions, ColourReason, ColourUse, GradientUse } from './colours';
 export { migrate, MIGRATIONS } from './migrate';
 export type { Migration, MigrateResult } from './migrate';
 export { effectSchema, layerSchema, spriteLayerSchema, projectileLayerSchema, controlsSchema, roleSchema, idSchema, imageNameSchema } from './schema';

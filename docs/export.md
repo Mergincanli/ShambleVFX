@@ -100,6 +100,9 @@ vfx.drawPlaying(player, nowMs, fx.lookup);
 vfx.end();
 ```
 
+`vfx.stats` counts the frame: triangles, draw calls, items and effects. A layer whose image is not in the atlas is skipped,
+and `vfx.stats.notDrawn` names it for that frame (the effect, the layer and the image).
+
 `loadExport` reads the folder with plain checks and plain-word errors (a `VfxLoadError`):
 
 - not an export: "… is not a Shamble VFX export: export the project again with the editor";

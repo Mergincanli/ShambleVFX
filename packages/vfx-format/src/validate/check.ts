@@ -1,16 +1,18 @@
 /**
  * The checker. It names every problem in plain words, with where it is:
- * schema errors, unknown colour roles and gradients, missing images, hex colours, broken links between layers, missing
- * lengths, and, as warnings, characters we have not drawn yet, word chances that do not work as typed, a fire's bed layers
- * with different gradients, and phases with no length.
+ * schema errors, unknown colour roles (the ones a layer names, and the ones it draws without naming them: see colours.ts)
+ * and gradients, missing images, hex colours, broken links between layers, missing lengths, and, as warnings, characters
+ * we have not drawn yet, word chances that do not work as typed, a fire's bed layers with different gradients, and phases
+ * with no length.
  */
 import type { core } from 'zod';
 import { WORD_LETTERS } from '../defaults';
 import { roleNames } from '../palette';
 import type { Palette } from '../palette';
-import { LAYER_TYPES, MAIN_ROLE, isArrivalStart, isInputAnchor, isPhaseStart } from '../types';
+import { LAYER_TYPES, isArrivalStart, isInputAnchor, isPhaseStart } from '../types';
 import type { BedShape, EffectFile, Layer, PhaseName, VisibleLayer, WordLayer } from '../types';
 import { chanceTotal, wordShares } from '../words';
+import { layerColours } from './colours';
 import { migrate } from './migrate';
 import type { Migration } from './migrate';
 import { effectSchema } from './schema';
@@ -65,23 +67,6 @@ function findColourStrings(v: unknown, path: (string | number)[], out: Problem[]
     v.forEach((x, i) => findColourStrings(x, [...path, i], out));
   } else if (v && typeof v === 'object') {
     for (const [k, x] of Object.entries(v)) findColourStrings(x, [...path, k], out);
-  }
-}
-
-/** Every role a layer names, with where. Keys named "role", ending in "Role", tone lists, word colours and separation. */
-function rolesIn(v: unknown, path: (string | number)[], out: { path: string; role: string }[]): void {
-  if (Array.isArray(v)) {
-    const last = path[path.length - 1];
-    v.forEach((x, i) => {
-      if (typeof x === 'string' && last === 'tones') out.push({ path: pathText([...path, i]), role: x });
-      else rolesIn(x, [...path, i], out);
-    });
-  } else if (v && typeof v === 'object') {
-    for (const [k, x] of Object.entries(v)) {
-      const inColours = path[path.length - 1] === 'colours';
-      if (typeof x === 'string' && (k === 'role' || k.endsWith('Role') || k === 'separation' || inColours)) out.push({ path: pathText([...path, k]), role: x });
-      else rolesIn(x, [...path, k], out);
-    }
   }
 }
 
@@ -243,19 +228,21 @@ export function checkEffect(input: unknown, opts: CheckOptions = {}): CheckResul
   };
   for (const id of byId.keys()) visit(id, []);
 
-  // Colour roles.
+  // Colour roles: every colour each layer can use (layerColours): the roles its fields name, the ones its kind draws
+  // without naming them (the ink outline, a white first step, the broken edge) and its gradient's stops. A glow, smoke, a
+  // fire's bed or a burst may take its colours from a gradient: the gradient must be in the palette.
   if (opts.palette) {
-    const known = new Set(roleNames(opts.palette));
+    const palette = opts.palette;
+    const known = new Set(roleNames(palette));
     if (!known.has(fx.controls.colour)) err('role', 'controls.colour', `"${fx.controls.colour}" is not a role in the palette`);
     fx.layers.forEach((l, i) => {
-      const found: { path: string; role: string }[] = [];
-      rolesIn(l, ['layers', i], found);
-      for (const r of found) if (r.role !== MAIN_ROLE && !known.has(r.role)) err('role', r.path, `"${r.role}" is not a role in the palette`);
-      // A glow, smoke, a fire's bed or a burst may take its colours from a gradient: it must be in the palette.
-      const gradient = l.type === 'burst' ? { name: l.gradient, path: `layers[${i}].gradient` }
-        : l.type === 'shape' && (l.shape.kind === 'glow' || l.shape.kind === 'smoke' || l.shape.kind === 'bed') ? { name: l.shape.gradient, path: `layers[${i}].shape.gradient` }
-          : undefined;
-      if (gradient?.name && !opts.palette!.gradients?.[gradient.name]) err('gradient', gradient.path, `"${gradient.name}" is not a gradient in the palette`);
+      const used = layerColours(l, { index: i, main: fx.controls.colour, palette });
+      for (const c of used.colours) {
+        // "main" is the main colour, checked once above. A stop given as a hex is no palette colour.
+        if (c.role === undefined || c.why === 'main' || known.has(c.role)) continue;
+        err('role', c.path, c.why === 'field' ? `"${c.role}" is not a role in the palette` : `"${c.role}" is not a role in the palette: "${l.name}" needs it for ${c.note}`);
+      }
+      for (const g of used.gradients) if (!palette.gradients?.[g.name]) err('gradient', g.path, `"${g.name}" is not a gradient in the palette`);
     });
   }
 

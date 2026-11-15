@@ -2,7 +2,7 @@
  * The runtime's core: pure TypeScript, no three.js. It works out what to draw; the three.js part draws it.
  */
 export { evaluate, stepIndex, shownTime, groupOf, frameFor } from './evaluate';
-export type { CameraBasis, EvalContext, EvalResult, UvRect } from './evaluate';
+export type { CameraBasis, EvalContext, EvalResult, NotDrawn, UvRect } from './evaluate';
 export { resolveTimeline, stepMs, holdSteps, inputPoint, flightPoint, flightDirection, phaseProgress } from './timeline';
 export type { EffectInputs, Flight, LayerSpan, PhaseSpan, Timeline } from './timeline';
 export { applyControls } from './controls';

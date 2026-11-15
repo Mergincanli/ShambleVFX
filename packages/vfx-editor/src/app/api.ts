@@ -4,6 +4,7 @@ import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
 import type { Budgets, CostMetric, CostReport } from '../cost/measure';
 import type { Path } from '../doc/edits';
+import type { NotDrawnNote } from '../doc/not-drawn';
 
 export interface EditOptions {
   label?: string;
@@ -28,6 +29,11 @@ export interface AppApi {
   timeline(): Timeline | undefined;
   /** The checker's problems for the current effect. */
   problems(): Problem[];
+  /**
+   * The layers of the current effect the preview could not draw at the moment shown (the last frame), and why, in plain
+   * words: an image that did not load, or one that is not in the project. A layer the tier leaves out gets no note.
+   */
+  layersNotDrawn(): NotDrawnNote[];
   importImages(): void;
 
   /** Show the preview (and the colours) for another faction. */

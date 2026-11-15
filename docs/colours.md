@@ -71,3 +71,18 @@ gives a hot rim and a dark middle.
 In the editor, only a glow has a gradient choice so far. For smoke, the bed and bursts, a gradient already named in the file
 shows as a plain text box; the choice comes with the new UI. Without a gradient each layer uses its own colours, as before.
 The exact rules are in [format.md](format.md).
+
+## The colours an effect uses
+
+A layer uses the colours its fields name, and a few it draws without naming them:
+
+- the black ink outline, `ink`: on stars, flashes, clouds and fires with an ink edge, and on rings, trails, words and the pieces
+  of a burst;
+- `white`, for a star's white first step;
+- `heat.rim`, for the broken edge your own team's stars, flashes and clouds get;
+- the stops of the gradient it names. A stop given as a fixed colour is not a palette colour: it is listed as that hex.
+
+The checker knows this list, for every made-by, tier and faction, so it names a colour the palette lacks and what needs it,
+for example: `"ink" is not a role in the palette: "Burst" needs it for the black ink outline`. A test checks the list against
+the runtime itself: every colour the runtime asks the palette for is on it. The list is `layerColours` and `effectColours`
+in `@shamble/vfx-format/validate`.
