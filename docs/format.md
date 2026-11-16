@@ -110,14 +110,20 @@ if it had no gradient. What the gradient runs along:
   the rounds' edges show through each other, and billows behind show through (as with a layer's `alpha`). For smoke that
   thins without those marks, use colours only, as the default `smoke.lighten` does ([colours.md](colours.md)). Where the
   alpha is 0 the puff is not drawn at all.
-- **bed**: from the middle (0) to the rim (1), as on a glow, so one gradient looks the same on a glow and on a bed. A place
-  on the bed is its distance from the middle, divided by the bed's radius, so a stop at 0.5 is halfway out. The gradient
-  takes the place of the tones' colours (`tones` stay, and count when there is no gradient).
+- **bed**: from the middle (0) to the rim (1), as on a glow: the first stop is the hot middle, the last one the rim. The
+  gradient takes the place of the tones' colours (`tones` stay, and count when there is no gradient). The bed is drawn in
+  bands of lumps, and the bands do not share one middle: each band in sits a tenth of the bed's radius nearer the camera
+  than the one round it, so the hot middle sits low, in front, as the tones have always drawn it. A band never sits nearer
+  the camera by as much as its own reach, so every band still reaches past the bed's middle. A place on a band is its
+  distance from that band's own middle, divided by the bed's radius. So a stop at 0.5 is about halfway out, not exactly:
+  with the default `fire.bed`, the edge at 0.5533… lies 0.35 of the radius behind the bed's middle and 0.75 in front of it.
   - **Banded**: one band of lumps per stop. A stop's colour holds from its place out to the next stop: the last stop's band
-    reaches the rim, and the first stop's band reaches the very middle, wherever its stop is (as a glow draws it). So the
-    band edges sit at the stops: a band's lumps reach out to the next stop (on average). A band with no room is left out
-    (two stops at one place, or a stop at 1). Each stop is a band of lumps, so every stop adds triangles: the checker warns
-    when a bed's banded gradient has more than 8 stops (an assumed limit).
+    reaches the rim, and the first stop's band reaches out from its own middle, wherever its stop is (as a glow draws it).
+    So the band edges sit at the stops: a band's lumps reach out to the next stop (on average). A band with no room is left
+    out (two stops at one place, or a stop at 1). Each stop is a band of lumps, so every stop adds triangles: the checker
+    warns when a bed's banded gradient has more than 8 stops (an assumed limit). With many stops the inner bands are small
+    and have few lumps, so the next band can show at the very middle between them (with eight even stops, the second band
+    shows there, and the first stop's band sits just in front of it).
   - **Smooth**: the bed keeps its own bands: one band of lumps per tone, in the places they have without a gradient. Each
     point takes the gradient's colour at its place, kept between where its band starts and where the next band in takes
     over. So the colours blend from the middle out, and the middle still cools when the inner bands go out. The stops do
@@ -130,7 +136,11 @@ if it had no gradient. What the gradient runs along:
     Molotov's four tones that is `heat.3` at 0, `heat.2` at 0.33, `heat.1` at 0.5533… and `heat.dark` at 0.7766… Such a
     gradient draws today's bed; with the stops rounded to four decimals, the bands of the Molotov's bed move by less than a
     tenth of a millimetre.
-  - A stop's alpha makes its band see-through.
+  - A stop's alpha makes only its band's fill see-through. The lines round the band's lumps stay solid (the heavy ink, or
+    the fire's own line, round the rim band; the dark line round the others), and so do the detail's halftone and brush
+    strokes on it, which take the next band's colour and that band's alpha. So a band whose stop is at alpha 0 is not a
+    soft fade as on a glow: its lumps' outlines, halftone and strokes still show, with nothing inside them. For a bed that
+    fades at the rim, use darker colours there rather than alpha.
 - **burst**: each piece's colour over its own life, from its birth (0) to its end (1) (see the burst layer below).
 
 ## Burst layer (`"type": "burst"`)

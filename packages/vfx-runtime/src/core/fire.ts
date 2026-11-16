@@ -54,19 +54,34 @@ interface Lump { x: number; y: number; rx: number; ry: number; a: number; i: num
 interface Band { rho: number; r0: number; z: number; c?: RGBA; g?: GradientRamp; lo: number; hi: number }
 
 /**
+ * How far a band may sit towards the camera, as a share of its own reach: less than all of it, so the band still reaches
+ * past the bed's middle (where its lumps reach, on average), as a glow's middle colour holds the middle. The four tones'
+ * innermost band sits 0.3 of the radius forward with a reach of 0.33 (0.91 of it), so beds of up to four bands keep their
+ * places. Assumed.
+ */
+const BAND_SHIFT_MOST = 0.92;
+
+/** A band's shift towards the camera (in tenths of the radius), kept to BAND_SHIFT_MOST of its reach (`hi`). */
+function heldShift(z: number, hi: number): number {
+  return Math.min(z, 10 * BAND_SHIFT_MOST * hi);
+}
+
+/**
  * The bed's bands, rim first.
  * - Tones, or a smooth gradient: one band per tone, in the places the bands have always had. A smooth gradient keeps
  *   that layout and blends its colours over it, from the middle out.
  * - A banded gradient: one band per stop. A stop's colour holds from its place out to the next stop (the last stop's to
  *   the rim; the first stop's from the very middle), so the band edges sit at the stops. A band with no room (two stops
  *   at one place, a stop at the rim) is left out.
+ * Each band in sits a tenth of the radius nearer the camera than the last, but never by so much that it leaves the middle
+ * (heldShift): with many bands, the inner ones move back towards the middle, still each inside the last.
  */
 export function bedBands(sp: BedShape, ctx: DrawCtx): Band[] {
   const g = sp.gradient ? ctx.gradient?.(sp.gradient) : undefined;
   if (!g?.banded) {
     const K = sp.tones.length;
     const out = sp.tones.map((role, k): Band => ({ rho: 0.76 - 0.58 * (K > 1 ? k / (K - 1) : 0), r0: 0.24 - 0.03 * k, z: k, ...(g ? { g } : { c: ctx.rgba(role) }), lo: 0, hi: 0 }));
-    out.forEach((b, k) => { b.hi = b.rho + b.r0; b.lo = k + 1 < K ? out[k + 1]!.rho + out[k + 1]!.r0 : 0; });
+    out.forEach((b, k) => { b.hi = b.rho + b.r0; b.lo = k + 1 < K ? out[k + 1]!.rho + out[k + 1]!.r0 : 0; b.z = heldShift(b.z, b.hi); });
     return out;
   }
   const s = g.stops, out: Band[] = [];
@@ -78,7 +93,7 @@ export function bedBands(sp: BedShape, ctx: DrawCtx): Band[] {
     // Lumps as tones would have them, but never more than 0.6 of the band's reach; a band shifts towards the camera by
     // less when its edge is close to the last one's, so it stays inside it.
     const r0 = Math.min(Math.max(0.03, 0.24 - 0.03 * k), 0.6 * hi);
-    if (k) z += Math.min(1, 9 * (last - hi));
+    if (k) z = heldShift(z + Math.min(1, 9 * (last - hi)), hi);
     out.push({ rho: hi - r0, r0, z, c: s[j]!.c, lo, hi });
     last = hi;
   }
@@ -184,11 +199,15 @@ export function drawBed(sp: BedShape, ctx: DrawCtx): void {
     }
   }
   // White-hot spots low in the middle, while the whole bed burns: more of the middle band, reaching towards the camera.
+  // They stay on the middle band: a spot's centre at most 0.85 of the band's reach from the band's centre, a spot at most
+  // half that reach across. The spots of up to four tones are inside both already, so they do not move.
   if (sp.part === 'lumps' && bands === K) {
-    const b = all[K - 1]!, z = -R * 0.1 * b.z;
+    const b = all[K - 1]!, z = -R * 0.1 * b.z, reach = R * b.hi;
     for (let m = 0; m < 3; m++) {
-      const gx = (ctx.rnd(70, m) - 0.5) * R * 0.32, gz = -R * (0.24 + 0.14 * ctx.rnd(71, m));
-      const r = R * (0.1 + 0.04 * ctx.rnd(72, m)) * (1 + 0.1 * Math.sin(boil * 2 + m));
+      let gx = (ctx.rnd(70, m) - 0.5) * R * 0.32, gz = -R * (0.24 + 0.14 * ctx.rnd(71, m));
+      const off = Math.hypot(gx, gz - z), most = 0.85 * reach;
+      if (off > most) { gx *= most / off; gz = z + (gz - z) * (most / off); }
+      const r = Math.min(R * (0.1 + 0.04 * ctx.rnd(72, m)) * (1 + 0.1 * Math.sin(boil * 2 + m)), 0.5 * reach);
       const y = gz * t.sa + 0.1 * t.ua;
       // A smooth gradient colours them by place as well, so they blend into the middle as a tone's do.
       if (b.c) ctx.p.disc(gx, y, r, r * 0.6, b.c, 16);

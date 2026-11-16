@@ -122,9 +122,13 @@ fire's bed read it that way):
   it. The speed streak and the ink edge keep their colours. The gradient's alpha fades the whole piece. Sparks that cool
   from white to dark red, then vanish, are one gradient.
 
-A glow and the fire's bed read a gradient the same way, from the middle out: one gradient looks the same on both, and the
-picker's round preview shows how both draw it. The ready-made **Banding** starts hot, so on a bed it gives a hot middle and
-a darker rim, as on a glow.
+A glow and the fire's bed read a gradient the same way round, from the middle out, and the picker's round preview shows
+that order: the ready-made **Banding** starts hot, so on a bed it gives a hot middle and a darker rim, as on a glow. The bed
+does not draw it as rings round one point, though: its bands of lumps sit a little nearer the camera the further in they
+are (the hot middle sits low, in front, as before), and a stop's alpha fades only its band's fill, while the lines round the
+lumps and the halftone stay solid. So a gradient that fades out at the rim, such as **Soft fade**, fades on a glow but
+leaves outlined, empty lumps on a bed: for a bed, a darker rim works better than a see-through one
+([format.md](format.md) has the details).
 
 In the editor, only a glow has a gradient choice so far. For smoke, the bed and bursts, a gradient already named in the file
 shows as a plain text box; the choice comes with the new UI. Without a gradient each layer uses its own colours, as before.

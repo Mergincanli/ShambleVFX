@@ -306,13 +306,27 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   detail layer with every lumps layer. An effect with two separate fires may get a warning it does not need.
 - **How the runtime draws gradients on the bed** (the direction, from the middle to the rim, one band per stop when banded
   and the bed's own bands when smooth, are decided; these details are ours):
-  - A place on the bed is its distance from the middle, divided by the bed's radius. A band's edge is where its lumps reach
-    on average. The first stop's colour holds from the very middle, wherever the stop is (as a glow draws it).
+  - A place on a band is its distance from that band's own middle, divided by the bed's radius. A band's edge is where its
+    lumps reach on average. The first stop's colour holds from the middle of its band, wherever the stop is (as a glow
+    draws it).
+  - Each band in sits a tenth of the radius nearer the camera than the one round it, as the tones' bands always have,
+    but never by more than 0.92 of its own reach, so every band still reaches past the bed's middle. Beds of up to four
+    bands (the Molotov's, and the default `fire.bed`) draw exactly as before; with more bands, the inner ones move back
+    towards the middle (before, a bed of eight stops put its first stop's band at the front rim). With many stops the
+    inner bands have few, small lumps, so the next band can still show at the very middle between them.
+  - The white-hot spots stay on the middle band: a spot's centre at most 0.85 of the band's reach from the band's
+    middle, a spot at most half that reach across. The spots of up to four bands are inside both already, so they do not
+    move.
   - On a smooth gradient each point takes the colour of its place, kept inside its band, so the middle still cools first.
     The detail's halftone takes the next band's colour (smooth: halfway into it). The white-hot spots are more of the middle
     band (smooth: coloured by place).
   - Lumps are never more than 0.6 of a band, and bands close together shift towards the camera less, so each stays inside
-    the last. A stop's alpha makes its band see-through.
+    the last.
+  - A stop's alpha makes only its band's fill see-through: the lines round its lumps, and the detail's halftone and
+    brush strokes on it (in the next band's colour and alpha), stay solid, so a band at alpha 0 shows outlined, empty
+    lumps rather than fading as a glow does. Open question for Mustafa: should the lines and the detail fade with the
+    stop too, or should a bed's bands stay solid whatever the stop's alpha (as the tones are)? Part B freezes the
+    runtime, so the answer is needed before then.
   - The checker warns when a bed's banded gradient has more than 8 stops (each stop is a band of lumps): 8 is our guess,
     twice the four tones a bed starts with.
   - No new format version for turning the bed's gradient round: version 5 had been pushed the same day, no example or

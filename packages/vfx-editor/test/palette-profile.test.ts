@@ -247,7 +247,9 @@ describe('the default profiles', () => {
       evaluate(fx, ctx, sink);
       return sink;
     };
-    let worstPos = 0, compared = 0;
+    // The worst difference over every vertex is checked once (one expect per number made this test take half its time
+    // limit). A NaN anywhere makes the worst NaN, which fails the check too.
+    let worstPos = 0, worstCol = 0, compared = 0;
     for (const t of [120, 600, 1500, 2300, 3200, 3800]) for (const relation of ['enemy', 'team'] as const) {
       const a = drawn(tones, t, relation), b = drawn(graded, t, relation);
       expect(b.triangles, `${t} ms`).toBe(a.triangles);
@@ -256,7 +258,7 @@ describe('the default profiles', () => {
         const A = a.groups[grp], B = b.groups[grp];
         expect(B.vcount).toBe(A.vcount);
         for (let i = 0; i < A.vcount * 4; i++) {
-          expect(Math.abs(A.col[i]! - B.col[i]!)).toBeLessThan(1e-6);
+          worstCol = Math.max(worstCol, Math.abs(A.col[i]! - B.col[i]!));
           worstPos = Math.max(worstPos, Math.abs(A.pos[i]! - B.pos[i]!));
         }
         expect(Array.from(B.idx.slice(0, B.icount))).toEqual(Array.from(A.idx.slice(0, A.icount)));
@@ -264,6 +266,7 @@ describe('the default profiles', () => {
       }
     }
     expect(compared).toBeGreaterThan(1000);
+    expect(worstCol).toBeLessThan(1e-6);
     expect(worstPos).toBeLessThan(0.001);
     // The gradient was drawn: its rounded places move a band by a hair (without it, the picture would be the same to the bit).
     expect(worstPos).toBeGreaterThan(0);

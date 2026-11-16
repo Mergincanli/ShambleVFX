@@ -35,6 +35,9 @@ const palette: Palette = {
     'test.smooth': smooth(hexStop(0, '#FF00FF'), hexStop(1, '#00FF00')),
     'test.bands': banded(hexStop(0, '#FF0000'), hexStop(0.4, '#00FF00'), hexStop(0.7, '#0000FF')),
     'test.half': smooth(hexStop(0, '#00FF00', 0.5), hexStop(1, '#00FF00', 0.5)),
+    'test.inner.half': banded(hexStop(0, '#FF0000', 0.5), hexStop(0.5, '#00FF00')),
+    'test.eight': banded(...['#FF0000', '#FF8800', '#FFFF00', '#00C000', '#00FFFF', '#0000FF', '#8800FF', '#FF00FF'].map((hex, k) => hexStop(k / 8, hex))),
+    'test.five': banded(...[0, 0.2, 0.45, 0.7, 0.88].map((at, k) => hexStop(at, ['#FF0000', '#FF8800', '#FFFF00', '#00C000', '#0000FF'][k]!))),
     'test.gone': smooth(hexStop(0, '#00FF00'), hexStop(0.5, '#00FF00', 0), hexStop(1, '#00FF00', 0)),
     'test.team': banded({ at: 0, role: 'team' }, hexStop(0.5, '#00FF00')),
     'test.opaque': smooth(hexStop(0, '#FF00FF'), hexStop(1, '#00FFFF')),
@@ -235,6 +238,22 @@ describe('bursts coloured by a gradient over each piece life', () => {
     expect(want.size).toBeGreaterThan(3);
   });
 
+  it('colours each piece over its own life: pieces that live longer change colour more slowly', () => {
+    const fx = burst((l) => { l.gradient = 'test.smooth'; l.lifeMs = [300, 900]; });
+    const l = fx.layers[0] as BurstLayer;
+    const from = parseHex('#FF00FF').map((v) => v / 255), to = parseHex('#00FF00').map((v) => v / 255);
+    // Each piece's life is picked from random stream 61, between the two ends of lifeMs.
+    const seed = layerSeed(l, 7);
+    const lives = Array.from({ length: l.count }, (_, i) => 300 + 600 * random01(seed, 61, i));
+    expect(new Set(lives.map((x) => Math.round(x))).size).toBe(l.count);
+    for (const t of [100, 250, 450, 700]) {
+      const want = new Set([rgb('ink')]);
+      for (const life of lives) if (t <= life) want.add(mix(from, to, t / life));
+      expect(want.size, `${t} ms`).toBeGreaterThan(2);
+      expect(colours(drawn(fx, ctx(t))), `${t} ms`).toEqual(want);
+    }
+  });
+
   it('fades the whole piece with the gradient alpha: fill, ink edge and speed streak', () => {
     const fx = burst((l) => { l.gradient = 'test.half'; l.streak = { role: 'heat.3', lengthM: 0.4, widthPx: 4 }; });
     const c = colours(drawn(fx, ctx(150)));
@@ -425,6 +444,22 @@ describe("the fire's bed coloured by a gradient from the middle to the rim", () 
     expect(new Set(fills.map((x) => x.rgba[3]!.toFixed(3)))).toEqual(new Set(['0.500']));
   });
 
+  it("takes a banded stop's alpha into its band: its fills, and the detail's halftone and strokes in its colour", () => {
+    // Rim first: green (solid) from 0.5 out to the rim, red (half see-through) from the middle out to 0.5.
+    const graded = (part: 'lumps' | 'detail') => bed((s) => { s.part = part; s.gradient = 'test.inner.half'; });
+    const lumps = vertices(drawn(graded('lumps'), ctx(FULL)));
+    const red = (x: { c: string }) => x.c.startsWith(rgb('#FF0000').slice(0, 17)), green = (x: { c: string }) => x.c.startsWith(rgb('#00FF00').slice(0, 17));
+    expect(lumps.filter(red).length).toBeGreaterThan(100);
+    expect(new Set(lumps.filter(red).map((x) => x.rgba[3]!.toFixed(3)))).toEqual(new Set(['0.500']));
+    expect(new Set(lumps.filter(green).map((x) => x.rgba[3]!.toFixed(3)))).toEqual(new Set(['1.000']));
+    // The detail: the green band's halftone is the next band's colour, red, as see-through as its stop; so are the strokes.
+    const detail = vertices(drawn(graded('detail'), ctx(FULL, { dot: { u0: 0.6, v0: 0.6, u1: 0.7, v1: 0.7 } })));
+    const dots = detail.filter((x) => red(x) && x.u >= 0.6 && x.u <= 0.7), strokes = detail.filter((x) => red(x) && x.u === WHITE_U);
+    expect(dots.length).toBeGreaterThan(20);
+    expect(strokes.length).toBeGreaterThan(20);
+    expect(new Set([...dots, ...strokes].map((x) => x.rgba[3]!.toFixed(3)))).toEqual(new Set(['0.500']));
+  });
+
   it('follows the faction for a team stop', () => {
     const fx = bed((s) => { s.gradient = 'test.team'; });
     for (const faction of ['soviets', 'allies', 'empire'] as const) expect(colours(drawn(fx, ctx(FULL, { faction })))).toContain(rgb('team', 1, faction));
@@ -444,6 +479,65 @@ describe("the fire's bed coloured by a gradient from the middle to the rim", () 
         expect(Number.isFinite(b.z)).toBe(true);
         if (j) expect(0.1 * (b.z - bands[j - 1]!.z) + b.rho + b.r0).toBeLessThanOrEqual(bands[j - 1]!.rho + bands[j - 1]!.r0 + 1e-12);
       });
+    }
+  });
+
+  it("keeps the middle inside the first stop's band: a band never sits towards the camera by its whole reach", () => {
+    const sp = shapeOf(bed((s) => { s.gradient = 'x'; }));
+    const even = (n: number) => Array.from({ length: n }, (_, k) => k / n);
+    for (const ats of [even(2), even(3), even(4), even(5), [0, 0.2, 0.45, 0.7, 0.88], even(6), even(8), even(16), [0, 0.02, 0.5], [0.3, 0.6, 1]]) {
+      const bands = bedBands(sp, withRamp(true, ats));
+      // The first stop's band, the last in the list, reaches out from the very middle; it sits nearer the camera than the
+      // middle by less than its reach, so it still covers the middle (as on a glow). So does every other band.
+      expect(bands[bands.length - 1]!.lo).toBe(0);
+      bands.forEach((b, k) => expect(0.1 * b.z, `${ats.length} stops, band ${k}`).toBeLessThan(b.hi));
+    }
+    // Tones: up to four keep their places (band k sits k tenths of the radius towards the camera); more are held the same way.
+    for (let K = 1; K <= 8; K++) {
+      const bands = bedBands({ ...sp, gradient: undefined, tones: Array<string>(K).fill('heat.1') }, withRamp(false, [0, 1]));
+      bands.forEach((b, k) => {
+        if (K <= 4) expect(b.z).toBe(k);
+        expect(0.1 * b.z, `${K} tones, band ${k}`).toBeLessThan(b.hi);
+      });
+    }
+  });
+
+  /** The white-hot spots: the last three discs the lumps draw (16 round a centre each), with their centres. */
+  const hotSpots = (sink: DrawSink) => {
+    const vs = vertices(sink);
+    return [0, 1, 2].map((m) => {
+      const disc = vs.slice(vs.length - 51 + 17 * m, vs.length - 34 + 17 * m);
+      const [x, y] = flat(disc[0]!.pos);
+      return { x, y, colours: new Set(disc.map((v) => v.c)) };
+    });
+  };
+
+  it('puts the white-hot spots on the middle band, whatever the stops: one flat colour when banded', () => {
+    const R = shapeOf(bed(() => undefined)).radiusM;
+    for (const [gradient, ats, first] of [['test.bands', [0, 0.4, 0.7], '#FF0000'], ['test.five', [0, 0.2, 0.45, 0.7, 0.88], '#FF0000'], ['test.eight', Array.from({ length: 8 }, (_, k) => k / 8), '#FF0000']] as const) {
+      const fx = bed((s) => { s.gradient = gradient; });
+      const inner = bedBands(shapeOf(fx), withRamp(true, [...ats])).at(-1)!;
+      for (const seed of [1, 7, 11]) {
+        const sink = drawn(fx, ctx(FULL, { seed }));
+        // The middle band's base oval: the first disc in its colour (its lines come before it, in other colours).
+        const mid = vertices(sink).find((v) => v.c === rgb(first))!;
+        const [cx, cy] = flat(mid.pos);
+        for (const spot of hotSpots(sink)) {
+          expect(spot.colours, `${gradient}, seed ${seed}`).toEqual(new Set([rgb(first)]));
+          expect(Math.hypot(spot.x - cx, spot.y - cy), `${gradient}, seed ${seed}`).toBeLessThan(inner.hi * R);
+        }
+      }
+    }
+  });
+
+  it('colours the white-hot spots by place when smooth, so they blend into the middle', () => {
+    for (const gradient of ['test.ramp', 'test.smooth']) {
+      const spots = hotSpots(drawn(bed((s) => { s.gradient = gradient; }), ctx(FULL)));
+      for (const spot of spots) expect(spot.colours.size, gradient).toBeGreaterThan(3);
+    }
+    // On test.ramp every colour lies on the gradient (no red), towards its blue middle.
+    for (const spot of hotSpots(drawn(bed((s) => { s.gradient = 'test.ramp'; }), ctx(FULL)))) {
+      for (const c of spot.colours) expect(c.startsWith('0.000,')).toBe(true);
     }
   });
 
