@@ -7,8 +7,9 @@ export const DEFAULT_STEPS_PER_SECOND = 12;
 
 /**
  * The letters drawn so far in our own block alphabet: A to Z and !. All are from drawing board v7, except J, Q, V, X
- * and Y: Shamble VFX drew those in the board's style, and they wait for the Art lead's review. Other characters are
- * left out of a word.
+ * and Y: Shamble VFX drew those in the board's style, and they wait for the Art lead's review. A space in a word is not a
+ * letter but a gap between two letters (vfx-runtime's drawWord). Other characters are left out of a word, and the checker
+ * warns about them.
  */
 export const WORD_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ!';
 

@@ -550,8 +550,9 @@ export interface SoundWord {
 export interface WordLayer extends VisibleCommon {
   type: 'word';
   /**
-   * One is picked per play, from the seed. Drawn in capitals; characters other than A to Z and ! are left out (the checker
-   * warns).
+   * One is picked per play, from the seed. Drawn in capitals. A space between two letters is a gap (spaces before the
+   * first letter or after the last add nothing); other characters than A to Z, ! and the space are left out, and the
+   * checker warns about them.
    */
   words: SoundWord[];
   /** Letter height in px on a 1080p screen, at full size. */

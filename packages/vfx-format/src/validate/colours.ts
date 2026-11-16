@@ -172,6 +172,7 @@ export function layerColours(layer: Layer, opts: ColourOptions = {}): ColourList
     const g = opts.palette?.gradients?.[gname];
     if (g && Array.isArray(g.stops)) {
       g.stops.forEach((s, k) => {
+        if (!s || typeof s !== 'object') return; // not a stop: checkPalette names it
         const note = `stop ${k + 1} of the gradient "${gname}"`;
         const at = { path, gradient: gname, stop: k + 1 };
         if (s.role === MAIN_ROLE) add({ role: main, why: 'main', note: `${note}: the effect's main colour`, ...at });

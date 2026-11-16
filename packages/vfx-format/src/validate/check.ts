@@ -103,9 +103,16 @@ function issueText(iss: core.$ZodIssue): string {
   }
 }
 
-/** A percent for a message: whole numbers as they are, others to two decimals at most (120, 33.33). */
-function percent(v: number): string {
-  return String(Math.round(v * 100) / 100);
+/**
+ * A percent for a message: whole numbers as they are, others to two decimals at most (120, 33.33). A total that is `over`
+ * 100 gets as many decimals as it takes to show that (100.002), so a message never calls such a total 100.
+ */
+function percent(v: number, over = false): string {
+  for (let d = 2; d <= 12; d++) {
+    const s = String(Math.round(v * 10 ** d) / 10 ** d);
+    if (!over || Number(s) > 100) return s;
+  }
+  return String(v);
 }
 
 /**
@@ -115,7 +122,7 @@ function percent(v: number): string {
  */
 function chanceWarnings(l: WordLayer, at: string, warn: (path: string, message: string) => void): void {
   const t = chanceTotal(l.words);
-  if (t.over) warn(`${at}.words`, `"${l.name}": the chances add up to ${percent(t.total)} %: they are scaled down to 100 %`);
+  if (t.over) warn(`${at}.words`, `"${l.name}": the chances add up to ${percent(t.total, true)} %: they are scaled down to 100 %`);
   const shares = wordShares(l.words);
   l.words.forEach((w, j) => {
     if (w.chance === 0) warn(`${at}.words[${j}].chance`, `"${w.text}" has a 0 % chance, so it never shows`);

@@ -74,10 +74,10 @@ export function resolveGradient(palette: Palette, name: string, faction: Faction
   return { kind: g.kind, stops };
 }
 
-/** Every role an effect file may name (shared roles and faction roles), sorted. */
+/** Every role an effect file may name (shared roles and faction roles), sorted. A part the palette lacks gives none. */
 export function roleNames(palette: Palette): string[] {
-  const names = new Set<string>(Object.keys(palette.roles));
-  for (const f of FACTION_IDS) for (const r of Object.keys(palette.factions[f]?.roles ?? {})) names.add(r);
+  const names = new Set<string>(Object.keys(palette?.roles ?? {}));
+  for (const f of FACTION_IDS) for (const r of Object.keys(palette?.factions?.[f]?.roles ?? {})) names.add(r);
   return [...names].sort();
 }
 
@@ -104,40 +104,59 @@ export function srgbToLinear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }
 
-/** Problems with the palette itself, in plain words. Empty when it is fine. */
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Problems with the palette itself, in plain words. Empty when it is fine. It reads anything (a palette file can be written
+ * by hand): a part that is missing, empty or not an object is named, never a reason to throw.
+ */
 export function checkPalette(palette: Palette): string[] {
   const out: string[] = [];
-  if (!palette || typeof palette !== 'object' || !palette.factions || !palette.roles) return ['not a palette: it needs "factions" and "roles"'];
+  const raw = palette as unknown;
+  if (!isObject(raw) || !isObject(raw.factions) || !isObject(raw.roles)) return ['not a palette: it needs "factions" and "roles"'];
   if (palette.version !== PALETTE_VERSION) out.push(`palette version ${String(palette.version)} is not ${PALETTE_VERSION} (read it with upgradePalette first)`);
+  const rolesOf = (f: FactionId): Record<string, unknown> | undefined => {
+    const fac = palette.factions[f] as unknown;
+    return isObject(fac) && isObject(fac.roles) ? fac.roles : undefined;
+  };
   const first = FACTION_IDS[0]!;
-  const want = Object.keys(palette.factions[first]?.roles ?? {}).sort().join(',');
+  const want = Object.keys(rolesOf(first) ?? {}).sort().join(',');
   for (const f of FACTION_IDS) {
-    const fac = palette.factions[f];
+    const fac = palette.factions[f] as unknown;
     if (!fac) { out.push(`faction ${f} is missing`); continue; }
-    const have = Object.keys(fac.roles).sort().join(',');
+    if (!isObject(fac)) { out.push(`faction ${f} is not a faction: it needs "name" and "roles"`); continue; }
+    const own = rolesOf(f);
+    if (!own) { out.push(`faction ${f} has no "roles"`); continue; }
+    const have = Object.keys(own).sort().join(',');
     if (have !== want) out.push(`faction ${f} has roles [${have}], but ${first} has [${want}]: every faction needs the same roles`);
-    for (const [r, e] of Object.entries(fac.roles)) {
-      if (!HEX.test(e.hex)) out.push(`${f}.${r}: "${e.hex}" is not a #RRGGBB colour`);
+    for (const [r, e] of Object.entries(own)) {
+      if (!isObject(e)) { out.push(`${f}.${r}: is not a colour (it needs "hex")`); continue; }
+      if (!HEX.test(e.hex as string)) out.push(`${f}.${r}: "${e.hex}" is not a #RRGGBB colour`);
       if (palette.roles[r]) out.push(`role ${r} is both a faction role and a shared role`);
     }
   }
-  for (const [r, e] of Object.entries(palette.roles)) {
-    if (!HEX.test(e.hex)) out.push(`${r}: "${e.hex}" is not a #RRGGBB colour`);
+  for (const [r, e] of Object.entries(palette.roles as Record<string, unknown>)) {
+    if (!isObject(e)) { out.push(`${r}: is not a colour (it needs "hex")`); continue; }
+    if (!HEX.test(e.hex as string)) out.push(`${r}: "${e.hex}" is not a #RRGGBB colour`);
   }
+  const gradients = palette.gradients as unknown;
+  if (gradients !== undefined && gradients !== null && !isObject(gradients)) out.push('"gradients" must hold named gradients (an object)');
   const roles = new Set(roleNames(palette));
-  for (const [name, g] of Object.entries(palette.gradients ?? {})) {
+  for (const [name, g] of Object.entries(isObject(gradients) ? gradients : {})) {
     const at = `gradient ${name}`;
     if (!GRADIENT_NAME.test(name)) out.push(`${at}: the name must be lowercase words joined by dots, such as glow.ramp`);
+    if (!isObject(g)) { out.push(`${at}: is not a gradient (it needs "kind" and "stops")`); continue; }
     if (g.kind !== 'smooth' && g.kind !== 'banded') out.push(`${at}: kind must be "smooth" or "banded"`);
     if (!Array.isArray(g.stops) || g.stops.length < 2) { out.push(`${at}: needs at least two stops`); continue; }
     if (g.stops.length > 16) out.push(`${at}: has more than 16 stops`);
-    g.stops.forEach((s, i) => {
+    (g.stops as unknown[]).forEach((s, i) => {
       const where = `${at}, stop ${i + 1}`;
+      if (!isObject(s)) { out.push(`${where}: is not a stop (it needs "at" and a role or a hex)`); return; }
       if (typeof s.at !== 'number' || !(s.at >= 0 && s.at <= 1)) out.push(`${where}: "at" must be between 0 and 1`);
       if (s.alpha !== undefined && !(typeof s.alpha === 'number' && s.alpha >= 0 && s.alpha <= 1)) out.push(`${where}: alpha must be between 0 and 1`);
       if ((s.role === undefined) === (s.hex === undefined)) out.push(`${where}: give either a role or a hex`);
-      if (s.role !== undefined && !roles.has(s.role)) out.push(`${where}: "${s.role}" is not a role in the palette`);
-      if (s.hex !== undefined && !HEX.test(s.hex)) out.push(`${where}: "${s.hex}" is not a #RRGGBB colour`);
+      if (s.role !== undefined && !roles.has(s.role as string)) out.push(`${where}: "${s.role}" is not a role in the palette`);
+      if (s.hex !== undefined && !HEX.test(s.hex as string)) out.push(`${where}: "${s.hex}" is not a #RRGGBB colour`);
     });
   }
   return out;

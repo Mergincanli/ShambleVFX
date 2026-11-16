@@ -329,6 +329,43 @@ describe('version 3 -> 4, and gradients', () => {
     expect(resolveGradient(p, 'nothing', 'allies')).toBeUndefined();
   });
 
+  it('names a palette part that is missing, empty or not an object, and never throws on one', () => {
+    /** The built-in palette with one part changed. */
+    const broken = (edit: (p: Record<string, any>) => void) => {
+      const p = structuredClone(palette) as unknown as Record<string, any>;
+      edit(p);
+      return checkPalette(p as unknown as Palette);
+    };
+    expect(broken((p) => { delete p.factions.allies.roles; })).toEqual(['faction allies has no "roles"']);
+    expect(broken((p) => { p.factions.allies.roles = null; })).toEqual(['faction allies has no "roles"']);
+    expect(broken((p) => { p.factions.allies = 5; })).toEqual(['faction allies is not a faction: it needs "name" and "roles"']);
+    expect(broken((p) => { delete p.factions.empire; })).toEqual(['faction empire is missing']);
+    expect(broken((p) => { p.factions.soviets.roles.team = null; })).toEqual(['soviets.team: is not a colour (it needs "hex")']);
+    expect(broken((p) => { p.roles['heat.1'] = null; })).toEqual(['heat.1: is not a colour (it needs "hex")']);
+    expect(broken((p) => { p.roles.ink = 'black'; })).toEqual(['ink: is not a colour (it needs "hex")']);
+    expect(broken((p) => { p.gradients = { 'glow.ramp': null }; })).toEqual(['gradient glow.ramp: is not a gradient (it needs "kind" and "stops")']);
+    expect(broken((p) => { p.gradients = { 'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow' }, null] } }; }))
+      .toEqual(['gradient glow.ramp, stop 2: is not a stop (it needs "at" and a role or a hex)']);
+    expect(broken((p) => { p.gradients = 'glow.ramp'; })).toEqual(['"gradients" must hold named gradients (an object)']);
+    expect(broken((p) => { p.factions = []; })).toEqual(['not a palette: it needs "factions" and "roles"']);
+    expect(broken((p) => { p.roles = 'ink'; })).toEqual(['not a palette: it needs "factions" and "roles"']);
+    expect(checkPalette(null as unknown as Palette)).toEqual(['not a palette: it needs "factions" and "roles"']);
+  });
+
+  it('checks an effect against a broken palette without throwing: its roles are unknown, a stop that is not a stop is skipped', () => {
+    const fx = goodEffect();
+    const glow = newShapeLayer('glow', 'Glow', 'glow');
+    fx.layers = [...fx.layers, { ...glow, shape: { ...glow.shape, gradient: 'glow.ramp' } } as Layer];
+    const p = structuredClone(palette) as unknown as Record<string, any>;
+    delete p.roles;
+    p.factions = null;
+    p.gradients = { 'glow.ramp': { kind: 'smooth', from: 'mustafa', stops: [null, { at: 1, role: 'glow' }] } };
+    const m = messages(fx, { palette: p as unknown as Palette, images });
+    expect(m).toContain('controls.colour: "heat.2" is not a role in the palette');
+    expect(m.some((x) => x.includes('"glow" is not a role in the palette'))).toBe(true);
+    expect(roleNames(p as unknown as Palette)).toEqual([]);
+  });
+
   it('names a glow gradient the palette does not have', () => {
     const fx = newEffect('g', 'G');
     const glow = newShapeLayer('glow', 'Glow', 'glow');
@@ -406,6 +443,25 @@ describe('version 4 -> 5: words with chances, gradients on smoke, the bed and bu
       'warning: layers[0].words: "Sound word": the chances add up to 120 %: they are scaled down to 100 %',
       'warning: layers[0].words[2]: "POW" has no chance of its own, and the other words\' chances already reach 100 %, so it never shows',
     ]);
+  });
+
+  it('never says that chances over 100 % add up to 100 %: a total over by a hair gets the decimals that show it', () => {
+    const over = (total: string) => `warning: layers[0].words: "Sound word": the chances add up to ${total} %: they are scaled down to 100 %`;
+    // Thirds typed with three decimals, and other totals that two decimals would round to 100.
+    expect(withWords([{ text: 'BOOM', chance: 33.334 }, { text: 'BAM', chance: 33.334 }, { text: 'POW', chance: 33.334 }])).toEqual([over('100.002')]);
+    expect(withWords([{ text: 'BOOM', chance: 50.004 }, { text: 'BAM', chance: 50 }])).toEqual([over('100.004')]);
+    expect(withWords([{ text: 'BOOM', chance: 50.001 }, { text: 'BAM', chance: 50 }, { text: 'POW' }])).toEqual([
+      over('100.001'),
+      'warning: layers[0].words[2]: "POW" has no chance of its own, and the other words\' chances already reach 100 %, so it never shows',
+    ]);
+    // Just past the rounding allowed (a billionth): still more than 100.
+    const hair = withWords([{ text: 'BOOM', chance: 50.000000002 }, { text: 'BAM', chance: 50 }]);
+    expect(hair).toHaveLength(1);
+    expect(Number(/add up to ([\d.]+) %/.exec(hair[0]!)![1])).toBeGreaterThan(100);
+    // Ordinary totals keep two decimals at most.
+    expect(withWords([{ text: 'BOOM', chance: 50.01 }, { text: 'BAM', chance: 50 }])).toEqual([over('100.01')]);
+    expect(withWords([{ text: 'BOOM', chance: 50.35 }, { text: 'BAM', chance: 49.67 }])).toEqual([over('100.02')]);
+    expect(withWords([{ text: 'BOOM', chance: 66.666 }, { text: 'BAM', chance: 66.666 }])).toEqual([over('133.33')]);
   });
 
   it('names a word left with nothing when the others reach exactly 100 %', () => {
