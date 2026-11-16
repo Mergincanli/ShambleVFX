@@ -98,19 +98,19 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (515): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect
-byte for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 %
-shown with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every
-seed when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping
-chances; a space in a word drawn as a gap; the colours each layer can use, checked against the real runtime (every
-example drawn at 60 frames a second for every made-by and faction, each layer in a tier it shows in, and made-up layers
-of every kind, edge and gradient: the list holds every colour the runtime asks the palette for; a test holds the runtime
-to drawing a layer the same in each tier it shows in), and the checker naming one the palette lacks; the layers the
-runtime cannot draw, and why; palettes with gradients and their upgrade, and palettes with a part missing or empty named
-in plain words, never a crash; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's
-bed and bursts (colours at given ages and places, each burst piece over its own life, banded edges at the stops, a
-smooth gradient keeping the bed's own bands, alpha, a banded stop's alpha in its band and in the detail, faction roles,
-both bed parts on the same band edges, every band still covering the bed's middle, the white-hot spots on the middle
+The unit tests (515): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
+for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 % shown
+with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every seed
+when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances;
+a space in a word drawn as a gap; the colours each layer can use, checked against the real runtime (every example drawn
+at 60 frames a second for every made-by and faction, each layer in a tier it shows in, and made-up layers of every kind,
+edge and gradient: the list holds every colour the runtime asks the palette for; a test holds the runtime to drawing a
+layer the same in each tier it shows in), and the checker naming one the palette lacks; the layers the runtime cannot
+draw, and why; palettes with gradients and their upgrade, and palettes with a part missing or empty named in plain
+words, never a crash; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and
+bursts (colours at given ages and places, each burst piece over its own life, banded edges at the stops, a smooth
+gradient keeping the bed's own bands, alpha, a banded stop's alpha in its band and in the detail, faction roles, both
+bed parts on the same band edges, every band still reaching past the bed's middle, the white-hot spots on the middle
 band, and a banded gradient with the tones' band edges drawing today's bed exactly); the checker's warning for a bed's
 banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
 kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !,
@@ -323,11 +323,14 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     draws it).
   - Each band in sits a tenth of the radius nearer the camera than the one round it, as the tones' bands always have,
     but never by more than 0.92 of its own reach, so every band still reaches past the bed's middle. Beds of up to four
-    bands (the Molotov's, and the default `fire.bed`) draw exactly as before; with more bands, the inner ones move back
-    towards the middle (before, a bed of eight stops put its first stop's band at the front rim). With many stops the
-    inner bands have few, small lumps, so the next band can still show at the very middle between them.
+    tones (the Molotov's) and the default `fire.bed` draw exactly as before, and so does a smooth gradient over up to
+    four tones. A banded gradient changes where an inner band sat further forward than that: with five or more stops,
+    and with four even stops (the ready-made Banding); the inner bands move back towards the middle (before, a bed of
+    eight stops put its first stop's band at the front rim). Five to eight tones change the same way. With many stops
+    the inner bands have few, small lumps, so the next band can still show at the very middle between them (with eight
+    even stops, the second band shows there).
   - The white-hot spots stay on the middle band: a spot's centre at most 0.85 of the band's reach from the band's
-    middle, a spot at most half that reach across. The spots of up to four bands are inside both already, so they do not
+    middle, a spot at most half that reach across. The spots of up to four tones are inside both already, so they do not
     move.
   - On a smooth gradient each point takes the colour of its place, kept inside its band, so the middle still cools first.
     The detail's halftone takes the next band's colour (smooth: halfway into it). The white-hot spots are more of the middle

@@ -56,8 +56,9 @@ interface Band { rho: number; r0: number; z: number; c?: RGBA; g?: GradientRamp;
 /**
  * How far a band may sit towards the camera, as a share of its own reach: less than all of it, so the band still reaches
  * past the bed's middle (where its lumps reach, on average), as a glow's middle colour holds the middle. The four tones'
- * innermost band sits 0.3 of the radius forward with a reach of 0.33 (0.91 of it), so beds of up to four bands keep their
- * places. Assumed.
+ * innermost band sits 0.3 of the radius forward with a reach of 0.33 (0.91 of it), so beds of up to four tones and the
+ * default fire.bed keep their places. A banded gradient whose inner band sat further forward than that moves it back: five
+ * or more stops, or four even stops (the ready-made Banding). Assumed.
  */
 const BAND_SHIFT_MOST = 0.92;
 
