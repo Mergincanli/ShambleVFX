@@ -1152,7 +1152,8 @@ export class App implements AppApi {
       const hidden = l.type !== 'projectile' && !l.tiers.includes(this.tier);
       return h('button', {
         class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
-        title: hidden ? `Not drawn in the ${TIER_LABEL[this.tier]} tier` : '',
+        // The full name, since a long one ends in an ellipsis in the row.
+        title: hidden ? `${l.name}: not drawn in the ${TIER_LABEL[this.tier]} tier` : l.name,
       }, icon(l.type), h('span', { text: l.name }), h('code', { text: hidden ? `not in ${TIER_LABEL[this.tier]}` : layerTag(l) }));
     }));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));

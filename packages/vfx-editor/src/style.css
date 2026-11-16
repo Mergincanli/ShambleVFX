@@ -456,6 +456,8 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .problems { margin: 0 0 8px; padding-left: 16px; }
 .problems code { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-field); font-size: var(--fs-small); }
 .events input.text { font-family: var(--mono); }
+/* Image names are typed into files, so they are mono (4.2), in the select as in the Layers list. */
+select[aria-label="Image"] { font-family: var(--mono); }
 .events .problems { margin: 4px 0 0; color: var(--bad); }
 .events .problems:empty { display: none; }
 .inspector .optional { margin: 4px 0; padding-left: 8px; border-left: 1px solid var(--line); }
@@ -470,6 +472,8 @@ table.cost { width: 100%; border-collapse: collapse; table-layout: fixed; }
 table.cost th { padding: 4px 4px 4px 0; text-align: left; vertical-align: top; font-weight: 500; }
 table.cost thead th { padding-top: 0; color: var(--text-muted); border-bottom: 1px solid var(--line); }
 table.cost tbody th { width: 92px; color: var(--text-muted); font-weight: 400; cursor: help; text-decoration: underline dotted var(--text-faint); text-underline-offset: 3px; }
+/* A row name that does not fit ends in an ellipsis; its title holds the full name and what it counts. */
+table.cost tbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.cost tbody th, table.cost td { border-top: 1px solid var(--line); }
 table.cost td { padding: 4px; vertical-align: top; }
 table.cost .cv { font-weight: 600; }
