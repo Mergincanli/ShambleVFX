@@ -13,12 +13,16 @@ describe('example projects', () => {
     const dir = join(examples, project);
     const images = readdirSync(join(dir, 'images'));
     for (const file of readdirSync(join(dir, 'effects'))) {
-      it(`${project}/${file} passes the checker, in the current version`, () => {
-        const r = checkEffect(JSON.parse(readFileSync(join(dir, 'effects', file), 'utf8')), { palette: paletteJson as Palette, images });
+      it(`${project}/${file} passes the checker, in the current version, and is byte for byte what the editor saves`, () => {
+        const text = readFileSync(join(dir, 'effects', file), 'utf8');
+        const r = checkEffect(JSON.parse(text), { palette: paletteJson as Palette, images });
         expect(problemLines(r.problems)).toEqual([]);
         expect(`${r.effect?.id}.vfx.json`).toBe(file);
         // No upgrade needed: the examples are saved in the current version.
         expect(r.upgradedFrom).toBeUndefined();
+        // The editor keeps the checker's copy of an effect (its fields in the schema's order) and saves it as
+        // JSON.stringify(effect, null, 2) and a newline: opening an example and saving it changes nothing.
+        expect(`${JSON.stringify(r.effect, null, 2)}\n`).toBe(text);
       });
     }
   }

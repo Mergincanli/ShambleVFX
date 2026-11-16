@@ -18,7 +18,6 @@
     {
       "id": "burst",
       "name": "Jagged double burst",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -27,6 +26,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -44,6 +48,7 @@
           1.05
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 1.05,
@@ -72,10 +77,10 @@
         "edge": "auto",
         "whiteFirstStep": false,
         "boilDeg": 2.3,
-        "double": true,
         "breakUp": {
           "phase": "fade"
         },
+        "double": true,
         "halftone": {
           "role": "heat.dark",
           "stepPx": 8,
@@ -84,17 +89,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "ticks",
       "name": "Tick lines inside",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -102,6 +101,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -113,6 +115,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "peak",
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 10,
@@ -133,15 +136,11 @@
         "spread": 0.6
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "stars",
       "name": "Small stars",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -149,6 +148,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -159,6 +162,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 5,
       "lifeMs": [
         420,
@@ -194,25 +198,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 31,
-      "perPlay": true,
       "look": {
         "kind": "diamond",
         "role": "glow",
         "inkPx": 1.5,
         "edge": "auto"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 31,
+      "perPlay": true
     },
     {
       "id": "chips",
       "name": "Chips",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -221,6 +220,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -231,6 +234,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 6,
       "lifeMs": [
         380,
@@ -266,25 +270,20 @@
         500,
         1000
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 32,
-      "perPlay": true,
       "look": {
         "kind": "chip",
         "role": "debris",
         "inkPx": 1.4,
         "edge": "ink"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 32,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Sound word",
-      "type": "word",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -293,6 +292,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -303,6 +307,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0,
+        0.58
+      ],
+      "type": "word",
       "words": [
         {
           "text": "KRAK"
@@ -320,6 +330,7 @@
         "bottom": "glow",
         "back": "team.dark"
       },
+      "separation": "heat.3",
       "tiltDeg": [
         4,
         10
@@ -365,18 +376,7 @@
       },
       "visibleTo": "everyone",
       "seed": 33,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        0,
-        0.58
-      ],
-      "separation": "heat.3",
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

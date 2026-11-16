@@ -18,13 +18,17 @@
     {
       "id": "splat",
       "name": "Burnt splat",
-      "type": "shape",
       "start": {
         "ms": 75
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -52,6 +56,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "scorch",
         "style": "splat",
@@ -63,17 +68,11 @@
         "growMs": 175
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "light_dots",
       "name": "Light on the ground",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -81,6 +80,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -92,6 +95,7 @@
       "facing": "camera",
       "blend": "normal",
       "durationMs": 4850,
+      "type": "shape",
       "shape": {
         "kind": "dots",
         "radiusM": 3.45,
@@ -110,22 +114,22 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "fire_ring",
       "name": "Edge of the fire area",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -137,6 +141,7 @@
       "facing": "camera",
       "blend": "normal",
       "durationMs": 4890,
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 2.2,
@@ -155,17 +160,11 @@
         "squash": 0.578
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "bed",
       "name": "Bed",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -173,56 +172,11 @@
         "mode": "steps",
         "perSecond": 12
       },
-      "at": {
-        "input": "target",
-        "offset": [
-          0,
-          0,
-          0
-        ]
-      },
-      "facing": "camera",
-      "blend": "normal",
-      "untilPhaseEnd": "fade",
-      "shape": {
-        "kind": "bed",
-        "radiusM": 2.2,
-        "tones": [
-          "heat.dark",
-          "heat.1",
-          "heat.2",
-          "heat.3"
-        ],
-        "lumps": 14,
-        "detailRole": "heat.deep",
-        "inkPx": 4.25,
-        "edge": "auto",
-        "boilSteps": 2,
-        "growMs": 250,
-        "breakUp": {
-          "phase": "fade"
-        },
-        "part": "lumps"
-      },
-      "seed": 1,
-      "perPlay": true,
       "tiers": [
         "low",
         "medium",
         "high"
-      ]
-    },
-    {
-      "id": "bed_detail",
-      "name": "Bed detail: halftone and brush strokes",
-      "type": "shape",
-      "start": {
-        "ms": 0
-      },
-      "timing": {
-        "mode": "steps",
-        "perSecond": 12
-      },
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -234,6 +188,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "bed",
         "radiusM": 2.2,
@@ -244,6 +199,7 @@
           "heat.3"
         ],
         "lumps": 14,
+        "part": "lumps",
         "detailRole": "heat.deep",
         "inkPx": 4.25,
         "edge": "auto",
@@ -251,19 +207,14 @@
         "growMs": 250,
         "breakUp": {
           "phase": "fade"
-        },
-        "part": "detail"
+        }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
-      "id": "flames",
-      "name": "Tongues",
-      "type": "shape",
+      "id": "bed_detail",
+      "name": "Bed detail: halftone and brush strokes",
       "start": {
         "ms": 0
       },
@@ -271,6 +222,9 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -282,6 +236,56 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
+      "shape": {
+        "kind": "bed",
+        "radiusM": 2.2,
+        "tones": [
+          "heat.dark",
+          "heat.1",
+          "heat.2",
+          "heat.3"
+        ],
+        "lumps": 14,
+        "part": "detail",
+        "detailRole": "heat.deep",
+        "inkPx": 4.25,
+        "edge": "auto",
+        "boilSteps": 2,
+        "growMs": 250,
+        "breakUp": {
+          "phase": "fade"
+        }
+      },
+      "seed": 1,
+      "perPlay": true
+    },
+    {
+      "id": "flames",
+      "name": "Tongues",
+      "start": {
+        "ms": 0
+      },
+      "timing": {
+        "mode": "steps",
+        "perSecond": 12
+      },
+      "tiers": [
+        "medium",
+        "high"
+      ],
+      "at": {
+        "input": "target",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "facing": "camera",
+      "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "flames",
         "radiusM": 2.2,
@@ -317,16 +321,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "flames_low",
       "name": "Tongues (Low: seven)",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -334,6 +333,9 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -345,6 +347,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "flames",
         "radiusM": 2.2,
@@ -380,21 +383,22 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low"
-      ]
+      "perPlay": true
     },
     {
       "id": "spikes",
       "name": "Spikes thrown out",
-      "type": "burst",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -405,6 +409,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "windup",
+      "shiftM": [
+        0,
+        0.286
+      ],
+      "type": "burst",
       "count": 11,
       "lifeMs": [
         250,
@@ -452,31 +462,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 8,
-      "perPlay": true,
-      "untilPhaseEnd": "windup",
-      "shiftM": [
-        0,
-        0.286
-      ],
       "look": {
         "kind": "spike",
         "role": "heat.1",
         "inkPx": 3.4,
         "edge": "enemy"
       },
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 8,
+      "perPlay": true
     },
     {
       "id": "ignition_star",
       "name": "Bursting star",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -484,6 +483,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -495,10 +499,6 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "windup",
-      "shiftM": [
-        0,
-        0.286
-      ],
       "scale": {
         "life": [
           [
@@ -527,6 +527,11 @@
           ]
         ]
       },
+      "shiftM": [
+        0,
+        0.286
+      ],
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 1,
@@ -552,23 +557,21 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "ignition_lines",
       "name": "Burst lines",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -584,6 +587,7 @@
         0,
         0.286
       ],
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 12,
@@ -604,16 +608,11 @@
         "spread": 0.3
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "smoke",
       "name": "Smoke billows",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -622,6 +621,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -637,6 +640,7 @@
         0.45,
         2.213
       ],
+      "type": "shape",
       "shape": {
         "kind": "smoke",
         "style": "billow",
@@ -661,16 +665,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "sparks",
       "name": "Sparks",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -678,6 +677,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -688,6 +691,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "durationMs": 4480,
+      "shiftM": [
+        0,
+        0.571
+      ],
+      "type": "burst",
       "count": 6,
       "lifeMs": [
         640,
@@ -703,6 +712,10 @@
         0,
         0
       ],
+      "areaM": [
+        1.65,
+        0.55
+      ],
       "gravityMps2": 0,
       "drag": 0,
       "sizeM": [
@@ -723,34 +736,20 @@
         0,
         0
       ],
-      "loop": true,
-      "groundStop": false,
-      "seed": 11,
-      "perPlay": true,
-      "durationMs": 4480,
-      "shiftM": [
-        0,
-        0.571
-      ],
-      "areaM": [
-        1.65,
-        0.55
-      ],
       "look": {
         "kind": "diamond",
         "role": "glow",
         "inkPx": 0.75,
         "edge": "enemy"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": true,
+      "groundStop": false,
+      "seed": 11,
+      "perPlay": true
     },
     {
       "id": "sparks_hot",
       "name": "Sparks, white-hot",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -758,6 +757,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -768,6 +771,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "durationMs": 4480,
+      "shiftM": [
+        0,
+        0.571
+      ],
+      "type": "burst",
       "count": 3,
       "lifeMs": [
         640,
@@ -783,6 +792,10 @@
         0,
         0
       ],
+      "areaM": [
+        1.65,
+        0.55
+      ],
       "gravityMps2": 0,
       "drag": 0,
       "sizeM": [
@@ -803,34 +816,20 @@
         0,
         0
       ],
-      "loop": true,
-      "groundStop": false,
-      "seed": 12,
-      "perPlay": true,
-      "durationMs": 4480,
-      "shiftM": [
-        0,
-        0.571
-      ],
-      "areaM": [
-        1.65,
-        0.55
-      ],
       "look": {
         "kind": "diamond",
         "role": "heat.4",
         "inkPx": 0.75,
         "edge": "enemy"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": true,
+      "groundStop": false,
+      "seed": 12,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "FWOOSH",
-      "type": "word",
       "start": {
         "ms": 0
       },
@@ -838,6 +837,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -848,6 +851,18 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "durationMs": 710,
+      "scale": {
+        "steps": [
+          0.62,
+          1
+        ]
+      },
+      "shiftM": [
+        -2.5,
+        1.748
+      ],
+      "type": "word",
       "words": [
         {
           "text": "FWOOSH"
@@ -889,22 +904,7 @@
       },
       "visibleTo": "everyone",
       "seed": 5,
-      "perPlay": true,
-      "durationMs": 710,
-      "shiftM": [
-        -2.5,
-        1.748
-      ],
-      "scale": {
-        "steps": [
-          0.62,
-          1
-        ]
-      },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

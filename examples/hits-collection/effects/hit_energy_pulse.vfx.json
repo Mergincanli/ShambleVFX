@@ -18,7 +18,6 @@
     {
       "id": "ring1",
       "name": "Pulse ring",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -26,6 +25,11 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -53,6 +57,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 1.5,
@@ -66,17 +71,11 @@
         "growMs": 260
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "ring2",
       "name": "Second ring",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 90
@@ -84,6 +83,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -111,6 +113,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 1.1,
@@ -124,15 +127,11 @@
         "growMs": 260
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "glow",
       "name": "Glow",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -141,6 +140,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -152,6 +155,7 @@
       "facing": "camera",
       "blend": "add",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 1,
@@ -165,16 +169,11 @@
         "flicker": 0.1
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "core",
       "name": "Core star",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -183,6 +182,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -202,6 +206,7 @@
           1
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 0.42,
@@ -225,23 +230,17 @@
         "edge": "none",
         "whiteFirstStep": false,
         "boilDeg": 14,
-        "double": false,
         "breakUp": {
           "phase": "fade"
-        }
+        },
+        "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "needles",
       "name": "Needles",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -249,6 +248,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -259,6 +262,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 10,
       "lifeMs": [
         240,
@@ -294,25 +298,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 71,
-      "perPlay": true,
       "look": {
         "kind": "spark",
         "role": "glow.hot",
         "inkPx": 0,
         "edge": "none"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 71,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Sound word",
-      "type": "word",
       "start": {
         "phase": "peak",
         "ms": 30
@@ -321,6 +320,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -331,6 +335,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        -0.05,
+        0.6
+      ],
+      "type": "word",
       "words": [
         {
           "text": "ZZAK"
@@ -390,17 +400,7 @@
       },
       "visibleTo": "everyone",
       "seed": 72,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        -0.05,
-        0.6
-      ],
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

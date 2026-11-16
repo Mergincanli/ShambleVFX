@@ -166,6 +166,8 @@ These write pictures to `out/` (kept out of git):
 - `npm run export`, `npm run check:export` and `npm run import`: see [docs/export.md](docs/export.md).
 - `node tools/shoot.mjs <effect> <scene> <ms,ms>` takes the game screen of one effect at chosen moments.
 - `tools/presets/*.py` wrote the preset files (Python 3, optional: the JSON files are what counts, and the editor edits them).
+  They write each effect byte for byte as the editor saves it, its fields in the editor's order (read from the JSON Schema
+  in `packages/vfx-format/schema/`); a test holds every example effect to that.
 
 ## What works now
 

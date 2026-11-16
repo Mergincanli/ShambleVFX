@@ -18,7 +18,6 @@
     {
       "id": "dots",
       "name": "Halftone field",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -26,6 +25,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -37,6 +39,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "dots",
         "radiusM": 1.75,
@@ -54,15 +57,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "lines",
       "name": "Lines between the spikes",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -70,6 +69,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -81,6 +84,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 12,
@@ -101,16 +105,11 @@
         "spread": 0.35
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "burst",
       "name": "Layered star",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -119,6 +118,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -137,6 +141,7 @@
           1.04
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 1,
@@ -171,10 +176,10 @@
         "edge": "auto",
         "whiteFirstStep": true,
         "boilDeg": 2.3,
-        "double": false,
         "breakUp": {
           "phase": "fade"
         },
+        "double": false,
         "halftone": {
           "role": "heat.1",
           "stepPx": 7.5,
@@ -183,17 +188,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "shards_dark",
       "name": "Shards, dark",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -201,6 +200,11 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -211,6 +215,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 5,
       "lifeMs": [
         480,
@@ -246,26 +251,20 @@
         300,
         800
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 11,
-      "perPlay": true,
       "look": {
         "kind": "shard",
         "role": "heat.dark",
         "inkPx": 1.6,
         "edge": "ink"
       },
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 11,
+      "perPlay": true
     },
     {
       "id": "shards_light",
       "name": "Shards, light",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -273,6 +272,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -283,6 +286,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 5,
       "lifeMs": [
         420,
@@ -318,25 +322,20 @@
         300,
         900
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 12,
-      "perPlay": true,
       "look": {
         "kind": "shard",
         "role": "heat.2",
         "inkPx": 1.6,
         "edge": "ink"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 12,
+      "perPlay": true
     },
     {
       "id": "stars",
       "name": "Small stars",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -344,6 +343,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -354,6 +357,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 6,
       "lifeMs": [
         500,
@@ -389,25 +393,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 13,
-      "perPlay": true,
       "look": {
         "kind": "diamond",
         "role": "glow",
         "inkPx": 1.5,
         "edge": "auto"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 13,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Sound word",
-      "type": "word",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -416,6 +415,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -426,6 +430,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        -0.05,
+        0.62
+      ],
+      "type": "word",
       "words": [
         {
           "text": "POW"
@@ -443,6 +453,7 @@
         "bottom": "glow",
         "back": "team.dark"
       },
+      "separation": "heat.3",
       "tiltDeg": [
         -12,
         -5
@@ -488,18 +499,7 @@
       },
       "visibleTo": "everyone",
       "seed": 14,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        -0.05,
-        0.62
-      ],
-      "separation": "heat.3",
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

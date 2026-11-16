@@ -18,7 +18,6 @@
     {
       "id": "ticks",
       "name": "Motion ticks",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -26,6 +25,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -37,6 +40,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 14,
@@ -57,16 +61,11 @@
         "spread": 0.3
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "cloud",
       "name": "Cloud blast",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -75,6 +74,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -93,6 +97,7 @@
           1
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "cloud",
         "radiusM": 1,
@@ -134,17 +139,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "puffs",
       "name": "Puffs flying out",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -152,6 +151,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -162,6 +165,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 4,
       "lifeMs": [
         420,
@@ -201,30 +205,25 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 21,
-      "perPlay": true,
-      "streak": {
-        "role": "white",
-        "lengthM": 0.7,
-        "widthPx": 5
-      },
       "look": {
         "kind": "puff",
         "role": "heat.2",
         "inkPx": 1.6,
         "edge": "ink"
       },
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "streak": {
+        "role": "white",
+        "lengthM": 0.7,
+        "widthPx": 5
+      },
+      "groundStop": false,
+      "seed": 21,
+      "perPlay": true
     },
     {
       "id": "specks",
       "name": "Debris specks",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -232,6 +231,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -242,6 +244,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 16,
       "lifeMs": [
         400,
@@ -277,24 +280,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 22,
-      "perPlay": true,
       "look": {
         "kind": "speck",
         "role": "ink",
         "inkPx": 0,
         "edge": "none"
       },
-      "tiers": [
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 22,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Sound word",
-      "type": "word",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -303,6 +302,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -313,6 +317,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.05,
+        0.05
+      ],
+      "type": "word",
       "words": [
         {
           "text": "BOOM"
@@ -330,6 +340,7 @@
         "bottom": "glow",
         "back": "team.dark"
       },
+      "separation": "heat.3",
       "tiltDeg": [
         5,
         11
@@ -375,18 +386,7 @@
       },
       "visibleTo": "everyone",
       "seed": 23,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        0.05,
-        0.05
-      ],
-      "separation": "heat.3",
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

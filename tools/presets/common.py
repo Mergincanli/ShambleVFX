@@ -1,5 +1,12 @@
 # Shared helpers for the preset generators (Shamble VFX dev scripts; the presets they write are committed as JSON).
 import json
+import os
+
+# The effect format's version these presets write, and its JSON Schema (packages/vfx-format/schema, made from the checker's
+# own schema): the order of the fields the editor writes comes from it.
+FORMAT_VERSION = 5
+SCHEMA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "packages", "vfx-format", "schema",
+                           f"effect.v{FORMAT_VERSION}.schema.json")
 STEPS = {"mode": "steps", "perSecond": 12}
 STEPS24 = {"mode": "steps", "perSecond": 24}
 SMOOTH = {"mode": "smooth"}
@@ -61,7 +68,7 @@ def apply_tiers(fx, low_drop=(), medium_drop=(), only=None):
     return fx
 
 def effect(id, name, phases, layers, colour="heat.1"):
-    return {"format": "shamble-vfx", "version": 5, "id": id, "name": name,
+    return {"format": "shamble-vfx", "version": FORMAT_VERSION, "id": id, "name": name,
             "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": colour},
             "phases": {"windupMs": phases[0], "peakMs": phases[1], "fadeMs": phases[2]}, "layers": layers}
 
@@ -80,8 +87,73 @@ def _whole(v):
 
 
 def dumps(v):
-    """The project's own JSON layout, the same bytes the editor writes (JSON.stringify(v, null, 2) and a newline)."""
+    """The project's own JSON layout: the same bytes JSON.stringify(v, null, 2) and a newline give for the same value,
+    fields in the order they come. For an effect, put its fields in the editor's order first (in_schema_order)."""
     return json.dumps(_whole(v), indent=2, ensure_ascii=False) + "\n"
+
+
+_schema = None
+
+
+def _fits(v, node):
+    """Whether a value fits one form of a union in the JSON Schema: its type, its fixed fields ("const", such as a layer's
+    "type") and the fields it must or may have."""
+    for key in ("anyOf", "oneOf"):
+        if key in node:
+            return any(_fits(v, b) for b in node[key])
+    t = node.get("type")
+    if t == "object":
+        if not isinstance(v, dict):
+            return False
+        props = node.get("properties", {})
+        if any(k not in v for k in node.get("required", [])):
+            return False
+        if any(k in v and "const" in sub and v[k] != sub["const"] for k, sub in props.items()):
+            return False
+        return not (node.get("additionalProperties") is False and any(k not in props for k in v))
+    if t == "array":
+        return isinstance(v, list)
+    if t == "string":
+        return isinstance(v, str)
+    if t in ("number", "integer"):
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+    if t == "boolean":
+        return isinstance(v, bool)
+    if t == "null":
+        return v is None
+    return True
+
+
+def in_schema_order(v, node=None):
+    """An effect's fields in the order the editor writes them. The editor saves the checker's copy of an effect, whose
+    fields follow the checker's schema; the JSON Schema file lists them in that order. Of a union (a layer's type, a
+    shape's kind, a start ...) the first form the value fits is used, as the checker does. Fields the schema does not
+    name stay last, in their own order (a list of game events, a curve's points)."""
+    global _schema
+    if node is None:
+        if _schema is None:
+            with open(SCHEMA_FILE, encoding="utf-8") as f:
+                _schema = json.load(f)
+        node = _schema
+    for key in ("anyOf", "oneOf"):
+        if key in node:
+            fit = [b for b in node[key] if _fits(v, b)]
+            return in_schema_order(v, fit[0]) if fit else v
+    if isinstance(v, dict):
+        props = node.get("properties", {})
+        extra = node.get("additionalProperties")
+        out = {k: in_schema_order(v[k], props[k]) for k in props if k in v}
+        for k in v:
+            if k not in props:
+                out[k] = in_schema_order(v[k], extra) if isinstance(extra, dict) else v[k]
+        return out
+    if isinstance(v, list):
+        if "prefixItems" in node:
+            items = node["prefixItems"]
+            return [in_schema_order(x, items[i]) if i < len(items) else x for i, x in enumerate(v)]
+        if isinstance(node.get("items"), dict):
+            return [in_schema_order(x, node["items"]) for x in v]
+    return v
 
 
 def write_json(path, v):
@@ -90,5 +162,6 @@ def write_json(path, v):
 
 
 def write(path, fx):
-    write_json(path, fx)
+    """An effect file, byte for byte as the editor's Save writes it: the editor's layout, its fields in the editor's order."""
+    write_json(path, in_schema_order(fx))
     print(path, len(fx["layers"]), "layers")

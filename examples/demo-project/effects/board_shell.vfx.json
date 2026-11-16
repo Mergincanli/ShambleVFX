@@ -18,13 +18,17 @@
     {
       "id": "shadow",
       "name": "Shell's shadow",
-      "type": "shape",
       "start": {
         "ms": 67
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -48,6 +52,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "scorch",
         "style": "oval",
@@ -59,17 +64,11 @@
         "growMs": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "scorch",
       "name": "Scorch mark",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -78,6 +77,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -93,6 +97,7 @@
         0,
         -0.095
       ],
+      "type": "shape",
       "shape": {
         "kind": "scorch",
         "style": "oval",
@@ -104,17 +109,11 @@
         "growMs": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "ring",
       "name": "Ring on the ground",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -122,6 +121,11 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -137,6 +141,7 @@
         0,
         -0.095
       ],
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 1.4080000000000001,
@@ -150,17 +155,11 @@
         "growMs": 72
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "dots",
       "name": "Halftone glow",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -168,6 +167,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -183,6 +185,7 @@
         0,
         0.3
       ],
+      "type": "shape",
       "shape": {
         "kind": "dots",
         "radiusM": 1.9250000000000003,
@@ -197,15 +200,11 @@
         "flickerM": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "muzzle_dots",
       "name": "Muzzle halftone",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -213,6 +212,9 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -224,10 +226,6 @@
       "facing": "path",
       "blend": "normal",
       "durationMs": 230,
-      "shiftM": [
-        0.34,
-        0
-      ],
       "scale": {
         "steps": [
           1.15,
@@ -235,6 +233,11 @@
           0.7
         ]
       },
+      "shiftM": [
+        0.34,
+        0
+      ],
+      "type": "shape",
       "shape": {
         "kind": "dots",
         "radiusM": 1.18,
@@ -249,15 +252,11 @@
         "flickerM": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "muzzle_blast",
       "name": "Muzzle blast",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -265,6 +264,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -276,10 +280,6 @@
       "facing": "path",
       "blend": "normal",
       "durationMs": 230,
-      "shiftM": [
-        0.34,
-        0
-      ],
       "scale": {
         "steps": [
           1.15,
@@ -287,6 +287,11 @@
           0.7
         ]
       },
+      "shiftM": [
+        0.34,
+        0
+      ],
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 0.62,
@@ -317,23 +322,21 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "gun_smoke",
       "name": "Gun smoke",
-      "type": "shape",
       "start": {
         "ms": 90
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -345,6 +348,7 @@
       "facing": "camera",
       "blend": "normal",
       "durationMs": 810,
+      "type": "shape",
       "shape": {
         "kind": "smoke",
         "style": "puff",
@@ -364,16 +368,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "fire_word",
       "name": "Firing word",
-      "type": "word",
       "start": {
         "ms": 0
       },
@@ -381,6 +380,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -396,6 +400,7 @@
         0.3,
         1.05
       ],
+      "type": "word",
       "words": [
         {
           "text": "THOOM"
@@ -446,23 +451,18 @@
       },
       "visibleTo": "everyone",
       "seed": 12,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "shell",
       "name": "Shell",
-      "type": "projectile",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "type": "projectile",
       "from": {
         "input": "origin",
         "offset": [
@@ -490,18 +490,23 @@
     {
       "id": "trail",
       "name": "Shell streak",
-      "type": "shape",
       "start": {
         "ms": 22
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "layer": "shell"
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "shape",
       "shape": {
         "kind": "trail",
         "length": 0.1,
@@ -519,17 +524,11 @@
         "dashes": 5
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "smoke_left",
       "name": "Blast smoke, left",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -537,6 +536,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -552,6 +555,7 @@
         -0.605,
         0.96
       ],
+      "type": "shape",
       "shape": {
         "kind": "smoke",
         "style": "puff",
@@ -571,16 +575,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "smoke_right",
       "name": "Blast smoke, right",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -588,6 +587,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -603,6 +606,7 @@
         0.682,
         0.828
       ],
+      "type": "shape",
       "shape": {
         "kind": "smoke",
         "style": "puff",
@@ -622,16 +626,11 @@
         ]
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "speed_lines",
       "name": "Speed lines",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -639,6 +638,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -654,6 +657,7 @@
         0,
         0.3
       ],
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 9,
@@ -674,16 +678,11 @@
         "spread": 0.25
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "burst",
       "name": "Burst",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -692,6 +691,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -703,16 +707,17 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
-      "shiftM": [
-        0,
-        0.3
-      ],
       "scale": {
         "steps": [
           1,
           1.06
         ]
       },
+      "shiftM": [
+        0,
+        0.3
+      ],
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 1.1,
@@ -755,17 +760,11 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "debris",
       "name": "Debris",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -773,6 +772,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -787,6 +790,7 @@
         0,
         0.3
       ],
+      "type": "burst",
       "count": 7,
       "lifeMs": [
         1030,
@@ -831,16 +835,11 @@
       "loop": false,
       "groundStop": false,
       "seed": 3,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "sparks",
       "name": "Sparks",
-      "type": "burst",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -848,6 +847,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -862,6 +865,7 @@
         0,
         0.3
       ],
+      "type": "burst",
       "count": 9,
       "lifeMs": [
         940,
@@ -910,16 +914,11 @@
       "loop": false,
       "groundStop": false,
       "seed": 5,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Sound word",
-      "type": "word",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -928,6 +927,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -943,6 +947,7 @@
         -0.06,
         1.3780000000000001
       ],
+      "type": "word",
       "words": [
         {
           "text": "KABOOM"
@@ -1008,12 +1013,7 @@
       },
       "visibleTo": "everyone",
       "seed": 4,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

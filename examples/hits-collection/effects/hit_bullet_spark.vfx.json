@@ -18,7 +18,6 @@
     {
       "id": "star",
       "name": "Spark star",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -26,6 +25,11 @@
         "mode": "steps",
         "perSecond": 24
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -44,6 +48,7 @@
           0.8
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 0.3,
@@ -69,23 +74,21 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "lines",
       "name": "Hit lines",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -97,6 +100,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "peak",
+      "type": "shape",
       "shape": {
         "kind": "lines",
         "count": 7,
@@ -117,22 +121,22 @@
         "spread": 0.4
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "needles",
       "name": "Spark needles",
-      "type": "burst",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -143,6 +147,7 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "type": "burst",
       "count": 6,
       "lifeMs": [
         150,
@@ -178,26 +183,20 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 2,
-      "perPlay": true,
       "look": {
         "kind": "spark",
         "role": "glow",
         "inkPx": 1.2,
         "edge": "enemy"
       },
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "groundStop": false,
+      "seed": 2,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Gun word",
-      "type": "word",
       "start": {
         "ms": 0
       },
@@ -205,6 +204,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -215,6 +219,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.25,
+        0.42
+      ],
+      "type": "word",
       "words": [
         {
           "text": "PANG"
@@ -277,17 +287,7 @@
       },
       "visibleTo": "shooter",
       "seed": 3,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        0.25,
-        0.42
-      ],
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

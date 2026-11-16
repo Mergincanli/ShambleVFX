@@ -18,7 +18,6 @@
     {
       "id": "glance",
       "name": "Glancing star",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -26,6 +25,11 @@
         "mode": "steps",
         "perSecond": 24
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -37,6 +41,7 @@
       "facing": "path",
       "blend": "normal",
       "untilPhaseEnd": "peak",
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 0.26,
@@ -62,23 +67,22 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "sparks",
       "name": "Sparks bouncing off",
-      "type": "burst",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -89,6 +93,7 @@
       },
       "facing": "path",
       "blend": "normal",
+      "type": "burst",
       "count": 7,
       "lifeMs": [
         180,
@@ -124,31 +129,25 @@
         0,
         0
       ],
-      "loop": false,
-      "groundStop": false,
-      "seed": 7,
-      "perPlay": true,
-      "streak": {
-        "role": "heat.4",
-        "lengthM": 0.55,
-        "widthPx": 2.2
-      },
       "look": {
         "kind": "spark",
         "role": "glow",
         "inkPx": 1,
         "edge": "enemy"
       },
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "loop": false,
+      "streak": {
+        "role": "heat.4",
+        "lengthM": 0.55,
+        "widthPx": 2.2
+      },
+      "groundStop": false,
+      "seed": 7,
+      "perPlay": true
     },
     {
       "id": "word",
       "name": "Gun word",
-      "type": "word",
       "start": {
         "ms": 0
       },
@@ -156,6 +155,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -166,6 +170,12 @@
       },
       "facing": "camera",
       "blend": "normal",
+      "untilPhaseEnd": "fade",
+      "shiftM": [
+        0.3,
+        0.38
+      ],
+      "type": "word",
       "words": [
         {
           "text": "ZING"
@@ -225,17 +235,7 @@
       },
       "visibleTo": "shooter",
       "seed": 8,
-      "perPlay": true,
-      "untilPhaseEnd": "fade",
-      "shiftM": [
-        0.3,
-        0.38
-      ],
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

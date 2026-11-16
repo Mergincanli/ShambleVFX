@@ -18,7 +18,6 @@
     {
       "id": "shell",
       "name": "Shell",
-      "type": "projectile",
       "start": {
         "ms": 0
       },
@@ -26,6 +25,7 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "type": "projectile",
       "from": {
         "input": "origin",
         "offset": [
@@ -42,18 +42,17 @@
           0
         ]
       },
-      "stretch": 1,
-      "spinDegPerS": 0,
       "flight": {
         "mode": "speed",
         "mps": 12
       },
-      "arcM": 0
+      "arcM": 0,
+      "stretch": 1,
+      "spinDegPerS": 0
     },
     {
       "id": "gun_blast",
       "name": "Gun blast",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -74,6 +73,9 @@
           0.1
         ]
       },
+      "facing": "path",
+      "blend": "normal",
+      "type": "sprite",
       "image": "gun_blast.png",
       "flipbook": {
         "cols": 3,
@@ -91,14 +93,11 @@
       ],
       "tint": {
         "mode": "keep"
-      },
-      "facing": "path",
-      "blend": "normal"
+      }
     },
     {
       "id": "trail",
       "name": "Shell trail",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -114,6 +113,9 @@
       "at": {
         "layer": "shell"
       },
+      "facing": "path",
+      "blend": "normal",
+      "type": "sprite",
       "image": "shell_trail.png",
       "pivot": [
         1,
@@ -126,14 +128,11 @@
       "tint": {
         "mode": "multiply",
         "role": "main"
-      },
-      "facing": "path",
-      "blend": "normal"
+      }
     },
     {
       "id": "head",
       "name": "Shell head",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -149,6 +148,9 @@
       "at": {
         "layer": "shell"
       },
+      "facing": "path",
+      "blend": "normal",
+      "type": "sprite",
       "image": "shell_head.png",
       "pivot": [
         0.5,
@@ -160,14 +162,11 @@
       ],
       "tint": {
         "mode": "keep"
-      },
-      "facing": "path",
-      "blend": "normal"
+      }
     },
     {
       "id": "landing",
       "name": "Landing burst",
-      "type": "sprite",
       "start": {
         "arrivalOf": "shell",
         "ms": 0
@@ -189,6 +188,10 @@
           0
         ]
       },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 490,
+      "type": "sprite",
       "image": "burst.png",
       "flipbook": {
         "cols": 2,
@@ -206,10 +209,7 @@
       ],
       "tint": {
         "mode": "keep"
-      },
-      "facing": "camera",
-      "durationMs": 490,
-      "blend": "normal"
+      }
     }
   ]
 }

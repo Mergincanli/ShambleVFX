@@ -18,13 +18,16 @@
     {
       "id": "ground_glow_target",
       "name": "Light on the ground at the target",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -56,6 +59,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 4.4,
@@ -69,22 +73,21 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "ground_glow_emitter",
       "name": "Light on the ground at the Hammer",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -116,6 +119,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 2.6,
@@ -129,22 +133,22 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "lock_ring",
       "name": "Lock ring",
-      "type": "shape",
       "start": {
         "ms": 70
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -208,6 +212,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 3.4,
@@ -221,17 +226,11 @@
         "growMs": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "closing_rings",
       "name": "Rings closing on the target",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -240,6 +239,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -250,8 +253,9 @@
       },
       "facing": "ground",
       "blend": "normal",
-      "liftM": 1,
       "untilPhaseEnd": "peak",
+      "liftM": 1,
+      "type": "shape",
       "shape": {
         "kind": "ring",
         "radiusM": 3.1,
@@ -271,16 +275,11 @@
         }
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "beam_glow_wide",
       "name": "Beam glow, wide",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -289,6 +288,9 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -300,6 +302,7 @@
       "facing": "camera",
       "blend": "add",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "band",
         "from": {
@@ -330,15 +333,11 @@
         "letGo": "fade"
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "beam_glow",
       "name": "Beam glow",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -347,6 +346,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -358,6 +361,7 @@
       "facing": "camera",
       "blend": "add",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "band",
         "from": {
@@ -388,16 +392,11 @@
         "letGo": "fade"
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "beam_core",
       "name": "Beam, hot core",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -405,6 +404,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -416,6 +420,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "band",
         "from": {
@@ -443,21 +448,15 @@
         "soft": false,
         "edge": "auto",
         "flicker": 0.1,
-        "letGo": "fade",
-        "find": "windup"
+        "find": "windup",
+        "letGo": "fade"
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "beam_white",
       "name": "Beam, white core",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -466,6 +465,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -477,6 +481,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "fade",
+      "type": "shape",
       "shape": {
         "kind": "band",
         "from": {
@@ -507,17 +512,11 @@
         "letGo": "fade"
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "beads",
       "name": "Beads",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -526,6 +525,10 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -537,6 +540,7 @@
       "facing": "camera",
       "blend": "normal",
       "untilPhaseEnd": "peak",
+      "type": "shape",
       "shape": {
         "kind": "beads",
         "from": {
@@ -562,16 +566,11 @@
         "glowRole": "glow"
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "spot_glow_wide",
       "name": "Hot spot glow, wide",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -579,6 +578,9 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -606,6 +608,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 2.7,
@@ -619,15 +622,11 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "spot_glow",
       "name": "Hot spot glow",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -635,6 +634,10 @@
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -662,6 +665,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 1.1,
@@ -675,16 +679,11 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "spot_star",
       "name": "Hot spot star",
-      "type": "shape",
       "start": {
         "phase": "peak",
         "ms": 0
@@ -693,6 +692,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "target",
         "offset": [
@@ -720,6 +724,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "shards",
         "radiusM": 0.38,
@@ -741,23 +746,20 @@
         "double": false
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "emitter_glow_wide",
       "name": "Emitter glow, wide",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -809,6 +811,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 1.7,
@@ -822,21 +825,21 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "emitter_glow",
       "name": "Emitter glow",
-      "type": "shape",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "tiers": [
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -888,6 +891,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 0.85,
@@ -901,16 +905,11 @@
         "flicker": 0
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "emitter_hot",
       "name": "Emitter, hot",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -918,6 +917,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -953,6 +957,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 0.3,
@@ -966,17 +971,11 @@
         "flicker": 0.1
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     },
     {
       "id": "emitter_white",
       "name": "Emitter, white",
-      "type": "shape",
       "start": {
         "ms": 0
       },
@@ -984,6 +983,11 @@
         "mode": "steps",
         "perSecond": 12
       },
+      "tiers": [
+        "low",
+        "medium",
+        "high"
+      ],
       "at": {
         "input": "origin",
         "offset": [
@@ -1019,6 +1023,7 @@
           ]
         ]
       },
+      "type": "shape",
       "shape": {
         "kind": "glow",
         "radiusM": 0.2,
@@ -1032,12 +1037,7 @@
         "flicker": 0.1
       },
       "seed": 1,
-      "perPlay": true,
-      "tiers": [
-        "low",
-        "medium",
-        "high"
-      ]
+      "perPlay": true
     }
   ]
 }

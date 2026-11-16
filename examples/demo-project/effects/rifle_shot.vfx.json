@@ -18,13 +18,13 @@
     {
       "id": "bullet",
       "name": "Bullet",
-      "type": "projectile",
       "start": {
         "ms": 0
       },
       "timing": {
         "mode": "smooth"
       },
+      "type": "projectile",
       "from": {
         "input": "origin",
         "offset": [
@@ -41,18 +41,17 @@
           0
         ]
       },
-      "stretch": 1,
-      "spinDegPerS": 0,
       "flight": {
         "mode": "speed",
         "mps": 800
       },
-      "arcM": 0
+      "arcM": 0,
+      "stretch": 1,
+      "spinDegPerS": 0
     },
     {
       "id": "tracer",
       "name": "Tracer",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -67,6 +66,10 @@
       "at": {
         "layer": "bullet"
       },
+      "facing": "path",
+      "blend": "normal",
+      "durationMs": 110,
+      "type": "sprite",
       "image": "tracer_body.png",
       "pivot": [
         1,
@@ -79,15 +82,11 @@
       "tint": {
         "mode": "multiply",
         "role": "main"
-      },
-      "facing": "path",
-      "durationMs": 110,
-      "blend": "normal"
+      }
     },
     {
       "id": "tracer_core",
       "name": "Tracer core",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -102,6 +101,10 @@
       "at": {
         "layer": "bullet"
       },
+      "facing": "path",
+      "blend": "normal",
+      "durationMs": 80,
+      "type": "sprite",
       "image": "tracer_core.png",
       "pivot": [
         1,
@@ -113,15 +116,11 @@
       ],
       "tint": {
         "mode": "keep"
-      },
-      "facing": "path",
-      "durationMs": 80,
-      "blend": "normal"
+      }
     },
     {
       "id": "flash",
       "name": "Muzzle flash",
-      "type": "sprite",
       "start": {
         "ms": 0
       },
@@ -142,6 +141,9 @@
           0
         ]
       },
+      "facing": "path",
+      "blend": "normal",
+      "type": "sprite",
       "image": "muzzle_flash.png",
       "flipbook": {
         "cols": 2,
@@ -159,14 +161,11 @@
       ],
       "tint": {
         "mode": "keep"
-      },
-      "facing": "path",
-      "blend": "normal"
+      }
     },
     {
       "id": "hit",
       "name": "Hit spark",
-      "type": "sprite",
       "start": {
         "arrivalOf": "bullet",
         "ms": 0
@@ -188,6 +187,10 @@
           0
         ]
       },
+      "facing": "camera",
+      "blend": "normal",
+      "durationMs": 120,
+      "type": "sprite",
       "image": "hit_star.png",
       "pivot": [
         0.5,
@@ -200,15 +203,11 @@
       "tint": {
         "mode": "multiply",
         "role": "main"
-      },
-      "facing": "camera",
-      "durationMs": 120,
-      "blend": "normal"
+      }
     },
     {
       "id": "dust",
       "name": "Dust at the hit",
-      "type": "sprite",
       "start": {
         "arrivalOf": "bullet",
         "ms": 40
@@ -230,6 +229,9 @@
           0
         ]
       },
+      "facing": "camera",
+      "blend": "normal",
+      "type": "sprite",
       "image": "dust_puff.png",
       "flipbook": {
         "cols": 3,
@@ -248,9 +250,7 @@
       "tint": {
         "mode": "multiply",
         "role": "dust"
-      },
-      "facing": "camera",
-      "blend": "normal"
+      }
     }
   ]
 }
