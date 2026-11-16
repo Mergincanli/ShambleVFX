@@ -115,7 +115,8 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
       : stale ? 'The effect, its colours or the scene changed after measuring: these numbers are out of date. Measure again.'
         : `Measured over ${int(r.lengthMs)} ms (${int(r.frames)} frames).`);
     status.classList.toggle('stale', stale);
-    table.classList.toggle('stale', stale || !r);
+    table.classList.toggle('stale', stale);
+    table.classList.toggle('unmeasured', !r);
     const budgets = app.budgets();
     const fx = app.effect();
     const counting = fx ? budgetThatCounts(budgets, fx.id) : undefined;

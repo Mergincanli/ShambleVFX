@@ -236,8 +236,8 @@ These write pictures to `out/` (kept out of git):
 
 - **The editor's look** ([docs/ui-redesign.md](docs/ui-redesign.md), section 4): two themes, Day and Night, from one set
   of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
-  to the icon; the icon-only ones (Undo, Redo, the step buttons, Night mode) give their names in their tooltips. The faction
-  buttons show each faction's marking from sheet 16.
+  to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
+  their tooltips. The faction buttons show each faction's marking from sheet 16.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -417,8 +417,16 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Until phase 2 makes the preview fill its area, it keeps a 1 px `--line` edge with 12 px of `--bg-app` round it, so its
     edge does not double the lines of the bars above and below it.
   - The timeline keeps its row, ruler and bar heights until phase 5; only its colours, lines, corners and type change now.
-  - A layer's "not in Low" tag stays in `--bad`, as before. On a selected row in Night it is 4.4:1, a little under 4.5.
+  - A timeline bar's 1 px `--tl-bar-edge` is drawn just outside the bar, over the lane, so in Day it stands out from the
+    lane (3:1) even on the white word bars. A Day bar looks 1 px longer at each end.
+  - A layer's "not in Low" tag stays in `--bad`, as before, and its name on the timeline stays muted, except on the selected
+    row: there both take `--text`, because `--bad` and `--text-muted` on the selected tint are under 4.5:1 in Night
+    (section 6.5 asks for the name muted).
   - In the Layers list a long tag stops at half the row, so the layer's name always shows.
+  - The effect's main colour in the palette grid (the grid goes in phase 6) is marked with `--bg-field`, a 1 px
+    `--line-strong` edge and weight 500, not the yellow selected look: it is a stored choice, not a selection.
+  - In the colour picker the chosen colour's chip already has a 2 px outline in the focus colour, so keyboard focus on it
+    draws a 1 px `--focus` line inside the chip, 2 px in from its edge, instead of the usual ring.
 
 ## Claude skills
 
