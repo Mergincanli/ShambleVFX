@@ -11,7 +11,8 @@ import type { AppApi } from './api';
 import { colourList } from './colourlist';
 import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
-import { checkField, fold, h, icon, numberField, segmented, selectField, slider, textField } from './dom';
+import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
+import { layerGlyph, layerGlyphKey } from './layer-icons';
 import { specForm, structureOf } from './specform';
 
 interface Refresher { refresh(): void }
@@ -73,7 +74,11 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
 function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLElement {
   const link = h('button', { class: 'crumb', attrs: { type: 'button' }, on: { click: back } });
   const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } });
-  const kind = app.layer()!.type;
+  // The layer's icon (a sprite: its image). A new kind, look or image does not rebuild the panel, so draw() swaps it.
+  const urlOf = (n: string) => app.imageUrl(n);
+  let glyphKey = layerGlyphKey(app.layer()!, urlOf);
+  let glyph = layerGlyph(app.layer()!, urlOf);
+  const head = h('header', { class: 'insp-head' }, link, h('span', { class: 'crumb-sep', attrs: { 'aria-hidden': 'true' }, text: '›' }), glyph, title);
   const draw = () => {
     const fx = app.effect()!, l = app.layer()!;
     link.textContent = fx.name;
@@ -81,10 +86,12 @@ function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLEle
     link.setAttribute('aria-label', `Back to the effect: ${fx.name}`);
     title.textContent = l.name;
     title.title = l.name;
+    const k = layerGlyphKey(l, urlOf);
+    if (k !== glyphKey) { const g = layerGlyph(l, urlOf); glyph.replaceWith(g); glyph = g; glyphKey = k; }
   };
   draw();
   parts.push({ refresh: draw });
-  return h('header', { class: 'insp-head' }, link, h('span', { class: 'crumb-sep', attrs: { 'aria-hidden': 'true' }, text: '›' }), icon(kind), title);
+  return head;
 }
 
 // ---------------------------------------------------------------- the big controls
@@ -144,11 +151,12 @@ function ridersFold(app: AppApi, parts: Refresher[]): HTMLElement {
   const draw = () => {
     const fx = app.effect()!, p = app.layer()!;
     const riders = ridersOf(fx, p.id);
-    const key = JSON.stringify([p.name, riders.map((r) => [r.id, r.name, r.type, riderLine(r)])]);
+    const urlOf = (n: string) => app.imageUrl(n);
+    const key = JSON.stringify([p.name, riders.map((r) => [r.id, r.name, layerGlyphKey(r, urlOf), riderLine(r)])]);
     if (key === shown) return;
     shown = key;
     list.replaceChildren(...riders.map((r) => h('button', { class: 'rider', title: `Select ${r.name}`, attrs: { type: 'button' }, on: { click: () => app.selectLayer(r.id) } },
-      icon(r.type), h('span', { class: 'rider-name', text: r.name }), h('span', { class: 'rider-what' }, ...drawsParts(riderLine(r))))));
+      layerGlyph(r, urlOf), h('span', { class: 'rider-name', text: r.name }), h('span', { class: 'rider-what' }, ...drawsParts(riderLine(r))))));
     none.textContent = riders.length ? '' : `No layer rides it yet. A layer rides it when its Sits on is Rides "${p.name}".`;
     none.hidden = riders.length > 0;
   };

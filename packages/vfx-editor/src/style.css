@@ -174,6 +174,9 @@ h2, h3, p { margin: 0; }
 code { font-family: var(--mono); }
 kbd { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-field); color: var(--text); font-family: var(--body); font-size: var(--fs-small); white-space: nowrap; }
 .icon { width: var(--icon); height: var(--icon); flex: none; }
+/* A sprite's own image in place of its icon (Layers list, timeline, the panel's header, riders): its first frame, whole,
+   on the preview's ground colour (a game colour, the same in both themes), so a white image still shows. */
+.layer-thumb { display: block; object-fit: contain; border-radius: var(--r-segment); background: var(--ground); outline: 1px solid var(--swatch-edge); outline-offset: -1px; }
 .hint { font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 .empty { color: var(--text-muted); }
 .fatal { margin: 24px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); white-space: pre-wrap; font-family: var(--mono); }
@@ -359,9 +362,10 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .effects-list .item > .icon-only { margin-right: 8px; }
 .layer-item { gap: 8px; padding: 0 var(--pad-panel); }
 /* A short tag keeps its width; a long one stops at half the row with an ellipsis, so the name always shows.
-   Tags are Plex Sans (speeds, counts, kinds, words, "not in Low"); only a sprite's image name is Plex Mono: it is typed into files. */
+   Tags are Plex Sans (speeds, counts, kinds, words, "not in Low"); only a sprite's image name is Plex Mono: it is typed into files.
+   The row's type class says it is a sprite (an image burst shows the image icon too, but its tag is a count). */
 .item code { flex: 0 0 auto; max-width: 50%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; font-family: var(--body); font-size: var(--fs-small); color: var(--text-muted); white-space: nowrap; }
-.layer-item:not(.off):has(> .icon-sprite) code:not(.rides) { font-family: var(--mono); }
+.layer-item.type-sprite:not(.off) code:not(.rides) { font-family: var(--mono); }
 .layer-item.sel code { color: var(--text); }
 .layer-tools { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
 /* Left out of the tier the preview draws: faded, and the tag says so (as before). On the selected row the tag keeps

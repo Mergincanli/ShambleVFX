@@ -37,6 +37,7 @@ import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { h, icon, segmented, selectField } from './dom';
 import { buildInspector } from './inspector';
+import { layerGlyph } from './layer-icons';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
 
@@ -1151,10 +1152,10 @@ export class App implements AppApi {
       const rides = ridingOn(fx, l);
       const tag = hidden ? `not in ${TIER_LABEL[this.tier]}` : rides ? `rides ${rides.name}` : layerTag(l);
       return h('button', {
-        class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
+        class: `item layer-item type-${l.type}${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
         // The full name, since a long one ends in an ellipsis in the row.
         title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[this.tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
-      }, icon(l.type), h('span', { text: l.name }), h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag }));
+      }, layerGlyph(l, (n) => this.imageUrl(n)), h('span', { text: l.name }), h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag }));
     }));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }

@@ -3,7 +3,8 @@
  * and a playhead you drag to scrub. Times follow the current origin and target (flight time depends on them).
  */
 import type { AppApi } from './api';
-import { h, icon } from './dom';
+import { h } from './dom';
+import { layerGlyph } from './layer-icons';
 
 const PHASE_TEXT = { windup: 'wind-up', peak: 'peak', fade: 'fade' } as const;
 
@@ -80,7 +81,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
         bar.title += ` · ${l.timing.perSecond} steps a second`;
       } else bar.title += ' · smooth';
       const name = h('button', { class: 'tl-name', attrs: { type: 'button', 'aria-pressed': String(l.id === sel) }, on: { click: () => app.selectLayer(l.id) } },
-        icon(l.type), h('span', { text: l.name }));
+        layerGlyph(l, (n) => app.imageUrl(n)), h('span', { text: l.name }));
       // A layer the preview's tier leaves out is shown faded.
       const off = l.type !== 'projectile' && !l.tiers.includes(app.previewTier());
       if (off) bar.title += ` · not drawn in the ${app.previewTier()} tier`;

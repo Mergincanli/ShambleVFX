@@ -514,6 +514,66 @@ if (webgpu) {
     tags['Tracer'] === 'rides Bullet (IBM Plex Sans)' && tags['Tracer core'] === 'rides Bullet (IBM Plex Sans)' && tags['Muzzle flash'] === 'muzzle_flash (IBM Plex Mono)' && tags['Bullet'] === '800 m/s (IBM Plex Sans)',
     JSON.stringify(tags));
 
+  // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
+  // header and a projectile's riders. A sprite whose image is loaded shows that image (its first frame) instead.
+  const glyphs = await p.evaluate(() => {
+    const a = window.__vfx.app;
+    // The icon's name (icon icon-<name>), or "img" for a picture.
+    const glyphOf = (el) => { const g = el?.querySelector(':scope > svg, :scope > img'); return !g ? null : g.tagName === 'IMG' ? 'img' : (g.getAttribute('class') ?? '').replace('icon icon-', ''); };
+    const row = (name) => [...document.querySelectorAll('.layers-list .layer-item')].find((b) => b.querySelector(':scope > span')?.textContent === name);
+    const tlName = (name) => [...document.querySelectorAll('.timeline .tl-name')].find((b) => b.querySelector(':scope > span')?.textContent === name);
+    const out = {};
+    a.pickEffect('board_shell');
+    for (const name of ['Ring on the ground', 'Debris', 'Speed lines', 'Firing word', 'Shell', 'Sparks']) out[name] = glyphOf(row(name));
+    out['timeline: Ring on the ground'] = glyphOf(tlName('Ring on the ground'));
+    a.selectLayer('ring');
+    out['header: ring'] = glyphOf(document.querySelector('.inspector .insp-head'));
+    // A sprite: its own image in the list, the timeline, the header and its projectile's riders; the image's url is the one
+    // the editor loaded for the atlas.
+    a.pickEffect('rifle_shot');
+    const own = (el, image) => { const g = el?.querySelector(':scope > img.layer-thumb'); return !!g && g.getAttribute('src') === a.imageUrl(image) && g.getBoundingClientRect().width === 16; };
+    out.spriteRow = own(row('Muzzle flash'), 'muzzle_flash.png');
+    out.spriteTimeline = own(tlName('Muzzle flash'), 'muzzle_flash.png');
+    out.flipbookFirstFrame = getComputedStyle(row('Muzzle flash').querySelector('img')).getPropertyValue('object-view-box');
+    a.selectLayer('flash');
+    out.spriteHeader = own(document.querySelector('.inspector .insp-head'), 'muzzle_flash.png');
+    a.selectLayer('bullet');
+    out.riders = [...document.querySelectorAll('.inspector .rider')].map((r) => own(r, r.querySelector('.rider-name').textContent === 'Tracer' ? 'tracer_body.png' : 'tracer_core.png'));
+    out.bulletRow = glyphOf(row('Bullet'));
+    // An image that is not in the project: the image icon, not a broken picture. The header follows without a rebuild.
+    a.selectLayer('flash');
+    a.editLayer(['image'], 'no_such.png');
+    a.commit();
+    out.missingRow = glyphOf(row('Muzzle flash'));
+    out.missingHeader = glyphOf(document.querySelector('.inspector .insp-head'));
+    return out;
+  });
+  await p.keyboard.press('Control+z');
+  // An image burst: the image icon, and its tag ("9 × image") is a count, so it stays Plex Sans. Then back with undo.
+  const imageBurst = await p.evaluate(() => {
+    const a = window.__vfx.app;
+    a.pickEffect('board_shell');
+    a.selectLayer('debris');
+    a.replaceLayer({ ...a.layer(), look: { kind: 'image', image: 'muzzle_flash.png', tint: { mode: 'keep' } } }, 'Look');
+    a.commit();
+    const b = [...document.querySelectorAll('.layers-list .layer-item')].find((x) => x.querySelector(':scope > span')?.textContent === 'Debris');
+    const head = document.querySelector('.inspector .insp-head > svg');
+    return { icon: b.querySelector(':scope > svg')?.getAttribute('class'), header: head?.getAttribute('class'), tag: b.querySelector('code').textContent,
+      font: getComputedStyle(b.querySelector('code')).fontFamily.split(',')[0].replace(/"/g, '') };
+  });
+  await p.keyboard.press('Control+z');
+  const debrisBack = await p.evaluate(() => window.__vfx.app.effect().layers.find((l) => l.id === 'debris').look.kind);
+  ok('every kind of layer has its own icon in the Layers list, on the timeline and in the panel\'s header (a ring shows the ring)',
+    glyphs['Ring on the ground'] === 'shape-ring' && glyphs['timeline: Ring on the ground'] === 'shape-ring' && glyphs['header: ring'] === 'shape-ring' && glyphs['Debris'] === 'burst-chip'
+      && glyphs['Speed lines'] === 'shape-lines' && glyphs['Firing word'] === 'word' && glyphs['Shell'] === 'projectile' && glyphs['Sparks'] === 'burst-diamond' && glyphs.bulletRow === 'projectile',
+    JSON.stringify(glyphs));
+  ok('a sprite shows its own image (the first frame of a flipbook) in the list, on the timeline, in the header and among its projectile\'s riders; a missing image shows the image icon',
+    glyphs.spriteRow && glyphs.spriteTimeline && glyphs.spriteHeader && glyphs.riders.length === 2 && glyphs.riders.every(Boolean) && /^inset\(0(px)? 50% 50% 0(px)?\)$/.test(glyphs.flipbookFirstFrame.trim())
+      && glyphs.missingRow === 'sprite' && glyphs.missingHeader === 'sprite', JSON.stringify(glyphs));
+  ok('an image burst shows the image icon, and its tag (a count) stays in Plex Sans; only a sprite\'s image name is Plex Mono',
+    imageBurst.icon === 'icon icon-sprite' && imageBurst.header === 'icon icon-sprite' && /^\d+ × image$/.test(imageBurst.tag) && imageBurst.font === 'IBM Plex Sans' && debrisBack === 'chip',
+    `${JSON.stringify(imageBurst)}; after undo the look is ${debrisBack}`);
+
   // -- the colours of the selection: the effect's (its main colour and every layer's), a layer's (with the ones it draws
   // without naming them, such as the ink outline), a projectile's riders'. The same list as the checker's (src/doc/layer-info.ts).
   const shownColours = () => p.evaluate(() => {

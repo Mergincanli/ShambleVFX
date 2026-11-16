@@ -63,7 +63,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    select it), and those say "rides Bullet" in the Layers list. Shapes, bursts and words show the settings the file has,
    with optional parts behind a switch, except two that come with the new UI: a word's chance (the words box keeps it
    when you type the words again) and an image burst's image.
-7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project.
+7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project. Each layer
+   has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape by its kind (a ring, a
+   smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a projectile; a sprite shows
+   its own image (the first frame of a flipbook).
 8. **Tier** (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the list and on
    the timeline. A layer's **Shows in** boxes set its tiers.
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
@@ -140,13 +143,15 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (165 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (168 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
-motion), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
+motion; one icon per kind of layer in the Layers list, on the timeline and in the header, a ring showing the ring, a sprite
+its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), the add menu, phase
+starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, Save
 as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette profile Import keeps
@@ -248,7 +253,8 @@ These write pictures to `out/` (kept out of git):
 - **The editor's look** ([docs/ui-redesign.md](docs/ui-redesign.md), section 4): two themes, Day and Night, from one set
   of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
   to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
-  their tooltips. The faction buttons show each faction's marking from sheet 16.
+  their tooltips. The faction buttons show each faction's marking from sheet 16. Every kind of layer has its own icon: the 14
+  shapes, the nine looks of a burst's pieces, the word, the projectile and the sprite.
 - **The right panel shows what is selected**: the effect's settings, or one layer's, first, under a header that leads back
   to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
   so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
@@ -474,6 +480,16 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     image"). Riders are listed as in the Layers list, top of the drawing order first.
   - In the Layers list "rides Bullet" takes the place of a rider's usual tag (its image, shape or words), in Plex Sans; the
     row's tooltip says it too. A rider the tier leaves out says "not in Low" instead, like every row the tier leaves out.
+- **Layer icons** (one icon per kind of layer is Mustafa's ask; these details are ours):
+  - A shape goes by its kind, a burst by the look of its pieces, and an image burst by the image icon (as the plan says).
+    The word icon is now the letters POW, in place of the speech bubble; the projectile and sprite icons stay.
+  - A sprite shows its own image in place of the image icon, in the Layers list, on the timeline, in its panel's header and
+    among its projectile's riders: 16 px, the whole image fitted in, on the preview's ground colour (the same in both
+    themes, so a white image still shows), with the faint edge of a colour swatch. A flipbook shows its first frame (the top left
+    cell). The image is shown as it is in the file, before any tint. A sprite whose image is missing or did not load shows
+    the image icon. The picture uses the copy the editor already loaded for the atlas.
+  - Only a sprite's tag (its image name) is Plex Mono in the Layers list; the rule goes by the layer's type, so an image
+    burst's tag ("9 × image") stays Plex Sans.
 
 ## Claude skills
 
