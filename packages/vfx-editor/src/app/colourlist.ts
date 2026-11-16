@@ -50,7 +50,8 @@ export function colourList(app: AppApi): ColourListView {
   let showAll = readShowAll();
   const box = h('input', { attrs: { type: 'checkbox' } });
   box.checked = showAll;
-  const toggle = h('label', { class: 'check show-all', title: 'Show every colour of the palette, with the selection\'s colours in bold' }, box, h('span', { text: 'Show all' }));
+  // Its tooltip is the help text for "Show all" (help.ts).
+  const toggle = h('label', { class: 'check show-all' }, box, h('span', { text: 'Show all' }));
   box.addEventListener('change', () => {
     showAll = box.checked;
     try { localStorage.setItem(SHOW_ALL_KEY, showAll ? '1' : '0'); } catch { /* storage may be blocked */ }

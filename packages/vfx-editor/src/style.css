@@ -36,6 +36,7 @@
   --r-popover: 8px;  /* popovers, dialogs, the message */
   --t-colour: 120ms ease-out;
   --fold-actions-w: 96px; /* room on a section's header row for its actions (Show all) */
+  --tip-w: 280px;         /* a tooltip's widest */
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
 }
 
@@ -98,6 +99,8 @@
   --handle-edge: #1E1E1E;
   --slider-track: #8A8273;
   --slider-thumb: #23201B;
+  --text-tooltip-muted: #A6A6A6;            /* a tooltip's shortcut: dark in both themes, so the same in both */
+  --tip-kbd-edge: rgba(242, 242, 242, 0.28);
 }
 
 /* ---------------------------------------------------------------- Night */
@@ -158,6 +161,8 @@
   --handle-edge: #1E1E1E;
   --slider-track: #8C8C8C;
   --slider-thumb: #EDEDED;
+  --text-tooltip-muted: #A6A6A6;
+  --tip-kbd-edge: rgba(242, 242, 242, 0.28);
 }
 
 /* ---------------------------------------------------------------- base */
@@ -529,7 +534,7 @@ table.cost { width: 100%; border-collapse: collapse; table-layout: fixed; }
 table.cost th { padding: 4px 4px 4px 0; text-align: left; vertical-align: top; font-weight: 500; }
 table.cost thead th { padding-top: 0; color: var(--text-muted); border-bottom: 1px solid var(--line); }
 table.cost tbody th { width: 92px; color: var(--text-muted); font-weight: 400; cursor: help; text-decoration: underline dotted var(--text-faint); text-underline-offset: 3px; }
-/* A row name that does not fit ends in an ellipsis; its title holds the full name and what it counts. */
+/* A row name that does not fit ends in an ellipsis; its tooltip holds the full name and what it counts. */
 table.cost tbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.cost tbody th, table.cost td { border-top: 1px solid var(--line); }
 table.cost td { padding: 4px; vertical-align: top; }
@@ -572,6 +577,21 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 }
 .status.show { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0); transition: opacity 100ms ease-out, transform 100ms ease-out, visibility 0s; }
 .status.bad { background: var(--bad-bg); color: var(--bad); }
+
+/* ---------------------------------------------------------------- tooltips */
+/* One tooltip for the page (src/app/dom.ts): dark in both themes, 12 px, at most 280 px wide, with an optional shortcut in
+   a muted kbd. A manual popover, so it shows over the colour picker and dialogs; it never takes the pointer. When it has
+   more than one line (a name, then its explanation), the first is semibold. */
+.tooltip {
+  position: fixed; inset: auto; width: max-content; max-width: var(--tip-w); height: auto; margin: 0; padding: 6px 8px; overflow: visible;
+  border: 1px solid var(--line); border-radius: var(--r-popover); background: var(--bg-tooltip); color: var(--text-tooltip); box-shadow: var(--shadow-raised);
+  font: var(--fs-body)/var(--lh-body) var(--body); font-variant-numeric: tabular-nums; text-align: left; overflow-wrap: break-word; pointer-events: none;
+}
+.tip-first { display: flex; align-items: baseline; gap: 8px; }
+.tip-first > span { flex: 1 1 auto; min-width: 0; }
+.tip-first.lead > span { font-weight: 600; }
+.tooltip p { margin: 2px 0 0; }
+.tooltip kbd { flex: none; padding: 0 4px; border: 1px solid var(--tip-kbd-edge); border-radius: var(--r-segment); background: transparent; color: var(--text-tooltip-muted); font-size: var(--fs-small); line-height: var(--lh-body); }
 
 /* ---------------------------------------------------------------- the colour picker */
 .cpick { position: fixed; inset: auto; width: 336px; max-height: calc(100vh - 16px); margin: 0; padding: 12px; overflow: auto;
@@ -680,16 +700,16 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 /* ?frame=1: only the game screen, at its real size (screenshots). */
 .frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
 .frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .transport, .frame-only .timeline-slot,
-.frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-label { display: none !important; }
+.frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-label, .frame-only .tooltip { display: none !important; }
 .frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
 .frame-only .centre { grid-template-rows: minmax(0, 1fr); }
 .frame-only .viewport-wrap { margin: 0; border: 0; }
 .frame-only .frame-guide { outline: 0; box-shadow: none; }
 
-/* The colour picker and dialogs fade in over 100 ms with a 2 px move. Nothing else moves. */
-.cpick:popover-open, .dlg[open] { transition: opacity 100ms ease-out, transform 100ms ease-out; }
+/* The colour picker, dialogs and the tooltip fade in over 100 ms with a 2 px move. Nothing else moves. */
+.cpick:popover-open, .dlg[open], .tooltip:popover-open { transition: opacity 100ms ease-out, transform 100ms ease-out; }
 @starting-style {
-  .cpick:popover-open, .dlg[open] { opacity: 0; transform: translateY(2px); }
+  .cpick:popover-open, .dlg[open], .tooltip:popover-open { opacity: 0; transform: translateY(2px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

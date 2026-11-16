@@ -35,7 +35,8 @@ import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
-import { h, icon, segmented, selectField } from './dom';
+import { h, icon, installTooltips, segmented, selectField, tip } from './dom';
+import { lookupHelp } from './helptips';
 import { buildInspector } from './inspector';
 import { layerGlyph } from './layer-icons';
 import { buildTimeline } from './timeline';
@@ -400,6 +401,8 @@ export class App implements AppApi {
     const params = new URLSearchParams(location.search);
     const stored = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
     applyTheme((params.get('theme') ?? stored) === 'dark');
+    // One tooltip for the page: every title, and the help texts for labels (help.ts).
+    installTooltips(lookupHelp);
     this.buildShell(root);
     this.preview = await Preview.create({
       container: this.els.viewport, palette: this.palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
@@ -451,30 +454,32 @@ export class App implements AppApi {
 
   private buildShell(root: HTMLElement): void {
     const projectName = h('span', { class: 'project-name' });
-    const save = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Save (Ctrl+S)', on: { click: () => void this.save() } }, icon('save'), h('span', { class: 'save-label', text: 'Save' }));
+    // The bars' tooltips are their help texts (help.ts, by label and region: data-help-section) with the shortcut; an
+    // icon-only button's tooltip starts with its name. Undo and Redo name the step (renderTopbar).
+    const save = h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => void this.save() } }, icon('save'), h('span', { class: 'save-label', text: 'Save' }));
     // An icon toggle: the sun shows in Day, the moon in Night (the stylesheet picks one by aria-pressed).
     const night = h('button', { class: 'tb icon-only theme-toggle', attrs: { type: 'button', 'aria-label': 'Night mode', 'aria-pressed': String(document.documentElement.dataset.theme === 'dark') },
-      title: 'Night mode: dark panels (the preview keeps the game\'s colours)', on: { click: () => {
+      on: { click: () => {
         const dark = document.documentElement.dataset.theme !== 'dark';
         applyTheme(dark);
         night.setAttribute('aria-pressed', String(dark));
         try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch { /* storage may be blocked */ }
       } } }, icon('sun'), icon('moon'));
-    const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, title: 'Undo (Ctrl+Z)', on: { click: () => this.history.undo() } }, icon('undo'));
-    const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, title: 'Redo (Ctrl+Shift+Z)', on: { click: () => this.history.redo() } }, icon('redo'));
+    const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, on: { click: () => this.history.undo() } }, icon('undo'));
+    const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, on: { click: () => this.history.redo() } }, icon('redo'));
     const backend = h('span', { class: 'badge' });
     const status = h('div', { class: 'status', attrs: { role: 'status', 'aria-live': 'polite' } });
     const dialog = h('dialog', { class: 'dlg' });
-    const top = h('header', { class: 'topbar' },
+    const top = h('header', { class: 'topbar', attrs: { 'data-help-section': 'Top bar' } },
       h('div', { class: 'brand' }, h('b', { text: 'Shamble' }), h('span', { text: 'VFX' })),
       h('div', { class: 'project' }, projectName,
         h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => void this.projectsDialog() } }, icon('projects'), h('span', { text: 'Projects…' })),
         save,
         h('button', { class: 'tb save-as', attrs: { type: 'button' }, on: { click: () => void this.saveAsDialog() } }, icon('save-as'), h('span', { text: 'Save as…' })),
-        h('button', { class: 'tb export', attrs: { type: 'button' }, title: 'Write the folder the game loads: a manifest, one file per effect, one packed atlas', on: { click: () => void this.exportDialog() } },
+        h('button', { class: 'tb export', attrs: { type: 'button' }, on: { click: () => void this.exportDialog() } },
           icon('export'), h('span', { text: 'Export…' }))),
       h('div', { class: 'tools' }, undo, redo, backend, night,
-        h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Keyboard shortcuts', on: { click: () => this.keysDialog() } }, icon('keys'), h('span', { text: 'Keys' }))));
+        h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => this.keysDialog() } }, icon('keys'), h('span', { text: 'Keys' }))));
 
     const effects = h('div', { class: 'list effects-list' });
     const layers = h('div', { class: 'list layers-list' });
@@ -487,18 +492,18 @@ export class App implements AppApi {
       h('option', { attrs: { value: 'word' }, text: 'Word (a comic sound)' }));
     addMenu.addEventListener('change', () => { const v = addMenu.value; addMenu.value = ''; if (v) this.addLayer(v); });
     const left = h('aside', { class: 'left' },
-      h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
-        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'New effect', on: { click: () => this.newEffect() } }, icon('plus'), 'New'),
-        h('button', { class: 'mini', attrs: { type: 'button' }, title: 'A copy of a ready-made effect: the drawing board\'s four, and the comic hits', on: { click: () => void this.presetDialog() } }, icon('preset'), 'From preset…')), effects),
-      h('section', { class: 'card grow' }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
+      h('section', { class: 'card', attrs: { 'data-help-section': 'Effects' } }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
+        h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => this.newEffect() } }, icon('plus'), 'New'),
+        h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => void this.presetDialog() } }, icon('preset'), 'From preset…')), effects),
+      h('section', { class: 'card grow', attrs: { 'data-help-section': 'Layers' } }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
         h('div', { class: 'layer-tools' },
           addMenu),
         layers,
         h('div', { class: 'layer-tools' },
-          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move up' }, title: 'Move up (draws over more)', on: { click: () => this.moveSelected(1) } }, icon('up')),
-          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move down' }, title: 'Move down', on: { click: () => this.moveSelected(-1) } }, icon('down')),
-          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, title: 'Duplicate', on: { click: () => this.duplicateSelected() } }, icon('copy')),
-          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, title: 'Delete layer (Del)', on: { click: () => this.deleteSelected() } }, icon('trash')))));
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move up' }, on: { click: () => this.moveSelected(1) } }, icon('up')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move down' }, on: { click: () => this.moveSelected(-1) } }, icon('down')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, on: { click: () => this.duplicateSelected() } }, icon('copy')),
+          h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, on: { click: () => this.deleteSelected() } }, icon('trash')))));
 
     this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', value: this.faction,
       options: FACTION_IDS.map((f) => ({ value: f, label: builtInPalette.factions[f].name, icon: `faction-${f}` as const, style: `--team:${builtInPalette.factions[f].roles.team!.hex}` })),
@@ -515,24 +520,24 @@ export class App implements AppApi {
       onChange: (r) => { this.preview.setRelation(r); this.relationCtl.set(r); } });
     this.distanceBox = distanceControl((m) => { this.preview.setDistance(m); this.timelineView.refresh(); });
     this.tierCtl = segmented<TierName>({ label: 'Tier', small: true, value: 'high',
-      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], icon: `tier-${t}` as const, title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
+      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], icon: `tier-${t}` as const })),
       onChange: (t) => this.setTier(t) });
-    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
+    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, on: { click: () => this.fire() } }, icon('fire'), 'Fire');
     const stats = h('button', { class: 'stats', attrs: { type: 'button' }, title: 'This frame. Click for the cost panel: the effect measured over its whole length, per tier',
       on: { click: () => this.showCostCard() } });
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
+    const vbar = h('div', { class: 'vbar', attrs: { 'data-help-section': 'Preview bar' } }, fire,this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
 
-    const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
-    this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, title: 'Loop (L)', on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
+    const play = h('button', { class: 'play', attrs: { type: 'button' }, on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
+    this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
     this.speedCtl = segmented<number>({ label: 'Speed', options: SPEEDS.map((s) => ({ value: s, label: s === 1 ? '1×' : s === 0.5 ? '½×' : s === 0.25 ? '¼×' : '⅒×' })), value: 1,
       onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true });
-    const time = h('span', { class: 'time' });
-    const transport = h('div', { class: 'transport' },
-      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step back' }, title: 'One step back (←)', on: { click: () => this.step(-1) } }, icon('step-back')),
+    const time = h('span', { class: 'time', attrs: { 'data-help-label': 'Time' } });
+    const transport = h('div', { class: 'transport', attrs: { 'data-help-section': 'Transport' } },
+      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step back' }, on: { click: () => this.step(-1) } }, icon('step-back')),
       play,
-      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step forward' }, title: 'One step forward (→)', on: { click: () => this.step(1) } }, icon('step-fwd')),
+      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step forward' }, on: { click: () => this.step(1) } }, icon('step-fwd')),
       this.loopBtn, this.speedCtl.el, time);
 
     const centre = h('main', { class: 'centre' }, vbar, h('div', { class: 'viewport-wrap' }, viewport, hint), transport, h('div', { class: 'timeline-slot' }));
@@ -1130,8 +1135,9 @@ export class App implements AppApi {
     (this.els.root.querySelector('.save-as') as HTMLElement).hidden = !!p && !p.writable;
     this.els.undo.disabled = !this.history.canUndo;
     this.els.redo.disabled = !this.history.canRedo;
-    this.els.undo.title = this.history.canUndo ? `Undo ${this.history.undoLabel} (Ctrl+Z)` : 'Nothing to undo';
-    this.els.redo.title = this.history.canRedo ? `Redo ${this.history.redoLabel} (Ctrl+Shift+Z)` : 'Nothing to redo';
+    // Their tooltips name the step; the shortcut and the help text come from help.ts.
+    tip(this.els.undo, this.history.canUndo ? `Undo ${this.history.undoLabel}` : 'Nothing to undo');
+    tip(this.els.redo, this.history.canRedo ? `Redo ${this.history.redoLabel}` : 'Nothing to redo');
   }
 
   private renderEffects(): void {
@@ -1271,6 +1277,11 @@ export class App implements AppApi {
   /** For the browser check: draw the preview in a tier. */
   setTierForChecks(t: TierName): void {
     this.setTier(t);
+  }
+
+  /** For the browser check: the help text a label, a section's title or a control gets in its tooltip (help.ts), or null. */
+  helpForChecks(el: Element): string | null {
+    return lookupHelp(el)?.text ?? null;
   }
 
   get previewForChecks(): Preview {

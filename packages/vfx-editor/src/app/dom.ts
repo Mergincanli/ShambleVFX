@@ -129,5 +129,251 @@ export function fold(title: string, children: Child[], openByDefault = false, ac
   return d;
 }
 
+// ---------------------------------------------------------------- tooltips (docs/ui-redesign.md 6.9)
+
+/**
+ * One tooltip for the whole page. It shows after TIP_DELAY_MS of hover (TIP_QUICK_MS when another tooltip was just
+ * open), and at once when Tab moves the keyboard focus onto an element that has one. It hides when the pointer leaves,
+ * on a press (and stays away until the pointer leaves what was pressed), on scroll and on Esc. Esc is not taken from the
+ * editor: it still does what it did (closes the picker, leaves the layer).
+ *
+ * What it says for an element:
+ *   - its own words: data-tip. Every title turns into data-tip the first time the pointer or the focus comes to it (or as
+ *     soon as code sets it again), so the browser's own tooltip never shows as well; a shortcut at the end of a title,
+ *     "(Ctrl+Z)", goes into the kbd. Code can set the words with tip(). An icon-only button with no words of its own is
+ *     named by its aria-label;
+ *   - the help text for its label where it is shown, from the lookup given to installTooltips (src/app/helptips.ts),
+ *     asked for each time it shows, so a label that changes or comes later gets its text;
+ *   - its full text first, when it is cut short with an ellipsis;
+ *   - a shortcut (data-tip-key, or the lookup's) in a muted kbd.
+ * The element is a manual popover appended to document.body: it draws over the colour picker and dialogs too, and never
+ * takes the pointer. Nothing here changes an element's name for screen readers; a tooltip shown for the keyboard focus
+ * describes the focused element (aria-describedby) while it shows.
+ */
+export const TIP_DELAY_MS = 500;
+export const TIP_QUICK_MS = 150;
+/** "Another tooltip was just open": one is open, or one closed less than this long ago. */
+const TIP_QUICK_WINDOW_MS = 600;
+/** Focus counts as the keyboard's when Tab was pressed less than this long before. */
+const TAB_WINDOW_MS = 1000;
+const TIP_ID = 'vfx-tooltip';
+
+/** What the help lookup gives for an element: the help text for its label, and its shortcut. */
+export interface TipHelp { text?: string; key?: string }
+export type TipHelpLookup = (el: Element) => TipHelp | null;
+
+/** A shortcut at the end of a title: "Undo Size (Ctrl+Z)", "Close (Esc)". */
+const KEY_IN_TITLE = /\s+\(((?:(?:Ctrl|Shift|Alt|Cmd)\+)*(?:Esc|Del|Delete|Space|Enter|Tab|F\d{1,2}|[A-Za-z0-9?/←→↑↓[\]]))\)$/;
+const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [role], [tabindex]';
+
+let helpOf: TipHelpLookup = () => null;
+let installed = false;
+let tipEl: HTMLElement | null = null;
+/** The element under the pointer that has a tooltip (shown or waiting), the one shown, and the one pressed. */
+let hovered: Element | null = null;
+let shown: Element | null = null;
+let pressed: Element | null = null;
+let shownByFocus = false;
+/** The focused element that the shown tooltip describes. */
+let described: Element | null = null;
+let timer = 0;
+let watch = 0;
+let hiddenAt = -Infinity;
+let tabAt = -Infinity;
+
+/**
+ * Give an element a tooltip in code: its own words (null: none) and an optional shortcut. It takes the place of a title,
+ * so no browser tooltip shows; an open tooltip for the element follows at once.
+ */
+export function tip(el: Element, text: string | null, key?: string): void {
+  el.removeAttribute('title');
+  if (text) el.setAttribute('data-tip', text); else el.removeAttribute('data-tip');
+  if (key) el.setAttribute('data-tip-key', key); else el.removeAttribute('data-tip-key');
+  el.removeAttribute('data-tip-key-from-title');
+  if (el === shown) showTip(el, shownByFocus);
+}
+
+/** Turn an element's title into its tooltip's own words, so the browser never shows its own tooltip as well. */
+function takeTitle(el: Element): void {
+  const t = el.getAttribute('title');
+  if (t === null) return;
+  el.removeAttribute('title');
+  const m = KEY_IN_TITLE.exec(t);
+  const words = (m ? t.slice(0, m.index) : t).trim();
+  if (words) el.setAttribute('data-tip', words); else el.removeAttribute('data-tip');
+  if (m) { el.setAttribute('data-tip-key', m[1]!); el.setAttribute('data-tip-key-from-title', ''); }
+  else if (el.hasAttribute('data-tip-key-from-title')) { el.removeAttribute('data-tip-key'); el.removeAttribute('data-tip-key-from-title'); }
+  // A control named only by its title keeps that name.
+  if (words && el.matches(INTERACTIVE) && !el.hasAttribute('aria-label') && !el.hasAttribute('aria-labelledby') && !(el.textContent ?? '').trim()) el.setAttribute('aria-label', words);
+}
+
+function takeTitles(from: Element | null): void {
+  for (let n = from; n; n = n.parentElement) if (n.hasAttribute('title')) takeTitle(n);
+}
+
+function ownWords(el: Element): string {
+  return el.getAttribute('data-tip') ?? (el.matches('.icon-only') ? el.getAttribute('aria-label') ?? '' : '');
+}
+
+function hasTip(el: Element): boolean {
+  return el.hasAttribute('data-tip') || el.hasAttribute('title') || (el.matches('.icon-only') && el.hasAttribute('aria-label')) || !!helpOf(el);
+}
+
+/** The nearest element round the pointer's target that has a tooltip. */
+function tipAt(target: Element | null): Element | null {
+  for (let n = target; n && n !== document.body && n !== document.documentElement; n = n.parentElement) if (hasTip(n)) return n;
+  return null;
+}
+
+/** The focused element's own tooltip: its own, or for a checkbox, its label's. Never a neighbour's. */
+function tipOfFocus(el: Element): Element | null {
+  if (hasTip(el)) return el;
+  const check = el.matches('input') ? el.closest('label.check') : null;
+  return check && hasTip(check) ? check : null;
+}
+
+const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+/** What the tooltip says for an element: its lines, and its shortcut. Null when it has nothing to say. */
+export function tipContent(el: Element): { lines: string[]; key?: string } | null {
+  takeTitle(el);
+  const own = flat(ownWords(el));
+  const help = helpOf(el);
+  const lines: string[] = [];
+  const he = el as HTMLElement;
+  // Cut short with an ellipsis: the whole text first.
+  const full = he.scrollWidth > he.clientWidth + 1 && getComputedStyle(he).textOverflow === 'ellipsis' ? flat(he.textContent) : '';
+  if (full && !own.includes(full)) lines.push(full);
+  if (own) lines.push(own);
+  if (help?.text && flat(help.text) !== own) lines.push(help.text);
+  const key = el.getAttribute('data-tip-key') ?? help?.key;
+  if (!lines.length && key) lines.push(flat(he.textContent) || flat(el.getAttribute('aria-label')));
+  return lines.length ? { lines, ...(key ? { key } : {}) } : null;
+}
+
+function tipElement(): HTMLElement {
+  if (tipEl?.isConnected) return tipEl;
+  tipEl = h('div', { class: 'tooltip', attrs: { id: TIP_ID, role: 'tooltip', popover: 'manual' } });
+  document.body.append(tipEl);
+  return tipEl;
+}
+
+const isOpen = (el: HTMLElement) => el.matches(':popover-open');
+
+function showTip(anchor: Element, byFocus: boolean, focused?: Element): void {
+  const c = tipContent(anchor);
+  if (!c) { hideTip(); return; }
+  const el = tipElement();
+  const [first, ...more] = c.lines;
+  el.replaceChildren(
+    h('div', { class: more.length ? 'tip-first lead' : 'tip-first' }, h('span', { text: first ?? '' }), c.key ? h('kbd', { text: c.key }) : null),
+    ...more.map((line) => h('p', { text: line })));
+  // Shown again each time, so it is on top of a picker or a dialog opened since.
+  if (isOpen(el)) el.hidePopover();
+  el.showPopover();
+  placeTip(el, anchor);
+  if (described && described !== focused) unlinkTip();
+  shown = anchor;
+  shownByFocus = byFocus;
+  if (byFocus && focused && !focused.hasAttribute('aria-describedby')) { focused.setAttribute('aria-describedby', TIP_ID); described = focused; }
+  clearInterval(watch);
+  // What it was for went away (the panel was built again): so does the tooltip.
+  watch = window.setInterval(() => { if (shown && !shown.isConnected) hideTip(); }, 250);
+}
+
+/** Below what it is for, or above when there is no room below; always inside the window. */
+function placeTip(el: HTMLElement, anchor: Element): void {
+  const r = anchor.getBoundingClientRect();
+  const t = el.getBoundingClientRect();
+  const m = 8, gap = 6;
+  let top = r.bottom + gap;
+  if (top + t.height > window.innerHeight - m && r.top - gap - t.height >= m) top = r.top - gap - t.height;
+  top = Math.max(m, Math.min(top, window.innerHeight - m - t.height));
+  const left = Math.max(m, Math.min(r.left, window.innerWidth - m - t.width));
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(top)}px`;
+}
+
+function unlinkTip(): void {
+  if (described?.getAttribute('aria-describedby') === TIP_ID) described.removeAttribute('aria-describedby');
+  described = null;
+}
+
+function hideTip(): void {
+  clearTimeout(timer);
+  timer = 0;
+  clearInterval(watch);
+  if (tipEl && isOpen(tipEl)) tipEl.hidePopover();
+  if (shown) hiddenAt = performance.now();
+  shown = null;
+  shownByFocus = false;
+  unlinkTip();
+}
+
+/** Start the page's tooltips (once), with the lookup for help texts. */
+export function installTooltips(lookup: TipHelpLookup): void {
+  helpOf = lookup;
+  if (installed) return;
+  installed = true;
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const target = e.target as Element;
+    takeTitles(target);
+    const a = tipAt(target);
+    if (a === hovered) return;
+    hovered = a;
+    clearTimeout(timer);
+    timer = 0;
+    if (pressed && pressed !== a) pressed = null;
+    if (shown && !shownByFocus && shown !== a) hideTip();
+    if (!a || a === pressed || a === shown) return;
+    const quick = !!shown || performance.now() - hiddenAt < TIP_QUICK_WINDOW_MS;
+    timer = window.setTimeout(() => { timer = 0; if (hovered === a && a.isConnected) showTip(a, false); }, quick ? TIP_QUICK_MS : TIP_DELAY_MS);
+  }, true);
+  document.addEventListener('pointerout', (e) => {
+    // Out of the window.
+    if (e.relatedTarget !== null) return;
+    hovered = null;
+    pressed = null;
+    clearTimeout(timer);
+    timer = 0;
+    if (shown && !shownByFocus) hideTip();
+  }, true);
+  document.addEventListener('pointerdown', (e) => {
+    pressed = hovered ?? tipAt(e.target as Element);
+    hideTip();
+  }, true);
+  document.addEventListener('focusin', (e) => {
+    const target = e.target as Element;
+    takeTitles(target);
+    // Only for the keyboard: Tab moved the focus here. Not when a click or the editor moved it.
+    if (performance.now() - tabAt > TAB_WINDOW_MS || !target.matches(':focus-visible')) return;
+    const a = tipOfFocus(target);
+    if (a) { clearTimeout(timer); timer = 0; showTip(a, true, target); }
+  }, true);
+  document.addEventListener('focusout', (e) => {
+    if (shown && shownByFocus && (e.target === described || shown.contains(e.target as Node))) hideTip();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') tabAt = performance.now();
+    // Esc hides it, and is not taken: the editor still gets it.
+    if (e.key === 'Escape' && (shown || timer)) { pressed = hovered; hideTip(); }
+  }, true);
+  document.addEventListener('scroll', () => { if (shown || timer) { pressed = hovered; hideTip(); } }, true);
+  window.addEventListener('blur', () => { hovered = null; hideTip(); });
+  // A title set again by code (the Undo button names the next step) never shows on its own: it turns into the tooltip's
+  // words at once on elements that had a tooltip already, and on the one under the pointer.
+  new MutationObserver((records) => {
+    for (const r of records) {
+      const el = r.target as Element;
+      if (!el.hasAttribute('title')) continue;
+      if (el === hovered || el === shown || el.hasAttribute('data-tip') || el.hasAttribute('data-tip-key')) {
+        takeTitle(el);
+        if (el === shown) showTip(el, shownByFocus, described ?? undefined);
+      }
+    }
+  }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['title'] });
+}
+
 export { icon, ICON_NAMES } from './icons';
 export type { IconName } from './icons';

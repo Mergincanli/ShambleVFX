@@ -25,7 +25,8 @@ function keyOf(fxId: string | undefined, layer: Layer | undefined): string {
 const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
 
 export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void; refresh(): void; backToEffect(): void } {
-  const el = h('aside', { class: 'inspector', attrs: { 'aria-label': 'Effect and layer settings' } });
+  // data-help-*: where the help texts in the tooltips look for the layer type and shape kind shown (src/app/helptips.ts).
+  const el = h('aside', { class: 'inspector', attrs: { 'aria-label': 'Effect and layer settings', 'data-help-panel': '' } });
   // One colour list for the panel: each view puts it in its place, so the colours can move from one selection to the next.
   const colours = colourList(app);
   let parts: Refresher[] = [];
@@ -40,6 +41,8 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
     const layer = app.layer();
     builtFor = keyOf(fx?.id, layer);
     parts = [];
+    if (layer) el.dataset.helpLayer = layer.type; else delete el.dataset.helpLayer;
+    if (layer?.type === 'shape') el.dataset.helpKind = layer.shape.kind; else delete el.dataset.helpKind;
     const hadFocus = el.contains(document.activeElement);
     el.replaceChildren();
     // Another effect or layer starts at the top of the panel (a part switched on rebuilds too, and keeps its place).

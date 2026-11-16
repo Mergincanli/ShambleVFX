@@ -9,8 +9,9 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
-//    the selection), Save as into projects/, Export and Import, and the palette profiles Import adds (everything made is
-//    deleted again after). Palette profiles go to a temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
+//    the selection), the layer icons, the tooltips and their help texts, Save as into projects/, Export and Import, and the
+//    palette profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
+//    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
@@ -825,6 +826,217 @@ if (webgpu) {
   ok('editor (driven) has no errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await p.close();
 
+  // -- tooltips (docs/ui-redesign.md 6.9): one shared tooltip, after 500 ms of hover (150 ms when another was just open) and
+  // at once on keyboard focus; it hides on a press, on scroll and on Esc (which still does its job in the editor). Every title
+  // becomes one, so no native tooltip shows as well. Labels, section titles and the bars' controls get their help texts
+  // (src/app/help.ts) by their label and where they are shown. Times are taken in the page: this browser's frames come slowly.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const tp = g.page;
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    await tp.evaluate(() => {
+      window.__vfxManual = true;
+      // When the pointer came over the element marked data-probe, when the tooltip opened after that, and whether it was
+      // open 250 ms after; when Tab was pressed.
+      const t = window.__tipProbe = { overAt: null, openAt: null, at250: null, tabAt: null };
+      document.addEventListener('pointerover', (e) => {
+        if (t.overAt !== null || !e.target.closest?.('[data-probe]')) return;
+        t.overAt = performance.now();
+        setTimeout(() => { t.at250 = !!document.querySelector('.tooltip')?.matches(':popover-open'); }, 250);
+      }, true);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Tab') t.tabAt = performance.now(); }, true);
+      setInterval(() => { if (t.openAt === null && (t.overAt !== null || t.tabAt !== null) && document.querySelector('.tooltip')?.matches(':popover-open')) t.openAt = performance.now(); }, 4);
+    });
+    const tipNow = () => tp.evaluate(() => {
+      const el = document.querySelector('.tooltip');
+      return { open: !!el?.matches(':popover-open'), lines: el ? [...el.querySelectorAll(':scope > .tip-first > span, :scope > p')].map((x) => x.textContent) : [], key: el?.querySelector('kbd')?.textContent ?? null };
+    });
+    // Mark one element, rest the pointer where nothing has a tooltip (long enough for "just open" to pass), then hover it.
+    const hoverProbe = async (locator) => {
+      await tp.evaluate(() => { document.querySelectorAll('[data-probe]').forEach((x) => x.removeAttribute('data-probe')); Object.assign(window.__tipProbe, { overAt: null, openAt: null, at250: null, tabAt: null }); });
+      await locator.scrollIntoViewIfNeeded();
+      await locator.evaluate((el) => { el.dataset.probe = '1'; });
+      const box = await locator.boundingBox();
+      await tp.mouse.move(box.x + Math.min(box.width / 2, 12), box.y + box.height / 2);
+      await tp.waitForFunction(() => window.__tipProbe.openAt !== null, null, { timeout: 10000 }).catch(() => {});
+      return tp.evaluate(() => ({ ...window.__tipProbe, delay: window.__tipProbe.openAt === null ? null : Math.round(window.__tipProbe.openAt - window.__tipProbe.overAt) }));
+    };
+    const restPointer = async () => { const v = await tp.locator('.viewport').boundingBox(); await tp.mouse.move(v.x + 30, v.y + v.height - 60); await tp.waitForTimeout(700); };
+
+    // A field label: its help text, for where it is (a ring's Width is its line's thickness), after the hover delay.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_shell'); a.selectLayer('ring'); });
+    const ringFold = tp.locator('.inspector details', { has: tp.locator(':scope > summary', { hasText: /^Shape: ring$/ }) });
+    await restPointer();
+    const width = await hoverProbe(ringFold.locator('.flab', { hasText: /^Width$/ }).first());
+    const widthTip = await tipNow();
+    const wantWidth = help.helpFor('Width', { section: ['Shape: ring'], layer: 'shape', kind: 'ring' });
+    ok('a tooltip shows after the hover delay (500 ms), not before, with the help text for the field label where it is (a ring\'s Width)',
+      width.delay !== null && width.delay >= 450 && width.delay < 4000 && width.at250 === false && widthTip.open && widthTip.lines.join(' | ') === wantWidth && wantWidth.includes('ring'),
+      `opened ${width.delay} ms after the hover, open at 250 ms: ${width.at250}; "${widthTip.lines.join(' | ')}"`);
+    // Another label while that one shows: 150 ms.
+    const quick = await (async () => {
+      await tp.evaluate(() => { document.querySelectorAll('[data-probe]').forEach((x) => x.removeAttribute('data-probe')); Object.assign(window.__tipProbe, { overAt: null, openAt: null, at250: null, tabAt: null }); });
+      const ink = ringFold.locator('.flab', { hasText: /^Ink line$/ }).first();
+      await ink.evaluate((el) => { el.dataset.probe = '1'; });
+      const box = await ink.boundingBox();
+      await tp.mouse.move(box.x + 8, box.y + box.height / 2);
+      await tp.waitForFunction(() => window.__tipProbe.openAt !== null, null, { timeout: 10000 }).catch(() => {});
+      return tp.evaluate(() => (window.__tipProbe.openAt === null ? null : Math.round(window.__tipProbe.openAt - window.__tipProbe.overAt)));
+    })();
+    const inkTip = await tipNow();
+    ok('with a tooltip just open, the next one shows after 150 ms', quick !== null && quick >= 100 && quick < 450 && inkTip.lines.join() === help.helpFor('Ink line', { section: ['Shape: ring'], layer: 'shape', kind: 'ring' }),
+      `${quick} ms; "${inkTip.lines.join(' | ')}"`);
+    // The same words mean other things elsewhere: the ring's Colour field (its line) and the layer's Colour section (its title).
+    const colours = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      const colourField = [...document.querySelectorAll('.inspector details .flab')].find((x) => x.textContent === 'Colour' && x.closest('details').querySelector(':scope > summary').textContent === 'Shape: ring');
+      const colourTitle = [...document.querySelectorAll('.inspector details > summary')].find((x) => x.textContent === 'Colour');
+      return { field: a.helpForChecks(colourField), title: a.helpForChecks(colourTitle) };
+    });
+    ok('help texts follow where a label is: a ring\'s Colour field and the layer\'s Colour section get their own texts',
+      colours.field === help.helpFor('Colour', { section: ['Shape: ring'], layer: 'shape', kind: 'ring' }) && colours.title === help.helpFor('Colour', { title: true, section: [], layer: 'shape', kind: 'ring' })
+        && colours.field !== colours.title, JSON.stringify(colours));
+    // The help texts do not change a control's name (the Width box is still called Width), and the label gets no ARIA.
+    const names = await tp.evaluate(() => {
+      const fold = [...document.querySelectorAll('.inspector details')].find((d) => d.querySelector(':scope > summary').textContent === 'Shape: ring');
+      const lab = [...fold.querySelectorAll('.flab')].find((x) => x.textContent === 'Width');
+      return { box: lab.closest('label.field').querySelector('input').getAttribute('aria-label'), labelAria: [...lab.attributes].map((x) => x.name).filter((n) => n.startsWith('aria') || n === 'title') };
+    });
+    const widthBoxes = await tp.getByRole('spinbutton', { name: 'Width', exact: true }).count();
+    ok('help texts never replace a control\'s name: the Width box is still named Width, and its label gets no ARIA or title', names.box === 'Width' && names.labelAria.length === 0 && widthBoxes >= 1,
+      `${JSON.stringify(names)}; ${widthBoxes} spinbutton(s) named Width`);
+    // A scroll hides it.
+    const scrolled = await tp.evaluate(async () => {
+      const before = !!document.querySelector('.tooltip')?.matches(':popover-open');
+      document.querySelector('.right').scrollTop += 40;
+      await new Promise((r) => setTimeout(r, 60));
+      return { before, after: !!document.querySelector('.tooltip')?.matches(':popover-open') };
+    });
+
+    // Every title becomes a tooltip: a layer row's (its full name) leaves its title for the tooltip, so no native one shows.
+    await tp.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
+    await restPointer();
+    const rowLoc = tp.locator('.layers-list .layer-item', { has: tp.locator(':scope > span', { hasText: /^Muzzle flash$/ }) });
+    const rowHover = await hoverProbe(rowLoc);
+    const rowTip = await tipNow();
+    const rowAttrs = await rowLoc.evaluate((el) => ({ title: el.getAttribute('title'), tip: el.getAttribute('data-tip') }));
+    ok('every title becomes a tooltip: the title moves into the tooltip on hover, so the browser\'s own does not show too; a scroll hides it',
+      rowHover.delay >= 450 && rowAttrs.title === null && rowAttrs.tip === 'Muzzle flash' && rowTip.open && rowTip.lines[0] === 'Muzzle flash' && scrolled.before && !scrolled.after,
+      `${JSON.stringify(rowAttrs)}; "${rowTip.lines.join(' | ')}" after ${rowHover.delay} ms; scroll: open ${scrolled.before} -> ${scrolled.after}`);
+
+    // Undo and Redo name the step, with the shortcut and the help text; the tooltip follows when the step changes.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.editEffect(['controls', 'size'], 2, { label: 'Size' }); a.commit(); });
+    await restPointer();
+    const undoLoc = tp.locator('.topbar button[aria-label="Undo"]');
+    await hoverProbe(undoLoc);
+    const undoTip = await tipNow();
+    await tp.keyboard.press('Control+z');
+    await tp.waitForTimeout(100);
+    const undoneTip = await tipNow();
+    const undoName = await undoLoc.getAttribute('aria-label');
+    ok('the Undo tooltip names the step, with its shortcut and help text, and follows when the step changes (its name stays Undo)',
+      undoTip.lines[0] === 'Undo Size' && undoTip.key === 'Ctrl+Z' && undoTip.lines[1] === help.helpFor('Undo', { section: 'Top bar' }) && undoneTip.lines[0] === 'Nothing to undo' && undoName === 'Undo',
+      `${JSON.stringify(undoTip)} -> ${JSON.stringify(undoneTip)}`);
+    // A press hides it, and it stays away while the pointer stays (Loop, pressed twice: as it was).
+    const loopLoc = tp.locator('.transport button', { hasText: /^Loop$/ });
+    await restPointer();
+    const loopHover = await hoverProbe(loopLoc);
+    const loopTip = await tipNow();
+    await loopLoc.click();
+    await tp.waitForTimeout(700);
+    const afterPress = await tipNow();
+    await loopLoc.click();
+    ok('a press hides the tooltip, and it does not come back while the pointer stays', loopHover.delay !== null && loopTip.open && loopTip.key === 'L' && !afterPress.open,
+      `before the press: ${JSON.stringify(loopTip)}; after: open ${afterPress.open}`);
+
+    // At once on keyboard focus (Shift+Tab from Keys to Night mode), named and explained; Esc hides it and still leaves the
+    // layer, as Esc does.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.selectLayer('flash'); });
+    await restPointer();
+    await tp.locator('.topbar button', { hasText: /^Keys$/ }).focus();
+    await tp.evaluate(() => Object.assign(window.__tipProbe, { overAt: null, openAt: null, at250: null, tabAt: null }));
+    const quietFocus = await tipNow();
+    await tp.keyboard.press('Shift+Tab');
+    await tp.waitForFunction(() => window.__tipProbe.openAt !== null, null, { timeout: 5000 }).catch(() => {});
+    const focusTip = await tipNow();
+    const focused = await tp.evaluate(() => ({ name: document.activeElement?.getAttribute('aria-label'), desc: document.activeElement?.getAttribute('aria-describedby'),
+      after: window.__tipProbe.openAt === null ? null : Math.round(window.__tipProbe.openAt - window.__tipProbe.tabAt) }));
+    await tp.keyboard.press('Escape');
+    await tp.waitForTimeout(50);
+    const escTip = await tipNow();
+    const escState = await tp.evaluate(() => ({ layer: window.__vfx.app.layer()?.id ?? null, focus: document.activeElement?.getAttribute('aria-label'), desc: document.activeElement?.getAttribute('aria-describedby') }));
+    const nightNamed = await tp.getByRole('button', { name: 'Night mode', exact: true }).count();
+    ok('a tooltip shows at once on keyboard focus (Tab), with the button\'s name and its help text, and describes the focused button; focus the editor moves shows none',
+      !quietFocus.open && focusTip.open && focused.after !== null && focused.after < 120 && focused.name === 'Night mode' && focusTip.lines[0] === 'Night mode'
+        && focusTip.lines[1] === help.helpFor('Night mode', { section: 'Top bar' }) && focused.desc === 'vfx-tooltip' && nightNamed === 1,
+      `focus on ${focused.name}, open ${focused.after} ms after Tab: "${focusTip.lines.join(' | ')}"; after a focus by code: open ${quietFocus.open}`);
+    ok('Esc hides the tooltip, and is not taken from the editor (it still goes back to the effect\'s settings)', !escTip.open && escState.layer === null && escState.focus === focused.name && escState.desc === null,
+      JSON.stringify(escState));
+
+    // It shows over the colour picker (a popover in the top layer): drawn on top, in its own colours.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_beam'); a.selectLayer('emitter_glow'); a.openColourPicker('glow', document.querySelector('.inspector .swatch:not([hidden])')); });
+    await restPointer();
+    await hoverProbe(tp.locator('.cp-head button[aria-label="Close the colour picker"]'));
+    const overPicker = await tp.evaluate(() => {
+      const t = document.querySelector('.tooltip'), r = t.getBoundingClientRect(), pk = document.querySelector('.cpick').getBoundingClientRect();
+      const x = Math.round(r.left + 10), y = Math.round(r.top + 3);
+      return { x, y, inPicker: x > pk.left && x < pk.right && y > pk.top && y < pk.bottom, bg: getComputedStyle(t).backgroundColor, size: getComputedStyle(t).fontSize, max: getComputedStyle(t).maxWidth,
+        lines: [...t.querySelectorAll(':scope > .tip-first > span, :scope > p')].map((q) => q.textContent), key: t.querySelector('kbd')?.textContent };
+    });
+    const pickShot = PNG.sync.read(await tp.screenshot({ path: join(shots, 'editor-tooltip-over-picker.png'), animations: 'disabled' }));
+    const px = hex(pickShot, overPicker.x, overPicker.y);
+    const bgHex = '#' + overPicker.bg.match(/\d+/g).slice(0, 3).map((v) => (+v).toString(16).padStart(2, '0')).join('').toUpperCase();
+    await tp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    // Night: still dark (its own colour, not the panel's).
+    const nightBg = await tp.evaluate(() => { document.documentElement.dataset.theme = 'dark'; const bg = getComputedStyle(document.querySelector('.tooltip')).backgroundColor; document.documentElement.dataset.theme = 'light'; return bg; });
+    ok('the tooltip draws over the colour picker; it is 12 px, at most 280 px wide, dark in Day and in Night, with a title\'s shortcut in its kbd ("Close (Esc)")',
+      overPicker.inPicker && diff(px, bgHex) <= 2 && bgHex === '#2A2A2A' && nightBg === 'rgb(30, 30, 30)' && overPicker.size === '12px' && overPicker.max === '280px'
+        && overPicker.lines.join() === 'Close' && overPicker.key === 'Esc', `pixel ${px} at ${overPicker.x},${overPicker.y} (tooltip ${bgHex}, Night ${nightBg}); ${JSON.stringify(overPicker)}`);
+
+    // Every label and section title of the right panel, for every effect and layer of both examples, and the bars' controls,
+    // has a help text (as tools/ui-shots.mjs reads the panel: field labels, checkboxes, folds' and cards' titles, cost rows).
+    const sweep = await tp.evaluate(async () => {
+      const a = window.__vfx.app;
+      const LABELS = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check, details > summary, section.card > h2, .card-head > h2, table.cost th';
+      const misses = new Set(), seen = new Set();
+      let checked = 0;
+      const look = (where) => {
+        for (const el of document.querySelectorAll(`.inspector :is(${LABELS})`)) {
+          if (el.matches('table.cost thead th') && !el.textContent.trim()) continue; // the empty corner of the cost table
+          checked++;
+          const t = el.textContent.replace(/\s+/g, ' ').trim();
+          seen.add(t);
+          if (!a.helpForChecks(el)) misses.add(`${where}: "${t}"`);
+        }
+      };
+      for (const project of ['examples/demo-project', 'examples/hits-collection']) {
+        if (project !== 'examples/demo-project') { window.confirm = () => true; await a.openProject(project); }
+        for (const id of a.debugState().effects) {
+          a.pickEffect(id);
+          look(id);
+          for (const l of a.effect().layers) { a.selectLayer(l.id); look(`${id}/${l.id}`); }
+          a.selectLayer(null);
+        }
+      }
+      const BAR = { 'Top bar': ['Projects…', 'Save as…', 'Export…', 'Undo', 'Redo', 'Night mode', 'Keys'], 'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on'],
+        Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], Effects: ['Effects', 'New', 'From preset…'], Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
+      const bars = [];
+      for (const [section, labels] of Object.entries(BAR)) {
+        const region = document.querySelector(`[data-help-section="${section}"]`);
+        for (const label of labels) {
+          const el = [...region.querySelectorAll('button, .lab > span, .flab, select, [data-help-label], h2')].find((x) => !x.closest('.effects-list, .layers-list') && (x.getAttribute('aria-label') === label || x.getAttribute('data-help-label') === label || x.textContent.replace(/\s+/g, ' ').trim() === label));
+          if (!el || !a.helpForChecks(el)) bars.push(`${section}: ${label}${el ? '' : ' (not found)'}`);
+        }
+      }
+      return { checked, distinct: seen.size, misses: [...misses], bars };
+    });
+    ok('every label and section title of the right panel (every layer of both examples) and every control of the bars has a help text',
+      sweep.misses.length === 0 && sweep.bars.length === 0 && sweep.checked > 5000 && sweep.distinct >= 195,
+      `${sweep.checked} labels and titles checked (${sweep.distinct} different); missing: ${[...sweep.misses.slice(0, 4), ...sweep.bars.slice(0, 4)].join(', ') || 'none'}`);
+    ok('the tooltip page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await tp.close();
+  }
+
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.
   // (This headless browser never shows the leave-page dialog, so the check sends the leave event itself and reads whether
   // the editor held it back.)
@@ -896,7 +1108,8 @@ if (webgpu) {
       const el = document.querySelector('.costcard .cost-level');
       const r = document.createRange();
       r.selectNodeContents(el);
-      return { text: el.textContent, title: el.title, lines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
+      // Its tooltip's words: the title, or data-tip once the title has moved into the tooltip.
+      return { text: el.textContent, title: el.title || el.dataset.tip || '', lines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
     });
     ok('the cost card names a class with a long name in one or two lines, the whole name in its tooltip', level.lines >= 1 && level.lines <= 2
       && level.text.startsWith('The budgets of its class "Big explosions') && level.title.includes(longClass), `${level.lines} line(s): "${level.text}"`);

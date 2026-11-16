@@ -85,6 +85,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 13. **Night mode**, the sun or moon button in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
 14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
     never goes to this public repo.
+15. **Tooltips**: rest the pointer for half a second on a label in the right panel (such as **Place**, **Shape: ring** or
+    **Width**), a section's title, or a button or setting in the bars: a short tooltip says what it does and how to use it,
+    in plain words, for the layer shown (a ring's Width is its line's thickness). Buttons show their shortcut, and Undo and
+    Redo name the step. **Tab** to a button shows its tooltip at once; **Esc**, a click or scrolling hides it.
 
 Keys: press **Keys** in the top bar.
 
@@ -143,14 +147,19 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (168 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (180 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
 motion; one icon per kind of layer in the Layers list, on the timeline and in the header, a ring showing the ring, a sprite
-its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), the add menu, phase
+its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), the tooltips (after
+the 500 ms hover delay and not before, 150 ms when one was just open, at once on Tab and not on focus the editor moves; the
+help text for a label where it is, such as a ring's Width; a title moving into the tooltip; Undo naming the step; hidden by
+a press, a scroll and Esc, which still leaves the layer; drawn over the colour picker, 12 px, at most 280 px, dark in both
+themes; names of controls unchanged; and every label and section title of every layer of both examples, and every control
+of the bars, with a help text), the add menu, phase
 starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, Save
@@ -255,6 +264,10 @@ These write pictures to `out/` (kept out of git):
   to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
   their tooltips. The faction buttons show each faction's marking from sheet 16. Every kind of layer has its own icon: the 14
   shapes, the nine looks of a burst's pieces, the word, the projectile and the sprite.
+- **Tooltips that explain** (docs/ui-redesign.md 6.9): one tooltip for the whole editor, dark in both themes. Every label
+  and section title of the right panel, for the effect and every layer type, and the controls of the bars and lists explain
+  what they do and how to use them, in plain words written against the code (`src/app/help.ts`), true for what is shown.
+  The browser's own tooltips are gone: every title shows in the same tooltip.
 - **The right panel shows what is selected**: the effect's settings, or one layer's, first, under a header that leads back
   to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
   so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
@@ -490,6 +503,34 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the image icon. The picture uses the copy the editor already loaded for the atlas.
   - Only a sprite's tag (its image name) is Plex Mono in the Layers list; the rule goes by the layer's type, so an image
     burst's tag ("9 × image") stays Plex Sans.
+- **Tooltips** (the timing, the look, "every title becomes a tooltip" and plain explanations are the brief's and Mustafa's
+  ask; these details are ours):
+  - A tooltip says, in order: the element's own words (what its title said, such as a row's full name or "Undo Size"; an
+    icon-only button with none is named by its aria-label), then the help text for its label, then its shortcut in a muted
+    kbd on the first line. A label cut short with an ellipsis shows its whole text first. With more than one line, the first
+    is semibold. A shortcut written at the end of a title, "(Esc)", moves into the kbd.
+  - The help text is looked up when the tooltip is about to show, by the label's words and where they are: the sections
+    round it (as the settings inventory names them), the layer type and the shape kind; in the bars, the bar. So "Save as…"
+    and "Pause" get their texts when the button changes, and a label added later gets its text as soon as `help.ts` has
+    one. Only the editor's own words are looked up, never names people give (an effect called "Fire" does not get Fire's
+    text), and not in the colour picker or dialogs, whose titles show as they are.
+  - Where a help text says what a title said, the title went (Save, Export…, Keys, Fire, Play, Loop, New, From preset…,
+    Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all). The other
+    titles stay and show first (rows' full names, the faction and made-by choices, the triangle count, the renderer, the
+    picker's buttons…). The text inputs, number boxes and selects get no tooltip of their own: their label explains them.
+  - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press hides it until the pointer
+    leaves what was pressed, so a click never leaves a tooltip on screen; a scroll hides it the same way.
+  - Keyboard: it shows at once only when Tab or Shift+Tab brings the focus to an element with its own tooltip (a button, a
+    section's title, a checkbox's label), not when the editor moves the focus (to the panel's title after Esc or a rider),
+    and not on a text box, a number box or a select (it would cover the next rows while you type). While it shows it
+    describes the focused control for screen readers (aria-describedby); it never changes a control's name.
+  - Esc hides the tooltip and still does what Esc did (closes the picker, leaves the layer): the brief keeps every key as it
+    was.
+  - It is a popover in the browser's top layer, so it shows over the colour picker and dialogs; below what it is for, above
+    when there is no room, 8 px inside the window. It fades in over 100 ms with a 2 px move, as the picker and dialogs do (none
+    with reduced motion); none on touch.
+  - Its edge is `--line`, as the message at the bottom has; the shortcut is `--text-tooltip-muted` (#A6A6A6, 5.9:1 on the Day
+    tooltip, 6.8:1 on Night's) with a faint light edge, the same in both themes as the tooltip is.
 
 ## Claude skills
 

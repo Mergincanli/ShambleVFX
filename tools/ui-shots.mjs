@@ -25,6 +25,7 @@ const SEED = 7;
 //   effect and ms     the effect (by id) and the moment it is paused at: the same for every picture of the state
 //   layer             a layer id, or 'first:<type>' for the first layer of that type in the effect's file
 //   picker            true: the colour picker is open on the effect's main colour
+//   tooltip           true: a tooltip must be open in the picture (act opens it)
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
 //                     and keys with Playwright's real mouse and keyboard
 const STATES = [
@@ -35,9 +36,20 @@ const STATES = [
   // layer the browser check uses, and a glow, so its gradient field is in the panel.
   { name: 'beam-layer', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow' },
   { name: 'picker', project: DEMO, effect: 'rifle_shot', ms: 20, picker: true },
+  // A tooltip open: a field label's help text in the panel (the glow's Mixes), and a bar's button with its shortcut (Fire).
+  { name: 'tooltip-label', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow', tooltip: true,
+    act: (page) => hoverForTooltip(page, page.locator('.inspector details', { has: page.locator(':scope > summary', { hasText: /^Place$/ }) }).locator('.flab', { hasText: /^Mixes$/ })) },
+  { name: 'tooltip-button', project: DEMO, effect: 'rifle_shot', ms: 20, tooltip: true, act: (page) => hoverForTooltip(page, page.locator('.vbar button.fire')) },
   // (e) menu: a menu open. Menus only exist from phase 3 of the redesign on, so this state is left out for now. Add it
   // then, for example: { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, act: async (page) => { await page.click('…'); } },
 ];
+/** Rest the pointer on an element until its tooltip opens (after the hover delay). Nothing it hovers is built again later. */
+async function hoverForTooltip(page, locator) {
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  await page.mouse.move(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
+  await page.waitForSelector('.tooltip:popover-open', { timeout: 10000 });
+}
 const THEMES = [{ name: 'day', param: 'light' }, { name: 'night', param: 'dark' }];
 const SIZES = [{ width: 2560, height: 1440 }, { width: 1920, height: 1080 }];
 // What the colour picker opens from: the first of these that exists. Today it is the main colour's swatch in the Effect
@@ -111,11 +123,12 @@ function describe() {
   return {
     effect: a.effect()?.id ?? null, effectName: a.effect()?.name ?? null, layer: a.layer()?.id ?? null, layerName: a.layer()?.name ?? null,
     theme: document.documentElement.dataset.theme, pickerOpen: !!document.querySelector('.cpick')?.matches(':popover-open'),
+    tooltipOpen: !!document.querySelector('.tooltip')?.matches(':popover-open'),
     role: a.effect()?.controls.colour ?? null,
     // For the check that the preview is drawn: the game frame, and what lies over it.
     frame: box(document.querySelector('.frame-guide')) ?? box(document.querySelector('.viewport')),
     viewport: box(document.querySelector('.viewport')),
-    covers: ['.frame-label', '.scale-label', '.vhint', '.cpick:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
+    covers: ['.frame-label', '.scale-label', '.vhint', '.cpick:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
   };
 }
 
@@ -315,6 +328,7 @@ try {
           if (state.layer && !state.layer.startsWith('first:') && got.layer !== state.layer) wrong.push(`layer is ${got.layer}, want ${state.layer}`);
           if (state.layer?.startsWith('first:') && !got.layer) wrong.push('no layer is selected');
           if (!!state.picker !== got.pickerOpen) wrong.push(`the colour picker is ${got.pickerOpen ? 'open' : 'closed'}`);
+          if (!!state.tooltip !== got.tooltipOpen) wrong.push(`a tooltip is ${got.tooltipOpen ? 'open' : 'not open'}`);
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);

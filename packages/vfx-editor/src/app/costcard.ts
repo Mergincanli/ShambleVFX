@@ -17,14 +17,8 @@ import type { AppApi } from './api';
 import { h, icon } from './dom';
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
+/** The rows' names. What each counts is its tooltip: the help text for the name (help.ts), as for every label. */
 const METRIC_LABEL: Record<CostMetric, string> = { draws: 'Draws', sprites: 'Sprites alive', triangles: 'Triangles', area: 'Screen area', ms: 'CPU ms a frame' };
-const METRIC_TITLE: Record<CostMetric, string> = {
-  draws: 'The most draw calls at any moment: one per blend group in use. Effects playing together share them (at most 4 in all).',
-  sprites: 'The most items alive at any moment: each sprite, particle, dot, letter, flame tongue, smoke puff, line and shape counts once, however many outlines it has.',
-  triangles: 'The most triangles at any moment.',
-  area: 'The largest share of the 1920 × 1080 game screen the effect covers at any moment. See-through parts count: the GPU fills them too. Under it: the same with overlaps counted.',
-  ms: 'CPU time to build one frame of the effect on this computer: the 95th percentile frame. Under it: the average and the worst. The GPU\'s share shows in triangles and screen area.',
-};
 
 const int = (n: number) => Math.round(n).toLocaleString('en-US');
 const pct = (f: number) => `${(f * 100).toFixed(1)} %`;
@@ -73,11 +67,11 @@ function valueText(c: TierCost, m: CostMetric): { main: string; sub: string } {
 export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   const status = h('p', { class: 'hint cost-status' });
   const measureLabel = h('span', { text: 'Measure' });
-  const measure = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Play the effect through at 60 frames a second in each tier, at the game camera, and count', on: { click: () => app.measureCost() } },
+  const measure = h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => app.measureCost() } },
     icon('gauge'), measureLabel);
   const cells = new Map<string, { main: HTMLElement; sub: HTMLElement; cell: HTMLElement; box: HTMLInputElement }>();
   const rows = COST_METRICS.map((m) => h('tr', {},
-    h('th', { attrs: { scope: 'row' }, title: METRIC_TITLE[m], text: METRIC_LABEL[m] }),
+    h('th', { attrs: { scope: 'row' }, text: METRIC_LABEL[m] }),
     ...TIER_NAMES.map((t) => {
       const main = h('div', { class: 'cv' }), sub = h('div', { class: 'cs' });
       const box = h('input', { class: 'budget', attrs: { type: 'number', min: '0', step: m === 'ms' ? '0.1' : m === 'area' ? '0.5' : '1', placeholder: 'budget',
