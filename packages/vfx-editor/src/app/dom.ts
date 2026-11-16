@@ -114,12 +114,16 @@ export function checkField(o: { label: string; value: boolean; onChange(v: boole
   return { el: h('label', { class: 'check' }, box, h('span', { text: o.label })), set };
 }
 
-/** A folding section. Its open/closed state is remembered per title. */
-export function fold(title: string, children: Child[], openByDefault = false): HTMLDetailsElement {
+/**
+ * A folding section. Its open/closed state is remembered per title. `actions` sit on the right of its header row, outside
+ * the summary (a control inside a summary would fold the section too), and show while it is open.
+ */
+export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = []): HTMLDetailsElement {
   const key = `vfx-fold:${title}`;
   let open = openByDefault;
   try { const s = localStorage.getItem(key); if (s !== null) open = s === '1'; } catch { /* storage may be blocked */ }
-  const d = h('details', { class: 'fold' }, h('summary', { text: title }), h('div', { class: 'foldbody' }, ...children));
+  const d = h('details', { class: actions.length ? 'fold has-actions' : 'fold' }, h('summary', { text: title }),
+    actions.length ? h('div', { class: 'fold-actions' }, ...actions) : null, h('div', { class: 'foldbody' }, ...children));
   d.open = open;
   d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ } });
   return d;

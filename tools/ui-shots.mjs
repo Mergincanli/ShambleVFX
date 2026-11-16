@@ -121,7 +121,9 @@ function describe() {
 
 /**
  * The settings inventory of the open project. Runs in the browser. For each effect (in id order): its own view, with no
- * layer selected; then each layer (in the order of the effect file), selected, and read from its own card.
+ * layer selected; then each layer (in the order of the effect file), selected, and read from its own card. With a layer
+ * selected the panel shows that layer's settings, not the effect's (a header leads back to them): the layer's card holds
+ * them all, and the reader stops if it is missing or if the effect's settings show too.
  */
 function readInventory() {
   const a = window.__vfx.app;
@@ -193,7 +195,10 @@ function readInventory() {
     for (const l of fx.layers) {
       a.selectLayer(l.id);
       if (a.layer()?.id !== l.id) throw new Error(`could not select layer ${l.id} of ${fx.id}`);
-      entry.layers.push({ id: l.id, name: l.name, type: l.type, sections: read(inspector.querySelector('section.card.layer') ?? inspector) });
+      const card = inspector.querySelector('section.card.layer');
+      if (!card) throw new Error(`layer ${l.id} of ${fx.id}: no layer card (section.card.layer) in the panel`);
+      if (inspector.querySelector('.bigcontrols')) throw new Error(`layer ${l.id} of ${fx.id}: the effect's settings show next to the layer's`);
+      entry.layers.push({ id: l.id, name: l.name, type: l.type, sections: read(card) });
     }
     a.selectLayer(null);
     effects.push(entry);
@@ -203,12 +208,13 @@ function readInventory() {
 
 const ABOUT = 'The settings inventory of the editor\'s right panel (the inspector), made by tools/ui-shots.mjs --fields. '
   + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect, Cost and Checks cards); '
-  + '"layers" are its layers, each selected and read from its own card (the Effect, Cost and Checks cards round a layer are the same for every layer, so they are listed once, in the effect\'s view). '
+  + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect, '
+  + 'then the Cost and Checks cards, which are the same for every layer, so they are listed once, in the effect\'s view). '
   + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". '
-  + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the palette, checkboxes (by the name a screen reader says), and inputs that have only that name (the cost budgets). '
+  + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
   + 'The second and third box of a generated pair or group of three are named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '
-  + 'Buttons (actions such as Measure or Add PNG images) are not listed. Effects are in id order; layers in the order of the effect file.';
+  + 'Buttons (actions such as Measure or Add PNG images, and a projectile\'s riders) are not listed. Effects are in id order; layers in the order of the effect file.';
 
 // ---------------------------------------------------------------- the dev server and the browser
 const failures = [];

@@ -7,9 +7,10 @@
 //      a half-transparent sprite is compared with what Canvas 2D (the drawing board) shows, as a number;
 //    - the editor: opens the demo project, pauses at set times (never waits on a running animation), and saves
 //      1920 x 1080 screenshots to out/screenshots/.
-// 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets,
-//    Save as into projects/, Export and Import, and the palette profiles Import adds (everything made is deleted again
-//    after). Palette profiles go to a temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
+// 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
+//    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
+//    the selection), Save as into projects/, Export and Import, and the palette profiles Import adds (everything made is
+//    deleted again after). Palette profiles go to a temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
@@ -440,7 +441,128 @@ if (webgpu) {
     && levelAfter.trim() === 'The project\'s budgets count for this effect.' && projectBudgets.on === true && projectBudgets.limits.high?.draws === 1, `"${levelBefore.trim()}" -> "${levelAfter.trim()}"`);
   await p.screenshot({ path: join(shots, 'editor-cost-panel.png') });
 
-  // -- the colour picker: a typed colour, a drag on the wheel and its undo, a new colour, Revert
+  // -- the right panel shows what is selected. A layer: its settings first, under a header with the effect's name (back to
+  // the effect's settings, as Esc is), "›", its icon and name; Cost and Checks stay under it. Every layer says what draws
+  // it; a projectile, which draws nothing, lists the layers riding it, and they say so in the Layers list.
+  const layerInfo = await server.ssrLoadModule('/src/doc/layer-info.ts');
+  const layerRow = (name) => p.locator('.layers-list .layer-item', { has: p.locator(':scope > span', { hasText: new RegExp(`^${name.replace(/[()]/g, '\\$&')}$`) }) });
+  const panel = () => p.evaluate(() => {
+    const ins = document.querySelector('.inspector');
+    const head = ins.querySelector(':scope > .insp-head');
+    const card = ins.querySelector(':scope > section.card.layer');
+    const top = ins.getBoundingClientRect().top;
+    return {
+      layer: window.__vfx.app.layer()?.id ?? null, first: ins.firstElementChild?.className ?? '',
+      link: head?.querySelector('.crumb')?.textContent ?? null, title: head?.querySelector('.insp-title')?.textContent ?? null,
+      icon: !!head?.querySelector('svg, img'), headH: head ? Math.round(head.getBoundingClientRect().height) : null,
+      cardTop: card ? Math.round(card.getBoundingClientRect().top - top) : null, effectSettings: !!ins.querySelector('.bigcontrols'),
+      draws: card?.querySelector(':scope > .draws')?.textContent ?? null, drawsFile: card?.querySelector(':scope > .draws code')?.textContent ?? null,
+      costAndChecks: [...ins.children].slice(-2).map((c) => c.classList.contains('costcard') ? 'cost' : c.classList.contains('checks') ? 'checks' : c.className).join(),
+    };
+  });
+  await p.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
+  await layerRow('Muzzle flash').click();
+  const sel = await panel();
+  ok('a layer\'s settings come first, under a header: the effect\'s name, "›", the layer\'s icon and name; the effect\'s settings are not shown, Cost and Checks stay at the bottom',
+    sel.layer === 'flash' && sel.first === 'insp-head' && sel.link === 'Rifle shot (demo)' && sel.title === 'Muzzle flash' && sel.icon && sel.cardTop === sel.headH
+      && !sel.effectSettings && sel.costAndChecks === 'cost,checks', JSON.stringify(sel));
+  await p.locator('.inspector .insp-head .crumb').click();
+  const back = await panel();
+  ok('clicking the effect\'s name in the header goes back to the effect\'s settings', back.layer === null && back.effectSettings && back.first.includes('bigcontrols') && back.link === null
+    && back.costAndChecks === 'cost,checks', JSON.stringify(back));
+  await layerRow('Hit spark').click();
+  await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Layer name$/ }) }).locator('input').focus();
+  await p.keyboard.press('Escape');
+  const whileTyping = await panel();
+  await p.evaluate(() => document.activeElement?.blur());
+  await p.keyboard.press('Escape');
+  const escaped = await panel();
+  ok('Esc goes back to the effect\'s settings, but not while typing in a field', whileTyping.layer === 'hit' && escaped.layer === null && escaped.effectSettings,
+    `while typing: ${whileTyping.layer}; after Esc: ${escaped.layer}`);
+  // What draws each layer: an image (its file, in Plex Mono), or code; a projectile draws nothing.
+  const drawn = await p.evaluate(() => {
+    const a = window.__vfx.app; const out = {};
+    a.pickEffect('board_shell');
+    for (const id of ['burst', 'word', 'debris', 'shell']) { a.selectLayer(id); out[id] = document.querySelector('.inspector .draws')?.textContent; }
+    a.selectLayer(null);
+    return out;
+  });
+  ok('every layer\'s panel says what draws it: "Image: <file>" or "Drawn in code, no image"; a projectile is an invisible path', sel.draws === 'Image: muzzle_flash.png' && sel.drawsFile === 'muzzle_flash.png'
+    && drawn.burst === 'Drawn in code, no image' && drawn.word === 'Drawn in code, no image' && drawn.debris === 'Drawn in code, no image' && drawn.shell === 'An invisible path: it draws nothing itself',
+    JSON.stringify({ flash: sel.draws, ...drawn }));
+  // A projectile lists its riders: a button each, which selects it, and what draws it.
+  await p.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
+  await layerRow('Bullet').click();
+  const riders = await p.evaluate(() => [...document.querySelectorAll('.inspector .rider')].map((r) => `${r.querySelector('.rider-name')?.textContent} | ${r.querySelector('.rider-what')?.textContent} | ${r.querySelector('.rider-what code')?.textContent}`));
+  await p.locator('.inspector .rider', { has: p.locator('.rider-name', { hasText: /^Tracer$/ }) }).click();
+  const riderPicked = await panel();
+  ok('a projectile\'s panel lists the layers riding it, each with what draws it, and a click selects one',
+    riders.join(' / ') === 'Tracer core | Sprite, image: tracer_core.png | tracer_core.png / Tracer | Sprite, image: tracer_body.png | tracer_body.png' && riderPicked.layer === 'tracer' && riderPicked.title === 'Tracer',
+    `${riders.join(' / ')}; then ${riderPicked.layer}`);
+  const tags = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll('.layers-list .layer-item')].map((b) => [b.querySelector(':scope > span').textContent,
+    `${b.querySelector('code').textContent} (${getComputedStyle(b.querySelector('code')).fontFamily.split(',')[0].replace(/"/g, '')})`])));
+  ok('layers that ride a projectile have a "rides <projectile>" tag in the Layers list, in Plex Sans; the others keep their tags',
+    tags['Tracer'] === 'rides Bullet (IBM Plex Sans)' && tags['Tracer core'] === 'rides Bullet (IBM Plex Sans)' && tags['Muzzle flash'] === 'muzzle_flash (IBM Plex Mono)' && tags['Bullet'] === '800 m/s (IBM Plex Sans)',
+    JSON.stringify(tags));
+
+  // -- the colours of the selection: the effect's (its main colour and every layer's), a layer's (with the ones it draws
+  // without naming them, such as the ink outline), a projectile's riders'. The same list as the checker's (src/doc/layer-info.ts).
+  const shownColours = () => p.evaluate(() => {
+    const list = document.querySelector('.inspector .swatches');
+    const note = document.querySelector('.inspector .colour-note');
+    return { shown: [...list.querySelectorAll(':scope > .swatch:not([hidden])')].map((x) => x.textContent), all: list.classList.contains('all'), note: note && !note.hidden ? note.textContent : '' };
+  });
+  const wantColours = async () => {
+    const { fx, layer, palette } = await p.evaluate(() => { const a = window.__vfx.app; return { fx: a.effect(), layer: a.layer()?.id ?? null, palette: a.palette }; });
+    return layerInfo.selectionColours(fx, layer ? fx.layers.find((l) => l.id === layer) : undefined, palette).roles;
+  };
+  const coloursOf = async (effect, layer) => {
+    await p.evaluate(([effect, layer]) => { const a = window.__vfx.app; a.pickEffect(effect); a.selectLayer(layer); }, [effect, layer]);
+    return { got: await shownColours(), want: await wantColours() };
+  };
+  const ofBeam = await coloursOf('board_beam', null);
+  const ofRing = await coloursOf('board_beam', 'lock_ring');
+  const ofBullet = await coloursOf('rifle_shot', 'bullet');
+  const ofFlash = await coloursOf('rifle_shot', 'flash');
+  const same = (c) => !c.got.all && c.want.length > 0 && JSON.stringify(c.got.shown) === JSON.stringify(c.want);
+  ok('the colour list shows the colours of the selection: the effect\'s, a layer\'s (the ink it does not name too), a projectile\'s riders\' (it says it has none of its own)',
+    same(ofBeam) && same(ofRing) && ofRing.want.includes('ink') && same(ofBullet) && ofBullet.got.note.startsWith('A projectile has no colours of its own')
+      && ofFlash.got.shown.length === 0 && ofFlash.want.length === 0 && ofFlash.got.note === 'It uses no palette colours: the image keeps its own colours.',
+    JSON.stringify({ beam: ofBeam.got.shown, ring: ofRing.got.shown, bullet: [ofBullet.got.shown, ofBullet.got.note], flash: ofFlash.got.note }));
+  // Show all, next to the Colour title: every colour of the palette, the selection's in bold; remembered. Colours that leave
+  // or come back move in a short animation, and none with reduced motion. The section stays open.
+  const glowOnly = await coloursOf('board_beam', 'emitter_glow');
+  const swatchMoves = () => p.evaluate(() => document.getAnimations().filter((x) => x.effect?.target?.closest?.('.swatches')).map((x) => x.effect.getTiming().duration));
+  await p.locator('.inspector .fold-actions label.show-all').click();
+  const moves = await swatchMoves();
+  const allOn = await p.evaluate(() => {
+    const a = window.__vfx.app;
+    const roles = new Set([...Object.keys(a.palette.roles), ...Object.values(a.palette.factions).flatMap((f) => Object.keys(f.roles))]);
+    const list = [...document.querySelectorAll('.inspector .swatches > .swatch:not([hidden])')];
+    return { open: document.querySelector('.inspector .fold-actions').closest('details').open, stored: localStorage.getItem('vfx-colours-all'), shown: list.length, roles: roles.size,
+      bold: list.filter((x) => getComputedStyle(x).fontWeight === '600').map((x) => x.textContent), uses: list.filter((x) => x.classList.contains('uses')).map((x) => x.textContent) };
+  });
+  ok('Show all shows every colour, the selection\'s in bold, and is remembered; the Colour section stays open', same(glowOnly) && allOn.open && allOn.stored === '1' && allOn.shown === allOn.roles
+    && JSON.stringify(allOn.bold) === JSON.stringify(glowOnly.want) && JSON.stringify(allOn.uses) === JSON.stringify(glowOnly.want), JSON.stringify({ before: glowOnly.got.shown, ...allOn }));
+  ok('colours that come back move in a short animation (about 150 ms)', moves.length > 0 && moves.every((d) => d === 150), `${moves.length} animations: ${[...new Set(moves)].join(', ')} ms`);
+  // Let those finish (this browser draws in software, so its frames come slowly), then the same with reduced motion: none.
+  await p.waitForFunction(() => !document.getAnimations().some((x) => x.effect?.target?.closest?.('.swatches')) && !document.querySelector('.swatch-ghost'), null, { timeout: 15000 }).catch(() => {});
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  await p.locator('.inspector .fold-actions label.show-all').click();
+  const stillMoving = (await swatchMoves()).length;
+  const offReduced = await shownColours();
+  await p.locator('.inspector .fold-actions label.show-all').click();
+  const stillMoving2 = (await swatchMoves()).length;
+  await p.emulateMedia({ reducedMotion: 'no-preference' });
+  ok('with reduced motion the colours leave and come back without moving', stillMoving === 0 && stillMoving2 === 0 && JSON.stringify(offReduced.shown) === JSON.stringify(glowOnly.want),
+    `${stillMoving} and ${stillMoving2} animations; shown when off: ${offReduced.shown.join(', ')}`);
+  // Show all stays on for another selection.
+  await p.evaluate(() => window.__vfx.app.selectLayer('lock_ring'));
+  const allKept = await shownColours();
+  ok('Show all stays on for another selection', allKept.all && allKept.shown.length === allOn.roles, `${allKept.shown.length} colours shown`);
+
+  // -- the colour picker: a typed colour, a drag on the wheel and its undo, a new colour, Revert. Show all is on, so the
+  // glow's list holds dust too, which the glow does not use.
   await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_beam'); a.selectLayer('emitter_glow'); });
   await p.locator('.swatch', { hasText: /^dust$/ }).first().click();
   const pickerOpen = await p.locator('.cpick').evaluate((el) => el.matches(':popover-open'));
@@ -483,7 +605,9 @@ if (webgpu) {
   await p.click('.transport .play');
   await p.keyboard.press('Escape');
   const closedByEscape = await p.locator('.cpick').evaluate((el) => !el.matches(':popover-open'));
-  ok('the picker stays open while you play the effect, and Escape closes it', stillOpen && closedByEscape, `open after Play: ${stillOpen}, closed by Escape: ${closedByEscape}`);
+  const layerKept = await p.evaluate(() => window.__vfx.app.layer()?.id ?? null);
+  ok('the picker stays open while you play the effect, and Escape closes it (only it: the layer stays selected)', stillOpen && closedByEscape && layerKept === 'emitter_glow',
+    `open after Play: ${stillOpen}, closed by Escape: ${closedByEscape}, layer: ${layerKept}`);
   await p.locator('.swatch', { hasText: /^glow$/ }).first().click();
   await p.locator('.cp-new summary').click();
   await p.locator('.cp-new input.text').fill('fire.blue');
@@ -501,6 +625,13 @@ if (webgpu) {
   const grad = await p.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; await a.showAt(1000, 7); window.__vfxManual = false; a.resumeForChecks();
     return { names: Object.keys(a.palette.gradients), layer: a.layer()?.shape?.gradient, problems: a.problems().length }; });
   ok('a ready-made gradient goes into the palette and onto the selected glow', grad.names.join() === 'glow.ramp' && grad.layer === 'glow.ramp' && grad.problems === 0, JSON.stringify(grad));
+  // Show all off again: the glow's own colours, now with its gradient's.
+  await p.locator('.inspector .fold-actions label.show-all').click();
+  const ownAgain = await shownColours();
+  const ownWant = await wantColours();
+  const storedOff = await p.evaluate(() => localStorage.getItem('vfx-colours-all'));
+  ok('Show all off: the list is the layer\'s own colours again, its gradient\'s colours too, and that is remembered', !ownAgain.all && storedOff === '0' && ownWant.length > glowOnly.want.length
+    && JSON.stringify(ownAgain.shown) === JSON.stringify(ownWant), `${ownAgain.shown.join(', ')} (want ${ownWant.join(', ')}); stored ${storedOff}`);
 
   // -- night mode: panels go dark, the preview keeps the game's colours
   await p.locator('.topbar button.theme-toggle').click();

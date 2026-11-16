@@ -55,9 +55,14 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 4. **Drag on the ground** to move the target. Hold Shift and drag to move the shooter.
 5. **Play**, **Loop**, the **speed** buttons and the **timeline** work like a video player. The strip under the ruler shows
    the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
-6. The right panel: the four **big controls**, the three **phase** lengths, then the selected **layer**. Shapes, bursts and
-   words show the settings the file has, with optional parts behind a switch, except two that come with the new UI: a
-   word's chance (the words box keeps it when you type the words again) and an image burst's image.
+6. The right panel shows what is selected. No layer: the effect's settings (its name, the four **big controls**, the three
+   **phase** lengths and its colours). Click a **layer** (in the Layers list or on the timeline) and the panel shows that
+   layer's settings, under a header with the effect's name, "›" and the layer's name: click the effect's name, or press
+   Esc, to go back to the effect's settings. Each layer says what draws it: an image ("Image: muzzle_flash.png") or code
+   ("Drawn in code, no image"). A projectile is an invisible path: its panel lists the layers riding it (click one to
+   select it), and those say "rides Bullet" in the Layers list. Shapes, bursts and words show the settings the file has,
+   with optional parts behind a switch, except two that come with the new UI: a word's chance (the words box keeps it
+   when you type the words again) and an image burst's image.
 7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project.
 8. **Tier** (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the list and on
    the timeline. A layer's **Shows in** boxes set its tiers.
@@ -68,9 +73,12 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     typing one switches them on. See [docs/cost.md](docs/cost.md).
 11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one
     (and keeps its colours as a palette profile).
-12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
-    under **Gradients** start from a ready-made gradient or make your own; a glow can use one, and smoke, the fire's bed and
-    bursts draw one named in their file. See [docs/colours.md](docs/colours.md).
+12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. The list under Colour shows the
+    colours of what is selected: the effect's, or one layer's (with the ones it draws without naming them, such as the
+    black ink outline); a projectile has none of its own and shows those of the layers riding it. **Show all** shows every
+    colour, the selection's in bold. Change the colour, add colours, and under **Gradients** start from a ready-made
+    gradient or make your own; a glow can use one, and smoke, the fire's bed and bursts draw one named in their file. See
+    [docs/colours.md](docs/colours.md).
 13. **Night mode**, the sun or moon button in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
 14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
     never goes to this public repo.
@@ -98,7 +106,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (515): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
+The unit tests (523): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
 for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 % shown
 with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every seed
 when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances;
@@ -111,8 +119,9 @@ words, never a crash; colour edits and their undo; glows drawn from gradients; g
 bursts (colours at given ages and places, each burst piece over its own life, banded edges at the stops, a smooth
 gradient keeping the bed's own bands, alpha, a banded stop's alpha in its band and in the detail, faction roles, both
 bed parts on the same band edges, every band still reaching past the bed's middle, the white-hot spots on the middle
-band, and a banded gradient with the tones' band edges drawing today's bed exactly); the checker's warning for a bed's
-banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
+band, and a banded gradient with the tones' band edges drawing today's bed exactly); what the right panel says about
+layers (what draws each one, the projectile a layer rides and the layers riding a projectile, the colours of the effect,
+a layer or a projectile's riders, from the checker's own list); the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
 kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !,
 built from their data, no stroke thinner than the board's); the fire's layout; every example effect drawn all through;
 undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
@@ -131,11 +140,13 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (153 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (165 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
-not load, one not in the project), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are
-asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
+not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
+Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
+"rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
+motion), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, Save
 as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette profile Import keeps
@@ -238,11 +249,15 @@ These write pictures to `out/` (kept out of git):
   of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
   to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
   their tooltips. The faction buttons show each faction's marking from sheet 16.
+- **The right panel shows what is selected**: the effect's settings, or one layer's, first, under a header that leads back
+  to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
+  so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
+  bold).
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
-(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds,
-the colours a layer uses and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
+(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds
+and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
 an effect's own budgets in the editor (the files hold them, and the functions are there; the new Cost card comes with the new
 UI); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
 store and the load function are there; the buttons, and naming the profile in the project when one is loaded or saved, come
@@ -427,6 +442,37 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     `--line-strong` edge and weight 500, not the yellow selected look: it is a stored choice, not a selection.
   - In the colour picker the chosen colour's chip already has a 2 px outline in the focus colour, so keyboard focus on it
     draws a 1 px `--focus` line inside the chip, 2 px in from its edge, instead of the usual ring.
+- **The right panel after UI phase 1** (Mustafa's feedback of 2026-11-16: a layer's settings first, the colours of the
+  selection with Show all, what draws each layer and what a projectile carries; these details are ours):
+  - With a layer selected the panel shows only that layer's settings. Its header (the brief's 40 px inspector header) stays
+    at the top while the panel scrolls, so the way back always shows. The effect's view has no header yet (phase 6 brings
+    one): its Effect section is at the top. Cost and Checks stay at the bottom of both views until phase 6.
+  - Another selection starts the panel at the top; a part switched on or off keeps its place. When the control you used
+    goes with the old view (the effect's name, a rider, Esc pressed in the panel), the keyboard focus moves to the new
+    view's title.
+  - Esc leaves the layer only when the colour picker and dialogs are closed and you are not in a field, a select or a
+    checkbox (as for every other key there).
+  - Where the colour list sits: in the effect's view it stays the Colour row of the Effect section, with Show all next to
+    its label. In a layer's view it is the layer's Colour section, with Show all on the section's title row (open by
+    default; one open or closed state for every layer, as sections remember it by title). A sprite keeps its one Colour
+    section: its tint first, then its colours, after Image and Size and place as before. A shape, a burst or a word gets
+    the section right after its name and tiers, before Place, so it shows without scrolling (their own settings can be
+    long); a projectile, after its riders.
+  - The list holds the selection's palette colours in the palette's order. A colour a layer names that the palette lacks
+    (in red) and a gradient stop given as a hex come after them; they cannot be clicked, since the picker edits palette
+    colours, and their tooltips say what to do. The effect's main colour keeps its mark in every view, and the hint names
+    the mark only when it shows.
+  - Show all is one setting for every view, off at first, remembered as `vfx-colours-all`. The selection's colours are
+    Plex Mono 600 (now loaded; 400 and 500 were), the others muted.
+  - The animation: colours that leave fade and shrink where they were, those that stay slide to their new places, those
+    that come back fade in, and the list's height follows, all in 150 ms; none with reduced motion, and none when the list
+    is first drawn. Section 4.6 of the brief says nothing else animates; this is the one Mustafa asked for.
+  - What draws a layer: "Image: <file>" for a sprite and a burst of image pieces, "Drawn in code, no image" for shapes,
+    words and other bursts, and "An invisible path: it draws nothing itself" for a projectile. A rider's line in its
+    projectile's panel names its kind in the add menu's words ("Shape: trail behind a projectile, drawn in code, no
+    image"). Riders are listed as in the Layers list, top of the drawing order first.
+  - In the Layers list "rides Bullet" takes the place of a rider's usual tag (its image, shape or words), in Plex Sans; the
+    row's tooltip says it too. A rider the tier leaves out says "not in Low" instead, like every row the tier leaves out.
 
 ## Claude skills
 

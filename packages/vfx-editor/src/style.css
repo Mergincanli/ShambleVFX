@@ -22,6 +22,7 @@
   --pad-panel: 12px;
   --h-topbar: 40px;
   --h-toolbar: 36px;
+  --h-inspector-head: 40px; /* the header of a layer's settings */
   --h-section: 32px;
   --h-row: 28px;
   --h-control: 24px;
@@ -34,6 +35,7 @@
   --r-bar: 3px;      /* timeline bars */
   --r-popover: 8px;  /* popovers, dialogs, the message */
   --t-colour: 120ms ease-out;
+  --fold-actions-w: 96px; /* room on a section's header row for its actions (Show all) */
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
 }
 
@@ -284,6 +286,11 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .fold .fold { margin: 0; padding: 0; border-top: 0; }
 .fold .fold > summary, .gr-editor > summary, .gr-ramp > summary { min-height: var(--h-row); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 500; }
 .fold .fold > .foldbody { padding: 0 0 4px 12px; }
+/* A section's actions (Show all) on the right of its header row, outside the summary, while the section is open. */
+.fold.has-actions { position: relative; }
+.fold.has-actions[open] > summary { padding-right: var(--fold-actions-w); }
+.fold-actions { position: absolute; top: 0; right: var(--pad-panel); display: flex; align-items: center; gap: 8px; height: var(--h-section); }
+.fold-actions .check { margin: 0; color: var(--text-muted); }
 
 /* ---------------------------------------------------------------- top bar */
 .topbar { display: flex; align-items: center; gap: 12px; height: var(--h-topbar); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
@@ -307,6 +314,36 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .card-head, .card > h2 { display: flex; align-items: center; gap: 4px; min-height: var(--h-section); }
 .card-head > h2 { margin-right: auto; }
 .inspector > .empty { padding: var(--pad-panel); }
+/* The header of a layer's settings: the effect's name (back to its settings), "›", the layer's icon and name. It stays at
+   the top while the panel scrolls, so the way back is always there; its line is its own, not the next section's. */
+.insp-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; min-height: var(--h-inspector-head);
+  padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line);
+}
+.inspector > .insp-head + * { border-top: 0; }
+.crumb {
+  flex: 0 1 auto; min-width: 0; max-width: 40%; height: var(--h-control); margin-left: -4px; padding: 0 4px; border: 0; border-radius: var(--r-control);
+  background: transparent; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-decoration: underline transparent; text-underline-offset: 3px;
+}
+.crumb:hover { color: var(--text); text-decoration-color: currentColor; }
+.crumb-sep { flex: none; color: var(--text-muted); }
+.insp-head .icon { color: var(--text-muted); }
+.insp-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* What draws a layer, under its kind. Always shown (not a hint); a file name is Plex Mono. */
+.draws { margin: -6px 0 4px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+.draws code, .rider-what code { color: var(--text); overflow-wrap: anywhere; }
+/* A projectile's riders: rows edge to edge, each a button that selects the layer, with what draws it under its name. */
+.riders { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--pad-panel)); }
+.rider {
+  display: grid; grid-template-columns: var(--icon) minmax(0, 1fr); column-gap: 8px; align-items: center; min-height: var(--h-row);
+  padding: 4px var(--pad-panel); border: 0; background: transparent; color: var(--text); text-align: left;
+}
+.rider:hover { background: var(--bg-hover); }
+.rider:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.rider .icon { color: var(--text-muted); }
+.rider-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rider-what { grid-column: 2; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 
 /* Lists: rows edge to edge, 28 px. Selected: a tint, a 2 px bar on the left, weight 500. */
 .list { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--pad-panel)); overflow: auto; }
@@ -324,7 +361,7 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 /* A short tag keeps its width; a long one stops at half the row with an ellipsis, so the name always shows.
    Tags are Plex Sans (speeds, counts, kinds, words, "not in Low"); only a sprite's image name is Plex Mono: it is typed into files. */
 .item code { flex: 0 0 auto; max-width: 50%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; font-family: var(--body); font-size: var(--fs-small); color: var(--text-muted); white-space: nowrap; }
-.layer-item:not(.off):has(> .icon-sprite) code { font-family: var(--mono); }
+.layer-item:not(.off):has(> .icon-sprite) code:not(.rides) { font-family: var(--mono); }
 .layer-item.sel code { color: var(--text); }
 .layer-tools { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
 /* Left out of the tier the preview draws: faded, and the tag says so (as before). On the selected row the tag keeps
@@ -434,13 +471,29 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .tier-boxes { display: flex; gap: 16px; }
 .tier-boxes .check { margin: 0; }
 .tier-boxes input:disabled { cursor: not-allowed; }
-/* The palette: role names in mono (they are typed into files). The main colour is a stored choice, not a selection, so
-   it is not yellow: the field colour, a 1 px edge and weight 500 (README, Assumptions). The edge gives way to the focus ring. */
-.swatches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
-.swatch { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; height: var(--h-control); padding: 0 6px; border: 0; background: transparent; color: var(--text); font-family: var(--mono); text-align: left; }
+/* The colour list: the colours of what is selected; with Show all, every colour, the selection's in bold (Plex Mono 600)
+   and the others muted. Role names in mono (they are typed into files). The main colour is a stored choice, not a
+   selection, so it is not yellow: the field colour, a 1 px edge and weight 500 (README, Assumptions). The edge gives way to
+   the focus ring. */
+.swatches { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+.swatches.moving { overflow: clip; }
+.swatch, .swatch-ghost, .swatch-extra {
+  position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; height: var(--h-control); padding: 0 6px; border: 0;
+  border-radius: var(--r-control); background: transparent; color: var(--text); font-family: var(--mono); text-align: left;
+}
 .swatch:hover { background: var(--bg-hover); }
 .swatch[aria-current="true"] { background: var(--bg-field); font-weight: 500; }
 .swatch[aria-current="true"]:not(:focus-visible) { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.swatches.all .swatch.uses { font-weight: 600; }
+.swatches.all .swatch:not(.uses) { font-weight: 400; color: var(--text-muted); }
+/* A colour that leaves fades where it was: a copy, not a swatch (nothing clicks it). */
+.swatch-ghost { position: absolute; pointer-events: none; }
+/* A colour the palette lacks, and a gradient stop given as a hex: shown, but not palette colours the picker can open. */
+.swatch-extra { cursor: default; }
+.swatch-extra.missing { color: var(--bad); }
+.chip.none { background: transparent; box-shadow: inset 0 0 0 1px var(--bad); }
+.colour-note { margin: 0 0 4px; }
+.colour-row .lab .check { min-height: 0; margin: 0; }
 .chip { width: 14px; height: 14px; flex: none; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .rname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thumb { position: relative; display: inline-block; max-width: 100%; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--r-control); cursor: crosshair;

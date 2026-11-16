@@ -8,6 +8,8 @@ import '@fontsource/ibm-plex-sans/500';
 import '@fontsource/ibm-plex-sans/600';
 import '@fontsource/ibm-plex-mono/400';
 import '@fontsource/ibm-plex-mono/500';
+// Bold colour names in the colour list (Show all: the selection's colours).
+import '@fontsource/ibm-plex-mono/600';
 import './style.css';
 import { App } from './app/App';
 

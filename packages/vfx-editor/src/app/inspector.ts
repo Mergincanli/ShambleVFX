@@ -1,12 +1,17 @@
 /**
- * The right panel: the effect's big controls on top, the selected layer's details folded below.
+ * The right panel shows what is selected: the effect's settings, or, with a layer selected, that layer's settings first,
+ * under a header that leads back to the effect (its name, or Esc). Cost and Checks stay at the bottom of both.
  * Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
  */
-import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
+import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, roleNames } from '@shamble/vfx-format';
 import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
+import { riderLine, ridersOf, whatDraws } from '../doc/layer-info';
+import type { WhatDraws } from '../doc/layer-info';
 import type { AppApi } from './api';
+import { colourList } from './colourlist';
+import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
-import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
+import { checkField, fold, h, icon, numberField, segmented, selectField, slider, textField } from './dom';
 import { specForm, structureOf } from './specform';
 
 interface Refresher { refresh(): void }
@@ -18,38 +23,73 @@ function keyOf(fxId: string | undefined, layer: Layer | undefined): string {
 
 const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
 
-export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void; refresh(): void } {
+export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void; refresh(): void; backToEffect(): void } {
   const el = h('aside', { class: 'inspector', attrs: { 'aria-label': 'Effect and layer settings' } });
+  // One colour list for the panel: each view puts it in its place, so the colours can move from one selection to the next.
+  const colours = colourList(app);
   let parts: Refresher[] = [];
   let builtFor = '';
+  let shownSelection = '';
+
+  /** Leave the layer: the effect's settings show again (its name in the header, or Esc). */
+  const backToEffect = () => app.selectLayer(null);
 
   const rebuild = () => {
     const fx = app.effect();
     const layer = app.layer();
     builtFor = keyOf(fx?.id, layer);
     parts = [];
+    const hadFocus = el.contains(document.activeElement);
     el.replaceChildren();
+    // Another effect or layer starts at the top of the panel (a part switched on rebuilds too, and keeps its place).
+    const selection = `${fx?.id}|${layer?.id}`;
+    const another = selection !== shownSelection;
+    if (another) { shownSelection = selection; if (el.parentElement) el.parentElement.scrollTop = 0; }
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
-    el.append(bigControls(app, parts));
-    if (layer) el.append(layerDetails(app, layer, parts));
-    else el.append(h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
+    if (layer) el.append(layerHeader(app, parts, backToEffect), layerDetails(app, layer, parts, colours));
+    else el.append(bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
     const cost = costCard(app);
     parts.push(cost);
     el.append(cost.el, checks(app, parts));
+    colours.refresh();
+    // The control that had the focus (the way back, a rider) went with the old view: the new view's title takes it, so the
+    // keyboard carries on from the top of what is now selected.
+    if (another && hadFocus) (el.querySelector('.insp-title, .bigcontrols > h2') as HTMLElement | null)?.focus({ preventScroll: true });
   };
   const refresh = () => {
     const fx = app.effect();
     const layer = app.layer();
     if (keyOf(fx?.id, layer) !== builtFor) { rebuild(); return; }
     for (const p of parts) p.refresh();
+    colours.refresh();
   };
   rebuild();
-  return { el, rebuild, refresh };
+  return { el, rebuild, refresh, backToEffect };
+}
+
+// ---------------------------------------------------------------- the header of a layer's settings
+
+/** The effect's name (back to the effect's settings), "›", the layer's type icon and its name. */
+function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLElement {
+  const link = h('button', { class: 'crumb', attrs: { type: 'button' }, on: { click: back } });
+  const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } });
+  const kind = app.layer()!.type;
+  const draw = () => {
+    const fx = app.effect()!, l = app.layer()!;
+    link.textContent = fx.name;
+    link.title = `Back to the effect's settings: ${fx.name} (Esc)`;
+    link.setAttribute('aria-label', `Back to the effect: ${fx.name}`);
+    title.textContent = l.name;
+    title.title = l.name;
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return h('header', { class: 'insp-head' }, link, h('span', { class: 'crumb-sep', attrs: { 'aria-hidden': 'true' }, text: '›' }), icon(kind), title);
 }
 
 // ---------------------------------------------------------------- the big controls
 
-function bigControls(app: AppApi, parts: Refresher[]): HTMLElement {
+function bigControls(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
   const c = () => app.effect()!.controls;
   const name = textField({ label: 'Effect name', value: app.effect()!.name, onChange: (v) => app.editEffect(['name'], v.trim() || 'Effect', { label: 'Rename effect' }) });
   const size = slider({ label: 'Size', min: 0.25, max: 3, step: 0.01, value: c().size, unit: '×', big: true, hint: 'Every sprite and offset. Not the start and target points, not speeds.',
@@ -58,32 +98,68 @@ function bigControls(app: AppApi, parts: Refresher[]): HTMLElement {
     onInput: (v) => app.editEffect(['controls', 'intensity'], v, { mergeKey: 'intensity', label: 'Intensity' }), onCommit: () => app.commit() });
   const duration = slider({ label: 'Duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. Flight time still comes from distance and speed.',
     onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
-  const swatches = h('div', { class: 'swatches', attrs: { role: 'group', 'aria-label': 'The palette: click a colour to change it' } });
-  const drawSwatches = () => {
-    swatches.replaceChildren(...roleNames(app.palette).map((r) => {
-      const hex = resolveRole(app.palette, r, app.faction)!;
-      const b = h('button', { class: 'swatch', title: `${r} (${hex} for ${app.faction}): click to change the colour, or to make it the main colour`,
-        attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `${r}, ${hex}${c().colour === r ? ', the main colour' : ''}. Change the colour`, 'aria-current': String(c().colour === r) },
-        on: { click: (e) => app.openColourPicker(r, e.currentTarget as HTMLElement) } },
-      h('span', { class: 'chip', style: `background:${hex}` }), h('span', { class: 'rname', text: r }));
-      return b;
-    }));
-  };
-  drawSwatches();
   const ph = () => app.effect()!.phases;
   const phase = (key: 'windupMs' | 'peakMs' | 'fadeMs', label: string) => numberField({ label, value: ph()[key], step: 10, min: 0, unit: 'ms',
     onChange: (v) => { app.editEffect(['phases', key], Math.max(0, Math.round(v)), { label: `${label} length` }); app.commit(); } });
   const windup = phase('windupMs', 'Wind-up'), peak = phase('peakMs', 'Peak'), fadeF = phase('fadeMs', 'Fade');
   parts.push({ refresh: () => {
-    name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration); drawSwatches();
+    name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration);
     windup.set(ph().windupMs); peak.set(ph().peakMs); fadeF.set(ph().fadeMs);
   } });
   const events = eventsField(app, parts);
+  // Its title takes the focus when you come back from a layer with the keyboard (see rebuild).
   return h('section', { class: 'card bigcontrols' },
-    h('h2', { text: 'Effect' }), name.el, events, size.el, intensity.el, duration.el,
+    h('h2', { text: 'Effect', attrs: { tabindex: '-1' } }), name.el, events, size.el, intensity.el, duration.el,
     h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'layers can start with a phase or last until one ends' })),
       h('div', { class: 'fieldrow' }, windup.el, peak.el, fadeF.el)),
-    h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), h('span', { class: 'hint', text: 'the main role; layers tinted "main" use it' })), swatches));
+    // The effect's colours: its main colour (marked) and every layer's. Show all shows the whole palette.
+    h('div', { class: 'row colour-row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), colours.toggle), colours.note, colours.el, colours.hint));
+}
+
+/** What draws the layer, in one line: its image, or code (a projectile draws nothing). Not a hint: it always shows. */
+function drawsLine(app: AppApi, parts: Refresher[]): HTMLElement {
+  const p = h('p', { class: 'draws' });
+  let shown = '';
+  const draw = () => {
+    const d = whatDraws(app.layer() as Layer);
+    if (`${d.text}|${d.image}` === shown) return;
+    shown = `${d.text}|${d.image}`;
+    p.replaceChildren(...drawsParts(d));
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return p;
+}
+
+/** "Image:" and the file name in Plex Mono (it is typed into files), or the words alone. */
+function drawsParts(d: WhatDraws): (string | HTMLElement)[] {
+  return d.image ? [`${d.text} `, h('code', { text: d.image })] : [d.text];
+}
+
+/** A projectile's riders: a button for each, which selects it, and a line saying what draws it. */
+function ridersFold(app: AppApi, parts: Refresher[]): HTMLElement {
+  const list = h('div', { class: 'riders' });
+  const none = h('p', { class: 'readout' });
+  let shown = '';
+  const draw = () => {
+    const fx = app.effect()!, p = app.layer()!;
+    const riders = ridersOf(fx, p.id);
+    const key = JSON.stringify([p.name, riders.map((r) => [r.id, r.name, r.type, riderLine(r)])]);
+    if (key === shown) return;
+    shown = key;
+    list.replaceChildren(...riders.map((r) => h('button', { class: 'rider', title: `Select ${r.name}`, attrs: { type: 'button' }, on: { click: () => app.selectLayer(r.id) } },
+      icon(r.type), h('span', { class: 'rider-name', text: r.name }), h('span', { class: 'rider-what' }, ...drawsParts(riderLine(r))))));
+    none.textContent = riders.length ? '' : `No layer rides it yet. A layer rides it when its Sits on is Rides "${p.name}".`;
+    none.hidden = riders.length > 0;
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return fold('Layers riding it', [list, none], true);
+}
+
+/** The layer's Colour section: its colours (the list shared with the effect's view), Show all next to the title. */
+function colourFold(colours: ColourListView, before: HTMLElement[] = []): HTMLElement {
+  return fold('Colour', [...before, colours.note, colours.el, colours.hint], true, [colours.toggle]);
 }
 
 /** The game events the effect answers: names the game starts it by, such as rifle.shot. Checked as you type. */
@@ -137,18 +213,24 @@ function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
 
 // ---------------------------------------------------------------- the layer's details
 
-function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElement {
+/**
+ * Everything of the layer, in one card (the settings inventory of tools/ui-shots.mjs reads a layer from it): its kind, what
+ * draws it, its name and tiers; a projectile's riders; the type's own sections with its colours; then Time. The Colour
+ * section comes before the long lists of settings, so it shows without scrolling: right after the name and tiers of a
+ * shape, a burst or a word, after a projectile's riders, and after a sprite's Image and Size and place (it holds the tint).
+ */
+function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: ColourListView): HTMLElement {
   const L = () => app.layer() as Layer;
   const box = h('section', { class: 'card layer' });
   const name = textField({ label: 'Layer name', value: layer.name, onChange: (v) => app.editLayer(['name'], v.trim() || 'Layer', { label: 'Rename layer' }) });
   parts.push({ refresh: () => name.set(L().name) });
   const title = { sprite: 'Sprite layer', projectile: 'Projectile layer', shape: 'Shape layer', burst: 'Burst layer', word: 'Word layer' }[layer.type];
-  box.append(h('h2', { text: title }), name.el);
+  box.append(h('h2', { text: title }), drawsLine(app, parts), name.el);
   if (layer.type !== 'projectile') box.append(tierFields(app, parts));
-  if (layer.type === 'sprite') box.append(...spriteFields(app, parts));
-  else if (layer.type === 'projectile') box.append(...projectileFields(app, parts));
+  if (layer.type === 'sprite') box.append(...spriteFields(app, parts, colours));
+  else if (layer.type === 'projectile') box.append(ridersFold(app, parts), colourFold(colours), ...projectileFields(app, parts));
   else {
-    box.append(placeFields(app, parts));
+    box.append(colourFold(colours), placeFields(app, parts));
     if (layer.type === 'shape') box.append(fold(`Shape: ${layer.shape.kind}`, specForm(app, parts, ['shape'], layer.shape.kind, ['kind']), true));
     else box.append(fold(layer.type === 'burst' ? 'Pieces' : 'Word', specForm(app, parts, [], layer.type, COMMON_KEYS), true));
     box.append(fold('Animation', specForm(app, parts, [], 'anim', Object.keys(layer).filter((k) => k !== 'scale' && k !== 'alpha')), false));
@@ -158,7 +240,7 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[]): HTMLElemen
   return box;
 }
 
-function spriteFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
+function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement[] {
   const S = () => app.layer() as SpriteLayer;
   // Image, with the pivot shown as a dot: click the picture to move the pivot.
   const image = selectField({ label: 'Image', options: app.imageNames().map((n) => ({ value: n, label: n })), value: S().image,
@@ -250,7 +332,8 @@ function spriteFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     fold('Image', [image.el, thumb, h('div', { class: 'fieldrow' }, pivotU.el, pivotV.el), flip.el, fbBox, loop.el,
       h('div', { class: 'row' }, h('button', { class: 'plain', attrs: { type: 'button' }, text: 'Add PNG images to the project…', on: { click: () => app.importImages() } }))], true),
     fold('Size and place', [w.el, hh.el, facing.el, anchor.el, offset.el], true),
-    fold('Colour', [tintMode.el, role.el], true),
+    // One Colour section: how the image is tinted, then the colours that gives the sprite.
+    colourFold(colours, [tintMode.el, role.el]),
   ];
 }
 

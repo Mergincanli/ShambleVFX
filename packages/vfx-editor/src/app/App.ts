@@ -22,6 +22,7 @@ import {
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
+import { SHAPE_KINDS, SHAPE_TEXT, ridingOn } from '../doc/layer-info';
 import { notDrawnNotes } from '../doc/not-drawn';
 import type { NotDrawnNote } from '../doc/not-drawn';
 import { newProjectFile } from '../io/project-file';
@@ -51,11 +52,6 @@ const THEME_KEY = 'vfx-theme';
 function applyTheme(dark: boolean): void {
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 }
-const SHAPE_KINDS: ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
-const SHAPE_TEXT: Record<ShapeKind, string> = {
-  shards: 'star of shards', flash: 'muzzle flash', cloud: 'cloud blast', smoke: 'smoke', ring: 'ring', dots: 'halftone dots', scorch: 'scorch mark',
-  lines: 'speed lines', glow: 'glow', trail: 'trail behind a projectile', band: 'beam', beads: 'beads along a beam', flames: 'flame tongues', bed: 'fire bed',
-};
 
 export class App implements AppApi {
   faction: FactionId = 'soviets';
@@ -918,7 +914,8 @@ export class App implements AppApi {
     const keys: [string, string][] = [
       ['Space', 'Play or pause'], ['F', 'Fire from the stand-in to the target'], ['← / →', 'One step back or forward (1/12 s)'],
       ['L', 'Loop on or off'], ['1 / 2 / 3', 'Whole screen / game size / close-up'], ['Ctrl+Z', 'Undo'], ['Ctrl+Shift+Z or Ctrl+Y', 'Redo'],
-      ['Ctrl+S', 'Save'], ['Delete', 'Delete the selected layer'], ['Drag on the ground', 'Move the target'], ['Shift + drag', 'Move the stand-in'],
+      ['Ctrl+S', 'Save'], ['Delete', 'Delete the selected layer'], ['Esc', 'Close the colour picker; otherwise leave the layer and go back to the effect'],
+      ['Drag on the ground', 'Move the target'], ['Shift + drag', 'Move the stand-in'],
     ];
     d.replaceChildren(h('h2', { text: 'Keys' }), h('table', { class: 'keys' }, ...keys.map(([k, v]) => h('tr', {}, h('td', {}, h('kbd', { text: k })), h('td', { text: v })))),
       h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
@@ -1150,11 +1147,14 @@ export class App implements AppApi {
     // Shown top of the drawing order first.
     list.replaceChildren(...[...fx.layers].reverse().map((l) => {
       const hidden = l.type !== 'projectile' && !l.tiers.includes(this.tier);
+      // A layer that rides a projectile says so in its tag ("rides Bullet"); left out of the tier, the tag says that instead.
+      const rides = ridingOn(fx, l);
+      const tag = hidden ? `not in ${TIER_LABEL[this.tier]}` : rides ? `rides ${rides.name}` : layerTag(l);
       return h('button', {
         class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
         // The full name, since a long one ends in an ellipsis in the row.
-        title: hidden ? `${l.name}: not drawn in the ${TIER_LABEL[this.tier]} tier` : l.name,
-      }, icon(l.type), h('span', { text: l.name }), h('code', { text: hidden ? `not in ${TIER_LABEL[this.tier]}` : layerTag(l) }));
+        title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[this.tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
+      }, icon(l.type), h('span', { text: l.name }), h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag }));
     }));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }
@@ -1191,6 +1191,8 @@ export class App implements AppApi {
       if (e.defaultPrevented || (e.target as HTMLElement).closest?.('.cpick')) return;
       if (e.key === 'Escape' && this.picker.isOpen && !this.els.dialog.open) { this.picker.close(); return; }
       if (typing || mod || this.els.dialog.open) return;
+      // Escape with nothing open leaves the layer: the effect's settings show again.
+      if (e.key === 'Escape') { if (this.selLayer) { e.preventDefault(); this.inspector.backToEffect(); } return; }
       if (tag === 'BUTTON' && e.key === 'Enter') return;
       if (e.key === ' ') {
         // A button clicked with the mouse keeps focus; Space would click it again on key-up. Take the focus away.
