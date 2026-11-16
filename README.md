@@ -149,15 +149,16 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (165 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (181 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
 motion), Fade other layers (the toggle; the other layers at a quarter by blend group, read in the runtime's own buffers
-and, on both backends, in the picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline;
-the game's look, pixel for pixel, when it is off; the cost measurement unchanged), the Look (each kind of layer drawn,
+and, on both backends, in the picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline,
+but not a scrub that starts on a lane; effects playing from Fire, a fired copy of the effect shown and one of another
+effect; the game's look, pixel for pixel, when it is off; the cost measurement unchanged), the Look (each kind of layer drawn,
 held at the moment shown, drawn only while its panel shows it and the page is visible, its renderer and WebGL context let
 go when it is folded or no layer is selected, and playing in a loop while the editor runs), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
@@ -172,7 +173,7 @@ new colour), a ready-made gradient on a glow, night mode, the faction markings, 
 the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
 software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
-took to start (about 5 s).
+took to start (5 to 10 s in this round's runs, whether or not the first page also draws a layer's Look).
 
 ```bash
 npm run typecheck
@@ -498,8 +499,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     them towards white (for an image too, where moving the colour towards white would not), and light on the ground
     (screen, which the plan does not name) by its alpha, which weakens it. Every triangle stays, so the triangles and draw
     calls above the preview do not change; the cost measurement has its own renderer and never sees the fade.
-  - A row under the mouse, in the Layers list or on the timeline, counts before the selection while the mouse is there.
-    Fade other layers off stops both. Effects still playing from an earlier Fire of another effect fade as a whole. The game
+  - A row under the mouse, in the Layers list or on the timeline, counts before the selection while the mouse is there;
+    a scrub that starts on a row's lane is not a hover, so the selection counts while you drag. Fade other layers off
+    stops both. Effects still playing from an earlier Fire of another effect fade as a whole. The game
     screen alone (`?frame=1`) never fades.
   - The toggle sits after the view buttons, with the icon of the colour picker's Gradients (a striped square) until the
     icons round draws one of its own. It has no key.
@@ -508,7 +510,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     and as wide as the panel, on the preview's ground colour (a game colour, the same in both themes, so it needs no edge).
   - Framing: the layer's box on the 1920 × 1080 game screen over its time, found by drawing it 24 times a second of that
     time (6 to 48 times), with a tenth of the box as margin on each side, and never less than 32 px of the game screen
-    across (a speck shows at most about 4.5 times game size). A sprite counts as its whole picture, see-through parts
+    across (in the 144 px picture a speck shows at most 3.75 times game size). A sprite counts as its whole picture, see-through parts
     included. While a value is dragged, the box is worked out again at most five times a second. The line under the
     picture says how large it shows the layer and which time it loops over.
   - Time: the layer's own time (a projectile's: its flight together with its riders' times), then the same 300 ms rest as

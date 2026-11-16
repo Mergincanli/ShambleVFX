@@ -634,11 +634,72 @@ if (webgpu) {
   const hoverList = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['debris']);
   await p.hover('.timeline .tl-row[data-layer="sparks"] .tl-name');
   const hoverTimeline = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['sparks']);
+  // A scrub that starts on a row's lane is not a hover: while you drag, the selected layer counts.
+  const lane = await p.locator('.timeline .tl-row[data-layer="sparks"] .tl-lane').boundingBox();
+  await p.mouse.move(lane.x + lane.width * 0.3, lane.y + lane.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(lane.x + lane.width * 0.4, lane.y + lane.height / 2, { steps: 3 });
+  const whileScrubbing = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['burst']);
+  await p.mouse.up();
   await p.mouse.move(5, 5);
   const hoverGone = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['burst']);
   ok('hovering a layer\'s row in the Layers list or on the timeline fades the other layers while it is there; then the selected layer counts again',
     !hoverList.wrong && !hoverTimeline.wrong && !hoverGone.wrong && hoverList.kept > 0 && hoverTimeline.kept > 0 && hoverGone.kept === shellBurst.kept,
     `Debris row: ${show(hoverList)}. Sparks on the timeline: ${show(hoverTimeline)}. Mouse away: ${show(hoverGone)}`);
+  ok('a scrub that starts on a row\'s lane is not a hover: while you drag, the selected layer counts', !whileScrubbing.wrong && whileScrubbing.kept === shellBurst.kept,
+    `while dragging on the Sparks lane: ${show(whileScrubbing)}`);
+  // Effects playing from Fire fade too. The same moment is drawn twice, Fade other layers on and then off, with no time
+  // passing between (a frame of 0 ms). A fired copy of the effect shown keeps the layer in focus; an effect still playing
+  // from an earlier Fire of another effect fades as a whole, also its layer at the same place in its own list.
+  const firedFade = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    window.__vfxManual = true;
+    const toggle = document.querySelector('.vbar .fade-toggle');
+    const snap = () => Object.fromEntries(Object.entries(a.previewForChecks.vfx.sink.groups).map(([g, b]) => [g, { col: Array.from(b.col.subarray(0, b.vcount * 4)), layer: Array.from(b.layer.subarray(0, b.vcount)) }]));
+    const both = async () => {
+      await a.frame(a.lastFrame);
+      const on = snap();
+      toggle.click();
+      await a.frame(a.lastFrame);
+      const off = snap();
+      toggle.click();
+      return { on, off };
+    };
+    a.pickEffect('rifle_shot');
+    a.selectLayer('flash');
+    await a.showAt(0, 7);
+    a.fire();
+    await a.tickForChecks(80);
+    const rifle = { ids: a.effect().layers.map((l) => l.id), ...(await both()) };
+    a.pickEffect('board_shell');
+    a.selectLayer('muzzle_blast');
+    // The tank shell at 100 ms, its muzzle blast in the middle of its 230 ms, while the rifle shot fired before plays on.
+    a.mainTime = 100;
+    const shell = { ids: a.effect().layers.map((l) => l.id), ...(await both()) };
+    const playing = a.debugState().playingCount;
+    await a.showAt(0, 7);
+    return { rifle, shell, playing };
+  });
+  const firedShot = fadeChanges({ ids: firedFade.rifle.ids, groups: firedFade.rifle.off }, { ids: firedFade.rifle.ids, groups: firedFade.rifle.on }, ['flash']);
+  // The other effect's vertices: each must be the same as with the fade off (kept) or faded; only the muzzle blast keeps.
+  const blastIndex = firedFade.shell.ids.indexOf('muzzle_blast');
+  const mixed = { keptHere: 0, fadedHere: 0, keptElsewhere: 0, faded: 0, wrong: 0 };
+  for (const g of Object.keys(firedFade.shell.off)) {
+    const a = firedFade.shell.off[g], b = firedFade.shell.on[g];
+    if (a.layer.join() !== b.layer.join()) { mixed.wrong++; continue; }
+    for (let v = 0; v < a.layer.length; v++) {
+      const was = a.col.slice(v * 4, v * 4 + 4), got = b.col.slice(v * 4, v * 4 + 4);
+      const faded = ((g === 'ground' || g === 'top') && was[3] < 0 ? [was[0] / 4, was[1] / 4, was[2] / 4, was[3]] : [was[0], was[1], was[2], was[3] / 4]).every((x, i) => Math.fround(x) === got[i]);
+      const same = was.every((x, i) => x === got[i]);
+      const here = a.layer[v] === blastIndex;
+      if (faded) mixed[here ? 'fadedHere' : 'faded']++;
+      else if (same) mixed[here ? 'keptHere' : 'keptElsewhere']++;
+      else mixed.wrong++;
+    }
+  }
+  ok('effects playing from Fire fade too: a fired copy of the effect shown keeps the layer in focus, and an effect still playing from another effect fades as a whole',
+    firedFade.playing === 1 && !firedShot.wrong && firedShot.kept > 0 && firedShot.normal > 0 && !mixed.wrong && mixed.keptHere > 0 && mixed.fadedHere > 0 && mixed.keptElsewhere === 0 && mixed.faded > 0,
+    `fired rifle shot, Muzzle flash in focus: ${show(firedShot)}. Tank shell (board) shown, Muzzle blast in focus, the rifle shot still playing: ${JSON.stringify(mixed)} (here: place ${blastIndex} in each effect's list)`);
   // Fade other layers off: exactly the game's look, every vertex as with no layer selected.
   await p.locator('.vbar .fade-toggle').click();
   const offBeam = await sinkAt('board_beam', 1000, 'beam_core');

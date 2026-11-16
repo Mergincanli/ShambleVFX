@@ -30,6 +30,8 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
   const down = (e: PointerEvent) => {
     if ((e.target as HTMLElement).closest('.tl-name')) return;
     dragging = true;
+    // A scrub is not a hover: the layer whose lane it starts on does not take the preview's focus while you drag.
+    app.hoverLayer(null);
     track.setPointerCapture(e.pointerId);
     onScrub(msAt(e.clientX), false);
   };
@@ -40,7 +42,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
   track.addEventListener('pointercancel', up);
   // The row under the mouse: the preview fades the other layers while it is there (rows are made again on every refresh,
   // so this listens on what holds them).
-  rows.addEventListener('pointermove', (e) => app.hoverLayer(((e.target as Element).closest?.('.tl-row') as HTMLElement | null)?.dataset.layer ?? null));
+  rows.addEventListener('pointermove', (e) => { if (!dragging) app.hoverLayer(((e.target as Element).closest?.('.tl-row') as HTMLElement | null)?.dataset.layer ?? null); });
   rows.addEventListener('pointerleave', () => app.hoverLayer(null));
 
   const refresh = () => {
