@@ -124,21 +124,22 @@ Molotov's bed as today); the runtime's loader and its version guard; the screen-
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (148 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (150 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the add menu, phase starts, New from preset, tiers, game events (unsaved ones are asked
 about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card says
-which level counts), Save as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette
-profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its
-name, a project whose `project.json` is a newer version (not opened, and the editor says why); the test page on both
+which level counts), the preview drawn once per screen frame, Save as, Export and Import (`project.json` and `editor.json`
+version 2 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not
+touched), Save as and Export keeping its name, a project whose `project.json` is version 1 (it opens, with its scenes, and
+nothing is written) and one of a newer version (not opened, and the editor says why); the test page on both
 backends (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported
 gradient in its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a new colour),
 a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying the project's
 palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
-software, so a second editor page opened while the first one redraws starts slowly (half a minute or more): the check gives
-page loads 60 s and notes how long that page took.
+software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
+took to start (about 5 s).
 
 ```bash
 npm run typecheck

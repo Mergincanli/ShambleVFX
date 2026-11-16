@@ -79,6 +79,8 @@ export class App implements AppApi {
   private clock = 0;
   private seed = 1;
   private lastFrame = 0;
+  /** A frame is asked for from the screen. One at a time, so the preview is drawn once per screen frame. */
+  private frameAsked = false;
   private timelineCache: { fx: EffectFile; where: string; tl: Timeline } | null = null;
   private problemCache: { fx: EffectFile | undefined; images: number; list: Problem[]; palette: Palette } | null = null;
   private els!: {
@@ -429,7 +431,17 @@ export class App implements AppApi {
     const fxParam = params.get('effect');
     if (fxParam && effectById(this.history.doc, fxParam)) this.selectEffect(fxParam);
     this.lastFrame = performance.now();
-    requestAnimationFrame((t) => this.frame(t));
+    this.askFrame(true);
+  }
+
+  /**
+   * Ask the screen for the next frame, unless one is asked for already or the browser check drives the clock (`force`:
+   * even then). Only one frame is ever waiting, so a frame drawn outside the loop (showAt) starts no second loop.
+   */
+  private askFrame(force = false): void {
+    if (this.frameAsked || (!force && (window as unknown as { __vfxManual?: boolean }).__vfxManual)) return;
+    this.frameAsked = true;
+    requestAnimationFrame((t) => { this.frameAsked = false; void this.frame(t); });
   }
 
   private buildShell(root: HTMLElement): void {
@@ -1045,7 +1057,7 @@ export class App implements AppApi {
     this.lastFrame = now;
     if (this.measuring) {
       // The cost panel is timing the effect: the preview waits, so it does not share the computer.
-      if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
+      this.askFrame();
       return;
     }
     const fx = this.effect();
@@ -1076,7 +1088,7 @@ export class App implements AppApi {
     const s = this.preview.vfx.stats;
     this.els.stats.textContent = `${s.triangles} triangle${s.triangles === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'} · cost…`;
     this.renderTime(len);
-    if (!(window as unknown as { __vfxManual?: boolean }).__vfxManual) requestAnimationFrame((t) => void this.frame(t));
+    this.askFrame();
   }
 
   // ---------------------------------------------------------------- drawing the panels
@@ -1195,7 +1207,7 @@ export class App implements AppApi {
   resumeForChecks(): void {
     (window as unknown as { __vfxManual?: boolean }).__vfxManual = false;
     this.lastFrame = performance.now();
-    requestAnimationFrame((t) => void this.frame(t));
+    this.askFrame();
   }
 
   /** For the browser check: the playback state. */

@@ -70,15 +70,10 @@ async function open(url, ready) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  // Why 60 s for the load, not Playwright's 30 s: this headless browser draws in software (SwiftShader), in one GPU process
-  // for all its pages, and an editor page redraws its preview every frame, even when paused. Here one such frame takes
-  // the GPU process 0.3 to 0.75 s (4 to 9 frames in 3 s; the editor's own JavaScript is about 2 ms of it), and a page
-  // opened meanwhile waits for it. Measured on 2026-11-15, the saved project's page below, opened while the first editor
-  // page was paused but redrawing: 6 s just to make its WebGL 2 context (8 ms otherwise), 27 to 28 s to load, 60 to 63 s
-  // to be ready. With the first page's frame loop stopped, or the page closed, the same page was ready in 0.5 s. It was
-  // so before Part A (commit 209ee25: 16 s to load, 38 s to be ready), so nothing of ours that is new causes it.
+  // This headless browser draws in software, in one GPU process for all its pages: a page opened while another editor
+  // page draws waits for that page's frames. How long the second editor page below took is noted in every run.
   const t0 = Date.now();
-  await page.goto(url, { timeout: 60000 });
+  await page.goto(url);
   const loadedMs = Date.now() - t0;
   await page.waitForFunction(ready, null, { timeout: 60000 });
   return { page, errors, loadedMs, readyMs: Date.now() - t0 };
@@ -517,6 +512,20 @@ if (webgpu) {
   const insignia = await p.evaluate(() => [...document.querySelectorAll('.vbar [aria-label="Faction that fired"] button')].map((b) => `${b.querySelector('svg')?.getAttribute('class')}|${b.textContent}`));
   ok('the faction buttons show each faction\'s marking and its name', insignia.join() === 'icon icon-faction-soviets|Soviets,icon icon-faction-allies|Allies,icon icon-faction-empire|Empire', insignia.join(', '));
 
+  // -- the preview is drawn once per screen frame: one frame loop, even after the check drew frames itself (showAt). Each
+  // extra loop would draw the whole scene again in every frame (in this software-drawing browser, that is what made a
+  // second editor page take half a minute to start).
+  const loops = await p.evaluate(() => new Promise((res) => {
+    const a = window.__vfx.app;
+    let frames = 0, ticks = 0;
+    const real = a.frame;
+    a.frame = function (...args) { frames++; return real.apply(this, args); };
+    const t0 = performance.now();
+    const tick = () => { ticks++; if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else { delete a.frame; res({ frames, ticks }); } };
+    requestAnimationFrame(tick);
+  }));
+  ok('the preview is drawn once per screen frame (one frame loop), even after frames the check drew itself', loops.frames > 0 && loops.frames <= loops.ticks + 1, `${loops.frames} frames drawn in ${loops.ticks} screen frames`);
+
   // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
   const kept = (await st()).effects.filter((id) => id !== 'shell_flight').sort();
   await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
@@ -530,7 +539,7 @@ if (webgpu) {
   const files = existsSync(join(dir, 'effects')) ? readdirSync(join(dir, 'effects')).sort() : [];
   ok('Save as leaves out an effect deleted before saving', files.join() === kept.map((id) => `${id}.vfx.json`).join() && !files.includes('shell_flight.vfx.json'), files.join(', ') || 'no files');
   const savedPage = await open(`${base}/?backend=webgl&project=projects/${name}`, () => window.__vfx && window.__vfx.ready);
-  note('a second editor page, opened while the first one redraws', `loaded in ${(savedPage.loadedMs / 1000).toFixed(1)} s, ready in ${(savedPage.readyMs / 1000).toFixed(1)} s (see open() for why it is slow here)`);
+  note('a second editor page, opened while the first one is open', `loaded in ${(savedPage.loadedMs / 1000).toFixed(1)} s, ready in ${(savedPage.readyMs / 1000).toFixed(1)} s`);
   const reopened = await savedPage.page.evaluate(() => {
     const a = window.__vfx.app;
     a.pickEffect('board_shell');
@@ -635,6 +644,27 @@ if (webgpu) {
     const heldAfter = await leaveHeld();
     ok('typed game events are unsaved changes: leaving the page asks first', !heldBefore && heldAfter, `held back before typing: ${heldBefore}, after: ${heldAfter}`);
     await g.page.close();
+  }
+
+  // -- a project whose project.json is version 1 still opens, with its scenes, and opening it writes nothing. The examples
+  // are version 2, so the check keeps a version 1 file of its own (the demo's, as it was).
+  {
+    const old = `browser-check-v1-${Date.now()}`;
+    const odir = join(repo, 'projects', old);
+    cpSync(join(repo, 'examples', 'demo-project'), odir, { recursive: true });
+    const oldText = readFileSync(join(repo, 'packages', 'vfx-editor', 'test', 'fixtures', 'project-v1', 'demo-project.json'), 'utf8');
+    writeFileSync(join(odir, 'project.json'), oldText);
+    const g = await open(`${base}/?backend=webgl&project=projects/${old}`, () => window.__vfx && window.__vfx.ready);
+    const got = await g.page.evaluate(() => {
+      const a = window.__vfx.app;
+      a.pickEffect('board_shell');
+      return { effects: a.debugState().effects.length, name: document.querySelector('.project-name')?.textContent ?? '', scene: a.previewForChecks.scene.id };
+    });
+    await g.page.close();
+    const untouched = readFileSync(join(odir, 'project.json'), 'utf8') === oldText;
+    rmSync(odir, { recursive: true, force: true });
+    ok('a project whose project.json is version 1 opens, with its scenes, and opening it writes nothing', oldText.includes('"version": 1,') && got.effects === 6
+      && got.name.startsWith('Demo project') && got.scene === 'board-shell' && untouched, JSON.stringify({ ...got, untouched }));
   }
 
   // -- a project whose project.json is a newer version is not opened, so it is never written over; the editor says why.
