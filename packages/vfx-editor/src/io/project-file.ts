@@ -123,8 +123,9 @@ export function toProjectJson(p: ProjectFile): Record<string, unknown> {
 }
 
 /**
- * editor.json for an export: version 2, the palette profile's name (when the project has one), the preview scenes and
- * the budgets. Budget entries of effects that are not in the export are left out.
+ * editor.json for an export: version 2, the palette profile's name (when `p` has one: the export gives a project without
+ * one the name an import would give its colours), the preview scenes and the budgets. Budget entries of effects that are
+ * not in the export are left out.
  */
 export function toEditorJson(p: ProjectFile, effectIds: Iterable<string>): Record<string, unknown> {
   return {

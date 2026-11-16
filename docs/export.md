@@ -61,11 +61,12 @@ very same colours is used instead of adding one; when the name holds other colou
 number. The new project's `project.json` names the profile it ended up with. An export whose `palette.json` is not a usable
 palette is refused, and nothing is made.
 
-Exporting that project again gives the same files, byte for byte, with one difference when the project had no palette
-profile: `editor.json` now names the one the import made. From then on, export, import and export give the same files (the
-tests check this on both examples, whose `project.json` is version 2, on a version 1 project with budgets that the tests make
-themselves, and on a version 2 project with budgets at all three levels and a palette profile, whose two exports are the same
-from the start).
+Exporting that project again gives the same files, byte for byte, `editor.json` too. For that, an export of a project with
+no palette profile names in `editor.json` the profile an import will make of its colours: one named after the project. The
+tests check this on both examples (`project.json` version 2, no palette profile), on a version 1 project with budgets that
+the tests make themselves, and on a version 2 project with budgets at all three levels and a palette profile. The two
+exports differ only when the palettes folder already holds a profile of that name with other colours: the import then
+numbers the new one ("Demo project (1)"), and the second export names that.
 
 ## editor.json
 
@@ -82,8 +83,9 @@ The editor's own notes. The game ignores this file.
 ```
 
 - `version` is 2, as in `project.json` version 2 (the budgets have the same shape).
-- `paletteProfile`: the name of the palette profile the project's colours came from, when the project has one. Import names
-  the profile it adds (or finds) after it.
+- `paletteProfile`: the name of the palette profile the project's colours came from. A project with no palette profile gets
+  the name an import gives its colours: the project's name (cut to 64 characters, control characters made spaces). Import
+  names the profile it adds (or finds) after it.
 - `preview`: the scene each effect is shown in, as in `project.json`.
 - `budgets`: the budgets at three levels, as in `project.json`: only what differs from the defaults, and only for the
   effects in the export ([cost.md](cost.md)).

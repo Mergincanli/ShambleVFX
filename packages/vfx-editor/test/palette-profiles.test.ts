@@ -18,6 +18,7 @@ import {
 import { createProjectFilesHandler } from '../server/project-files';
 import { DevServerStore, StoreError } from '../src/io/store';
 import { PROFILE_FORMAT, defaultProfiles, profileSwatches, toProfileJson } from '../src/io/palette-profile';
+import { BROKEN, brokenCopy } from './broken-palettes';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
 const realPalettes = join(repo, 'palettes');
@@ -127,6 +128,33 @@ describe('the palettes folder', () => {
     // A file of a newer version holds its name all the same: it is taken.
     expect((await refusal(createProfile(dir, 'from the FUTURE', fresh())))).toEqual({ status: 409, message: 'There is already a palette profile named "From the future": pick another name.' });
   });
+
+  it.each(BROKEN)('names a profile file whose colours have %s, and everything else still works, deleting it too', async (_, edit, first) => {
+    const dir = folder();
+    await listProfiles(dir); // made, with the two defaults
+    writeFileSync(join(dir, 'odd.json'), toJson(toProfileJson('Odd', brokenCopy(edit))));
+    const list = await listProfiles(dir);
+    expect(list.profiles.map((p) => p.name)).toEqual(['Built-in', 'Built-in with gradients']);
+    expect(list.problems).toHaveLength(1);
+    expect(list.problems[0]!.file).toBe('odd.json');
+    expect(list.problems[0]!.error.startsWith(`"odd.json": its colours: ${first}`)).toBe(true);
+    // The others can be read, made, saved, renamed and restored; an import's colours still become a profile.
+    expect((await readProfile(dir, 'built-in')).name).toBe('Built-in');
+    const odd = await refusal(readProfile(dir, 'odd'));
+    expect(odd.status).toBe(422);
+    expect(odd.message).toMatch(/^"odd\.json": its colours: .*\. Fix it in a text editor, or delete it$/);
+    expect((await createProfile(dir, 'New one', fresh())).id).toBe('new-one');
+    expect((await saveProfile(dir, 'new-one', coloursWith('#000009'))).name).toBe('New one');
+    expect((await renameProfile(dir, 'new-one', 'Newer one')).id).toBe('newer-one');
+    expect((await restoreDefaultProfiles(dir)).added).toEqual([]);
+    expect(await addImportedProfile(dir, 'Comic hits', fresh())).toEqual({ id: 'comic-hits', name: 'Comic hits', added: true });
+    // The odd file keeps its name: it is taken.
+    expect((await refusal(createProfile(dir, 'ODD', fresh()))).status).toBe(409);
+    await deleteProfile(dir, 'odd');
+    expect(existsSync(join(dir, 'odd.json'))).toBe(false);
+    expect((await refusal(deleteProfile(dir, 'odd'))).status).toBe(404);
+    expect((await listProfiles(dir)).problems).toEqual([]);
+  });
 });
 
 describe('making, reading, saving, renaming and deleting', () => {
@@ -162,6 +190,20 @@ describe('making, reading, saving, renaming and deleting', () => {
     expect(await refusal(createProfile(dir, 'Bad', bad))).toEqual({ status: 400, message: 'These colours cannot be kept as a palette profile: ink: "black" is not a #RRGGBB colour' });
     expect(await refusal(createProfile(dir, 'Nothing', undefined))).toMatchObject({ status: 400, message: /not a palette/ });
     expect(readdirSync(dir).sort()).toEqual(['built-in-with-gradients.json', 'built-in.json', 'soviets-dark.json']);
+  });
+
+  it.each(BROKEN)('refuses colours with %s (400, in plain words), to make or to save, and writes nothing', async (_, edit, first) => {
+    const dir = folder();
+    await createProfile(dir, 'Soviets dark', fresh());
+    const before = readFileSync(join(dir, 'soviets-dark.json'), 'utf8');
+    const made = await refusal(createProfile(dir, 'Odd', brokenCopy(edit)));
+    expect(made.status).toBe(400);
+    expect(made.message.startsWith(`These colours cannot be kept as a palette profile: ${first}`)).toBe(true);
+    const saved = await refusal(saveProfile(dir, 'soviets-dark', brokenCopy(edit)));
+    expect(saved).toEqual(made);
+    expect(readdirSync(dir).sort()).toEqual(['built-in-with-gradients.json', 'built-in.json', 'soviets-dark.json']);
+    expect(readFileSync(join(dir, 'soviets-dark.json'), 'utf8')).toBe(before);
+    expect((await refusal(addImportedProfile(dir, 'Imported', brokenCopy(edit)))).status).toBe(400);
   });
 
   it('keeps an older palette as version 2', async () => {
@@ -305,6 +347,25 @@ describe('through the local server, and the editor\'s store', () => {
     expect((await call('PUT', 'profiles')).status).toBe(405);
     expect((await call('POST', 'profiles', { name: 'x', palette: fresh() }, { 'Content-Type': 'text/plain' })).status).toBe(415);
     expect((await fetch(`${base}/profiles`)).status).toBe(403);
+  });
+
+  it('a profile file, or colours sent, with a part missing or empty: plain words, and every route still answers', async () => {
+    for (const [what, edit, first] of BROKEN) {
+      writeFileSync(join(dir, 'odd.json'), toJson(toProfileJson('Odd', brokenCopy(edit))));
+      const list = await call('GET', 'profiles');
+      expect(list.status, what).toBe(200);
+      const body = (await list.json()) as { profiles: { name: string }[]; problems: { file: string; error: string }[] };
+      expect(body.profiles.map((p) => p.name)).toContain('Built-in');
+      expect(body.problems.map((p) => p.file)).toEqual(['odd.json']);
+      expect((await call('GET', 'profile?id=built-in')).status).toBe(200);
+      const made = await call('POST', 'profiles', { name: 'Odd colours', palette: brokenCopy(edit) });
+      expect(made.status, what).toBe(400);
+      expect(((await made.json()) as { error: string }).error.startsWith(`These colours cannot be kept as a palette profile: ${first}`)).toBe(true);
+      expect((await call('PUT', 'profile?id=built-in', { palette: brokenCopy(edit) })).status, what).toBe(400);
+      expect((await call('POST', 'profiles/defaults')).status).toBe(200);
+      expect((await call('DELETE', 'profile?id=odd')).status, what).toBe(200);
+      expect((await call('DELETE', 'profile?id=odd')).status).toBe(404);
+    }
   });
 
   it('the store lists, makes, reads, saves over, renames, deletes and restores, and a taken name fails with 409', async () => {

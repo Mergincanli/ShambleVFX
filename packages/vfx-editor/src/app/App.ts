@@ -104,6 +104,13 @@ export class App implements AppApi {
   /** project.json was an older version: the next save writes it as version 2, as saving does with old effect files. */
   private projectFileOld = false;
   private metaDirty = false;
+  /**
+   * The effects project.json was last read or written with. Its events, scenes and budgets follow the effects, so a save
+   * writes it again whenever the effects differ (one deleted, or brought back by undo), even with nothing else changed.
+   */
+  private fileEffectIds = new Set<string>();
+  /** Why the last project asked for was not opened (its project.json is a newer version), in plain words; else null. */
+  private refusal: string | null = null;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
   private tierCtl!: ReturnType<typeof segmented<TierName>>;
@@ -424,7 +431,8 @@ export class App implements AppApi {
     const want = params.get('project') ?? (() => { try { return localStorage.getItem(LAST_PROJECT); } catch { return null; } })();
     try {
       if (want) opened = await this.openProject(want, true);
-      if (!opened) opened = await this.openProject('examples/demo-project', true);
+      // A project refused at start-up (a newer project.json): the demo opens instead, and its message keeps the reason.
+      if (!opened) opened = await this.openProject('examples/demo-project', true, want ? (this.refusal ?? undefined) : undefined);
     } catch (e) {
       this.say(`Could not open a project: ${(e as Error).message}`, true);
     }
@@ -537,7 +545,12 @@ export class App implements AppApi {
 
   // ---------------------------------------------------------------- projects
 
-  private async openProject(id: string, quiet = false): Promise<boolean> {
+  /**
+   * Open a project. quiet: say nothing when it cannot be read (start-up tries the last project first). insteadOf: why the
+   * project asked for was refused, said before "Opened … instead" (start-up opens the demo in its place).
+   */
+  private async openProject(id: string, quiet = false, insteadOf?: string): Promise<boolean> {
+    this.refusal = null;
     if ((this.history.dirty || this.metaDirty) && !confirm('You have changes that are not saved. Open another project anyway?')) return false;
     let contents: ProjectContents;
     try {
@@ -549,7 +562,8 @@ export class App implements AppApi {
     // project.json first: one of a newer version is not opened, so it is never written over.
     const meta = await readProject(this.store, id);
     if (!meta.ok) {
-      this.say(`Could not open ${contents.name}: ${meta.error}.`, true);
+      this.refusal = `Could not open ${contents.name}: ${meta.error}.`;
+      this.say(this.refusal, true);
       return false;
     }
     this.project = contents;
@@ -588,6 +602,7 @@ export class App implements AppApi {
       }
     }
     this.effectsOnDisk = new Set(effects.map((e) => e.id));
+    this.fileEffectIds = new Set(effects.map((e) => e.id));
     this.history.reset({ effects, palette: projectPalette });
     this.preview.vfx.palette = projectPalette;
     this.player.clear();
@@ -599,7 +614,8 @@ export class App implements AppApi {
     if (this.preview && this.preview.scene.id !== scene) { this.preview.setScene(scene); this.distanceBox?.set(this.preview.viewerDistanceM); }
     this.sceneCtl?.set(scene);
     this.renderAll();
-    this.say(bad.length ? `Opened ${contents.name}, with problems: ${bad.join(' | ')}` : `Opened ${contents.name}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0);
+    const opened = insteadOf ? `${insteadOf} Opened ${contents.name} instead` : `Opened ${contents.name}`;
+    this.say(bad.length ? `${opened}, with problems: ${bad.join(' | ')}` : `${opened}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0 || !!insteadOf);
     return true;
   }
 
@@ -680,7 +696,9 @@ export class App implements AppApi {
         await writeJson(this.store, projectId, 'palette.json', doc.palette);
         this.paletteOnDisk = doc.palette;
       }
-      if (this.metaDirty || this.projectFileOld || projectId !== this.project?.id) {
+      const ids = doc.effects.map((e) => e.id);
+      const effectsChanged = ids.length !== this.fileEffectIds.size || ids.some((id) => !this.fileEffectIds.has(id));
+      if (this.metaDirty || this.projectFileOld || effectsChanged || projectId !== this.project?.id) {
         const preview: Record<string, { scene: string }> = {};
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
         const events: Record<string, string[]> = {};
@@ -693,10 +711,11 @@ export class App implements AppApi {
           base = other.project ?? newProjectFile(this.project?.name ?? projectId);
         }
         const name = projectId === this.project?.id ? (this.projectFile.name ?? this.project?.name) : base.name;
-        // Budgets of effects that are gone are left out of the file (they stay here, so undo brings them back).
-        const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(this.budgetsValue, doc.effects.map((e) => e.id)) };
+        // The events, scenes and budgets of effects that are gone are left out of the file. They stay here: undoing the
+        // delete brings the effect back with them, and the next save writes them again (the effects differ once more).
+        const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(this.budgetsValue, ids) };
         await writeProject(this.store, projectId, file);
-        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; }
+        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; this.fileEffectIds = new Set(ids); }
         this.metaDirty = false;
       }
       this.history.markSaved();

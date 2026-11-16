@@ -4,7 +4,8 @@
  *
  * Budgets come at three levels (the project's, a class's, the effect's own: see ../cost/budgets.ts). Until the UI redesign
  * rebuilds this card (its phase 6), the boxes show and edit the project's budgets, a number typed switches them on, the
- * colours compare with the level that counts for the effect, and one hint line says which level that is.
+ * colours compare with the level that counts for the effect, and one short hint line says which level that is (more in its
+ * tooltip).
  */
 import { TIER_NAMES } from '@shamble/vfx-format';
 import type { TierName } from '@shamble/vfx-format';
@@ -28,15 +29,34 @@ const METRIC_TITLE: Record<CostMetric, string> = {
 const int = (n: number) => Math.round(n).toLocaleString('en-US');
 const pct = (f: number) => `${(f * 100).toFixed(1)} %`;
 
-/** One line: whose budgets the colours compare with. */
-function levelText(c: CountingBudget, b: Budgets): string {
+/** How much of a class's name the level line shows (64 characters are allowed); the whole name is in its tooltip. */
+export const LEVEL_CLASS_SHOWN = 20;
+
+/** A class name for the level line: cut to LEVEL_CLASS_SHOWN characters, with "…" when cut. */
+function shownName(name: string): string {
+  const chars = [...name];
+  return chars.length > LEVEL_CLASS_SHOWN ? `${chars.slice(0, LEVEL_CLASS_SHOWN - 1).join('').trimEnd()}…` : name;
+}
+
+/**
+ * The level line: whose budgets the colours compare with, in one short line (`text`), and the rest in its tooltip
+ * (`title`): where those budgets are set, and what the boxes show.
+ */
+export function levelText(c: CountingBudget, b: Budgets): { text: string; title: string } {
+  const elsewhere = 'They are set in project.json for now; the boxes show and edit the project\'s budgets.';
   switch (c.level) {
-    case 'effect': return 'This effect\'s own budgets count (set in project.json; the boxes show the project\'s).';
-    case 'class': return `The budgets of its class "${c.class?.name ?? ''}" count for this effect (set in project.json; the boxes show the project's).`;
-    case 'project': return 'The project\'s budgets count for this effect.';
-    case 'none': return hasLimits(b.project.limits)
-      ? 'No budgets are on. The project\'s numbers are kept but off: change one to switch them on.'
-      : 'No budgets are on. Type a number to switch on the project\'s budgets.';
+    case 'effect': return { text: 'This effect\'s own budgets count.', title: `This effect's own budgets are on, so they count for it. ${elsewhere}` };
+    case 'class': {
+      const name = c.class?.name ?? '';
+      return { text: `The budgets of its class "${shownName(name)}" count.`, title: `The effect is in the class "${name}", and the class level is on, so the class's budgets count for it. ${elsewhere}` };
+    }
+    case 'project': return { text: 'The project\'s budgets count for this effect.', title: '' };
+    case 'none': return {
+      text: hasLimits(b.project.limits)
+        ? 'No budgets are on. The project\'s numbers are kept but off: change one to switch them on.'
+        : 'No budgets are on. Type a number to switch on the project\'s budgets.',
+      title: '',
+    };
   }
 }
 
@@ -99,7 +119,9 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     const budgets = app.budgets();
     const fx = app.effect();
     const counting = fx ? budgetThatCounts(budgets, fx.id) : undefined;
-    level.textContent = counting ? levelText(counting, budgets) : '';
+    const line = counting ? levelText(counting, budgets) : { text: '', title: '' };
+    level.textContent = line.text;
+    level.title = line.title;
     for (const m of COST_METRICS) {
       for (const t of TIER_NAMES) {
         const c = cells.get(`${m}:${t}`)!;

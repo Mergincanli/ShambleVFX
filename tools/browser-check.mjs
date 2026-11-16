@@ -667,14 +667,72 @@ if (webgpu) {
       && got.name.startsWith('Demo project') && got.scene === 'board-shell' && untouched, JSON.stringify({ ...got, untouched }));
   }
 
-  // -- a project whose project.json is a newer version is not opened, so it is never written over; the editor says why.
+  // -- a deleted effect's budgets: saving leaves them out of project.json; after undo, the next save writes them again,
+  // even with nothing else changed. On the same page: the cost card names a class with a long name in one or two lines.
+  {
+    const bud = `browser-check-budgets-${Date.now()}`;
+    const bdir = join(repo, 'projects', bud);
+    cpSync(join(repo, 'examples', 'demo-project'), bdir, { recursive: true });
+    const longClass = 'Big explosions that fill most of the screen and last a long time';
+    const budgets = {
+      classes: { on: true, list: [{ id: 'small', name: 'Small' }, { id: 'normal', name: 'Normal' }, { id: 'big', name: longClass, limits: { high: { triangles: 9000 } } }] },
+      effects: { board_shell: { class: 'big' }, rifle_shot: { on: true, limits: { high: { draws: 1 } } } },
+    };
+    const demoMeta = JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'project.json'), 'utf8'));
+    writeFileSync(join(bdir, 'project.json'), `${JSON.stringify({ ...demoMeta, budgets }, null, 2)}\n`);
+    const g = await open(`${base}/?backend=webgl&project=projects/${bud}`, () => window.__vfx && window.__vfx.ready);
+    g.page.on('dialog', (d) => d.accept());
+    const fileMeta = () => JSON.parse(readFileSync(join(bdir, 'project.json'), 'utf8'));
+    const saved = async () => {
+      await g.page.keyboard.press('Control+s');
+      await g.page.waitForFunction(() => !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
+      await g.page.waitForTimeout(300);
+    };
+    // The level line, as drawn: its lines counted from where each line of its text starts.
+    await g.page.evaluate(() => window.__vfx.app.pickEffect('board_shell'));
+    await g.page.waitForTimeout(150);
+    const level = await g.page.evaluate(() => {
+      const el = document.querySelector('.costcard .cost-level');
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return { text: el.textContent, title: el.title, lines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
+    });
+    ok('the cost card names a class with a long name in one or two lines, the whole name in its tooltip', level.lines >= 1 && level.lines <= 2
+      && level.text.startsWith('The budgets of its class "Big explosions') && level.title.includes(longClass), `${level.lines} line(s): "${level.text}"`);
+    // Delete the rifle shot and save, with nothing else changed: project.json leaves out its budgets (and events).
+    await g.page.click('.effects-list .item:has-text("Rifle shot (demo)") button[aria-label^="Delete"]');
+    await g.page.waitForTimeout(150);
+    await saved();
+    const afterDelete = fileMeta();
+    await g.page.keyboard.press('Control+z');
+    await g.page.waitForTimeout(150);
+    const back = await g.page.evaluate(() => ({ effects: window.__vfx.app.debugState().effects, budget: window.__vfx.app.budgets().effects.rifle_shot ?? null }));
+    await saved();
+    const afterUndo = fileMeta();
+    await g.page.close();
+    rmSync(bdir, { recursive: true, force: true });
+    ok('saving after deleting an effect leaves its budgets out of project.json; after undo, the next save writes them again',
+      !afterDelete.budgets?.effects?.rifle_shot && !afterDelete.events?.rifle_shot && afterDelete.budgets?.effects?.board_shell?.class === 'big'
+      && back.effects.includes('rifle_shot') && back.budget?.on === true
+      && JSON.stringify(afterUndo.budgets?.effects?.rifle_shot) === JSON.stringify(budgets.effects.rifle_shot) && afterUndo.events?.rifle_shot?.length > 0,
+      JSON.stringify({ afterDelete: afterDelete.budgets?.effects, afterUndo: afterUndo.budgets?.effects, events: afterUndo.events?.rifle_shot }));
+  }
+
+  // -- a project whose project.json is a newer version is not opened, so it is never written over; the editor says why,
+  // also when it is the project the editor starts with (it opens the demo instead, and the message keeps the reason).
   {
     const future = `browser-check-future-${Date.now()}`;
     const fdir = join(repo, 'projects', future);
     mkdirSync(join(fdir, 'effects'), { recursive: true });
     const futureText = `${JSON.stringify({ format: 'shamble-vfx-project', version: 3, name: 'From the future' }, null, 2)}\n`;
     writeFileSync(join(fdir, 'project.json'), futureText);
-    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const g = await open(`${base}/?backend=webgl&project=projects/${future}`, () => window.__vfx && window.__vfx.ready);
+    const atStart = await g.page.evaluate(() => ({
+      status: document.querySelector('.status')?.textContent ?? '', bad: !!document.querySelector('.status.bad'), name: document.querySelector('.project-name')?.textContent ?? '',
+    }));
+    ok('a newer project.json the editor starts with is not opened; the demo opens instead, and the message says why', atStart.name.startsWith('Demo project') && atStart.bad
+      && atStart.status === 'Could not open From the future: project.json is version 3, and this Shamble VFX reads version 2 and older: update Shamble VFX to open this project. Opened Demo project instead (an example: use "Save as" to keep changes).',
+      `${atStart.status} (on ${atStart.name})`);
     const tried = await g.page.evaluate(async (id) => {
       const opened = await window.__vfx.app.openProject(id);
       return { opened, status: document.querySelector('.status')?.textContent ?? '', name: document.querySelector('.project-name')?.textContent ?? '' };

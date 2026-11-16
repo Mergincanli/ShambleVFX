@@ -22,7 +22,7 @@ import {
   BUILT_IN_PROFILE, PROFILE_ID, chooseImportProfile, defaultProfiles, profileName, profileNameProblem, profilePaletteProblems,
   profileSummary, readProfileFile, sameName, toProfileJson,
 } from '../src/io/palette-profile';
-import type { ImportedProfile, Profile, ProfileFileProblem, ProfileListing, ProfileSummary } from '../src/io/palette-profile';
+import type { ImportedProfile, Profile, ProfileFileProblem, ProfileListing, ProfileRead, ProfileSummary } from '../src/io/palette-profile';
 import { slugify } from './project-files';
 
 export { BUILT_IN_PROFILE };
@@ -114,7 +114,13 @@ async function scan(dir: string): Promise<{ entries: Entry[]; problems: ProfileF
       problems.push({ file: d.name, error: `"${d.name}": ${why}` });
       continue;
     }
-    const r = readProfileFile(raw);
+    // A file that cannot be read as a profile is named in the list (and can be deleted); it never stops the folder's routes.
+    let r: ProfileRead;
+    try {
+      r = readProfileFile(raw);
+    } catch (e) {
+      r = { ok: false, kind: 'broken', error: `it cannot be read as a palette profile (${(e as Error).message})` };
+    }
     if (r.ok) entries.push({ id, file, changed, name: r.name, palette: r.palette });
     else {
       entries.push({ id, file, changed, error: r.error, ...(r.kind === 'version' ? { newer: true } : {}), ...(r.name !== undefined ? { name: r.name } : {}) });

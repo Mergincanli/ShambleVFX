@@ -57,13 +57,13 @@ export function replaceLayer(doc: EditorDoc, effectId: string, layer: Layer): Ed
 /**
  * A word layer's words after its list was typed again, as a comma list ("BOOM, BANG"): each text trimmed and in
  * capitals, empty ones dropped. A word keeps its chance when its text stays the same: each typed word takes the first
- * old word with that text not taken yet (matched in order, capitals or not, as the runtime draws capitals). New words
- * get no chance.
+ * old word with that text not taken yet (matched in order, capitals or not, as the runtime draws capitals, and without
+ * spaces at either end, which add nothing to the drawing). New words get no chance.
  */
 export function wordsFromText(old: readonly SoundWord[], typed: string): SoundWord[] {
   const taken = new Set<number>();
   return typed.split(',').map((w) => w.trim().toUpperCase()).filter(Boolean).map((text) => {
-    const i = old.findIndex((o, k) => !taken.has(k) && o.text.toUpperCase() === text);
+    const i = old.findIndex((o, k) => !taken.has(k) && o.text.trim().toUpperCase() === text);
     if (i < 0) return { text };
     taken.add(i);
     const chance = old[i]!.chance;

@@ -82,8 +82,9 @@ Here the tank shell (in Big, with the class level on) is compared with 9000 tria
 A project made before (`project.json` version 1) had one set of budgets for the whole project. It becomes the project's
 budgets, **switched off**, with its numbers kept (the approved plan). On today's card, change one of them to switch them on.
 
-When the project is saved, the budgets of effects it no longer has are left out (until then, undo can bring an effect back
-with its budgets). An export leaves out those of effects that are not in it.
+When the project is saved, `project.json` leaves out the budgets of effects the project no longer has (and their game events
+and scenes). The editor keeps them until you leave: undoing the delete brings the effect back with its budgets, and the next
+save writes them again. An export leaves out those of effects that are not in it.
 
 For reference only, not used anywhere: the game's research notes (the ADR 0003 draft) suggest ≤ 2 ms at the 99th percentile
 in Low and ≤ 1 ms in High, for **all effects together**. The panel measures one effect at a time, on this computer.

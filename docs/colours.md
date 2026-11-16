@@ -45,7 +45,10 @@ Profiles live on this computer, not in a project, so one set of colours can go i
   " (1)", then " (2)", and so on. If that profile, or one of its numbered ones, holds the very same colours (the same hexes,
   factions and gradients; who chose them and the notes do not count), nothing is added and that one is used. The new
   project's `project.json` names the profile it ended up with. `npm run import` does the same.
-- **Save as** keeps the project's palette profile name, and **Export** writes it into `editor.json`.
+- **Save as** keeps the project's palette profile name, and **Export** writes it into `editor.json`. A project with no
+  profile gets the name an import gives its colours (the project's name), so export, import and export give the same files.
+- A profile file with a part missing or empty (a faction without colours, a colour, gradient or stop that is empty) is
+  listed with why, as any file the editor cannot use, and can be deleted; it never stops the other profiles or an import.
 
 The buttons for profiles come with the new editor UI. The editor's local server, its store (`src/io/store.ts`) and the load
 function (`loadProfile` in `src/doc/load-profile.ts`) already do the work behind them. One step comes with the buttons:

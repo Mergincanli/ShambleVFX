@@ -21,6 +21,7 @@ import type { Pixels } from '../src/atlas/pack';
 import { defaultBudgets } from '../src/cost/budgets';
 import { toEditorJson, toProjectJson, readEditorJson, readProjectJson } from '../src/io/project-file';
 import type { ProjectFile } from '../src/io/project-file';
+import { importProfileName } from '../src/io/palette-profile';
 import type { ImportedProfile } from '../src/io/palette-profile';
 import { addImportedProfile } from './palette-profiles';
 
@@ -178,8 +179,10 @@ export async function exportProject(projectDir: string, outDir: string): Promise
     effects: effects.map(({ fx }) => ({ id: fx.id, name: fx.name, version: fx.version, file: `effects/${fx.id}.vfx.json`, events: events[fx.id]! })),
     events: Object.fromEntries(effects.flatMap(({ fx }) => events[fx.id]!.map((ev) => [ev, fx.id] as const)).sort(([a], [b]) => a.localeCompare(b))),
   };
-  // editor.json, version 2: the palette profile's name, the preview scenes and the budgets (of the exported effects).
-  const editor = toEditorJson(meta, effects.map(({ fx }) => fx.id));
+  // editor.json, version 2: the palette profile's name, the preview scenes and the budgets (of the exported effects). A
+  // project with no palette profile names the one an import of this export makes: after the export's project, its name
+  // cleaned as import cleans it. So export, import and export give the same files for it too.
+  const editor = toEditorJson({ ...meta, paletteProfile: meta.paletteProfile ?? importProfileName(name) }, effects.map(({ fx }) => fx.id));
 
   // Write: a fresh folder every time.
   const files: [string, string | Buffer][] = [
@@ -260,6 +263,10 @@ export async function importExport(exportDir: string, projectDir: string, opts: 
   const there = await fs.readdir(projectDir).catch(() => [] as string[]);
   if (there.length) return { ok: false, errors: [`${projectDir} is not empty: import into a new folder, so no project is overwritten`], effects: 0, images: 0 };
   const ex = await readExport(exportDir);
+  // The colours first: they must be a usable palette (the game's and the profile's). A broken palette.json is named as
+  // itself, before the problems it makes in the effects.
+  const wrong = checkPalette(ex.palette);
+  if (wrong.length) return { ok: false, errors: wrong.map((w) => `palette.json: ${w}`), effects: 0, images: 0 };
   const errors = problemLines(ex.check.problems.filter((p) => p.level === 'error'));
   if (!ex.check.ok || !ex.manifest || !ex.atlas) return { ok: false, errors: errors.length ? errors : ['the export could not be read'], effects: 0, images: 0 };
   const page = PNG.sync.read(await fs.readFile(join(exportDir, ex.manifest.atlas.image)));
@@ -269,10 +276,7 @@ export async function importExport(exportDir: string, projectDir: string, opts: 
   const read = readEditorJson(await readJsonFile(join(exportDir, 'editor.json')).catch(() => undefined));
   if (!read.ok) return { ok: false, errors: [read.error], effects: 0, images: 0 };
   const notes = read.notes;
-  // The colours: they must be a usable palette (the game's and the profile's), then they become a profile, before any
-  // file of the new project is written.
-  const wrong = checkPalette(ex.palette);
-  if (wrong.length) return { ok: false, errors: wrong.map((w) => `palette.json: ${w}`), effects: 0, images: 0 };
+  // The colours become a profile before any file of the new project is written.
   let profile: ImportedProfile;
   try {
     profile = await addImportedProfile(opts.palettesDir, notes.paletteProfile ?? ex.manifest.name, ex.palette);

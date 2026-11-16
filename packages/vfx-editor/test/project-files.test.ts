@@ -393,6 +393,27 @@ describe('export and import', () => {
       expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'nothing', root: 'projects', name: 'Y' }) })).status).toBe(404);
       expect((await call('POST', 'import', { ...at, body: JSON.stringify({ export: '../examples', root: 'projects', name: 'Z' }) })).status).toBe(400);
       expect(existsSync(join(box, 'projects', 'y'))).toBe(false);
+
+      // An export whose palette.json has a part missing is refused in plain words, and makes nothing.
+      cpSync(join(exportsDir, 'hits'), join(exportsDir, 'badpal'), { recursive: true });
+      const badPal = JSON.parse(readFileSync(join(exportsDir, 'badpal', 'palette.json'), 'utf8'));
+      delete badPal.factions.soviets.roles;
+      writeFileSync(join(exportsDir, 'badpal', 'palette.json'), `${JSON.stringify(badPal, null, 2)}\n`);
+      const refused = await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'badpal', root: 'projects', name: 'Bad colours' }) });
+      expect(refused.status).toBe(422);
+      expect(refused.json().errors[0]).toBe('palette.json: faction soviets has no "roles"');
+      expect(existsSync(join(box, 'projects', 'bad-colours'))).toBe(false);
+      // A profile file with a part missing is named in the list, and never stops an import.
+      const odd = JSON.parse(readFileSync(join(palettesDir, 'comic-hits.json'), 'utf8'));
+      odd.name = 'Odd';
+      delete odd.palette.factions.allies.roles;
+      writeFileSync(join(palettesDir, 'odd.json'), `${JSON.stringify(odd, null, 2)}\n`);
+      const again = await call('POST', 'import', { ...at, body: JSON.stringify({ export: 'hits', root: 'projects', name: 'Hits again' }) });
+      expect(again.status).toBe(201);
+      expect(again.json().profile).toEqual({ id: 'comic-hits', name: 'Comic hits', added: false });
+      const listed = await call('GET', 'profiles', { to: p, headers: { host: `127.0.0.1:${p}` } });
+      expect(listed.status).toBe(200);
+      expect(listed.json().problems.map((x: { file: string }) => x.file)).toEqual(['odd.json']);
     } finally {
       await vite.close();
     }

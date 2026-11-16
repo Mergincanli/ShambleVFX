@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 import { afterAll, describe, expect, it } from 'vitest';
+import type { Palette } from '@shamble/vfx-format';
 import { exportProject, importExport, readExport, toJson } from '../server/export';
 import { budgetThatCounts } from '../src/cost/budgets';
 import { EDITOR_NOTE, readProjectJson } from '../src/io/project-file';
+import { BROKEN, brokenCopy } from './broken-palettes';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
 const tmp = mkdtempSync(join(tmpdir(), 'shamble-vfx-export-'));
@@ -74,17 +76,15 @@ describe.each(['demo-project', 'hits-collection'])('export, import and export ag
     expect(now.paletteProfile).toBe(was.name);
   });
 
-  it('exports the imported project to the same files; editor.json now names the palette profile the import made', async () => {
+  it('exports the imported project to the same files, byte for byte, editor.json too', async () => {
     const r = await exportProject(back, again);
     expect(r.errors).toEqual([]);
     const files = walk(out).map((f) => relative(out, f)).sort();
     expect(walk(again).map((f) => relative(again, f)).sort()).toEqual(files);
-    for (const f of files.filter((x) => x !== 'editor.json')) expect(readFileSync(join(again, f)).equals(readFileSync(join(out, f))), f).toBe(true);
-    // editor.json: the same, plus the profile's name (the example had none, so the first export named none).
-    const first = json(join(out, 'editor.json'));
-    expect(first.paletteProfile).toBeUndefined();
+    for (const f of files) expect(readFileSync(join(again, f)).equals(readFileSync(join(out, f))), f).toBe(true);
+    // The example has no palette profile, so the first export named the one an import makes: after the project.
     const meta = json(join(source, 'project.json'));
-    expect(read(join(again, 'editor.json'))).toBe(toJson({ note: first.note, version: first.version, paletteProfile: meta.name, preview: first.preview, budgets: first.budgets }));
+    expect(json(join(out, 'editor.json')).paletteProfile).toBe(meta.name);
   });
 
   it('stays the same from then on: a second import finds the same profile and adds none, and its export is the same, byte for byte', async () => {
@@ -270,6 +270,27 @@ describe('import refusals', () => {
     expect(existsSync(target)).toBe(false);
   });
 
+  describe('an export whose palette.json has a part missing or empty', () => {
+    const good = join(tmp, 'for-broken-palettes');
+    it.each(BROKEN)('is refused for %s, in plain words that name palette.json, and nothing is made', async (what, edit, first) => {
+      if (!existsSync(good)) expect((await exportProject(join(repo, 'examples', 'hits-collection'), good)).errors).toEqual([]);
+      const label = what.replace(/\W+/g, '-');
+      const out = join(tmp, `palette-${label}`);
+      cpSync(good, out, { recursive: true });
+      writeFileSync(join(out, 'palette.json'), toJson(brokenCopy(edit, json(join(good, 'palette.json')) as unknown as Palette)));
+      // An effect that uses the broken gradient: the export checker reads its stops too.
+      const pulse = json(join(out, 'effects', 'hit_energy_pulse.vfx.json')) as { layers: { id: string; shape?: Record<string, unknown> }[] };
+      pulse.layers.find((l) => l.id === 'glow')!.shape!.gradient = 'fire.bed';
+      writeFileSync(join(out, 'effects', 'hit_energy_pulse.vfx.json'), toJson(pulse));
+      const target = join(tmp, `palette-${label}-project`), palettesDir = palettesFor(`palette-${label}`);
+      const r = await importExport(out, target, { palettesDir });
+      expect(r.ok).toBe(false);
+      expect(r.errors[0]).toBe(`palette.json: ${first}`);
+      expect(existsSync(target)).toBe(false);
+      expect(existsSync(palettesDir)).toBe(false);
+    });
+  });
+
   it('names what is wrong with a broken export', async () => {
     const out = join(tmp, 'broken-export');
     await exportProject(join(repo, 'examples', 'hits-collection'), out);
@@ -291,9 +312,10 @@ describe('project.json version 2 and editor.json', () => {
     for (const f of files(a).filter((x) => !except.includes(x))) expect(readFileSync(join(b, f)).equals(readFileSync(join(a, f))), f).toBe(true);
   };
   /**
-   * Export, import, export again, with a palettes folder of its own. The two exports hold the same files, byte for byte; only
-   * when the project had no palette profile does the second editor.json differ, by naming the one the import made (`profile`).
-   * A second import and export then give the same files again. Returns the first export and the imported project.
+   * Export, import, export again, with a palettes folder of its own. The two exports hold the same files, byte for byte:
+   * the first editor.json names the palette profile the import ends up with (`profile`), the project's own or, for a
+   * project with none, one named after the project. A second import and export then give the same files again. Returns
+   * the first export and the imported project.
    */
   async function roundTrip(label: string, project: string, profile: string) {
     const out = join(tmp, `${label}-export`), back = join(tmp, `${label}-back`), again = join(tmp, `${label}-again`);
@@ -305,13 +327,8 @@ describe('project.json version 2 and editor.json', () => {
     expect(imported.profile).toMatchObject({ name: profile, added: true });
     const second = await exportProject(back, again);
     expect(second.errors).toEqual([]);
-    const notes = json(join(out, 'editor.json'));
-    if (notes.paletteProfile === profile) sameFiles(out, again);
-    else {
-      expect(notes.paletteProfile).toBeUndefined();
-      sameFiles(out, again, ['editor.json']);
-      expect(read(join(again, 'editor.json'))).toBe(toJson({ note: notes.note, version: notes.version, paletteProfile: profile, preview: notes.preview, budgets: notes.budgets }));
-    }
+    expect(json(join(out, 'editor.json')).paletteProfile).toBe(profile);
+    sameFiles(out, again);
     const back2 = join(tmp, `${label}-back2`), again2 = join(tmp, `${label}-again2`);
     const reimported = await importExport(again, back2, { palettesDir });
     expect(reimported.profile).toMatchObject({ name: profile, added: false });
@@ -328,9 +345,10 @@ describe('project.json version 2 and editor.json', () => {
     writeFileSync(join(dir, 'project.json'), toJson({ ...demo, version: 1, budgets: { high: { triangles: 5000, draws: 3 }, low: { ms: 1.5 } } }));
     expect(json(join(dir, 'project.json')).version).toBe(1);
     const { out, back } = await roundTrip('v1-budgets', dir, demo.name);
-    // The first export, pinned: editor.json version 2, the numbers kept at the project level, off (no "on").
+    // The first export, pinned: editor.json version 2, the palette profile an import makes (the project has none: one named
+    // after it), the numbers kept at the project level, off (no "on").
     expect(read(join(out, 'editor.json'))).toBe(toJson({
-      note: EDITOR_NOTE, version: 2, preview: demo.preview, budgets: { project: { limits: { low: { ms: 1.5 }, high: { draws: 3, triangles: 5000 } } } },
+      note: EDITOR_NOTE, version: 2, paletteProfile: demo.name, preview: demo.preview, budgets: { project: { limits: { low: { ms: 1.5 }, high: { draws: 3, triangles: 5000 } } } },
     }));
     // The imported project is version 2, and says the same.
     const now = json(join(back, 'project.json'));

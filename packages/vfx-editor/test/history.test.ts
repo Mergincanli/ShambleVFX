@@ -176,6 +176,14 @@ describe('the words box: words typed again', () => {
     expect(wordsFromText([{ text: 'boom', chance: 30 }], 'BOOM')).toEqual([{ text: 'BOOM', chance: 30 }]);
   });
 
+  it('matches a word whose file text has spaces at either end (they add nothing to the drawing), so its chance stays', () => {
+    const old = [{ text: ' BOOM', chance: 40 }, { text: 'BAM' }];
+    // The box shows " BOOM, BAM"; changing only BAM keeps BOOM's 40 %.
+    expect(wordsFromText(old, ' BOOM, BANG')).toEqual([{ text: 'BOOM', chance: 40 }, { text: 'BANG' }]);
+    expect(wordsFromText([{ text: 'BOOM  ', chance: 40 }], 'BOOM  ')).toEqual([{ text: 'BOOM', chance: 40 }]);
+    expect(wordsFromText([{ text: ' boom ', chance: 25 }, { text: 'KA BOOM', chance: 10 }], 'BOOM, ka boom')).toEqual([{ text: 'BOOM', chance: 25 }, { text: 'KA BOOM', chance: 10 }]);
+  });
+
   it('is one undo step in the document, and the result passes the checker', () => {
     const h = new History({ palette: paletteJson as Palette, effects: [load('board_shell.vfx.json')] });
     const fx = h.doc.effects[0]!;
