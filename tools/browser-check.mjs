@@ -474,11 +474,20 @@ if (webgpu) {
   await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Layer name$/ }) }).locator('input').focus();
   await p.keyboard.press('Escape');
   const whileTyping = await panel();
-  await p.evaluate(() => document.activeElement?.blur());
+  // A checkbox just clicked keeps the focus; that is not typing, so Esc leaves the layer from there (Show all, on and off).
+  const showAllBox = p.locator('.inspector .fold-actions label.show-all input');
+  await showAllBox.click();
+  await showAllBox.click();
+  const fromBox = await p.evaluate(() => document.activeElement?.matches('.show-all input') ?? false);
+  await p.keyboard.press('Escape');
+  const escapedFromBox = await panel();
+  // And from the Layers list, where a click on a row leaves the focus.
+  await layerRow('Hit spark').click();
   await p.keyboard.press('Escape');
   const escaped = await panel();
-  ok('Esc goes back to the effect\'s settings, but not while typing in a field', whileTyping.layer === 'hit' && escaped.layer === null && escaped.effectSettings,
-    `while typing: ${whileTyping.layer}; after Esc: ${escaped.layer}`);
+  ok('Esc goes back to the effect\'s settings (from a checkbox just clicked in the panel, or from the Layers list), but not while typing in a field',
+    whileTyping.layer === 'hit' && fromBox && escapedFromBox.layer === null && escapedFromBox.effectSettings && escaped.layer === null && escaped.effectSettings,
+    `while typing: ${whileTyping.layer}; after Esc on a checkbox (focused: ${fromBox}): ${escapedFromBox.layer}; after Esc from the list: ${escaped.layer}`);
   // What draws each layer: an image (its file, in Plex Mono), or code; a projectile draws nothing.
   const drawn = await p.evaluate(() => {
     const a = window.__vfx.app; const out = {};

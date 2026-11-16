@@ -450,8 +450,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Another selection starts the panel at the top; a part switched on or off keeps its place. When the control you used
     goes with the old view (the effect's name, a rider, Esc pressed in the panel), the keyboard focus moves to the new
     view's title.
-  - Esc leaves the layer only when the colour picker and dialogs are closed and you are not in a field, a select or a
-    checkbox (as for every other key there).
+  - Esc leaves the layer only when the colour picker and dialogs are closed and you are not typing: not in a text or
+    number field or a select (as for every other key there). A checkbox or a slider that keeps the focus after a click is
+    not typing, so Esc works from there.
   - Where the colour list sits: in the effect's view it stays the Colour row of the Effect section, with Show all next to
     its label. In a layer's view it is the layer's Colour section, with Show all on the section's title row (open by
     default; one open or closed state for every layer, as sections remember it by title). A sprite keeps its one Colour

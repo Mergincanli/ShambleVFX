@@ -1190,9 +1190,11 @@ export class App implements AppApi {
       // takes the arrows): never the editor's shortcuts. Escape puts the picker away from anywhere.
       if (e.defaultPrevented || (e.target as HTMLElement).closest?.('.cpick')) return;
       if (e.key === 'Escape' && this.picker.isOpen && !this.els.dialog.open) { this.picker.close(); return; }
+      // Escape with nothing open leaves the layer: the effect's settings show again. Not while typing (a text or number
+      // field, a select); a checkbox or a slider that keeps the focus after a click is not typing.
+      const notTyping = !typing || (tag === 'INPUT' && ['checkbox', 'radio', 'range'].includes((e.target as HTMLInputElement).type));
+      if (e.key === 'Escape' && notTyping && !mod && !this.els.dialog.open) { if (this.selLayer) { e.preventDefault(); this.inspector.backToEffect(); } return; }
       if (typing || mod || this.els.dialog.open) return;
-      // Escape with nothing open leaves the layer: the effect's settings show again.
-      if (e.key === 'Escape') { if (this.selLayer) { e.preventDefault(); this.inspector.backToEffect(); } return; }
       if (tag === 'BUTTON' && e.key === 'Enter') return;
       if (e.key === ' ') {
         // A button clicked with the mouse keeps focus; Space would click it again on key-up. Take the focus away.
