@@ -122,6 +122,41 @@ for (const backend of ['webgpu', 'webgl']) {
   }
   ok(`[${label}] editor preview draws the ground`, ground > 1000, `${ground} samples`);
   ok(`[${label}] editor preview draws the muzzle flash`, orange > 10, `${orange} samples of heat.1 / heat.2`);
+  // Fade other layers: with a layer selected the other layers fade in the preview (to about a quarter) and the selected
+  // one keeps its colours. Counted round the muzzle, where the flash is: its own orange stays with the flash selected, and
+  // fades into the ground with the hit spark (at the target) selected. Fade other layers off, the preview is the game's
+  // look again, pixel for pixel, with a layer still selected.
+  const muzzle = await p.evaluate(() => { const pv = window.__vfx.app.previewForChecks; const r = document.querySelector('.viewport').getBoundingClientRect(); const [x, y] = pv.toCanvas(pv.origin); return { x: Math.round(r.x + x), y: Math.round(r.y + y) }; });
+  const orangeNear = (png) => {
+    let n = 0;
+    for (let y = muzzle.y - 90; y <= muzzle.y + 90; y += 2) for (let x = muzzle.x - 90; x <= muzzle.x + 150; x += 2) { const c = hex(png, x, y); if (diff(c, '#F47A1C') <= 3 || diff(c, '#FFB02E') <= 3) n++; }
+    return n;
+  };
+  const fadeShot = async (layer, fadeOn, name) => {
+    await p.evaluate(async ([l, on]) => {
+      const a = window.__vfx.app;
+      window.__vfxManual = true;
+      a.pickEffect('rifle_shot');
+      a.previewForChecks.setView('whole');
+      a.selectLayer(l);
+      const t = document.querySelector('.vbar .fade-toggle');
+      if ((t.getAttribute('aria-pressed') === 'true') !== on) t.click();
+      await a.showAt(20, 7);
+      await a.showAt(20, 7);
+      document.querySelector('.status')?.classList.remove('show');
+    }, [layer, fadeOn]);
+    await p.waitForTimeout(250);
+    return PNG.sync.read(await p.screenshot({ path: join(shots, `${name}-${backend}.png`) }));
+  };
+  const nearNone = orangeNear(flash);
+  const nearFlash = orangeNear(await fadeShot('flash', true, 'editor-fade-flash-selected'));
+  const nearHit = orangeNear(await fadeShot('hit', true, 'editor-fade-hit-selected'));
+  ok(`[${label}] with a layer selected the other layers fade in the preview: the muzzle flash keeps its colours when it is selected, and fades when the hit spark is`,
+    nearNone > 10 && nearFlash >= nearNone * 0.9 && nearHit <= nearNone * 0.1, `orange round the muzzle: ${nearNone} with no layer selected, ${nearFlash} with the flash selected, ${nearHit} with the hit spark selected`);
+  const fadeOff = await fadeShot('hit', false, 'editor-fade-off');
+  let lookChanged = 0, lookSamples = 0;
+  for (let y = Math.round(box.y); y < box.y + box.h; y += 2) for (let x = Math.round(box.x); x < box.x + box.w; x += 2) { lookSamples++; if (hex(fadeOff, x, y) !== hex(flash, x, y)) lookChanged++; }
+  ok(`[${label}] Fade other layers off: the preview is the game's look, pixel for pixel, with a layer selected`, lookChanged === 0, `${lookChanged} of ${lookSamples} samples differ from the preview with no layer selected`);
   await shot('shell_flight', 300, 'editor-shell-flight');
   await shot('shell_flight', 620, 'editor-shell-landing');
   await shot('rifle_shot', 20, 'closeup-rifle-flash', 'close', 'origin');
@@ -427,6 +462,18 @@ if (webgpu) {
   ok('the cost panel gives the same counts and area on every press', JSON.stringify(cost.one) === JSON.stringify(cost.two) && cost.one.high.triangles > 0 && cost.frames > 0, JSON.stringify(cost.one.high));
   ok('the cost panel measures milliseconds in every tier', Object.values(cost.ms).every((m) => Number.isFinite(m.avg) && m.avg > 0 && m.worst >= m.p95 && m.p95 > 0), Object.entries(cost.ms).map(([t, m]) => `${t} ${m.avg.toFixed(2)}/${m.p95.toFixed(2)}/${m.worst.toFixed(2)}`).join(', '));
   note('tank shell (board) cost', ['low', 'medium', 'high'].map((t) => `${t}: ${cost.one[t].draws} draws, ${cost.one[t].sprites} sprites, ${cost.one[t].triangles} triangles, ${(cost.one[t].area * 100).toFixed(1)} % of the screen`).join('; ') + `; clock step ${cost.clock} ms`);
+  // The cost is measured with its own renderer: the layers the preview fades (a layer selected, Fade other layers on) count
+  // in full, so the counts and the area are the same.
+  const costFaded = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    a.selectLayer('burst');
+    const on = document.querySelector('.vbar .fade-toggle')?.getAttribute('aria-pressed');
+    const r = await a.measureForChecks();
+    a.selectLayer(null);
+    return { on, tiers: Object.fromEntries(Object.entries(r.tiers).map(([t, c]) => [t, { draws: c.draws, sprites: c.sprites, triangles: c.triangles, area: c.area, overlap: c.areaWithOverlap }])) };
+  });
+  ok('the cost measurement does not see the fade: with a layer selected and Fade other layers on, the same counts and area', costFaded.on === 'true' && JSON.stringify(costFaded.tiers) === JSON.stringify(cost.one),
+    JSON.stringify(costFaded.tiers.high));
   const budget = p.locator('table.cost input.budget').nth(2); // draws, High
   const levelBefore = await p.locator('.costcard .cost-level').innerText();
   await budget.fill('1');
@@ -513,6 +560,185 @@ if (webgpu) {
   ok('layers that ride a projectile have a "rides <projectile>" tag in the Layers list, in Plex Sans; the others keep their tags',
     tags['Tracer'] === 'rides Bullet (IBM Plex Sans)' && tags['Tracer core'] === 'rides Bullet (IBM Plex Sans)' && tags['Muzzle flash'] === 'muzzle_flash (IBM Plex Mono)' && tags['Bullet'] === '800 m/s (IBM Plex Sans)',
     JSON.stringify(tags));
+
+  // -- Fade other layers, read where the preview's colours are made: the runtime's own buffers, vertex by vertex, as they
+  // go to the GPU. The layer in focus keeps its colours; every other vertex fades to a quarter, by its blend group (normal:
+  // its alpha; added light: its colour; stains (multiply) and light on the ground (screen): their alpha).
+  const fadeToggle = () => p.evaluate(() => {
+    const b = document.querySelector('.vbar .fade-toggle');
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--accent-ink)';
+    document.body.append(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    return { label: b?.getAttribute('aria-label'), title: b?.title ?? '', pressed: b?.getAttribute('aria-pressed'), stored: localStorage.getItem('vfx-fade'), icon: !!b?.querySelector('svg.icon'),
+      yellow: !!b && getComputedStyle(b.querySelector('svg')).color === accent };
+  });
+  const toggleOn = await fadeToggle();
+  await p.locator('.vbar .fade-toggle').click();
+  const toggleOff = await fadeToggle();
+  await p.locator('.vbar .fade-toggle').click();
+  const toggleBack = await fadeToggle();
+  ok('Fade other layers is an icon toggle in the bar above the preview, on at first (its icon in the accent, as an active toggle), remembered as vfx-fade',
+    toggleOn.label === 'Fade other layers' && toggleOn.title.startsWith('Fade other layers') && toggleOn.icon && toggleOn.pressed === 'true' && toggleOn.stored === null && toggleOn.yellow
+      && toggleOff.pressed === 'false' && toggleOff.stored === '0' && !toggleOff.yellow && toggleBack.pressed === 'true' && toggleBack.stored === '1' && toggleBack.yellow,
+    JSON.stringify({ on: toggleOn, off: toggleOff, back: toggleBack }));
+  const sinkAt = (effect, ms, layer) => p.evaluate(async ([effect, ms, layer]) => {
+    const a = window.__vfx.app;
+    window.__vfxManual = true;
+    if (a.effect()?.id !== effect) a.pickEffect(effect);
+    a.selectLayer(layer);
+    await a.showAt(ms, 7);
+    const ids = a.effect().layers.map((l) => l.id);
+    const groups = Object.fromEntries(Object.entries(a.previewForChecks.vfx.sink.groups).map(([g, b]) => [g, { col: Array.from(b.col.subarray(0, b.vcount * 4)), layer: Array.from(b.layer.subarray(0, b.vcount)) }]));
+    return { ids, groups };
+  }, [effect, ms, layer]);
+  /** How the preview's vertices changed from `before` (no layer in focus) to `after`, with the layers `keep` in focus. */
+  const fadeChanges = (before, after, keep) => {
+    const k = keep.map((id) => before.ids.indexOf(id));
+    const out = { kept: 0, normal: 0, light: 0, multiply: 0, screen: 0, wrong: 0, first: '' };
+    for (const g of Object.keys(before.groups)) {
+      const a = before.groups[g], b = after.groups[g];
+      if (a.layer.join() !== b.layer.join()) { out.wrong++; out.first ||= `${g}: not the same vertices`; continue; }
+      for (let v = 0; v < a.layer.length; v++) {
+        const [r, gg, bb, al] = a.col.slice(v * 4, v * 4 + 4);
+        let want;
+        if (k.includes(a.layer[v])) { want = [r, gg, bb, al]; out.kept++; }
+        else if ((g === 'ground' || g === 'top') && al < 0) { want = [r / 4, gg / 4, bb / 4, al]; out.light++; }
+        else { want = [r, gg, bb, al / 4]; out[g === 'ground-multiply' ? 'multiply' : g === 'ground-screen' ? 'screen' : 'normal']++; }
+        const got = b.col.slice(v * 4, v * 4 + 4);
+        if (want.some((x, i) => Math.fround(x) !== got[i])) { out.wrong++; out.first ||= `${g} vertex ${v}: ${got.join(',')}, want ${want.join(',')}`; }
+      }
+    }
+    return out;
+  };
+  const show = (c) => `kept ${c.kept}, faded ${c.normal} normal, ${c.light} added light, ${c.multiply} multiply, ${c.screen} screen${c.wrong ? `; ${c.wrong} wrong, first: ${c.first}` : ''}`;
+  const beamNone = await sinkAt('board_beam', 1000, null);
+  const beamCore = fadeChanges(beamNone, await sinkAt('board_beam', 1000, 'beam_core'), ['beam_core']);
+  const shellNone = await sinkAt('board_shell', 1300, null);
+  const shellBurst = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['burst']);
+  ok('with a layer selected the preview fades every other layer to a quarter by blend group (normal, added light, stains, light on the ground); the selected layer keeps its colours',
+    !beamCore.wrong && !shellBurst.wrong && beamCore.kept > 0 && beamCore.normal > 0 && beamCore.light > 0 && beamCore.screen > 0 && shellBurst.kept > 0 && shellBurst.multiply > 0,
+    `Beam, hot core: ${show(beamCore)}. Burst: ${show(shellBurst)}`);
+  // A projectile draws nothing: selecting it keeps the layers riding it at full strength.
+  const flightNone = await sinkAt('board_shell', 300, null);
+  const shellRiders = fadeChanges(flightNone, await sinkAt('board_shell', 300, 'shell'), ['shell', 'trail']);
+  const bulletNone = await sinkAt('rifle_shot', 20, null);
+  const bulletRiders = fadeChanges(bulletNone, await sinkAt('rifle_shot', 20, 'bullet'), ['bullet', 'tracer', 'tracer_core']);
+  ok('selecting a projectile keeps the layers riding it at full strength and fades the rest', !shellRiders.wrong && !bulletRiders.wrong && shellRiders.kept > 0 && shellRiders.normal > 0 && bulletRiders.kept > 0 && bulletRiders.normal > 0,
+    `Shell (its streak rides it): ${show(shellRiders)}. Bullet (two tracers ride it): ${show(bulletRiders)}`);
+  // Hovering a row, in the Layers list or on the timeline, fades the others while the mouse is there; then the selection
+  // counts again.
+  await sinkAt('board_shell', 1300, 'burst');
+  await p.hover('.layers-list .layer-item[data-layer="debris"]');
+  const hoverList = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['debris']);
+  await p.hover('.timeline .tl-row[data-layer="sparks"] .tl-name');
+  const hoverTimeline = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['sparks']);
+  await p.mouse.move(5, 5);
+  const hoverGone = fadeChanges(shellNone, await sinkAt('board_shell', 1300, 'burst'), ['burst']);
+  ok('hovering a layer\'s row in the Layers list or on the timeline fades the other layers while it is there; then the selected layer counts again',
+    !hoverList.wrong && !hoverTimeline.wrong && !hoverGone.wrong && hoverList.kept > 0 && hoverTimeline.kept > 0 && hoverGone.kept === shellBurst.kept,
+    `Debris row: ${show(hoverList)}. Sparks on the timeline: ${show(hoverTimeline)}. Mouse away: ${show(hoverGone)}`);
+  // Fade other layers off: exactly the game's look, every vertex as with no layer selected.
+  await p.locator('.vbar .fade-toggle').click();
+  const offBeam = await sinkAt('board_beam', 1000, 'beam_core');
+  await p.hover('.layers-list .layer-item[data-layer="beads"]');
+  const offHover = await sinkAt('board_beam', 1000, 'beam_core');
+  await p.mouse.move(5, 5);
+  await p.locator('.vbar .fade-toggle').click();
+  ok('Fade other layers off: the preview is the game\'s look, every vertex as with no layer selected, also while a row is hovered',
+    JSON.stringify(offBeam.groups) === JSON.stringify(beamNone.groups) && JSON.stringify(offHover.groups) === JSON.stringify(beamNone.groups), `${Object.values(beamNone.groups).reduce((n, g) => n + g.layer.length, 0)} vertices compared`);
+
+  // -- The Look: a live picture of the selected layer at the top of its panel. The layer alone, drawn by the runtime on the
+  // preview's ground colour, framed on it. Paused by showAt it holds the moment shown, so it is read as a picture here.
+  const lookPicture = async (effect, layer, ms) => {
+    const info = await p.evaluate(async ([effect, layer, ms]) => {
+      const a = window.__vfx.app;
+      window.__vfxManual = true;
+      if (a.effect()?.id !== effect) a.pickEffect(effect);
+      a.selectLayer(layer);
+      await a.showAt(ms, 7);
+      await a.showAt(ms, 7);
+      document.querySelector('.status')?.classList.remove('show');
+      const card = document.querySelector('.inspector > section.card.layer');
+      const first = card?.firstElementChild;
+      const box = card?.querySelector('.look-box');
+      const r = box?.getBoundingClientRect();
+      return { first: first?.matches('details.look-fold') ? first.querySelector(':scope > summary').textContent : first?.tagName ?? null, open: !!first?.open,
+        canvas: !!box?.querySelector('canvas'), box: r ? { x: Math.round(r.x) + 4, y: Math.round(r.y) + 4, width: Math.floor(r.width) - 8, height: Math.floor(r.height) - 8 } : null, state: a.lookForChecks() };
+    }, [effect, layer, ms]);
+    if (!info.box) return { ...info, ground: 0, drawn: 0, orange: 0, n: 0 };
+    await p.waitForTimeout(100);
+    const png = PNG.sync.read(await p.screenshot({ clip: info.box, path: join(shots, `look-${effect}-${layer}.png`) }));
+    let ground = 0, drawn = 0, orange = 0, n = 0;
+    for (let y = 0; y < png.height; y++) for (let x = 0; x < png.width; x++) {
+      const c = hex(png, x, y), d = diff(c, '#B8A683');
+      n++;
+      if (d <= 2) ground++; else if (d > 24) drawn++;
+      if (diff(c, '#F47A1C') <= 3 || diff(c, '#FFB02E') <= 3) orange++;
+    }
+    return { ...info, ground, drawn, orange, n };
+  };
+  const brief = (l) => `${l.first}${l.open ? ' (open)' : ''}, ${l.drawn} of ${l.n} px drawn, ${l.ground} ground${l.orange ? `, ${l.orange} orange` : ''}; "${l.state.text}"`;
+  const lookFlash = await lookPicture('rifle_shot', 'flash', 20);
+  ok('a layer\'s settings start with the Look: the layer alone, drawn by the runtime on the preview\'s ground colour (the muzzle flash, in its own orange), held at the moment shown',
+    lookFlash.first === 'Look' && lookFlash.open && lookFlash.canvas && lookFlash.state.ready && lookFlash.state.moment === 20 && lookFlash.ground > lookFlash.n * 0.3 && lookFlash.drawn > 200 && lookFlash.orange > 50,
+    brief(lookFlash));
+  const looks = [];
+  for (const [effect, layer, ms, what] of [['board_shell', 'burst', 1300, 'a shape'], ['board_shell', 'sparks', 1300, 'a burst'], ['board_shell', 'word', 1300, 'a word'],
+    ['rifle_shot', 'tracer', 20, 'a sprite riding a projectile'], ['rifle_shot', 'bullet', 20, 'a projectile (its riders)'], ['board_shell', 'trail', 300, 'a shape riding a projectile']]) {
+    looks.push({ what, ...(await lookPicture(effect, layer, ms)) });
+  }
+  ok('the Look draws each kind of layer, not a blank picture: a shape, a burst, a word, layers riding a projectile, a projectile\'s riders',
+    looks.every((l) => l.first === 'Look' && l.canvas && l.state.moment !== null && l.drawn > 40 && l.ground > l.n * 0.2), looks.map((l) => `${l.what}: ${brief(l)}`).join(' | '));
+  // It draws only while the layer's panel shows it and the page is visible; folded or with no layer selected it lets go of
+  // its renderer (and the renderer's WebGL context).
+  const lookStops = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    window.__vfxManual = true;
+    const frames = () => a.lookForChecks().frames;
+    const later = () => new Promise((r) => setTimeout(r, 50));
+    const f0 = frames(); await a.tickForChecks(200); const shown = frames() - f0;
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    const f1 = frames(); await a.tickForChecks(200); const hidden = frames() - f1;
+    delete document.visibilityState;
+    const f2 = frames(); await a.tickForChecks(200); const visible = frames() - f2;
+    const summary = document.querySelector('.inspector .look-fold > summary');
+    summary.click();
+    await later();
+    const folded = a.lookForChecks(), foldedGone = await a.lookDisposedForChecks();
+    const f3 = frames(); await a.tickForChecks(200); const whileFolded = frames() - f3;
+    summary.click();
+    await later();
+    await a.showAt(300, 7);
+    const reopened = a.lookForChecks();
+    a.selectLayer(null);
+    const none = a.lookForChecks(), noneGone = await a.lookDisposedForChecks(), inPanel = !!document.querySelector('.inspector .look');
+    const f4 = frames(); await a.tickForChecks(200); const whileNone = frames() - f4;
+    return { shown, hidden, visible, folded: { renderer: folded.renderer, gone: foldedGone, frames: whileFolded }, reopened: { renderer: reopened.renderer, ready: reopened.ready },
+      none: { renderer: none.renderer, gone: noneGone, inPanel, frames: whileNone } };
+  });
+  ok('the Look draws only while its layer\'s panel shows it and the page is visible; folded, or with no layer selected, its renderer is disposed (its WebGL context lost) and it draws nothing',
+    lookStops.shown > 0 && lookStops.hidden === 0 && lookStops.visible > 0 && !lookStops.folded.renderer && lookStops.folded.gone && lookStops.folded.frames === 0
+      && lookStops.reopened.renderer && lookStops.reopened.ready && !lookStops.none.renderer && lookStops.none.gone && !lookStops.none.inPanel && lookStops.none.frames === 0, JSON.stringify(lookStops));
+  // While the app runs, it plays the layer's own time in a loop.
+  const lookLive = await p.evaluate(async () => {
+    const a = window.__vfx.app;
+    a.pickEffect('board_shell');
+    a.selectLayer('burst');
+    a.resumeForChecks();
+    const seen = new Set();
+    const t0 = performance.now();
+    while (performance.now() - t0 < 6000 && seen.size < 4) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const m = a.lookForChecks().moment;
+      if (m !== null) seen.add(Math.round(m));
+    }
+    const tl = a.timeline().byId.get('burst');
+    return { moments: [...seen], start: tl.startMs, end: tl.endMs };
+  });
+  ok('while the app runs the Look plays the layer\'s own time in a loop', lookLive.moments.length >= 4 && lookLive.moments.every((m) => m >= lookLive.start && m < lookLive.end),
+    `${lookLive.moments.join(', ')} ms, in ${lookLive.start}–${lookLive.end} ms`);
 
   // -- the colours of the selection: the effect's (its main colour and every layer's), a layer's (with the ones it draws
   // without naming them, such as the ink outline), a projectile's riders'. The same list as the checker's (src/doc/layer-info.ts).

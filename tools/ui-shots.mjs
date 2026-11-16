@@ -116,6 +116,9 @@ function describe() {
     frame: box(document.querySelector('.frame-guide')) ?? box(document.querySelector('.viewport')),
     viewport: box(document.querySelector('.viewport')),
     covers: ['.frame-label', '.scale-label', '.vhint', '.cpick:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
+    // With a layer selected: the Look, the live picture at the top of its panel (held at a moment from the one shown).
+    look: box(document.querySelector('.inspector .look-box')),
+    lookState: a.lookForChecks?.() ?? null,
   };
 }
 
@@ -210,7 +213,7 @@ const ABOUT = 'The settings inventory of the editor\'s right panel (the inspecto
   + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect, Cost and Checks cards); '
   + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect, '
   + 'then the Cost and Checks cards, which are the same for every layer, so they are listed once, in the effect\'s view). '
-  + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". '
+  + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
   + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
   + 'The second and third box of a generated pair or group of three are named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '
@@ -287,6 +290,21 @@ try {
     return isGround > n * 0.2 && other > n * 0.005 ? null : `the preview looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
   };
 
+  /** With a layer selected, the Look must be drawn: the ground colour, and the layer on it (its corners left out). */
+  const lookDrawn = (png, d) => {
+    const b = d.look;
+    if (!b) return 'no Look in the layer\'s panel';
+    if (!d.lookState?.ready) return 'the Look did not get its renderer';
+    let n = 0, isGround = 0, other = 0;
+    for (let y = Math.ceil(b.y + 4); y < Math.min(b.y + b.h - 4, png.height); y += 2) for (let x = Math.ceil(b.x + 4); x < Math.min(b.x + b.w - 4, png.width); x += 2) {
+      const i = (y * png.width + x) * 4;
+      const off = Math.max(...ground.map((g, k) => Math.abs(png.data[i + k] - g)));
+      n++;
+      if (off <= 2) isGround++; else if (off > 24) other++;
+    }
+    return isGround > n * 0.2 && other >= 20 ? null : `the Look looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
+  };
+
   mkdirSync(outDir, { recursive: true });
   for (const state of states) {
     let told = false;
@@ -318,6 +336,7 @@ try {
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);
+          if (state.layer) { const look = lookDrawn(png, got); if (look) wrong.push(look); }
           if (png.width !== size.width || png.height !== size.height) wrong.push(`the picture is ${png.width} x ${png.height}`);
           if (!told) {
             console.log(`${state.name}: ${got.effectName}${got.layer ? `, layer "${got.layerName}" (${got.layer})` : ', no layer'}${state.picker ? `, colour picker on ${got.role}` : ''}; ${state.ms} ms, seed ${SEED}`);

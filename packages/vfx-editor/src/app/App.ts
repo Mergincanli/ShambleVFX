@@ -9,7 +9,7 @@ import { checkEffect } from '@shamble/vfx-format/validate';
 import { roleNames } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
-import type { Atlas, Relation, Timeline } from '@shamble/vfx-runtime';
+import type { Atlas, DrawParams, Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
 import { defaultBudgets, dropMissingEffects, forgetEffect, setLevelOn, setLimit } from '../cost/budgets';
 import type { Budgets, CostMetric } from '../cost/budgets';
@@ -36,7 +36,10 @@ import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { h, icon, segmented, selectField } from './dom';
+import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
 import { buildInspector } from './inspector';
+import type { InspectorView } from './inspector';
+import type { LookState } from './look';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
 
@@ -65,7 +68,7 @@ export class App implements AppApi {
   private selEffect: string | null = null;
   private selLayer: string | null = null;
   private preview!: Preview;
-  private inspector!: ReturnType<typeof buildInspector>;
+  private inspector!: InspectorView;
   private timelineView!: TimelineView;
   private player = new EffectPlayer();
   private playing = false;
@@ -126,6 +129,15 @@ export class App implements AppApi {
   private atlas: Atlas | null = null;
   private picker!: ColourPicker;
   private gradients!: GradientPanel;
+  /** Fade other layers (the toggle in the bar above the preview): on until switched off, remembered as vfx-fade. */
+  private fadeOn = true;
+  private fadeBtn!: HTMLButtonElement;
+  /** The layer whose row is under the mouse, in the Layers list or on the timeline: the others fade while it is. */
+  private hovered: string | null = null;
+  /** ?frame=1 shows only the game screen, as a player sees it: nothing fades there. */
+  private frameOnly = false;
+  /** The moment showAt paused at (for pictures): the Look holds a moment from it. Null while the app runs as usual. */
+  private lookStill: number | null = null;
 
   static async start(root: HTMLElement): Promise<App> {
     const app = new App();
@@ -153,6 +165,10 @@ export class App implements AppApi {
     this.renderLayers();
     this.inspector.refresh();
     this.timelineView.refresh();
+  }
+
+  hoverLayer(id: string | null): void {
+    this.hovered = id;
   }
 
   imageNames(): string[] {
@@ -399,6 +415,8 @@ export class App implements AppApi {
     const params = new URLSearchParams(location.search);
     const stored = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
     applyTheme((params.get('theme') ?? stored) === 'dark');
+    this.fadeOn = (() => { try { return localStorage.getItem(FADE_KEY) !== '0'; } catch { return true; } })();
+    this.frameOnly = params.get('frame') === '1';
     this.buildShell(root);
     this.preview = await Preview.create({
       container: this.els.viewport, palette: this.palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
@@ -477,6 +495,10 @@ export class App implements AppApi {
 
     const effects = h('div', { class: 'list effects-list' });
     const layers = h('div', { class: 'list layers-list' });
+    // The row under the mouse: the preview fades the other layers while it is there. Listened to on the list, which stays
+    // when its rows are made again (a row taken away while under the mouse never says it was left).
+    layers.addEventListener('pointermove', (e) => this.hoverLayer(((e.target as Element).closest?.('.layer-item') as HTMLElement | null)?.dataset.layer ?? null));
+    layers.addEventListener('pointerleave', () => this.hoverLayer(null));
     const addMenu = h('select', { class: 'add-layer', attrs: { 'aria-label': 'Add a layer', title: 'Add a layer' } },
       h('option', { attrs: { value: '' }, text: '＋ Add…' }),
       h('option', { attrs: { value: 'sprite' }, text: 'Sprite (an image)' }),
@@ -517,10 +539,16 @@ export class App implements AppApi {
       options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], icon: `tier-${t}` as const, title: `Draw in the ${TIER_LABEL[t]} quality tier: layers not in it are left out` })),
       onChange: (t) => this.setTier(t) });
     const fire = h('button', { class: 'fire', attrs: { type: 'button' }, title: 'Fire from the shooter to the target (F)', on: { click: () => this.fire() } }, icon('fire'), 'Fire');
+    // Fade other layers: an icon toggle, on until switched off.
+    this.fadeBtn = h('button', {
+      class: 'tb icon-only fade-toggle', attrs: { type: 'button', 'aria-label': 'Fade other layers', 'aria-pressed': String(this.fadeOn) },
+      title: 'Fade other layers: while a layer is selected, or its row is under the mouse, the other layers fade in the preview, so you see which part it is. Off: the game\'s look.',
+      on: { click: () => this.setFade(!this.fadeOn) },
+    }, icon('gradient'));
     const stats = h('button', { class: 'stats', attrs: { type: 'button' }, title: 'This frame. Click for the cost panel: the effect measured over its whole length, per tier',
       on: { click: () => this.showCostCard() } });
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, stats);
+    const vbar = h('div', { class: 'vbar' }, fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, this.closeCtl.el, this.fadeBtn, stats);
     const hint = h('div', { class: 'vhint', text: 'Drag on the ground to move the target. Shift + drag moves the stand-in.' });
 
     const play = h('button', { class: 'play', attrs: { type: 'button' }, title: 'Play / pause (Space)', on: { click: () => this.togglePlay() } }, icon('play'), 'Play');
@@ -1029,6 +1057,7 @@ export class App implements AppApi {
   }
 
   private togglePlay(): void {
+    this.lookStill = null;
     const len = this.timeline()?.lengthMs ?? 0;
     if (!this.playing && this.mainTime >= len) this.mainTime = 0;
     this.playing = !this.playing;
@@ -1038,6 +1067,24 @@ export class App implements AppApi {
   private setLoop(v: boolean): void {
     this.loop = v;
     this.loopBtn.setAttribute('aria-pressed', String(v));
+  }
+
+  /** Fade other layers on or off (remembered). The preview shows it in its next frame. */
+  private setFade(on: boolean): void {
+    this.fadeOn = on;
+    this.fadeBtn.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(FADE_KEY, on ? '1' : '0'); } catch { /* storage may be blocked */ }
+  }
+
+  /**
+   * What fades in the preview: every layer but the one in focus (the row under the mouse, else the selected layer; for a
+   * projectile, the layers riding it). Null when nothing fades: no layer in focus, Fade other layers off, or ?frame=1.
+   */
+  private fadeFocus(fx: EffectFile | undefined): { effect: string; keep: Set<number> } | null {
+    if (!fx || !this.fadeOn || this.frameOnly) return null;
+    // A hovered row whose layer is gone (deleted under the mouse) counts as no hover.
+    const keep = (this.hovered ? keptLayers(fx, this.hovered) : undefined) ?? (this.selLayer ? keptLayers(fx, this.selLayer) : undefined);
+    return keep ? { effect: fx.id, keep } : null;
   }
 
   private step(dir: number): void {
@@ -1062,6 +1109,7 @@ export class App implements AppApi {
   private fire(): void {
     const fx = this.effect();
     if (!fx) return;
+    this.lookStill = null;
     this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
     this.player.start(fx.id, { seed: this.seed, inputs: this.inputs(), faction: this.faction, nowMs: this.clock, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
     if (!this.playing) { this.playing = true; this.mainTime = Number.POSITIVE_INFINITY; }
@@ -1096,12 +1144,37 @@ export class App implements AppApi {
     const lookup = (id: string) => effectById(this.history.doc, id);
     // An effect the schema refuses (a value typed out of range) is not drawn until it is fixed: the checks panel says why.
     const drawable = fx && !this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
+    const shown = fx && drawable && Number.isFinite(this.mainTime) && this.mainTime >= 0;
+    const focus = this.fadeFocus(fx);
     await this.preview.render((vfx) => {
-      if (fx && drawable && Number.isFinite(this.mainTime) && this.mainTime >= 0) {
-        vfx.draw(fx, { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
+      const params: DrawParams = { seed: this.seed, timeMs: this.mainTime, inputs: this.inputs(), faction: this.faction, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM };
+      if (!focus) {
+        // The game's look: the runtime's own calls, nothing changed.
+        if (shown) vfx.draw(fx, params);
+        vfx.drawPlaying(this.player, this.clock, lookup);
+        return;
       }
-      vfx.drawPlaying(this.player, this.clock, lookup);
+      // Fade other layers: each draw's new vertices, as soon as the runtime has written them and before anything goes to
+      // the GPU (vfx.end). Effects still playing from an earlier Fire of another effect fade as a whole.
+      const draw = (e: EffectFile, p: DrawParams) => {
+        const from = sinkMarks(vfx.sink);
+        vfx.draw(e, p);
+        fadeOthers(vfx.sink, from, e.id === focus.effect ? focus.keep : NOTHING_KEPT);
+      };
+      if (shown) draw(fx, params);
+      // As vfx.drawPlaying draws them.
+      for (const pl of this.player.alive(this.clock, lookup)) {
+        const e = lookup(pl.effectId);
+        if (e) draw(e, { seed: pl.seed, timeMs: this.clock - pl.startMs, inputs: pl.inputs, faction: pl.faction, relation: pl.relation, viewerDistanceM: pl.viewerDistanceM });
+      }
     });
+    // The Look: the selected layer alone, in its own small picture, at the preview's speed.
+    const layer = this.layer();
+    this.inspector.look.frame(dt * this.speed, fx && layer ? {
+      effect: fx, layer, timeline: this.timeline()!, seed: this.seed, faction: this.faction, relation: this.preview.relation,
+      viewerDistanceM: this.preview.viewerDistanceM, inputs: this.inputs(), palette: this.palette, atlas: this.atlas,
+      waits: !drawable, still: this.lookStill, restMs: LOOP_REST_MS,
+    } : null);
     const s = this.preview.vfx.stats;
     this.els.stats.textContent = `${s.triangles} triangle${s.triangles === 1 ? '' : 's'} · ${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'} · cost…`;
     this.renderTime(len);
@@ -1151,7 +1224,7 @@ export class App implements AppApi {
       const rides = ridingOn(fx, l);
       const tag = hidden ? `not in ${TIER_LABEL[this.tier]}` : rides ? `rides ${rides.name}` : layerTag(l);
       return h('button', {
-        class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button' }, on: { click: () => this.selectLayer(l.id) },
+        class: `item layer-item${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button', 'data-layer': l.id }, on: { click: () => this.selectLayer(l.id) },
         // The full name, since a long one ends in an ellipsis in the row.
         title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[this.tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
       }, icon(l.type), h('span', { text: l.name }), h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag }));
@@ -1213,12 +1286,20 @@ export class App implements AppApi {
 
   // ---------------------------------------------------------------- for the browser check
 
-  /** Pause and show the current effect at time ms, with a seed. Used by tools/browser-check.mjs. */
+  /**
+   * Pause and show the current effect at time ms, with a seed. Used by tools/browser-check.mjs and the picture tools. The
+   * Look holds a moment from ms too (ms itself when the layer shows then, else the middle of its time), so pictures repeat;
+   * with a layer selected it waits (at most 10 s) until the Look can draw.
+   */
   async showAt(ms: number, seed = 1): Promise<void> {
     this.playing = false;
     this.mainTime = ms;
     this.seed = seed;
     this.player.clear();
+    this.lookStill = ms;
+    let timer = 0;
+    await Promise.race([this.inspector.look.whenReady(), new Promise<void>((r) => { timer = window.setTimeout(r, 10000); })]);
+    clearTimeout(timer);
     await this.frame(performance.now());
   }
 
@@ -1231,6 +1312,7 @@ export class App implements AppApi {
   /** For the browser check: hand the clock back to the screen's frames. */
   resumeForChecks(): void {
     (window as unknown as { __vfxManual?: boolean }).__vfxManual = false;
+    this.lookStill = null;
     this.lastFrame = performance.now();
     this.askFrame();
   }
@@ -1275,7 +1357,20 @@ export class App implements AppApi {
   get previewForChecks(): Preview {
     return this.preview;
   }
+
+  /** For the browser check: what the Look is doing. */
+  lookForChecks(): LookState {
+    return this.inspector.look.state();
+  }
+
+  /** For the browser check: the Look's last renderer is disposed, its canvas gone and its WebGL context lost. */
+  lookDisposedForChecks(): Promise<boolean> {
+    return this.inspector.look.disposedForChecks();
+  }
 }
+
+/** Fade every layer of an effect that is not the one in focus (an effect still playing from an earlier Fire). */
+const NOTHING_KEPT: ReadonlySet<number> = new Set();
 
 export { StoreError };
 

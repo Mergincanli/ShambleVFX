@@ -36,6 +36,7 @@
   --r-popover: 8px;  /* popovers, dialogs, the message */
   --t-colour: 120ms ease-out;
   --fold-actions-w: 96px; /* room on a section's header row for its actions (Show all) */
+  --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
 }
 
@@ -210,12 +211,13 @@ button, input, select, summary, .item, .tl-row { transition: background-color va
 .icon-only { width: var(--h-control); padding: 0; justify-content: center; background: transparent; color: var(--text-muted); }
 .icon-only:hover:not(:disabled) { border-color: transparent; background: var(--bg-hover); color: var(--text); }
 button:disabled { opacity: 0.4; cursor: default; }
-/* Toggles (Loop, Night mode, Exact values): off is a ghost button; on is the field colour with the icon in --accent-ink. */
+/* Toggles (Loop, Night mode, Fade other layers, Exact values): off is a ghost button; on is the field colour with the icon in
+   --accent-ink. */
 .transport .tb[aria-pressed] { background: transparent; }
 .transport .tb[aria-pressed]:hover:not(:disabled) { border-color: transparent; background: var(--bg-hover); }
-.transport .tb[aria-pressed="true"], .theme-toggle[aria-pressed="true"], .cp-hexrow .mini[aria-pressed="true"] { background: var(--bg-field); color: var(--text); }
-.transport .tb[aria-pressed="true"]:hover:not(:disabled), .theme-toggle[aria-pressed="true"]:hover:not(:disabled), .cp-hexrow .mini[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
-.transport .tb[aria-pressed="true"] .icon, .theme-toggle[aria-pressed="true"] .icon, .cp-hexrow .mini[aria-pressed="true"] .icon { color: var(--accent-ink); }
+.transport .tb[aria-pressed="true"], .theme-toggle[aria-pressed="true"], .fade-toggle[aria-pressed="true"], .cp-hexrow .mini[aria-pressed="true"] { background: var(--bg-field); color: var(--text); }
+.transport .tb[aria-pressed="true"]:hover:not(:disabled), .theme-toggle[aria-pressed="true"]:hover:not(:disabled), .fade-toggle[aria-pressed="true"]:hover:not(:disabled), .cp-hexrow .mini[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
+.transport .tb[aria-pressed="true"] .icon, .theme-toggle[aria-pressed="true"] .icon, .fade-toggle[aria-pressed="true"] .icon, .cp-hexrow .mini[aria-pressed="true"] .icon { color: var(--accent-ink); }
 /* Night mode shows the sun in Day and the moon in Night. */
 .theme-toggle[aria-pressed="true"] .icon-sun, .theme-toggle[aria-pressed="false"] .icon-moon { display: none; }
 
@@ -330,6 +332,15 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .crumb-sep { flex: none; color: var(--text-muted); }
 .insp-head .icon { color: var(--text-muted); }
 .insp-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The Look, first in a layer's settings: right under the header, so its line is the header's; the layer's kind after it
+   starts a section of its own, with the usual line above. The picture is the preview's ground (a game colour) until the
+   runtime draws on it: no edge, since the ground stands out from the panel in both themes. */
+.card.layer > .look-fold { border-top: 0; }
+.card.layer > .look-fold + h2 { margin: 0 calc(-1 * var(--pad-panel)); padding: 0 var(--pad-panel); border-top: 1px solid var(--line); }
+.look-box { position: relative; height: var(--look-h); border-radius: var(--r-control); background: var(--ground); overflow: hidden; }
+.look-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.look-note { margin: 4px 0 0; }
+.look-note:empty { display: none; }
 /* What draws a layer, under its kind. Always shown (not a hint); a file name is Plex Mono. */
 .draws { margin: -6px 0 4px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 .draws code, .rider-what code { color: var(--text); overflow-wrap: anywhere; }

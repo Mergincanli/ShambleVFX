@@ -38,6 +38,10 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
   const up = () => { if (dragging) { dragging = false; onScrub(-1, true); } };
   track.addEventListener('pointerup', up);
   track.addEventListener('pointercancel', up);
+  // The row under the mouse: the preview fades the other layers while it is there (rows are made again on every refresh,
+  // so this listens on what holds them).
+  rows.addEventListener('pointermove', (e) => app.hoverLayer(((e.target as Element).closest?.('.tl-row') as HTMLElement | null)?.dataset.layer ?? null));
+  rows.addEventListener('pointerleave', () => app.hoverLayer(null));
 
   const refresh = () => {
     const fx = app.effect();
@@ -84,7 +88,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
       // A layer the preview's tier leaves out is shown faded.
       const off = l.type !== 'projectile' && !l.tiers.includes(app.previewTier());
       if (off) bar.title += ` · not drawn in the ${app.previewTier()} tier`;
-      rows.append(h('div', { class: `tl-row${l.id === sel ? ' sel' : ''}${off ? ' off' : ''}` }, name, h('div', { class: 'tl-lane' }, bar)));
+      rows.append(h('div', { class: `tl-row${l.id === sel ? ' sel' : ''}${off ? ' off' : ''}`, attrs: { 'data-layer': l.id } }, name, h('div', { class: 'tl-lane' }, bar)));
     });
   };
 
