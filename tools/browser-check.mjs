@@ -507,8 +507,9 @@ if (webgpu) {
   const night = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, pressed: document.querySelector('.theme-toggle').getAttribute('aria-pressed'), stored: localStorage.getItem('vfx-theme') }));
   await p.screenshot({ path: join(shots, 'editor-night-mode.png') });
   await p.locator('.topbar button.theme-toggle').click();
-  const day = await p.evaluate(() => document.documentElement.dataset.theme);
-  ok('Night mode turns the panels dark (#1F1F21) and is remembered; it turns off again', night.theme === 'dark' && night.bg === 'rgb(31, 31, 33)' && night.pressed === 'true' && night.stored === 'dark' && day === 'light', JSON.stringify(night));
+  const day = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor }));
+  ok('Night mode turns the panels dark (#1E1E1E) and is remembered; it turns off again (#E2DED6)', night.theme === 'dark' && night.bg === 'rgb(30, 30, 30)' && night.pressed === 'true' && night.stored === 'dark'
+    && day.theme === 'light' && day.bg === 'rgb(226, 222, 214)', JSON.stringify({ night, day }));
   const insignia = await p.evaluate(() => [...document.querySelectorAll('.vbar [aria-label="Faction that fired"] button')].map((b) => `${b.querySelector('svg')?.getAttribute('class')}|${b.textContent}`));
   ok('the faction buttons show each faction\'s marking and its name', insignia.join() === 'icon icon-faction-soviets|Soviets,icon icon-faction-allies|Allies,icon icon-faction-empire|Empire', insignia.join(', '));
 

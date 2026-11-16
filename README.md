@@ -71,7 +71,7 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. Change the colour, add colours, and
     under **Gradients** start from a ready-made gradient or make your own; a glow can use one, and smoke, the fire's bed and
     bursts draw one named in their file. See [docs/colours.md](docs/colours.md).
-13. **Night mode** in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
+13. **Night mode**, the sun or moon button in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
 14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
     never goes to this public repo.
 
@@ -234,8 +234,10 @@ These write pictures to `out/` (kept out of git):
   schema errors. Importing an export gives back the same effects.
 - **The test page**: loads only the runtime and an export folder and plays an effect by event name, on WebGPU or WebGL 2.
 
-- **The editor's look**: night mode, and icons drawn in code for every button (with the words kept); the faction buttons
-  show each faction's marking from sheet 16.
+- **The editor's look** ([docs/ui-redesign.md](docs/ui-redesign.md), section 4): two themes, Day and Night, from one set
+  of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
+  to the icon; the icon-only ones (Undo, Redo, the step buttons, Night mode) give their names in their tooltips. The faction
+  buttons show each faction's marking from sheet 16.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -281,7 +283,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **Board data in the repo**: the tank blockout, scene positions, preset sizes and timings, layouts and formulas stay in this
   public repo (Mustafa's yes, 2026-11-15).
 - **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; `team.dark` and
-  `glow.hot` worked out again only when asked; the night mode's greys; the icons.
+  `glow.hot` worked out again only when asked; the icons.
 - **Word chances** (the rules themselves are the approved plan, and "the rest shows no word" is Mustafa's choice): a chance may
   have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. In the
   words box, a word typed again keeps its chance when its text is the same, capitals or not (words are drawn in capitals)
@@ -394,6 +396,29 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     a fire's smoke stays `fire.smoke` until 40 % of each puff's life, then lightens to `fire.smoke.light`, the colour of the
     puff's lit top, which at the very end merges with the body.
   - `VFX_PALETTES_DIR` picks another palettes folder (the browser check uses a temporary one).
+- **The editor's visual system** (UI phase 1 of [docs/ui-redesign.md](docs/ui-redesign.md); the tokens, type, sizes and
+  states are the brief's, these details are ours):
+  - What the brief's colour table has no token for gets a token of its own per theme, at the top of `src/style.css`: the
+    focus ring's outer 2 px (`--focus` at 35 %), the tick on a checked box, the labels over the scene (`--bg-panel` at 85 %),
+    the backdrop behind a dialog, the checkerboard, the edge round a colour (so a white or a dark colour still shows), the
+    ruler's ticks, the lines between timeline rows (`--line` at 50 %), the step marks inside a bar (its ink at 15 %), a
+    flipbook's frame lines, the pivot (a light dot with a dark ring, the same in both themes, so it shows on any image) and
+    the slider's track and thumb. The message at the bottom takes the tooltip colours, dark in both themes (a bad one
+    `--bad-bg` with `--bad` text). Sizes, corners and type sizes are tokens too.
+  - Popovers and dialogs have a 1 px `--line-strong` edge, as section 4.1 says; section 4.4 says `--line`, which hardly shows
+    in Day against `--bg-popover`.
+  - Letter-spacing is 0 everywhere, the logo and Fire included: the brief keeps only their typeface and capitals.
+  - Night mode shows the sun in Day and the moon in Night; when it is on, the moon is `--accent-ink` on `--bg-field`, as for
+    every toggle that is on.
+  - Checkboxes are drawn by the editor, so a checked box is `--accent-ink` in both themes and one that cannot change (a
+    layer's last tier) is the same box at 40 %; the browser's own box would turn pale grey.
+  - The picker's two yellow buttons (Add colour, Use on the selected glow) are plain buttons now: only a dialog's main button
+    is yellow, and the picker is a popover.
+  - Until phase 2 makes the preview fill its area, it keeps a 1 px `--line` edge with 12 px of `--bg-app` round it, so its
+    edge does not double the lines of the bars above and below it.
+  - The timeline keeps its row, ruler and bar heights until phase 5; only its colours, lines, corners and type change now.
+  - A layer's "not in Low" tag stays in `--bad`, as before. On a selected row in Night it is 4.4:1, a little under 4.5.
+  - In the Layers list a long tag stops at half the row, so the layer's name always shows.
 
 ## Claude skills
 

@@ -146,7 +146,7 @@ export class ColourPicker {
     const newShared = h('input', { attrs: { type: 'radio', name: 'cp-new-kind', checked: '' } }) as HTMLInputElement;
     const newEach = h('input', { attrs: { type: 'radio', name: 'cp-new-kind' } }) as HTMLInputElement;
     const newError = h('p', { class: 'cp-error', attrs: { role: 'alert' } });
-    const add = h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'Add colour', on: { click: () => this.addColour() } });
+    const add = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Add colour', on: { click: () => this.addColour() } });
     const extra = h('div', { class: 'cp-extra' });
     void newShared;
 

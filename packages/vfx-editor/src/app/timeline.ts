@@ -58,7 +58,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
     ruler.append(h('div', { class: 'tl-unit', text: 'ms' }));
     // The phases: wind-up, peak, fade, as one strip under the ruler.
     const total = tl.phases.fade.endMs;
-    phases.style.display = total > 0 ? '' : 'none';
+    phases.hidden = !(total > 0);
     for (const p of [tl.phases.windup, tl.phases.peak, tl.phases.fade]) {
       const len = p.endMs - p.startMs;
       if (len <= 0) continue;
@@ -90,7 +90,7 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
 
   const setPlayhead = (ms: number) => {
     head.style.left = `calc(var(--tl-name) + (100% - var(--tl-name)) * ${Math.max(0, Math.min(1, ms / span))})`;
-    head.style.display = ms < 0 ? 'none' : '';
+    head.hidden = ms < 0;
   };
   refresh();
   return { el, refresh, setPlayhead };

@@ -199,8 +199,8 @@ function spriteFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     const cw = 100 / (s.flipbook?.cols ?? 1), ch = 100 / (s.flipbook?.rows ?? 1);
     dot.style.left = `${s.pivot[0] * cw}%`;
     dot.style.top = `${s.pivot[1] * ch}%`;
-    fbBox.style.display = s.flipbook ? '' : 'none';
-    loop.el.style.display = s.flipbook ? '' : 'none';
+    fbBox.hidden = !s.flipbook;
+    loop.el.hidden = !s.flipbook;
   };
   drawThumb();
 
@@ -242,9 +242,9 @@ function spriteFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     drawThumb(); w.set(s.sizeM[0]); hh.set(s.sizeM[1]); facing.set(s.facing);
     anchor.setOptions(anchorOptions()); anchor.set(anchorValue()); offset.refresh();
     tintMode.set(s.tint.mode); role.setOptions(roleOpts()); role.set(s.tint.mode === 'multiply' ? s.tint.role : MAIN_ROLE);
-    role.el.style.display = s.tint.mode === 'multiply' ? '' : 'none';
+    role.el.hidden = s.tint.mode !== 'multiply';
   } });
-  role.el.style.display = S().tint.mode === 'multiply' ? '' : 'none';
+  role.el.hidden = S().tint.mode !== 'multiply';
 
   return [
     fold('Image', [image.el, thumb, h('div', { class: 'fieldrow' }, pivotU.el, pivotV.el), flip.el, fbBox, loop.el,
@@ -283,9 +283,9 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     onInput: (v) => app.editLayer(['arcM'], v, { mergeKey: 'arc', label: 'Arc height' }), onCommit: () => app.commit() });
   const showMode = () => {
     const m = fl().mode;
-    speed.el.style.display = m === 'speed' ? '' : 'none';
-    flightMs.el.style.display = m === 'time' ? '' : 'none';
-    flightPhase.el.style.display = m === 'phase' ? '' : 'none';
+    speed.el.hidden = m !== 'speed';
+    flightMs.el.hidden = m !== 'time';
+    flightPhase.el.hidden = m !== 'phase';
   };
   showMode();
   const stretch = slider({ label: 'Stretch along the path', min: 0.1, max: 20, step: 0.05, value: P().stretch, unit: '×',
@@ -352,10 +352,10 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
   const span = h('p', { class: 'readout' });
   const show = () => {
     const l = L();
-    rate.el.style.display = l.timing.mode === 'steps' ? '' : 'none';
+    rate.el.hidden = l.timing.mode !== 'steps';
     const visible = l.type !== 'projectile';
-    lastSel.el.style.display = visible ? '' : 'none';
-    dur.el.style.display = visible && (l as VisibleLayer).durationMs !== undefined ? '' : 'none';
+    lastSel.el.hidden = !visible;
+    dur.el.hidden = !(visible && (l as VisibleLayer).durationMs !== undefined);
     const s = app.timeline()?.byId.get(l.id);
     span.textContent = s ? `Shows from ${s.startMs.toFixed(0)} to ${s.endMs.toFixed(0)} ms (with the current target).` : '';
   };
@@ -398,9 +398,9 @@ function placeFields(app: AppApi, parts: Refresher[]): HTMLElement {
   parts.push({ refresh: () => {
     const l = V();
     anchor.setOptions(anchorOptions()); anchor.set(anchorValue()); offset.refresh(); facing.set(l.facing); blend.set(l.blend);
-    sx.set(l.shiftM?.[0] ?? 0); sy.set(l.shiftM?.[1] ?? 0); lift.set(l.liftM ?? 0); lift.el.style.display = l.facing === 'ground' ? '' : 'none';
+    sx.set(l.shiftM?.[0] ?? 0); sy.set(l.shiftM?.[1] ?? 0); lift.set(l.liftM ?? 0); lift.el.hidden = l.facing !== 'ground';
   } });
-  lift.el.style.display = V().facing === 'ground' ? '' : 'none';
+  lift.el.hidden = V().facing !== 'ground';
   return fold('Place', [anchor.el, offset.el, facing.el, blend.el, h('div', { class: 'fieldrow' }, sx.el, sy.el), lift.el], true);
 }
 
@@ -414,7 +414,7 @@ function offsetFields(app: AppApi, get: () => Vec3 | null, set: (o: Vec3) => voi
   } });
   const x = axis(0, 'Right'), y = axis(1, 'Up'), z = axis(2, 'Forward');
   const el = h('div', { class: 'fieldrow', title: 'Offset in metres: right, up, and forward (towards the target)' }, x.el, y.el, z.el);
-  const refresh = () => { const o = get(); el.style.display = o ? '' : 'none'; if (o) { x.set(o[0]); y.set(o[1]); z.set(o[2]); } };
+  const refresh = () => { const o = get(); el.hidden = !o; if (o) { x.set(o[0]); y.set(o[1]); z.set(o[2]); } };
   refresh();
   return { el, refresh };
 }

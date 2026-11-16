@@ -455,13 +455,14 @@ export class App implements AppApi {
   private buildShell(root: HTMLElement): void {
     const projectName = h('span', { class: 'project-name' });
     const save = h('button', { class: 'tb', attrs: { type: 'button' }, title: 'Save (Ctrl+S)', on: { click: () => void this.save() } }, icon('save'), h('span', { class: 'save-label', text: 'Save' }));
-    const night = h('button', { class: 'tb theme-toggle', attrs: { type: 'button', 'aria-pressed': String(document.documentElement.dataset.theme === 'dark') },
+    // An icon toggle: the sun shows in Day, the moon in Night (the stylesheet picks one by aria-pressed).
+    const night = h('button', { class: 'tb icon-only theme-toggle', attrs: { type: 'button', 'aria-label': 'Night mode', 'aria-pressed': String(document.documentElement.dataset.theme === 'dark') },
       title: 'Night mode: dark panels (the preview keeps the game\'s colours)', on: { click: () => {
         const dark = document.documentElement.dataset.theme !== 'dark';
         applyTheme(dark);
         night.setAttribute('aria-pressed', String(dark));
         try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch { /* storage may be blocked */ }
-      } } }, icon('moon'), h('span', { text: 'Night mode' }));
+      } } }, icon('sun'), icon('moon'));
     const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, title: 'Undo (Ctrl+Z)', on: { click: () => this.history.undo() } }, icon('undo'));
     const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, title: 'Redo (Ctrl+Shift+Z)', on: { click: () => this.history.redo() } }, icon('redo'));
     const backend = h('span', { class: 'badge' });
@@ -1128,7 +1129,7 @@ export class App implements AppApi {
     this.els.projectName.title = p ? `${p.id}${p.writable ? '' : ' (example, read-only)'}` : '';
     (this.els.save.querySelector('.save-label') as HTMLElement).textContent = p && !p.writable ? 'Save as…' : 'Save';
     this.els.save.disabled = !!p && p.writable && !dirty;
-    (this.els.root.querySelector('.save-as') as HTMLElement).style.display = p && !p.writable ? 'none' : '';
+    (this.els.root.querySelector('.save-as') as HTMLElement).hidden = !!p && !p.writable;
     this.els.undo.disabled = !this.history.canUndo;
     this.els.redo.disabled = !this.history.canRedo;
     this.els.undo.title = this.history.canUndo ? `Undo ${this.history.undoLabel} (Ctrl+Z)` : 'Nothing to undo';

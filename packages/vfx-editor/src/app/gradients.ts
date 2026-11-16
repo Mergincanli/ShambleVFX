@@ -99,7 +99,7 @@ export class GradientPanel {
     const disc = h('div', { class: 'gr-disc', attrs: { role: 'img', 'aria-label': 'The gradient as a glow draws it, middle to rim' } });
     const stops = h('div', { class: 'gr-stops' });
     const add = h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => this.addStop() } }, icon('plus'), 'Add a stop');
-    const use = h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'Use on the selected glow', on: { click: () => this.useOnGlow() } }) as HTMLButtonElement;
+    const use = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Use on the selected glow', on: { click: () => this.useOnGlow() } }) as HTMLButtonElement;
     const rampFrom = h('select', { attrs: { 'aria-label': 'Ramp from' } }) as HTMLSelectElement;
     const rampTo = h('select', { attrs: { 'aria-label': 'Ramp to' } }) as HTMLSelectElement;
     const rampSteps = h('input', { class: 'num', attrs: { type: 'number', min: '2', max: '8', step: '1', value: '5', 'aria-label': 'Steps' } }) as HTMLInputElement;
