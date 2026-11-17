@@ -139,9 +139,14 @@ describe('the Look: its time and its frame', () => {
   it('keeps every moment of the layer\'s time inside its box and margin: a fast streak leaving the muzzle, a landing', () => {
     // The Rifle shot (board)'s tracer is a streak riding a projectile that crosses the screen in 22 ms: its tail stays at
     // the muzzle for a few ms only. Every moment, 1 ms apart, must be inside the box with the Look's margin, or the Look
-    // cuts the layer at its edge. The demo's rifle and tank shell fly too.
-    for (const [file, ids] of [['board_muzzle', ['tracer_flight', 'tracer']], ['rifle_shot', ['bullet', 'tracer']], ['board_shell', ['shell', 'trail']]] as const) {
-      const fx = effect(file), tl = timeline(fx);
+    // cuts the layer at its edge. The demo's rifle and tank shell fly too. The Duration control stretches the riders'
+    // times but not a flight by speed: at 2 and 4 times the flight is as short in a much longer time.
+    const cases = [['board_muzzle', ['tracer_flight', 'tracer'], 1], ['board_muzzle', ['tracer_flight', 'tracer'], 2], ['board_muzzle', ['tracer_flight', 'tracer'], 4],
+      ['rifle_shot', ['bullet', 'tracer'], 1], ['rifle_shot', ['bullet', 'tracer'], 4], ['board_shell', ['shell', 'trail'], 1]] as const;
+    for (const [file, ids, duration] of cases) {
+      const fx = effect(file);
+      fx.controls.duration = duration;
+      const tl = timeline(fx);
       const vfx = new VfxRenderer(palette);
       vfx.setAtlas(atlas);
       for (const id of ids) {
@@ -149,7 +154,7 @@ describe('the Look: its time and its frame', () => {
         const alone = aloneEffect(fx, layer);
         const span = loopSpan(fx, tl, layer)!;
         const box = measureBox(vfx, makeGameCamera(), alone, span, params)!;
-        expect(box, `${file} ${id}`).toBeDefined();
+        expect(box, `${file} ${id} x${duration}`).toBeDefined();
         const mx = (box.x1 - box.x0) * LOOK_MARGIN, my = (box.y1 - box.y0) * LOOK_MARGIN;
         let drawn = 0;
         for (let ms = span.start; ms < span.end; ms++) {
@@ -157,13 +162,13 @@ describe('the Look: its time and its frame', () => {
           const b = measureBox(vfx, makeGameCamera(), alone, { start: ms, end: ms + 0.01 }, params);
           if (!b) continue;
           drawn++;
-          const where = `${file} ${id} at ${ms} ms`;
+          const where = `${file} ${id} x${duration} at ${ms} ms`;
           expect(b.x0, where).toBeGreaterThanOrEqual(box.x0 - mx);
           expect(b.x1, where).toBeLessThanOrEqual(box.x1 + mx);
           expect(b.y0, where).toBeGreaterThanOrEqual(box.y0 - my);
           expect(b.y1, where).toBeLessThanOrEqual(box.y1 + my);
         }
-        expect(drawn, `${file} ${id}`).toBeGreaterThan(5);
+        expect(drawn, `${file} ${id} x${duration}`).toBeGreaterThan(5);
       }
     }
   });
