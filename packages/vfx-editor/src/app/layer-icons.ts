@@ -41,10 +41,16 @@ export function layerGlyphKey(l: Layer, urlOf?: ImageUrlOf): string {
   return url && l.type === 'sprite' ? `img|${url}|${l.flipbook ? `${l.flipbook.cols}x${l.flipbook.rows}` : ''}` : layerIcon(l);
 }
 
+/** A frame more than this many times as wide as it is tall (or as tall as it is wide) shows a slice from its middle. */
+const SLICE_RATIO = 4;
+
 /**
  * The layer's icon as an element (16 px). A sprite whose image is loaded shows that image instead of the image icon:
  * its first frame (the top left cell of a flipbook), whole, on the preview's ground colour, so a white image still
  * shows. A sprite whose image is missing, and every other layer, shows its icon.
+ *
+ * A long thin frame, such as a tracer's streak (512 x 48), would be a line about a pixel thick fitted in whole, and the
+ * tile would look empty: it fills the tile with a slice from its middle instead (data-fit="slice", read by style.css).
  */
 export function layerGlyph(l: Layer, urlOf?: ImageUrlOf): Element {
   const url = l.type === 'sprite' ? urlOf?.(l.image) : undefined;
@@ -54,10 +60,17 @@ export function layerGlyph(l: Layer, urlOf?: ImageUrlOf): Element {
   img.alt = '';
   img.setAttribute('aria-hidden', 'true');
   img.draggable = false;
-  img.src = url;
   // The first frame: the rest of the sheet is cut away (Chromium; elsewhere the whole sheet shows, shrunk).
-  const fb = l.flipbook;
-  if (fb && (fb.cols > 1 || fb.rows > 1)) img.style.setProperty('object-view-box', `inset(0 ${pct(1 - 1 / fb.cols)} ${pct(1 - 1 / fb.rows)} 0)`);
+  const cols = l.flipbook?.cols ?? 1, rows = l.flipbook?.rows ?? 1;
+  if (cols > 1 || rows > 1) img.style.setProperty('object-view-box', `inset(0 ${pct(1 - 1 / cols)} ${pct(1 - 1 / rows)} 0)`);
+  // The frame's shape is known once the image is: at once for an image this page has shown already, else when it loads.
+  const fit = () => {
+    const w = img.naturalWidth / cols, ht = img.naturalHeight / rows;
+    img.dataset.fit = w > SLICE_RATIO * ht || ht > SLICE_RATIO * w ? 'slice' : 'whole';
+  };
+  img.addEventListener('load', fit, { once: true });
+  img.src = url;
+  if (img.complete && img.naturalWidth) fit();
   return img;
 }
 

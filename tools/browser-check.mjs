@@ -621,6 +621,22 @@ if (webgpu) {
   ok('an image burst shows the image icon, and its tag (a count) stays in Plex Sans; only a sprite\'s image name is Plex Mono',
     imageBurst.icon === 'icon icon-sprite' && imageBurst.header === 'icon icon-sprite' && /^\d+ × image$/.test(imageBurst.tag) && imageBurst.font === 'IBM Plex Sans' && debrisBack === 'chip',
     `${JSON.stringify(imageBurst)}; after undo the look is ${debrisBack}`);
+  // A sprite whose frame is more than four times as wide as it is tall (the tracers' 512 × 48) fills its icon with a slice
+  // from its middle, where fitted in whole it would be a line about a pixel thick; a square frame (the muzzle flash's, the
+  // top left cell of its flipbook) is fitted in whole. In the Layers list and among the Bullet's riders.
+  await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer('bullet'); });
+  const thumbFit = await p.waitForFunction(() => {
+    const fitOf = (img) => (img?.dataset.fit ? `${img.dataset.fit} ${getComputedStyle(img).objectFit}` : null);
+    const row = (name) => [...document.querySelectorAll('.layers-list .layer-item')].find((b) => b.querySelector(':scope > span')?.textContent === name)
+      ?.querySelector(':scope > img.layer-thumb');
+    const rider = (name) => [...document.querySelectorAll('.inspector .rider')].find((r) => r.querySelector('.rider-name')?.textContent === name)
+      ?.querySelector(':scope > img.layer-thumb');
+    const r = { tracer: fitOf(row('Tracer')), core: fitOf(row('Tracer core')), flash: fitOf(row('Muzzle flash')), riderTracer: fitOf(rider('Tracer')) };
+    return Object.values(r).every(Boolean) ? r : null;
+  }, null, { timeout: 5000 }).then((h) => h.jsonValue(), () => null);
+  ok('a sprite whose frame is more than four times as wide as it is tall (a tracer) fills its icon with a slice from its middle; a square frame is fitted in whole',
+    !!thumbFit && thumbFit.tracer === 'slice cover' && thumbFit.core === 'slice cover' && thumbFit.riderTracer === 'slice cover' && thumbFit.flash === 'whole contain',
+    JSON.stringify(thumbFit));
 
   // -- Fade other layers, read where the preview's colours are made: the runtime's own buffers, vertex by vertex, as they
   // go to the GPU. The layer in focus keeps its colours; every other vertex fades to a quarter, by its blend group (normal:

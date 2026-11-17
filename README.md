@@ -49,8 +49,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    - **Faction that fired**: Soviets, Allies or Empire. Team and glow colours follow it.
    - **Made by**: an **enemy**, **your team** or **you**. An enemy's effects get solid ink edges; your team's get thin
      broken ones; a gun's sound word shows only to the one who fired.
-   - **Distance from you**: comic words shrink with it (full size to 2 m, 60 % from 5 to 8 m, gone at 11 m). In the tank
-     shell's scene it moves the landing point away from you.
+   - **Distance from you**: comic words shrink with it, each by its own curve (a new word: full size to 2 m, 60 % from 5 to
+     8 m, gone at 11 m). In the tank shell's scene it moves the landing point away from you.
    - **View**: whole screen, game size, or a close-up on the muzzle or the target.
    - **Fade other layers**, the striped square after the view buttons: on at first. While a layer is selected, or its row is
      under the mouse in the Layers list or on the timeline, the other layers fade in the preview, so you see which part of
@@ -157,15 +157,16 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (200 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (201 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
 motion; the hint about clicking a colour only when there is one to click; one icon per kind of layer in the Layers list,
-on the timeline and in the header, a ring showing the ring, a sprite its own image or, when the image is missing, the
-image icon, and an image burst's tag in Plex Sans), Fade other layers (the
+on the timeline and in the header, a ring showing the ring, a sprite its own image (a long thin one, such as a tracer, as
+a slice from its middle) or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), Fade
+other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
 lane; effects playing from Fire, a fired copy of the effect shown and one of another effect; the game's look, pixel for
@@ -559,6 +560,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     themes, so a white image still shows), with the faint edge of a colour swatch. A flipbook shows its first frame (the top left
     cell). The image is shown as it is in the file, before any tint. A sprite whose image is missing or did not load shows
     the image icon. The picture uses the copy the editor already loaded for the atlas.
+  - A frame more than four times as wide as it is tall (or as tall as it is wide), such as a tracer's streak (512 × 48),
+    would be a line about a pixel thick fitted in whole, and its tile looked empty: it fills the 16 px with a slice from its
+    middle instead.
   - Only a sprite's tag (its image name) is Plex Mono in the Layers list; the rule goes by the layer's type, so an image
     burst's tag ("9 × image") stays Plex Sans.
 - **Tooltips** (the timing, the look, "every title becomes a tooltip" and plain explanations are the brief's and Mustafa's

@@ -183,6 +183,8 @@ kbd { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-fiel
 /* A sprite's own image in place of its icon (Layers list, timeline, the panel's header, riders): its first frame, whole,
    on the preview's ground colour (a game colour, the same in both themes), so a white image still shows. */
 .layer-thumb { display: block; object-fit: contain; border-radius: var(--r-segment); background: var(--ground); outline: 1px solid var(--swatch-edge); outline-offset: -1px; }
+/* A long thin frame (a tracer's streak) would be a line about a pixel thick: a slice from its middle fills the tile. */
+.layer-thumb[data-fit="slice"] { object-fit: cover; }
 .hint { font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 .empty { color: var(--text-muted); }
 .fatal { margin: 24px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); white-space: pre-wrap; font-family: var(--mono); }

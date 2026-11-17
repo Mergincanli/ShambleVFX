@@ -37,7 +37,7 @@ import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { h, icon, installTooltips, segmented, selectField, tip, tipContent } from './dom';
 import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
-import { NEW_THIS_ROUND } from './help';
+import { NEW_THIS_ROUND, helpFor } from './help';
 import { lookupHelp } from './helptips';
 import { buildInspector } from './inspector';
 import type { InspectorView } from './inspector';
@@ -1428,7 +1428,8 @@ function distanceControl(onInput: (m: number) => void): { el: HTMLElement; set(v
   const set = (v: number) => { range.value = String(v); val.textContent = `${v.toFixed(1)} m`; };
   range.addEventListener('input', () => { set(+range.value); onInput(+range.value); });
   set(4);
-  const el = h('div', { class: 'row dist', title: 'How far you are from the effect. Comic words shrink with distance: full size to 2 m, 60 % from 5 to 8 m, gone at 11 m.' },
+  // The slider's tooltip is its label's: each word shrinks by its own curve, so no one curve is named here.
+  const el = h('div', { class: 'row dist', title: helpFor('Distance from you') ?? '' },
     h('div', { class: 'lab' }, h('span', { text: 'Distance from you' })), range, val);
   return { el, set };
 }
