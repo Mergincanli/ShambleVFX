@@ -46,6 +46,8 @@ const STATES = [
 /** Rest the pointer on an element until its tooltip opens (after the hover delay). Nothing it hovers is built again later. */
 async function hoverForTooltip(page, locator) {
   await locator.scrollIntoViewIfNeeded();
+  // A scroll hides the tooltip (and one waiting): let the scroll's event pass first.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const box = await locator.boundingBox();
   await page.mouse.move(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
   await page.waitForSelector('.tooltip:popover-open', { timeout: 10000 });

@@ -147,7 +147,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (180 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (181 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -156,8 +156,9 @@ Esc, leads back to the effect's settings, but Esc not while typing; what draws e
 motion; one icon per kind of layer in the Layers list, on the timeline and in the header, a ring showing the ring, a sprite
 its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), the tooltips (after
 the 500 ms hover delay and not before, 150 ms when one was just open, at once on Tab and not on focus the editor moves; the
-help text for a label where it is, such as a ring's Width; a title moving into the tooltip; Undo naming the step; hidden by
-a press, a scroll and Esc, which still leaves the layer; drawn over the colour picker, 12 px, at most 280 px, dark in both
+help text for a label where it is, such as a ring's Width; a title moving into the tooltip; a name in brackets, "Smoke (2)",
+kept whole; Undo naming the step; hidden by a press, a scroll and Esc, which still leaves the layer; no tooltip after a
+click on a row built again under the pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both
 themes; names of controls unchanged; and every label and section title of every layer of both examples, and every control
 of the bars, with a help text), the add menu, phase
 starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
@@ -508,7 +509,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - A tooltip says, in order: the element's own words (what its title said, such as a row's full name or "Undo Size"; an
     icon-only button with none is named by its aria-label), then the help text for its label, then its shortcut in a muted
     kbd on the first line. A label cut short with an ellipsis shows its whole text first. With more than one line, the first
-    is semibold. A shortcut written at the end of a title, "(Esc)", moves into the kbd.
+    is semibold. A shortcut written at the end of a title, "(Esc)", moves into the kbd: only a key combination or a named key
+    (Esc, Del, Space, F2, an arrow…), so a name in a title keeps its brackets ("Smoke (2)" is not "Smoke" with the key 2).
   - The help text is looked up when the tooltip is about to show, by the label's words and where they are: the sections
     round it (as the settings inventory names them), the layer type and the shape kind; in the bars, the bar. So "Save as…"
     and "Pause" get their texts when the button changes, and a label added later gets its text as soon as `help.ts` has
@@ -518,8 +520,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all). The other
     titles stay and show first (rows' full names, the faction and made-by choices, the triangle count, the renderer, the
     picker's buttons…). The text inputs, number boxes and selects get no tooltip of their own: their label explains them.
-  - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press hides it until the pointer
-    leaves what was pressed, so a click never leaves a tooltip on screen; a scroll hides it the same way.
+  - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press, a scroll or Esc hides it
+    until the pointer moves on: what comes up under a pointer that has not moved (the row built again after a click, the
+    label scrolled under it) stays quiet, so a click never leaves a tooltip on screen.
   - Keyboard: it shows at once only when Tab or Shift+Tab brings the focus to an element with its own tooltip (a button, a
     section's title, a checkbox's label), not when the editor moves the focus (to the panel's title after Esc or a rider),
     and not on a text box, a number box or a select (it would cover the next rows while you type). While it shows it

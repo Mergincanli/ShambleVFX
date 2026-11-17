@@ -852,9 +852,12 @@ if (webgpu) {
       return { open: !!el?.matches(':popover-open'), lines: el ? [...el.querySelectorAll(':scope > .tip-first > span, :scope > p')].map((x) => x.textContent) : [], key: el?.querySelector('kbd')?.textContent ?? null };
     });
     // Mark one element, rest the pointer where nothing has a tooltip (long enough for "just open" to pass), then hover it.
+    const frames = () => tp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const hoverProbe = async (locator) => {
       await tp.evaluate(() => { document.querySelectorAll('[data-probe]').forEach((x) => x.removeAttribute('data-probe')); Object.assign(window.__tipProbe, { overAt: null, openAt: null, at250: null, tabAt: null }); });
       await locator.scrollIntoViewIfNeeded();
+      // A scroll hides the tooltip (and one waiting): let the scroll's event pass before the hover.
+      await frames();
       await locator.evaluate((el) => { el.dataset.probe = '1'; });
       const box = await locator.boundingBox();
       await tp.mouse.move(box.x + Math.min(box.width / 2, 12), box.y + box.height / 2);
@@ -923,6 +926,25 @@ if (webgpu) {
     ok('every title becomes a tooltip: the title moves into the tooltip on hover, so the browser\'s own does not show too; a scroll hides it',
       rowHover.delay >= 450 && rowAttrs.title === null && rowAttrs.tip === 'Muzzle flash' && rowTip.open && rowTip.lines[0] === 'Muzzle flash' && scrolled.before && !scrolled.after,
       `${JSON.stringify(rowAttrs)}; "${rowTip.lines.join(' | ')}" after ${rowHover.delay} ms; scroll: open ${scrolled.before} -> ${scrolled.after}`);
+    // A name in brackets is a name, not a shortcut: a layer called "Smoke (2)" keeps it whole. And a click on a row (the
+    // list is built again under the pointer) leaves no tooltip while the pointer stays.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.selectLayer('dust'); a.editLayer(['name'], 'Smoke (2)', { label: 'Rename layer' }); a.commit(); a.selectLayer(null); });
+    await restPointer();
+    const bracketRow = tp.locator('.layers-list .layer-item', { has: tp.locator(':scope > span', { hasText: /^Smoke \(2\)$/ }) });
+    await hoverProbe(bracketRow);
+    const bracketTip = await tipNow();
+    await restPointer();
+    const hitRow = tp.locator('.layers-list .layer-item', { has: tp.locator(':scope > span', { hasText: /^Hit spark$/ }) });
+    const hitBox = await hitRow.boundingBox();
+    await tp.mouse.move(hitBox.x + 40, hitBox.y + hitBox.height / 2);
+    await tp.mouse.down();
+    await tp.mouse.up();
+    await tp.waitForTimeout(900);
+    const afterRowClick = await tp.evaluate(() => ({ open: !!document.querySelector('.tooltip')?.matches(':popover-open'), layer: window.__vfx.app.layer()?.id ?? null }));
+    await tp.keyboard.press('Control+z');
+    ok('a name in brackets stays whole in its tooltip ("Smoke (2)", no shortcut); a click on a row built again under the pointer leaves no tooltip',
+      bracketTip.open && bracketTip.lines[0] === 'Smoke (2)' && bracketTip.key === null && !afterRowClick.open && afterRowClick.layer === 'hit',
+      `${JSON.stringify(bracketTip)}; after the click on Hit spark: ${JSON.stringify(afterRowClick)}`);
 
     // Undo and Redo name the step, with the shortcut and the help text; the tooltip follows when the step changes.
     await tp.evaluate(() => { const a = window.__vfx.app; a.editEffect(['controls', 'size'], 2, { label: 'Size' }); a.commit(); });

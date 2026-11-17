@@ -680,6 +680,8 @@ export class App implements AppApi {
     this.costReports.clear();
     this.problemCache = null;
     this.inspector?.refresh();
+    // A sprite's picture in the Layers list and on the timeline comes from these images.
+    if (this.timelineView) { this.renderLayers(); this.timelineView.refresh(); }
   }
 
   private async save(): Promise<void> {

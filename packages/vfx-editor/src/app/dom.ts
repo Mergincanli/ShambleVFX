@@ -134,8 +134,8 @@ export function fold(title: string, children: Child[], openByDefault = false, ac
 /**
  * One tooltip for the whole page. It shows after TIP_DELAY_MS of hover (TIP_QUICK_MS when another tooltip was just
  * open), and at once when Tab moves the keyboard focus onto an element that has one. It hides when the pointer leaves,
- * on a press (and stays away until the pointer leaves what was pressed), on scroll and on Esc. Esc is not taken from the
- * editor: it still does what it did (closes the picker, leaves the layer).
+ * on a press, on scroll and on Esc, and then stays away until the pointer moves on (a row built again under a still
+ * pointer stays quiet). Esc is not taken from the editor: it still does what it did (closes the picker, leaves the layer).
  *
  * What it says for an element:
  *   - its own words: data-tip. Every title turns into data-tip the first time the pointer or the focus comes to it (or as
@@ -162,8 +162,11 @@ const TIP_ID = 'vfx-tooltip';
 export interface TipHelp { text?: string; key?: string }
 export type TipHelpLookup = (el: Element) => TipHelp | null;
 
-/** A shortcut at the end of a title: "Undo Size (Ctrl+Z)", "Close (Esc)". */
-const KEY_IN_TITLE = /\s+\(((?:(?:Ctrl|Shift|Alt|Cmd)\+)*(?:Esc|Del|Delete|Space|Enter|Tab|F\d{1,2}|[A-Za-z0-9?/←→↑↓[\]]))\)$/;
+/**
+ * A shortcut at the end of a title: "Undo Size (Ctrl+Z)", "Close (Esc)". Only a combination or a named key: a title that
+ * holds a name ("Smoke (2)", a layer's row) keeps its brackets.
+ */
+const KEY_IN_TITLE = /\s+\(((?:(?:Ctrl|Shift|Alt|Cmd)\+)+[^()\s]+|Esc|Del|Delete|Backspace|Space|Enter|Tab|F\d{1,2}|[←→↑↓])\)$/;
 const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [role], [tabindex]';
 
 let helpOf: TipHelpLookup = () => null;
@@ -180,6 +183,9 @@ let timer = 0;
 let watch = 0;
 let hiddenAt = -Infinity;
 let tabAt = -Infinity;
+/** Where the pointer is, and where it was when a press, a scroll or Esc hid the tooltip: until it moves from there, none shows. */
+let pointerX = NaN, pointerY = NaN, stillX = NaN, stillY = NaN;
+const holdStill = () => { stillX = pointerX; stillY = pointerY; };
 
 /**
  * Give an element a tooltip in code: its own words (null: none) and an optional shortcut. It takes the place of a title,
@@ -315,8 +321,11 @@ export function installTooltips(lookup: TipHelpLookup): void {
   helpOf = lookup;
   if (installed) return;
   installed = true;
+  document.addEventListener('pointermove', (e) => { pointerX = e.clientX; pointerY = e.clientY; }, { capture: true, passive: true });
   document.addEventListener('pointerover', (e) => {
     if (e.pointerType === 'touch') return;
+    pointerX = e.clientX;
+    pointerY = e.clientY;
     const target = e.target as Element;
     takeTitles(target);
     const a = tipAt(target);
@@ -324,6 +333,10 @@ export function installTooltips(lookup: TipHelpLookup): void {
     hovered = a;
     clearTimeout(timer);
     timer = 0;
+    // The pointer has not moved since a press, a scroll or Esc: what is under it now (a row built again after the click)
+    // stays quiet as what was pressed did.
+    if (Math.abs(pointerX - stillX) < 2 && Math.abs(pointerY - stillY) < 2) { pressed = a; return; }
+    stillX = stillY = NaN;
     if (pressed && pressed !== a) pressed = null;
     if (shown && !shownByFocus && shown !== a) hideTip();
     if (!a || a === pressed || a === shown) return;
@@ -340,6 +353,9 @@ export function installTooltips(lookup: TipHelpLookup): void {
     if (shown && !shownByFocus) hideTip();
   }, true);
   document.addEventListener('pointerdown', (e) => {
+    pointerX = e.clientX;
+    pointerY = e.clientY;
+    holdStill();
     pressed = hovered ?? tipAt(e.target as Element);
     hideTip();
   }, true);
@@ -357,9 +373,9 @@ export function installTooltips(lookup: TipHelpLookup): void {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') tabAt = performance.now();
     // Esc hides it, and is not taken: the editor still gets it.
-    if (e.key === 'Escape' && (shown || timer)) { pressed = hovered; hideTip(); }
+    if (e.key === 'Escape' && (shown || timer)) { holdStill(); pressed = hovered; hideTip(); }
   }, true);
-  document.addEventListener('scroll', () => { if (shown || timer) { pressed = hovered; hideTip(); } }, true);
+  document.addEventListener('scroll', () => { if (shown || timer) { holdStill(); pressed = hovered; hideTip(); } }, true);
   window.addEventListener('blur', () => { hovered = null; hideTip(); });
   // A title set again by code (the Undo button names the next step) never shows on its own: it turns into the tooltip's
   // words at once on elements that had a tooltip already, and on the one under the pointer.
