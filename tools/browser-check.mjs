@@ -869,7 +869,10 @@ if (webgpu) {
   const shownColours = () => p.evaluate(() => {
     const list = document.querySelector('.inspector .swatches');
     const note = document.querySelector('.inspector .colour-note');
-    return { shown: [...list.querySelectorAll(':scope > .swatch:not([hidden])')].map((x) => x.textContent), all: list.classList.contains('all'), note: note && !note.hidden ? note.textContent : '' };
+    // The hint under the list, as shown (Show hints is on in this browser).
+    const hint = list.parentElement.querySelector(':scope > .hint');
+    return { shown: [...list.querySelectorAll(':scope > .swatch:not([hidden])')].map((x) => x.textContent), all: list.classList.contains('all'), note: note && !note.hidden ? note.textContent : '',
+      hint: hint && hint.getClientRects().length ? hint.textContent : '' };
   });
   const wantColours = async () => {
     const { fx, layer, palette } = await p.evaluate(() => { const a = window.__vfx.app; return { fx: a.effect(), layer: a.layer()?.id ?? null, palette: a.palette }; });
@@ -888,6 +891,9 @@ if (webgpu) {
     same(ofBeam) && same(ofRing) && ofRing.want.includes('ink') && same(ofBullet) && ofBullet.got.note.startsWith('A projectile has no colours of its own')
       && ofFlash.got.shown.length === 0 && ofFlash.want.length === 0 && ofFlash.got.note === 'It uses no palette colours: the image keeps its own colours.',
     JSON.stringify({ beam: ofBeam.got.shown, ring: ofRing.got.shown, bullet: [ofBullet.got.shown, ofBullet.got.note], flash: ofFlash.got.note }));
+  ok('the hint under the colour list says to click a colour only when there is one: not under a sprite that keeps its own colours',
+    ofFlash.got.hint === '' && ofRing.got.hint.startsWith('Click a colour to change it') && ofBeam.got.hint.includes('Click a colour to change it'),
+    JSON.stringify({ flash: ofFlash.got.hint, ring: ofRing.got.hint, beam: ofBeam.got.hint }));
   // Show all, next to the Colour title: every colour of the palette, the selection's in bold; remembered. Colours that leave
   // or come back move in a short animation, and none with reduced motion. The section stays open.
   const glowOnly = await coloursOf('board_beam', 'emitter_glow');
@@ -991,6 +997,21 @@ if (webgpu) {
   const storedOff = await p.evaluate(() => localStorage.getItem('vfx-colours-all'));
   ok('Show all off: the list is the layer\'s own colours again, its gradient\'s colours too, and that is remembered', !ownAgain.all && storedOff === '0' && ownWant.length > glowOnly.want.length
     && JSON.stringify(ownAgain.shown) === JSON.stringify(ownWant), `${ownAgain.shown.join(', ')} (want ${ownWant.join(', ')}); stored ${storedOff}`);
+  // Closing the picker gives the focus back to the swatch that opened it, also in a layer's list, which hides the colours the
+  // layer does not use (the main colour's too, so the focus cannot go there). A second Escape then leaves the layer.
+  await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_shell'); a.selectLayer('ring'); });
+  await p.locator('.inspector .swatch[data-key="role:team"]').focus();
+  await p.keyboard.press('Enter');
+  await p.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'));
+  await p.keyboard.press('Escape');
+  await p.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+  const focusBack = await p.evaluate(() => ({ focus: document.activeElement?.dataset?.key ?? document.activeElement?.tagName ?? null,
+    inPanel: !!document.activeElement?.closest('.inspector'), mainHidden: document.querySelector('.inspector .swatch[aria-current="true"]')?.hidden ?? null, layer: window.__vfx.app.layer()?.id ?? null }));
+  await p.keyboard.press('Escape');
+  const afterSecondEsc = await p.evaluate(() => window.__vfx.app.layer()?.id ?? null);
+  ok('closing the colour picker gives the focus back to the swatch that opened it, also in a layer\'s list that hides the main colour; a second Escape leaves the layer',
+    focusBack.focus === 'role:team' && focusBack.inPanel && focusBack.mainHidden === true && focusBack.layer === 'ring' && afterSecondEsc === null, JSON.stringify({ ...focusBack, afterSecondEsc }));
+  await p.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_beam'); a.selectLayer('emitter_glow'); });
 
   // -- night mode: panels go dark, the preview keeps the game's colours
   await p.locator('.topbar button.theme-toggle').click();

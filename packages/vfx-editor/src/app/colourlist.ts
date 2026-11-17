@@ -157,6 +157,10 @@ export function colourList(app: AppApi): ColourListView {
       ? 'The effect\'s colours. The marked one is its main colour: layers tinted "main" use it. Click a colour to change it.'
       : `Click a colour to change it everywhere it is used.${mainShown ? ' The marked one is the effect\'s main colour.' : ''}`;
     if (hint.textContent !== hintText) hint.textContent = hintText;
+    // Only when there is a colour to click: not under "It uses no palette colours" (a colour the palette lacks and a hex
+    // stop cannot be clicked either).
+    const clickable = [...items].some(([k, e]) => k.startsWith('role:') && !e.hidden);
+    if (hint.hidden === clickable) hint.hidden = !clickable;
 
     if (!animate || !box0) return;
     const box1 = el.getBoundingClientRect();

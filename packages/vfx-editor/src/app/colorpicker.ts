@@ -34,9 +34,11 @@ export class ColourPicker {
   private gesture = 0;
   private harmonyKind: Harmony = 'analogous';
   private paletteKey = '';
-  /** Where the swatch was when the picker opened, and the left edge of the right panel (the swatches are redrawn on every edit, so the element itself does not stay). */
+  /** Where the swatch was when the picker opened, and the left edge of the right panel (the picker is placed by these). */
   private anchorRect: { left: number; top: number } | null = null;
   private panelLeft: number | null = null;
+  /** The swatch that opened the picker: the focus goes back to it when the picker closes. */
+  private opener: HTMLElement | null = null;
   private parts!: {
     chip: HTMLElement; title: HTMLElement; scope: HTMLElement; note: HTMLElement; source: HTMLElement; factions: HTMLElement;
     canvas: HTMLCanvasElement; hex: HTMLInputElement; slidersBtn: HTMLButtonElement; sliders: HTMLElement;
@@ -69,6 +71,7 @@ export class ColourPicker {
     const a = anchor.getBoundingClientRect();
     this.anchorRect = { left: a.left, top: a.top };
     this.panelLeft = anchor.closest('.right')?.getBoundingClientRect().left ?? null;
+    this.opener = anchor;
     if (!this.isOpen) this.el.showPopover();
     this.show(role);
     this.place();
@@ -78,8 +81,12 @@ export class ColourPicker {
   close(): void {
     if (!this.isOpen) return;
     this.el.hidePopover();
-    // Back to where the work was: the swatches.
-    (document.querySelector('.swatches .swatch[aria-current="true"]') as HTMLElement | null)?.focus({ preventScroll: true });
+    // Back to where the work was: the swatch that opened the picker, or else the main colour's. The colour list keeps its
+    // swatches while it is open, but a layer's list hides the colours the layer does not use, the main colour's too, and a
+    // hidden swatch cannot take the focus (it would stay in the closed picker, then fall to the page).
+    const shown = (e: Element | null): e is HTMLElement => e instanceof HTMLElement && e.isConnected && e.getClientRects().length > 0;
+    const back = [this.opener, document.querySelector('.swatches .swatch[aria-current="true"]')].find(shown);
+    back?.focus({ preventScroll: true });
   }
 
   /** Edit another role (or the same one for another faction). */

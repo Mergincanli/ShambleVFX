@@ -157,14 +157,15 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (198 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (200 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
-motion; one icon per kind of layer in the Layers list, on the timeline and in the header, a ring showing the ring, a sprite
-its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), Fade other layers (the
+motion; the hint about clicking a colour only when there is one to click; one icon per kind of layer in the Layers list,
+on the timeline and in the header, a ring showing the ring, a sprite its own image or, when the image is missing, the
+image icon, and an image burst's tag in Plex Sans), Fade other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
 lane; effects playing from Fire, a fired copy of the effect shown and one of another effect; the game's look, pixel for
@@ -186,7 +187,8 @@ whose `project.json` is version 1 (it opens, with its scenes, and nothing is wri
 opened, and the editor says why, also when it is the project the editor starts with); the test page on both backends
 (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in
 its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a
-new colour), a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying
+new colour, and the focus back on the swatch that opened it when it closes, also in a layer's list that hides the main
+colour), a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying
 the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
 software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
@@ -501,7 +503,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - The list holds the selection's palette colours in the palette's order. A colour a layer names that the palette lacks
     (in red) and a gradient stop given as a hex come after them; they cannot be clicked, since the picker edits palette
     colours, and their tooltips say what to do. The effect's main colour keeps its mark in every view, and the hint names
-    the mark only when it shows.
+    the mark only when it shows. The hint ("Click a colour…") shows only when there is a colour to click.
+  - Closing the colour picker puts the keyboard focus back on the swatch that opened it (or else on the main colour's), so
+    Tab and Esc carry on from there: a layer's list may hide the main colour's swatch, where the focus used to go.
   - Show all is one setting for every view, off at first, remembered as `vfx-colours-all`. The selection's colours are
     Plex Mono 600 (now loaded; 400 and 500 were), the others muted.
   - The animation: colours that leave fade and shrink where they were, those that stay slide to their new places, those
