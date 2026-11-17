@@ -97,7 +97,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Colour': {
     text: 'A colour from the palette. Team and glow colours follow the faction that fired.',
     when: [
-      { title: true, layer: 'sprite', text: 'How the image is coloured: its own colours, or tinted with a colour from the palette.' },
+      { title: true, layer: 'sprite', text: 'Whether the image keeps its own colours or is tinted with a colour from the palette, and the palette colours this layer uses.' },
       { title: true, layer: 'projectile', text: 'A projectile has no colours of its own: these are the colours of the layers riding it.' },
       { title: true, layer: ['shape', 'burst', 'word'], text: 'The palette colours this layer uses, also those it draws without naming them, such as the black ink. Click one to change it everywhere.' },
       { in: 'Colour', layer: 'sprite', text: 'Keep the image\'s colours, or multiply them by a palette colour. Draw images meant for tinting in white and greys, so the colour shows true.' },
@@ -739,9 +739,8 @@ const ALIASES: Readonly<Record<string, string>> = {
 };
 
 /**
- * This round's new controls with a label of their own (F1, F5, F7), written from the spec and the other helper's work in
- * progress, not from committed code. helpFor() falls back to them; they are not in HELP or its counts. F2's "Look" is a
- * title variant of HELP's "Look".
+ * The new controls of the round after UI phase 1 with a label of their own (F1, F5, F7), written against the code that uses
+ * them. helpFor() falls back to them; they are not in HELP or its counts. F2's "Look" is a title variant of HELP's "Look".
  */
 export const NEW_LABELS: Readonly<Record<string, string>> = {
   'Fade other layers': 'While a layer is selected or hovered, the other layers fade in the preview so it stands out. Off: the preview shows the game\'s look.',
@@ -854,8 +853,8 @@ export function shortcutFor(label: string): string | undefined {
 }
 
 /**
- * Texts for the controls this round adds (F1, F2, F5, F6, F7), written from the round's spec, not from committed code,
- * for the integrator to use directly (the lines and tags that have no label of their own).
+ * Texts for the controls of the round after UI phase 1 (F1, F2, F5, F6, F7) that the panels set directly: the lines and
+ * tags that have no label of their own.
  */
 export const NEW_THIS_ROUND = {
   /** F1: the toggle in the bar above the preview ("Fade other layers"). */
@@ -864,8 +863,6 @@ export const NEW_THIS_ROUND = {
   look: 'A live picture of this layer alone, drawn by the game\'s code with the preview\'s faction and made-by, playing its own time in a loop. A rider flies along its path; a projectile shows its riders.',
   /** F5: the "Show all" toggle next to a Colour heading. */
   showAll: NEW_LABELS['Show all']!,
-  /** F5: the sprite's Colour section once it lists the layer's colours (HELP's text is true before and after F5). */
-  spriteColourAfterF5: 'Whether the image keeps its own colours or is tinted with a colour from the palette, and the palette colours this layer uses.',
   /** F6: the effect's name in the layer panel's header (shortcut Esc). */
   backToEffect: 'Back to the effect\'s own settings.',
   /** F7: the "Layers riding it" section of a projectile's panel. */
