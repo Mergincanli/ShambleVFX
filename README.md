@@ -156,7 +156,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (197 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (198 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -173,7 +173,8 @@ is selected, and playing in a loop while the editor runs), the tooltips (after t
 150 ms when one was just open, at once on Tab and not on focus the editor moves; the help text for a label where it is,
 such as a ring's Width; a title moving into the tooltip; a name in brackets, "Smoke (2)", kept whole; Undo naming the step;
 hidden by a press, a scroll and Esc, which still leaves the layer; no tooltip after a click on a row built again under the
-pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both themes; names of controls unchanged; and every
+pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both themes; names of controls unchanged; the "rides"
+tag and the line saying what draws a layer explaining themselves; and every
 label and section title of every layer of both examples, and every control of the bars, with a help text), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
@@ -572,8 +573,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     rider flying along its path, a projectile showing its riders). The other titles stay and show first (rows' full
     names, the faction and made-by choices, the triangle count, the renderer, the picker's buttons…). The text inputs,
     number boxes and selects get no tooltip of their own: their label explains them.
-  - What draws a layer ("Drawn in code, no image", "Image: …", "An invisible path…") explains itself in its tooltip, with
-    the texts `help.ts` has for those lines.
+  - What draws a layer ("Drawn in code, no image", "Image: …", "An invisible path…") and the "rides Bullet" tag in the
+    Layers list explain themselves in their tooltips, with the texts `help.ts` has for those lines. A rider's row in its
+    projectile's panel keeps its own tooltip ("Select Tracer core"), and a Layers row keeps the full name and what it
+    rides ("Tracer: rides Bullet").
   - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press, a scroll or Esc hides it
     until the pointer moves on: what comes up under a pointer that has not moved (the row built again after a click, the
     label scrolled under it) stays quiet, so a click never leaves a tooltip on screen.

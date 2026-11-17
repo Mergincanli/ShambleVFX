@@ -1304,6 +1304,24 @@ if (webgpu) {
       overPicker.inPicker && diff(px, bgHex) <= 2 && bgHex === '#2A2A2A' && nightBg === 'rgb(30, 30, 30)' && overPicker.size === '12px' && overPicker.max === '280px'
         && overPicker.lines.join() === 'Close' && overPicker.key === 'Esc', `pixel ${px} at ${overPicker.x},${overPicker.y} (tooltip ${bgHex}, Night ${nightBg}); ${JSON.stringify(overPicker)}`);
 
+    // Lines with no label of their own explain themselves too, with help.ts's texts for them: the "rides Bullet" tag in the
+    // Layers list, and the line saying what draws a layer.
+    const ownLines = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      a.pickEffect('rifle_shot');
+      a.selectLayer('flash');
+      const tracer = [...document.querySelectorAll('.layers-list .layer-item')].find((b) => b.querySelector(':scope > span')?.textContent === 'Tracer');
+      const rides = tracer?.querySelector('code.rides'), draws = document.querySelector('.inspector .draws');
+      const out = { rides: rides ? a.tipForChecks(rides) : null, draws: draws ? a.tipForChecks(draws) : null };
+      a.selectLayer('bullet');
+      out.path = a.tipForChecks(document.querySelector('.inspector .draws'));
+      a.selectLayer(null);
+      return out;
+    });
+    ok('the "rides" tag in the Layers list and the line saying what draws a layer explain themselves in their tooltips (help.ts)',
+      ownLines.rides?.lines.join() === help.NEW_THIS_ROUND.ridesTag('Bullet') && ownLines.draws?.lines.join() === help.NEW_THIS_ROUND.drawnFromImage('muzzle_flash.png')
+        && ownLines.path?.lines.join() === help.NEW_THIS_ROUND.invisiblePath, JSON.stringify(ownLines));
+
     // Every label and section title of the right panel, for every effect and layer of both examples, and the bars' controls,
     // has a help text (as tools/ui-shots.mjs reads the panel: field labels, checkboxes, folds' and cards' titles, cost rows).
     const sweep = await tp.evaluate(async () => {

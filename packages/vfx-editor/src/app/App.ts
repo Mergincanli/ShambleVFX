@@ -37,6 +37,7 @@ import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { h, icon, installTooltips, segmented, selectField, tip, tipContent } from './dom';
 import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
+import { NEW_THIS_ROUND } from './help';
 import { lookupHelp } from './helptips';
 import { buildInspector } from './inspector';
 import type { InspectorView } from './inspector';
@@ -1232,11 +1233,14 @@ export class App implements AppApi {
       // A layer that rides a projectile says so in its tag ("rides Bullet"); left out of the tier, the tag says that instead.
       const rides = ridingOn(fx, l);
       const tag = hidden ? `not in ${TIER_LABEL[this.tier]}` : rides ? `rides ${rides.name}` : layerTag(l);
+      const code = h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag });
+      // "rides Bullet" says what that means in its own tooltip (help.ts).
+      if (rides && !hidden) tip(code, NEW_THIS_ROUND.ridesTag(rides.name));
       return h('button', {
         class: `item layer-item type-${l.type}${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button', 'data-layer': l.id }, on: { click: () => this.selectLayer(l.id) },
         // The full name, since a long one ends in an ellipsis in the row.
         title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[this.tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
-      }, layerGlyph(l, (n) => this.imageUrl(n)), h('span', { text: l.name }), h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag }));
+      }, layerGlyph(l, (n) => this.imageUrl(n)), h('span', { text: l.name }), code);
     }));
     if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
   }
