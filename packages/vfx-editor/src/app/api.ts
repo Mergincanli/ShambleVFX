@@ -19,6 +19,8 @@ export interface AppApi {
   effect(): EffectFile | undefined;
   layer(): Layer | undefined;
   selectLayer(id: string | null): void;
+  /** A layer's row is under the mouse (Layers list or timeline), or none is: the preview fades the others while it is. */
+  hoverLayer(id: string | null): void;
   imageNames(): string[];
   imageUrl(name: string): string | undefined;
   editEffect(path: Path, value: unknown, opts?: EditOptions): void;

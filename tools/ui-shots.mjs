@@ -25,9 +25,11 @@ const SEED = 7;
 //   effect and ms     the effect (by id) and the moment it is paused at: the same for every picture of the state
 //   layer             a layer id, or 'first:<type>' for the first layer of that type in the effect's file
 //   picker            true: the colour picker is open on the effect's main colour
-//   tooltip           true: a tooltip must be open in the picture (act opens it)
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
 //                     and keys with Playwright's real mouse and keyboard
+//   hover(page)       optional: a Playwright locator to rest the pointer on until its tooltip opens, after the effect is
+//                     drawn and just before the picture (drawing can move the panel: the Look's line comes in), so the
+//                     picture has that tooltip open
 const STATES = [
   { name: 'rifle-effect', project: DEMO, effect: 'rifle_shot', ms: 20 },
   // The first sprite in the effect's file is the Tracer (the Layers list shows the file upside down: second from the bottom).
@@ -37,9 +39,9 @@ const STATES = [
   { name: 'beam-layer', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow' },
   { name: 'picker', project: DEMO, effect: 'rifle_shot', ms: 20, picker: true },
   // A tooltip open: a field label's help text in the panel (the glow's Mixes), and a bar's button with its shortcut (Fire).
-  { name: 'tooltip-label', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow', tooltip: true,
-    act: (page) => hoverForTooltip(page, page.locator('.inspector details', { has: page.locator(':scope > summary', { hasText: /^Place$/ }) }).locator('.flab', { hasText: /^Mixes$/ })) },
-  { name: 'tooltip-button', project: DEMO, effect: 'rifle_shot', ms: 20, tooltip: true, act: (page) => hoverForTooltip(page, page.locator('.vbar button.fire')) },
+  { name: 'tooltip-label', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow',
+    hover: (page) => page.locator('.inspector details', { has: page.locator(':scope > summary', { hasText: /^Place$/ }) }).locator('.flab', { hasText: /^Mixes$/ }) },
+  { name: 'tooltip-button', project: DEMO, effect: 'rifle_shot', ms: 20, hover: (page) => page.locator('.vbar button.fire') },
   // (e) menu: a menu open. Menus only exist from phase 3 of the redesign on, so this state is left out for now. Add it
   // then, for example: { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, act: async (page) => { await page.click('…'); } },
 ];
@@ -131,6 +133,9 @@ function describe() {
     frame: box(document.querySelector('.frame-guide')) ?? box(document.querySelector('.viewport')),
     viewport: box(document.querySelector('.viewport')),
     covers: ['.frame-label', '.scale-label', '.vhint', '.cpick:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
+    // With a layer selected: the Look, the live picture at the top of its panel (held at a moment from the one shown).
+    look: box(document.querySelector('.inspector .look-box')),
+    lookState: a.lookForChecks?.() ?? null,
   };
 }
 
@@ -225,7 +230,7 @@ const ABOUT = 'The settings inventory of the editor\'s right panel (the inspecto
   + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect, Cost and Checks cards); '
   + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect, '
   + 'then the Cost and Checks cards, which are the same for every layer, so they are listed once, in the effect\'s view). '
-  + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". '
+  + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
   + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
   + 'The second and third box of a generated pair or group of three are named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '
@@ -302,6 +307,21 @@ try {
     return isGround > n * 0.2 && other > n * 0.005 ? null : `the preview looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
   };
 
+  /** With a layer selected, the Look must be drawn: the ground colour, and the layer on it (its corners left out). */
+  const lookDrawn = (png, d) => {
+    const b = d.look;
+    if (!b) return 'no Look in the layer\'s panel';
+    if (!d.lookState?.ready) return 'the Look did not get its renderer';
+    let n = 0, isGround = 0, other = 0;
+    for (let y = Math.ceil(b.y + 4); y < Math.min(b.y + b.h - 4, png.height); y += 2) for (let x = Math.ceil(b.x + 4); x < Math.min(b.x + b.w - 4, png.width); x += 2) {
+      const i = (y * png.width + x) * 4;
+      const off = Math.max(...ground.map((g, k) => Math.abs(png.data[i + k] - g)));
+      n++;
+      if (off <= 2) isGround++; else if (off > 24) other++;
+    }
+    return isGround > n * 0.2 && other >= 20 ? null : `the Look looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
+  };
+
   mkdirSync(outDir, { recursive: true });
   for (const state of states) {
     let told = false;
@@ -322,6 +342,7 @@ try {
           await settle(page, state.picker);
           await page.evaluate(draw, { ms: state.ms, seed: SEED });
           await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+          if (state.hover) await hoverForTooltip(page, state.hover(page));
           const got = await page.evaluate(describe);
           const wrong = [];
           if (got.theme !== theme.param) wrong.push(`theme is ${got.theme}, want ${theme.param}`);
@@ -330,10 +351,11 @@ try {
           if (state.layer && !state.layer.startsWith('first:') && got.layer !== state.layer) wrong.push(`layer is ${got.layer}, want ${state.layer}`);
           if (state.layer?.startsWith('first:') && !got.layer) wrong.push('no layer is selected');
           if (!!state.picker !== got.pickerOpen) wrong.push(`the colour picker is ${got.pickerOpen ? 'open' : 'closed'}`);
-          if (!!state.tooltip !== got.tooltipOpen) wrong.push(`a tooltip is ${got.tooltipOpen ? 'open' : 'not open'}`);
+          if (!!state.hover !== got.tooltipOpen) wrong.push(`a tooltip is ${got.tooltipOpen ? 'open' : 'not open'}`);
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);
+          if (state.layer) { const look = lookDrawn(png, got); if (look) wrong.push(look); }
           if (png.width !== size.width || png.height !== size.height) wrong.push(`the picture is ${png.width} x ${png.height}`);
           if (!told) {
             console.log(`${state.name}: ${got.effectName}${got.layer ? `, layer "${got.layerName}" (${got.layer})` : ', no layer'}${state.picker ? `, colour picker on ${got.role}` : ''}; ${state.ms} ms, seed ${SEED}`);

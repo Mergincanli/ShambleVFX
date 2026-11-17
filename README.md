@@ -52,13 +52,19 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    - **Distance from you**: comic words shrink with it (full size to 2 m, 60 % from 5 to 8 m, gone at 11 m). In the tank
      shell's scene it moves the landing point away from you.
    - **View**: whole screen, game size, or a close-up on the muzzle or the target.
+   - **Fade other layers**, the striped square after the view buttons: on at first. While a layer is selected, or its row is
+     under the mouse in the Layers list or on the timeline, the other layers fade in the preview, so you see which part of
+     the effect it is; a projectile keeps the layers riding it. Off, the preview shows the game's look. It is remembered.
 4. **Drag on the ground** to move the target. Hold Shift and drag to move the shooter.
 5. **Play**, **Loop**, the **speed** buttons and the **timeline** work like a video player. The strip under the ruler shows
    the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
 6. The right panel shows what is selected. No layer: the effect's settings (its name, the four **big controls**, the three
    **phase** lengths and its colours). Click a **layer** (in the Layers list or on the timeline) and the panel shows that
    layer's settings, under a header with the effect's name, "›" and the layer's name: click the effect's name, or press
-   Esc, to go back to the effect's settings. Each layer says what draws it: an image ("Image: muzzle_flash.png") or code
+   Esc, to go back to the effect's settings. They start with **Look**: a live picture of the layer alone, drawn by the
+   game's code on the ground colour, framed on it and playing its own time in a loop at the speed the speed buttons set (a
+   layer that rides a projectile flies along its path; a projectile shows the layers riding it). Fold it to put it away.
+   A sprite still shows its image under Image. Each layer says what draws it: an image ("Image: muzzle_flash.png") or code
    ("Drawn in code, no image"). A projectile is an invisible path: its panel lists the layers riding it (click one to
    select it), and those say "rides Bullet" in the Layers list. Shapes, bursts and words show the settings the file has,
    with optional parts behind a switch, except two that come with the new UI: a word's chance (the words box keeps it
@@ -113,7 +119,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (523): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
+The unit tests (536): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
 for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 % shown
 with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every seed
 when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances;
@@ -128,7 +134,10 @@ gradient keeping the bed's own bands, alpha, a banded stop's alpha in its band a
 bed parts on the same band edges, every band still reaching past the bed's middle, the white-hot spots on the middle
 band, and a banded gradient with the tones' band edges drawing today's bed exactly); what the right panel says about
 layers (what draws each one, the projectile a layer rides and the layers riding a projectile, the colours of the effect,
-a layer or a projectile's riders, from the checker's own list); the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
+a layer or a projectile's riders, from the checker's own list); fading the other layers in the preview (each blend group
+as its material reads it, a projectile's riders kept, nothing drawn before the draw changed); the Look's layer alone
+(exactly the layer's own triangles in the whole effect, a rider riding, a projectile's riders, a layer the tier leaves
+out, the same times), its loop, the moment it holds for a picture and its framing; the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
 kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !,
 built from their data, no stroke thinner than the board's); the fire's layout; every example effect drawn all through;
 undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
@@ -147,21 +156,26 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (181 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (197 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
 motion; one icon per kind of layer in the Layers list, on the timeline and in the header, a ring showing the ring, a sprite
-its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), the tooltips (after
-the 500 ms hover delay and not before, 150 ms when one was just open, at once on Tab and not on focus the editor moves; the
-help text for a label where it is, such as a ring's Width; a title moving into the tooltip; a name in brackets, "Smoke (2)",
-kept whole; Undo naming the step; hidden by a press, a scroll and Esc, which still leaves the layer; no tooltip after a
-click on a row built again under the pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both
-themes; names of controls unchanged; and every label and section title of every layer of both examples, and every control
-of the bars, with a help text), the add menu, phase
-starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
+its own image or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), Fade other layers (the
+toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
+picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
+lane; effects playing from Fire, a fired copy of the effect shown and one of another effect; the game's look, pixel for
+pixel, when it is off; the cost measurement unchanged), the Look (each kind of layer drawn, held at the moment shown, drawn
+only while its panel shows it and the page is visible, its renderer and WebGL context let go when it is folded or no layer
+is selected, and playing in a loop while the editor runs), the tooltips (after the 500 ms hover delay and not before,
+150 ms when one was just open, at once on Tab and not on focus the editor moves; the help text for a label where it is,
+such as a ring's Width; a title moving into the tooltip; a name in brackets, "Smoke (2)", kept whole; Undo naming the step;
+hidden by a press, a scroll and Esc, which still leaves the layer; no tooltip after a click on a row built again under the
+pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both themes; names of controls unchanged; and every
+label and section title of every layer of both examples, and every control of the bars, with a help text), the add menu,
+phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, Save
 as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette profile Import keeps
@@ -174,7 +188,7 @@ new colour), a ready-made gradient on a glow, night mode, the faction markings, 
 the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
 software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
-took to start (about 5 s).
+took to start (5 to 10 s in this round's runs, whether or not the first page also draws a layer's Look).
 
 ```bash
 npm run typecheck
@@ -273,6 +287,9 @@ These write pictures to `out/` (kept out of git):
   to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
   so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
   bold).
+- **Seeing what is selected**: a layer's settings start with its **Look**, a live picture of the layer alone drawn by the
+  runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
+  layers**, in the bar above the preview).
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -494,6 +511,39 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     image"). Riders are listed as in the Layers list, top of the drawing order first.
   - In the Layers list "rides Bullet" takes the place of a rider's usual tag (its image, shape or words), in Plex Sans; the
     row's tooltip says it too. A rider the tier leaves out says "not in Low" instead, like every row the tier leaves out.
+- **Seeing what is selected** (Mustafa's feedback of 2026-11-16: the other layers fade in the preview, and a live picture
+  of the selected layer; these details are ours):
+  - The other layers fade to a quarter of their strength. The runtime writes each draw's triangles into its buffers; before
+    they go to the GPU, the editor scales the colours of the other layers' vertices by what each blend group's material
+    does with them: normal drawing by its alpha, added light by its colour, stains (multiply) by their alpha, which moves
+    them towards white (for an image too, where moving the colour towards white would not), and light on the ground
+    (screen, which the plan does not name) by its alpha, which weakens it. Every triangle stays, so the triangles and draw
+    calls above the preview do not change; the cost measurement has its own renderer and never sees the fade.
+  - A row under the mouse, in the Layers list or on the timeline, counts before the selection while the mouse is there;
+    a scrub that starts on a row's lane is not a hover, so the selection counts while you drag. Fade other layers off
+    stops both. Effects still playing from an earlier Fire of another effect fade as a whole. The game
+    screen alone (`?frame=1`) never fades.
+  - The toggle sits after the view buttons, with the icon of the colour picker's Gradients (a striped square). The icons
+    round drew one icon per kind of layer, and each of those means a kind of layer, so none was taken for the toggle; it
+    keeps the striped square until it gets an icon of its own. It has no key. Its tooltip is its name and the help text
+    for "Fade other layers" (`help.ts`).
+  - The Look is a section of its own, first in the layer's settings (inside the layer's card, so the settings inventory
+    lists it, with no settings), open at first; folded, it stops and lets go of its renderer. The picture is 144 px tall
+    and as wide as the panel, on the preview's ground colour (a game colour, the same in both themes, so it needs no edge).
+  - Framing: the layer's box on the 1920 × 1080 game screen over its time, found by drawing it 24 times a second of that
+    time (6 to 48 times), with a tenth of the box as margin on each side, and never less than 32 px of the game screen
+    across (in the 144 px picture a speck shows at most 3.75 times game size). A sprite counts as its whole picture, see-through parts
+    included. While a value is dragged, the box is worked out again at most five times a second. The line under the
+    picture says how large it shows the layer and which time it loops over.
+  - Time: the layer's own time (a projectile's: its flight together with its riders' times), then the same 300 ms rest as
+    Loop, at the speed the speed buttons set, whether the timeline plays or not. It uses the preview's seed (so it changes
+    with Fire), faction, made-by and distance. A layer the preview's tier leaves out still shows in the Look (a layer draws
+    the same in every tier it shows in); the preview shows the tier.
+  - The Look draws in the editor's own frames, only while the page is visible. Its renderer (WebGL 2, also next to a
+    WebGPU preview) is made on the next task after a layer's panel opens, so selections made one after another in one go
+    make none, and is disposed with its WebGL context when no layer is selected or the Look is folded. Paused by showAt
+    (the browser check and the picture tools), it holds the moment shown when that is in its time, else the middle of its
+    time, so pictures repeat.
 - **Layer icons** (one icon per kind of layer is Mustafa's ask; these details are ours):
   - A shape goes by its kind, a burst by the look of its pieces, and an image burst by the image icon (as the plan says).
     The word icon is now the letters POW, in place of the speech bubble; the projectile and sprite icons stay.
@@ -517,9 +567,13 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     one. Only the editor's own words are looked up, never names people give (an effect called "Fire" does not get Fire's
     text), and not in the colour picker or dialogs, whose titles show as they are.
   - Where a help text says what a title said, the title went (Save, Export…, Keys, Fire, Play, Loop, New, From preset…,
-    Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all). The other
-    titles stay and show first (rows' full names, the faction and made-by choices, the triangle count, the renderer, the
-    picker's buttons…). The text inputs, number boxes and selects get no tooltip of their own: their label explains them.
+    Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all, Fade other
+    layers, the Look's title). The Look's help text took in what its title added (the preview's faction and made-by; a
+    rider flying along its path, a projectile showing its riders). The other titles stay and show first (rows' full
+    names, the faction and made-by choices, the triangle count, the renderer, the picker's buttons…). The text inputs,
+    number boxes and selects get no tooltip of their own: their label explains them.
+  - What draws a layer ("Drawn in code, no image", "Image: …", "An invisible path…") explains itself in its tooltip, with
+    the texts `help.ts` has for those lines.
   - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press, a scroll or Esc hides it
     until the pointer moves on: what comes up under a pointer that has not moved (the row built again after a click, the
     label scrolled under it) stays quiet, so a click never leaves a tooltip on screen.

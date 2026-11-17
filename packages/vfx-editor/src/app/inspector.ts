@@ -11,8 +11,10 @@ import type { AppApi } from './api';
 import { colourList } from './colourlist';
 import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
-import { checkField, fold, h, numberField, segmented, selectField, slider, textField } from './dom';
+import { checkField, fold, h, numberField, segmented, selectField, slider, textField, tip } from './dom';
+import { NEW_THIS_ROUND } from './help';
 import { layerGlyph, layerGlyphKey } from './layer-icons';
+import { LookView } from './look';
 import { specForm, structureOf } from './specform';
 
 interface Refresher { refresh(): void }
@@ -24,11 +26,22 @@ function keyOf(fxId: string | undefined, layer: Layer | undefined): string {
 
 const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
 
-export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void; refresh(): void; backToEffect(): void } {
+export interface InspectorView {
+  el: HTMLElement;
+  rebuild(): void;
+  refresh(): void;
+  backToEffect(): void;
+  /** The live picture at the top of a layer's settings (the app draws it in its frames). */
+  look: LookView;
+}
+
+export function buildInspector(app: AppApi): InspectorView {
   // data-help-*: where the help texts in the tooltips look for the layer type and shape kind shown (src/app/helptips.ts).
   const el = h('aside', { class: 'inspector', attrs: { 'aria-label': 'Effect and layer settings', 'data-help-panel': '' } });
   // One colour list for the panel: each view puts it in its place, so the colours can move from one selection to the next.
   const colours = colourList(app);
+  // One Look too: a layer's view puts it at its top, and its renderer lives while a layer's view shows it.
+  const look = new LookView();
   let parts: Refresher[] = [];
   let builtFor = '';
   let shownSelection = '';
@@ -49,8 +62,9 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
     const selection = `${fx?.id}|${layer?.id}`;
     const another = selection !== shownSelection;
     if (another) { shownSelection = selection; if (el.parentElement) el.parentElement.scrollTop = 0; }
+    look.setShown(!!(fx && layer));
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
-    if (layer) el.append(layerHeader(app, parts, backToEffect), layerDetails(app, layer, parts, colours));
+    if (layer) el.append(layerHeader(app, parts, backToEffect), layerDetails(app, layer, parts, colours, look));
     else el.append(bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
     const cost = costCard(app);
     parts.push(cost);
@@ -68,7 +82,7 @@ export function buildInspector(app: AppApi): { el: HTMLElement; rebuild(): void;
     colours.refresh();
   };
   rebuild();
-  return { el, rebuild, refresh, backToEffect };
+  return { el, rebuild, refresh, backToEffect, look };
 }
 
 // ---------------------------------------------------------------- the header of a layer's settings
@@ -131,10 +145,13 @@ function drawsLine(app: AppApi, parts: Refresher[]): HTMLElement {
   const p = h('p', { class: 'draws' });
   let shown = '';
   const draw = () => {
-    const d = whatDraws(app.layer() as Layer);
+    const l = app.layer() as Layer;
+    const d = whatDraws(l);
     if (`${d.text}|${d.image}` === shown) return;
     shown = `${d.text}|${d.image}`;
     p.replaceChildren(...drawsParts(d));
+    // What that means, in its tooltip (help.ts's texts for these lines).
+    tip(p, d.image ? NEW_THIS_ROUND.drawnFromImage(d.image) : l.type === 'projectile' ? NEW_THIS_ROUND.invisiblePath : NEW_THIS_ROUND.drawnInCode);
   };
   draw();
   parts.push({ refresh: draw });
@@ -166,6 +183,16 @@ function ridersFold(app: AppApi, parts: Refresher[]): HTMLElement {
   draw();
   parts.push({ refresh: draw });
   return fold('Layers riding it', [list, none], true);
+}
+
+/** The Look: the layer alone, live. Folded, it stops and lets go of its renderer. */
+function lookFold(look: LookView): HTMLElement {
+  const d = fold('Look', [look.el], true);
+  d.classList.add('look-fold');
+  // Its title's tooltip is the help text for "Look" (help.ts), as for every section.
+  d.addEventListener('toggle', () => look.setOpen(d.open));
+  look.setOpen(d.open);
+  return d;
 }
 
 /** The layer's Colour section: its colours (the list shared with the effect's view), Show all next to the title. */
@@ -225,18 +252,19 @@ function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
 // ---------------------------------------------------------------- the layer's details
 
 /**
- * Everything of the layer, in one card (the settings inventory of tools/ui-shots.mjs reads a layer from it): its kind, what
- * draws it, its name and tiers; a projectile's riders; the type's own sections with its colours; then Time. The Colour
- * section comes before the long lists of settings, so it shows without scrolling: right after the name and tiers of a
- * shape, a burst or a word, after a projectile's riders, and after a sprite's Image and Size and place (it holds the tint).
+ * Everything of the layer, in one card (the settings inventory of tools/ui-shots.mjs reads a layer from it): the Look (a
+ * live picture of the layer); its kind, what draws it, its name and tiers; a projectile's riders; the type's own sections
+ * with its colours; then Time. The Colour section comes before the long lists of settings, so it shows without scrolling:
+ * right after the name and tiers of a shape, a burst or a word, after a projectile's riders, and after a sprite's Image and
+ * Size and place (it holds the tint).
  */
-function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: ColourListView): HTMLElement {
+function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: ColourListView, look: LookView): HTMLElement {
   const L = () => app.layer() as Layer;
   const box = h('section', { class: 'card layer' });
   const name = textField({ label: 'Layer name', value: layer.name, onChange: (v) => app.editLayer(['name'], v.trim() || 'Layer', { label: 'Rename layer' }) });
   parts.push({ refresh: () => name.set(L().name) });
   const title = { sprite: 'Sprite layer', projectile: 'Projectile layer', shape: 'Shape layer', burst: 'Burst layer', word: 'Word layer' }[layer.type];
-  box.append(h('h2', { text: title }), drawsLine(app, parts), name.el);
+  box.append(lookFold(look), h('h2', { text: title }), drawsLine(app, parts), name.el);
   if (layer.type !== 'projectile') box.append(tierFields(app, parts));
   if (layer.type === 'sprite') box.append(...spriteFields(app, parts, colours));
   else if (layer.type === 'projectile') box.append(ridersFold(app, parts), colourFold(colours), ...projectileFields(app, parts));

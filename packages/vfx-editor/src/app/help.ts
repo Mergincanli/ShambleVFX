@@ -413,8 +413,8 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
     text: 'What each piece looks like: its kind, colour and edge.',
     when: [
       { in: 'Pieces', text: 'What each piece looks like: its kind, colour and edge.' },
-      // F2, from the spec: the live picture at the top of every layer's panel (a title with no section round it).
-      { title: true, text: 'A live picture of this layer alone, drawn by the game\'s code on the ground colour and playing its own time in a loop.' },
+      // F2: the live picture at the top of every layer's panel (a title with no section round it), as look.ts draws it.
+      { title: true, text: 'A live picture of this layer alone, drawn by the game\'s code with the preview\'s faction and made-by, playing its own time in a loop. A rider flies along its path; a projectile shows its riders.' },
     ],
   },
   'Kind': 'The piece\'s shape: diamond, chip, spark, dot, shard, speck, puff, streak or spike. Sparks, spikes and streaks point the way they fly.',
@@ -861,7 +861,7 @@ export const NEW_THIS_ROUND = {
   /** F1: the toggle in the bar above the preview ("Fade other layers"). */
   fadeOtherLayers: NEW_LABELS['Fade other layers']!,
   /** F2: the live picture at the top of a layer's panel. */
-  look: 'A live picture of this layer alone, drawn by the game\'s code on the ground colour and playing its own time in a loop.',
+  look: 'A live picture of this layer alone, drawn by the game\'s code with the preview\'s faction and made-by, playing its own time in a loop. A rider flies along its path; a projectile shows its riders.',
   /** F5: the "Show all" toggle next to a Colour heading. */
   showAll: NEW_LABELS['Show all']!,
   /** F5: the sprite's Colour section once it lists the layer's colours (HELP's text is true before and after F5). */
