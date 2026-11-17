@@ -25,8 +25,11 @@ const SCREEN_W = CAM.screenWidth, SCREEN_H = CAM.screenHeight;
 export const LOOK_MARGIN = 0.1;
 /** The smallest part of the game screen the Look shows, in px of the 1920 x 1080 screen: a speck is not blown up past it. */
 export const LOOK_MIN_PX = 32;
-/** How often the layer is drawn to find its box: 24 times a second of its time (twice the comic step rate). */
-const SAMPLES_PER_SECOND = 24;
+/**
+ * How often the layer is drawn to find its box: 120 times a second of its time (6 to 48 times). A fast streak crosses the
+ * screen in a few frames, so a short time is drawn often; a long one is drawn 48 times, spread over it.
+ */
+const SAMPLES_PER_SECOND = 120;
 /** While a value is dragged the effect changes every frame: its box is worked out again at most this often (ms). */
 const REFIT_MS = 200;
 
@@ -85,16 +88,20 @@ export function frameBox(b: Box, aspect: number, margin = LOOK_MARGIN, minPx = L
 /**
  * Where the layer draws on the game screen over its time: drawn SAMPLES_PER_SECOND times a second of the span (6 to 48
  * times) with the Look's own VfxRenderer, each vertex seen through the game camera. Undefined when it draws nothing.
+ * The first and the last moment are among those drawn: a fast streak moves far between two moments, and where it leaves
+ * and where it lands must be in the box too. A layer draws while its time is under its end, so the last moment is just
+ * before the end.
  */
 export function measureBox(vfx: VfxRenderer, cam: PerspectiveCamera, fx: EffectFile, span: Span, p: Omit<DrawParams, 'timeMs'>): Box | undefined {
   const len = span.end - span.start;
   const n = Math.max(6, Math.min(48, Math.ceil((len * SAMPLES_PER_SECOND) / 1000)));
+  const last = len - Math.min(0.5, len / 100);
   cam.updateMatrixWorld();
   const e = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).elements;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (let k = 0; k < n; k++) {
     vfx.begin(cam);
-    vfx.draw(fx, { ...p, timeMs: span.start + ((k + 0.5) / n) * len });
+    vfx.draw(fx, { ...p, timeMs: span.start + (k / (n - 1)) * last });
     for (const g of BLEND_GROUPS) {
       const b = vfx.sink.groups[g], pos = b.pos;
       for (let v = 0; v < b.vcount; v++) {

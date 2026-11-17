@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import paletteJson from '@shamble/vfx-format/palette.json';
 import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { BLEND_GROUPS, VfxRenderer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
-import { aloneEffect, frameBox, loopMoment, loopSpan, measureBox, stillMoment } from '../src/app/look';
+import { LOOK_MARGIN, aloneEffect, frameBox, loopMoment, loopSpan, measureBox, stillMoment } from '../src/app/look';
 import { makeGameCamera } from '../src/preview/camera';
 
 const palette = paletteJson as Palette;
@@ -134,5 +134,37 @@ describe('the Look: its time and its frame', () => {
     const bare = { ...rifle, layers: rifle.layers.filter((l) => l.id !== 'tracer' && l.id !== 'tracer_core') };
     const bullet = bare.layers[0]!;
     expect(measureBox(vfx, makeGameCamera(), aloneEffect(bare, bullet), loopSpan(bare, timeline(bare), bullet)!, params)).toBeUndefined();
+  });
+
+  it('keeps every moment of the layer\'s time inside its box and margin: a fast streak leaving the muzzle, a landing', () => {
+    // The Rifle shot (board)'s tracer is a streak riding a projectile that crosses the screen in 22 ms: its tail stays at
+    // the muzzle for a few ms only. Every moment, 1 ms apart, must be inside the box with the Look's margin, or the Look
+    // cuts the layer at its edge. The demo's rifle and tank shell fly too.
+    for (const [file, ids] of [['board_muzzle', ['tracer_flight', 'tracer']], ['rifle_shot', ['bullet', 'tracer']], ['board_shell', ['shell', 'trail']]] as const) {
+      const fx = effect(file), tl = timeline(fx);
+      const vfx = new VfxRenderer(palette);
+      vfx.setAtlas(atlas);
+      for (const id of ids) {
+        const layer = fx.layers[at(fx, id)]!;
+        const alone = aloneEffect(fx, layer);
+        const span = loopSpan(fx, tl, layer)!;
+        const box = measureBox(vfx, makeGameCamera(), alone, span, params)!;
+        expect(box, `${file} ${id}`).toBeDefined();
+        const mx = (box.x1 - box.x0) * LOOK_MARGIN, my = (box.y1 - box.y0) * LOOK_MARGIN;
+        let drawn = 0;
+        for (let ms = span.start; ms < span.end; ms++) {
+          // Where it draws at this moment (a span too short to hold two moments).
+          const b = measureBox(vfx, makeGameCamera(), alone, { start: ms, end: ms + 0.01 }, params);
+          if (!b) continue;
+          drawn++;
+          const where = `${file} ${id} at ${ms} ms`;
+          expect(b.x0, where).toBeGreaterThanOrEqual(box.x0 - mx);
+          expect(b.x1, where).toBeLessThanOrEqual(box.x1 + mx);
+          expect(b.y0, where).toBeGreaterThanOrEqual(box.y0 - my);
+          expect(b.y1, where).toBeLessThanOrEqual(box.y1 + my);
+        }
+        expect(drawn, `${file} ${id}`).toBeGreaterThan(5);
+      }
+    }
   });
 });

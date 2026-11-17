@@ -119,7 +119,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (536): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
+The unit tests (537): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
 for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 % shown
 with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every seed
 when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances;
@@ -137,7 +137,8 @@ layers (what draws each one, the projectile a layer rides and the layers riding 
 a layer or a projectile's riders, from the checker's own list); fading the other layers in the preview (each blend group
 as its material reads it, a projectile's riders kept, nothing drawn before the draw changed); the Look's layer alone
 (exactly the layer's own triangles in the whole effect, a rider riding, a projectile's riders, a layer the tier leaves
-out, the same times), its loop, the moment it holds for a picture and its framing; the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
+out, the same times), its loop, the moment it holds for a picture and its framing (every moment of a tracer that crosses the
+screen in 22 ms inside the picture); the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
 kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !,
 built from their data, no stroke thinner than the board's); the fire's layout; every example effect drawn all through;
 undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
@@ -531,8 +532,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - The Look is a section of its own, first in the layer's settings (inside the layer's card, so the settings inventory
     lists it, with no settings), open at first; folded, it stops and lets go of its renderer. The picture is 144 px tall
     and as wide as the panel, on the preview's ground colour (a game colour, the same in both themes, so it needs no edge).
-  - Framing: the layer's box on the 1920 × 1080 game screen over its time, found by drawing it 24 times a second of that
-    time (6 to 48 times), with a tenth of the box as margin on each side, and never less than 32 px of the game screen
+  - Framing: the layer's box on the 1920 × 1080 game screen over its time, found by drawing it 120 times a second of that
+    time (6 to 48 times, its first and last moments among them, so a tracer that crosses the screen in 22 ms is never cut
+    at the picture's edge), with a tenth of the box as margin on each side, and never less than 32 px of the game screen
     across (in the 144 px picture a speck shows at most 3.75 times game size). A sprite counts as its whole picture, see-through parts
     included. While a value is dragged, the box is worked out again at most five times a second. The line under the
     picture says how large it shows the layer and which time it loops over.
