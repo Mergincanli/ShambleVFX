@@ -1037,7 +1037,15 @@ export class App implements AppApi {
         h('div', { class: 'dlg-buttons' },
           h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'OK', on: { click: () => done(input.value.trim() || null) } }),
           h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Cancel', on: { click: () => done(null) } })));
-      d.onkeydown = (e) => { if (e.key === 'Enter') done(input.value.trim() || null); };
+      // Enter in the box answers OK; on a button, the button answers. The handler stays on the dialog, which the next dialog
+      // reuses: a question closed with Esc must answer nothing later (Enter in the next dialog ran the cancelled command, a
+      // new project or a copy, and Enter on Cancel ran it too). The key stops here: the dialog closes on keydown and gives the
+      // focus back to the button that opened it, which the same Enter clicked (a second Save as, the main menu again).
+      d.onkeydown = (e) => {
+        if (e.key !== 'Enter' || e.target !== input) return;
+        e.preventDefault();
+        done(input.value.trim() || null);
+      };
       d.showModal();
       input.select();
     });
