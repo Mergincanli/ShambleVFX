@@ -496,8 +496,11 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .transport .play:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); color: var(--text); }
 /* The time readout: "89 / 299 ms" (click the time to type one), then "step 1", muted. */
 .time { display: inline-flex; align-items: center; margin-left: 8px; white-space: nowrap; }
-.time-now { height: var(--h-control); min-width: 28px; margin: 0 -4px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--text); text-align: right; }
+/* No margin on its right, and its focus ring inside its box, as on the status bar's items: both end before " / 299 ms"
+   (the ring crossed the slash). */
+.time-now { height: var(--h-control); min-width: 28px; margin: 0 0 0 -4px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--text); text-align: right; }
 .time-now:hover { background: var(--bg-hover); }
+.time-now:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
 .time .time-input { width: 64px; margin-right: 4px; }
 /* " / 299 ms": its leading space stays (a flex item would drop it). */
 .time-len { white-space: pre; }

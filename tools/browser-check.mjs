@@ -1781,6 +1781,23 @@ if (webgpu) {
       r0.text === `250 / ${Math.round(len)} msstep 3` && r0.step === 'Steps of 1/12 s, the comic step rate' && r0.stepColour === r0.muted && r1b.box && r1b.focus?.includes('time-input')
         && r2.time === 120 && !r2.playing && !r2.box && r2.text.startsWith('120 / ') && r2.focus === 'time-now' && r3.time === 120 && !r3.box && r4.time === len && r5.text === 'Firing: 1 playing',
       JSON.stringify({ r0, r1b: [r1b.box, r1b.focus], r2: [r2.text, r2.time, r2.playing, r2.focus], r3: [r3.time, r3.box], r4: r4.time, len, r5: r5.text }));
+    // With the keyboard focus on the time (Tab from the speed buttons), its focus ring ends before the slash of " / … ms"
+    // (it crossed it). An inset shadow reaches no further than the box.
+    await sp.evaluate(async () => { await window.__vfx.app.showAt(250, 7); });
+    await sp.locator('.transport [aria-label="Speed"] button').last().focus();
+    await sp.keyboard.press('Tab');
+    const ring = await sp.evaluate(() => {
+      const b = document.activeElement, t = document.querySelector('.transport .time-len').firstChild;
+      const g = getComputedStyle(b), r = b.getBoundingClientRect();
+      const spread = Math.max(0, ...g.boxShadow.split(/,(?![^(]*\))/).filter((x) => !x.includes('inset')).map((x) => +(x.match(/(-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px/)?.[4] ?? 0)));
+      const out = Math.max(0, parseFloat(g.outlineWidth) + parseFloat(g.outlineOffset), spread);
+      const slash = document.createRange(), i = t.textContent.indexOf('/');
+      slash.setStart(t, i);
+      slash.setEnd(t, i + 1);
+      return { focus: b.className, visible: b.matches(':focus-visible') && g.outlineStyle === 'solid', ringRight: +(r.right + out).toFixed(2), slash: +slash.getBoundingClientRect().left.toFixed(2) };
+    });
+    await sp.evaluate(async () => { await window.__vfx.app.showAt(0, 7); });
+    ok('the time\'s focus ring, from the keyboard, ends before the slash of " / … ms"', ring.focus === 'time-now' && ring.visible && ring.ringRight <= ring.slash, JSON.stringify(ring));
 
     // The scale, right after the View buttons: muted, with its tooltip; it follows the view and the preview's size.
     const scaleNow = () => sp.evaluate(() => {
