@@ -22,7 +22,15 @@
   --pad-panel: 12px;
   --h-topbar: 40px;
   --h-toolbar: 36px;
-  --h-inspector-head: 40px; /* the header of a layer's settings */
+  --h-inspector-head: 40px; /* the right panel's header: the effect's, or the layer's */
+  --h-timeline-head: 32px;  /* the timeline's header: the transport */
+  --h-statusbar: 24px;
+  --h-status-item: 20px;    /* a button in the status bar */
+  --w-splitter: 6px;        /* a splitter's grab area, over the 1 px line between two zones */
+  --w-app-min: 1280px;
+  --w-centre-min: 640px;
+  --w-menu-min: 224px;
+  --dot: 10px;              /* an effect's main-colour dot */
   --h-section: 32px;
   --h-row: 28px;
   --h-control: 24px;
@@ -39,6 +47,15 @@
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
+  /* The window's grid (docs/ui-redesign.md 5.2), for windows narrower than 2200 px (1920 x 1080); wider ones below. A size
+     dragged with a splitter is set on #app, over these (src/app/layout.ts). */
+  --left-w: 248px;
+  --right-w: 296px;
+  --effects-h: 40%;  /* of the left sidebar */
+  --timeline-h: 30%; /* of the centre column, its header included */
+}
+@media (min-width: 2200px) {
+  :root { --left-w: 280px; --right-w: 320px; --timeline-h: 34%; }
 }
 
 /* ---------------------------------------------------------------- Day */
@@ -190,7 +207,7 @@ kbd { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-fiel
 .fatal { margin: 24px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); white-space: pre-wrap; font-family: var(--mono); }
 /* Its first line is a sentence, not file text; the stack trace under it stays Plex Mono. */
 .fatal::first-line { font-family: var(--body); font-weight: 600; }
-#app { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; min-width: 1100px; }
+#app { display: grid; grid-template-rows: var(--h-topbar) minmax(0, 1fr) var(--h-statusbar); height: 100vh; min-width: var(--w-app-min); }
 h2 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
 
 /* Keyboard focus: a 1 px edge and a 2 px ring round it. Always visible. */
@@ -304,30 +321,75 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .fold-actions { position: absolute; top: 0; right: var(--pad-panel); display: flex; align-items: center; gap: 8px; height: var(--h-section); }
 .fold-actions .check { margin: 0; color: var(--text-muted); }
 
-/* ---------------------------------------------------------------- top bar */
-.topbar { display: flex; align-items: center; gap: 12px; height: var(--h-topbar); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
+/* ---------------------------------------------------------------- top bar (6.1) */
+.topbar { display: flex; align-items: center; gap: 8px; height: var(--h-topbar); padding: 0 var(--pad-panel) 0 4px; background: var(--bg-panel); border-bottom: 1px solid var(--line); }
+/* The logo menu: the logo and a chevron; while its menu is open, the field colour and the chevron in --accent-ink, as a chip
+   with its menu open (4.6). */
+.logo { display: inline-flex; align-items: center; gap: 4px; flex: none; height: var(--h-fire); padding: 0 4px 0 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); }
+.logo:hover { background: var(--bg-hover); }
+.logo[aria-expanded="true"] { background: var(--bg-field); }
+.logo .icon { color: var(--text-muted); }
+.logo[aria-expanded="true"] .icon { color: var(--accent-ink); }
 .brand { display: flex; align-items: center; gap: 6px; font-family: var(--display); font-size: var(--fs-logo); line-height: var(--lh-title); font-weight: 800; text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
 .brand b { font-weight: inherit; }
 .brand span { padding: 0 4px; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); }
-.project { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
-.project-name { max-width: 32ch; margin-right: 8px; font-size: var(--fs-name); line-height: var(--lh-title); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The project's name opens Projects. Its text stays "Demo project •": an example's lock sits between the name and the dot. */
+.project { display: flex; align-items: center; flex: 1; min-width: 0; }
+.project-btn { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; height: var(--h-fire); padding: 0 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); }
+.project-btn:hover { background: var(--bg-hover); }
+.project-name { display: inline-flex; align-items: center; min-width: 0; font-size: var(--fs-name); line-height: var(--lh-title); font-weight: 500; white-space: nowrap; }
+.pn-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pn-dot { white-space: pre; }
+.lock { display: inline-flex; flex: none; margin-left: 6px; color: var(--text-muted); }
 .tools { display: flex; align-items: center; gap: 4px; }
-.badge { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: var(--r-control); background: var(--bg-field); color: var(--text-muted); font-size: var(--fs-small); white-space: nowrap; }
+.tb-sep { width: 1px; height: var(--icon); margin: 0 4px; background: var(--line); }
+/* Saved: a state, not a command that cannot run: muted, with its check, at full strength. */
+.tb.save.saved:disabled { opacity: 1; background: transparent; color: var(--text-muted); }
 
-/* ---------------------------------------------------------------- the three columns */
-.workspace { display: grid; grid-template-columns: 260px minmax(0, 1fr) 360px; min-height: 0; }
-.left, .right { min-height: 0; overflow: auto; background: var(--bg-panel); }
-.left { display: flex; flex-direction: column; border-right: 1px solid var(--line); }
-.right { border-left: 1px solid var(--line); }
+/* ---------------------------------------------------------------- the three columns (5.2) */
+/* The centre is never narrower than 640 px: layout.ts narrows the sidebars when the window cannot hold their widths. Every
+   part is placed by hand, so the splitters can lie over the lines between the zones. */
+.workspace { display: grid; grid-template-columns: var(--left-w) minmax(var(--w-centre-min), 1fr) var(--right-w); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+.left { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--effects-h) minmax(0, 1fr); min-height: 0; overflow: hidden; background: var(--bg-panel); border-right: 1px solid var(--line); }
+.right { grid-area: 1 / 3; min-height: 0; overflow: auto; background: var(--bg-panel); border-left: 1px solid var(--line); }
+.left > .effects-section { grid-area: 1 / 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.left > .layers-section { grid-area: 2 / 1; }
+.effects-list { flex: 1; min-height: 0; }
+
+/* Splitters: a 6 px grab strip over a zone's own 1 px line. Like every part of the grid, each has a row and a column of its
+   own: a part with only a row would be placed beside the splitter that shares its cell, in a new column. At rest only the line shows; on hover a stronger line, and while
+   it has the keyboard focus or is dragged, the line in the focus colour. */
+.splitter { position: relative; z-index: 4; touch-action: none; }
+.splitter::before { content: ''; position: absolute; background: transparent; transition: background-color var(--t-colour); }
+.splitter:hover::before { background: var(--line-strong); }
+.splitter:focus-visible { outline: none; box-shadow: none; }
+.splitter:focus-visible::before, .splitter.dragging::before { background: var(--focus); }
+.split-left, .split-right { grid-row: 1; width: var(--w-splitter); cursor: col-resize; }
+.split-left { grid-column: 1; justify-self: end; margin-right: calc(var(--w-splitter) / -2); }
+.split-right { grid-column: 3; justify-self: start; margin-left: calc(var(--w-splitter) / -2); }
+/* Over the left sidebar's right line (its last pixel), and over the right panel's left line (its first). */
+.split-left::before { top: 0; bottom: 0; left: calc(var(--w-splitter) / 2 - 1px); width: 1px; }
+.split-right::before { top: 0; bottom: 0; left: calc(var(--w-splitter) / 2); width: 1px; }
+.split-effects, .split-timeline { grid-column: 1; align-self: start; height: var(--w-splitter); margin-top: calc(var(--w-splitter) / -2); cursor: row-resize; }
+.split-effects { grid-row: 2; }
+.split-timeline { grid-row: 3; }
+/* Over the line above the Layers section, and the line above the timeline. */
+.split-effects::before, .split-timeline::before { left: 0; right: 0; top: calc(var(--w-splitter) / 2); height: 1px; }
 /* Sections, not boxes: a header and a 1 px line between sections. */
 .card { padding: 0 var(--pad-panel) var(--pad-panel); }
 .left > .card + .card, .inspector > * + * { border-top: 1px solid var(--line); }
 .card.grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .card-head, .card > h2 { display: flex; align-items: center; gap: 4px; min-height: var(--h-section); }
 .card-head > h2 { margin-right: auto; }
+/* A header's buttons give way in a narrow sidebar (it can be dragged down to 200 px): their words end in an ellipsis. */
+.card-head > .mini { flex: 0 1 auto; min-width: 0; }
+.card-head > .mini > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .inspector > .empty { padding: var(--pad-panel); }
-/* The header of a layer's settings: the effect's name (back to its settings), "›", the layer's icon and name. It stays at
-   the top while the panel scrolls, so the way back is always there; its line is its own, not the next section's. */
+/* A section scrolled to (the status bar's Checks and Cost) shows under the header, not behind it. */
+.inspector > section { scroll-margin-top: var(--h-inspector-head); }
+/* The panel's header: the effect's (its main colour's dot, its name, "Effect"), or a layer's (the effect's name, back to its
+   settings, "›", the layer's icon and name). It stays at the top while the panel scrolls; its line is its own, not the next
+   section's. */
 .insp-head {
   position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; min-height: var(--h-inspector-head);
   padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line);
@@ -342,6 +404,8 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .crumb-sep { flex: none; color: var(--text-muted); }
 .insp-head .icon { color: var(--text-muted); }
 .insp-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-dot { width: var(--dot); height: var(--dot); flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+.insp-kind { flex: none; color: var(--text-muted); }
 /* The Look, first in a layer's settings: right under the header, so its line is the header's; the layer's kind after it
    starts a section of its own, with the usual line above. The picture is the preview's ground (a game colour) until the
    runtime draws on it: no edge, since the ground stands out from the panel in both themes. */
@@ -392,41 +456,50 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .layer-item.off code { color: var(--bad); }
 .layer-item.sel.off code { color: var(--text); }
 
-/* ---------------------------------------------------------------- centre: preview, transport, timeline */
-.centre { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; background: var(--bg-app); }
+/* ---------------------------------------------------------------- centre: toolbar, preview, timeline */
+/* The toolbar is 36 px, or taller while today's controls need a second row (phase 3 makes them chips). */
+.centre { grid-area: 1 / 2; display: grid; grid-template-rows: minmax(var(--h-toolbar), auto) minmax(0, 1fr) var(--timeline-h); min-width: 0; min-height: 0; background: var(--bg-app); }
+.centre > .vbar { grid-area: 1 / 1; }
+.centre > .viewport-wrap { grid-area: 2 / 1; }
+.centre > .timeline-pane { grid-area: 3 / 1; }
 .vbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; min-height: var(--h-toolbar); padding: 4px var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
 .vbar .row, .transport .row { margin: 0; flex-direction: row; align-items: center; gap: 8px; }
 .vbar .field.wide { margin: 0; flex-direction: row; align-items: center; gap: 8px; }
 .vbar .field.wide select { max-width: 220px; }
 .vbar .row.dist input[type="range"] { width: 110px; }
 .vbar .dist-val { min-width: 44px; }
-.stats { margin-left: auto; height: var(--h-control); padding: 0 6px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-muted); white-space: nowrap; }
-.stats:hover { background: var(--bg-hover); color: var(--text); }
-/* The preview: no yellow over it (the browser check counts the flash's orange in it). */
-.viewport-wrap { position: relative; min-height: 0; margin: var(--pad-panel); border: 1px solid var(--line); background: var(--ground); overflow: hidden; }
+/* The scale the preview shows the game screen at, right after the View buttons. */
+.vbar .scale-text { margin-left: -8px; color: var(--text-muted); white-space: nowrap; }
+/* The preview fills its area edge to edge. No yellow over it (the browser check counts the flash's orange in it). */
+.viewport-wrap { position: relative; min-height: 0; background: var(--ground); overflow: hidden; }
 .viewport { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
 .vhint { position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); pointer-events: none; }
 .preview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .preview-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* The 1920 x 1080 game frame: the scene outside it dimmed, a 1 px outline, its label inside the top-left corner. */
 .frame-guide { position: absolute; outline: 1px solid var(--frame-edge); box-shadow: 0 0 0 9999px var(--frame-dim); }
-.frame-label { position: absolute; left: 4px; top: 4px; padding: 0 4px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); font-weight: 500; }
-.scale-label { position: absolute; right: 8px; top: 8px; padding: 2px 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); font-weight: 500; }
+.frame-label { position: absolute; left: 8px; top: 8px; padding: 0 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-body); font-weight: 500; }
 /* Fire: the one accent-filled control in the main window, in the display face. */
 .fire {
   display: inline-flex; align-items: center; gap: 6px; height: var(--h-fire); padding: 0 12px; border: 0; border-radius: var(--r-control);
   background: var(--accent); color: var(--on-accent); font-family: var(--display); font-size: var(--fs-fire); line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
 }
 .fire:hover { background: var(--accent-hover); }
-/* Play: the transport's main button, filled but never yellow. */
-.play {
-  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 72px;
-  height: var(--h-control); padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-control);
-  background: var(--bg-field); color: var(--text); font-weight: 500;
-}
-.play:hover { border-color: var(--line-strong); }
-.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px var(--pad-panel); background: var(--bg-panel); border-top: 1px solid var(--line); }
-.time { margin-left: 4px; white-space: nowrap; }
-.timeline-slot { max-height: 230px; overflow: auto; border-top: 1px solid var(--line); }
+/* The timeline with its header (6.5): the transport, then the tracks, which scroll. */
+.timeline-pane { display: grid; grid-template-rows: var(--h-timeline-head) minmax(0, 1fr); min-height: 0; border-top: 1px solid var(--line); }
+.transport { display: flex; align-items: center; gap: 8px; height: var(--h-timeline-head); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.timeline-slot { min-height: 0; overflow: auto; background: var(--tl-lane); }
+/* Play: the transport's main button, a 24 px icon button filled with the field colour, never yellow. */
+.transport .play { width: var(--h-control); height: var(--h-control); padding: 0; border: 1px solid transparent; border-radius: var(--r-control); background: var(--bg-field); color: var(--text); }
+.transport .play:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); color: var(--text); }
+/* The time readout: "89 / 299 ms" (click the time to type one), then "step 1", muted. */
+.time { display: inline-flex; align-items: center; margin-left: 8px; white-space: nowrap; }
+.time-now { height: var(--h-control); min-width: 28px; margin: 0 -4px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--text); text-align: right; }
+.time-now:hover { background: var(--bg-hover); }
+.time .time-input { width: 64px; margin-right: 4px; }
+/* " / 299 ms": its leading space stays (a flex item would drop it). */
+.time-len { white-space: pre; }
+.time-step { margin-left: 8px; color: var(--text-muted); }
 
 /* The timeline: the names on the panel colour, the lanes on --tl-lane, each bar in its type's colour. Nothing past its
    right edge shows (the ruler's last label, the playhead's head at the very end), so it never scrolls sideways. */
@@ -554,7 +627,10 @@ table.cost td { padding: 4px; vertical-align: top; }
 table.cost .cv { font-weight: 600; }
 table.cost .cs { font-size: var(--fs-small); color: var(--text-muted); }
 table.cost .cs:empty { display: none; }
-table.cost input.budget { width: 100%; margin-top: 4px; text-align: right; }
+/* No spin arrows (the arrow keys still step the number): Chrome keeps their room even while they are hidden, and in the
+   296 px panel "budget" would not fit. */
+table.cost input.budget { width: 100%; margin-top: 4px; text-align: right; -moz-appearance: textfield; appearance: textfield; }
+table.cost input.budget::-webkit-inner-spin-button, table.cost input.budget::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 table.cost td.over { background: var(--bad-bg); }
 table.cost td.over .cv { color: var(--bad); }
 table.cost td.within { background: var(--good-bg); }
@@ -581,15 +657,52 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .linkish { padding: 2px 4px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font-weight: 500; text-align: left; }
 .linkish:hover { background: var(--bg-hover); }
 .keys td { padding: 4px 12px 4px 0; vertical-align: top; }
-/* The message: dark in both themes, like a tooltip; it fades in and out with a 2 px move. */
+/* The message: dark in both themes, like a tooltip; it fades in and out with a 2 px move, above the status bar. */
 .status {
-  position: fixed; left: 50%; bottom: 16px; z-index: 10; max-width: 70vw; padding: 6px 12px;
+  position: fixed; left: 50%; bottom: calc(var(--h-statusbar) + 12px); z-index: 10; max-width: 70vw; padding: 6px 12px;
   border: 1px solid var(--line); border-radius: var(--r-popover); background: var(--bg-tooltip); color: var(--text-tooltip); box-shadow: var(--shadow-raised);
   opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, 2px);
   transition: opacity 100ms ease-out, transform 100ms ease-out, visibility 0s linear 100ms;
 }
 .status.show { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0); transition: opacity 100ms ease-out, transform 100ms ease-out, visibility 0s; }
 .status.bad { background: var(--bad-bg); color: var(--bad); }
+
+/* ---------------------------------------------------------------- the status bar (6.8) */
+/* 24 px, 11 px text, 16 px between items (8 px of gap and each item's own 4 px), no dots. Left: the checks, this frame's
+   triangles and draw calls, the cost. Middle: the hint for what is under the pointer. Right: the renderer, ?. */
+.statusbar { display: flex; align-items: center; gap: 8px; height: var(--h-statusbar); padding: 0 8px 0 4px; background: var(--bg-panel); border-top: 1px solid var(--line); color: var(--text-muted); font-size: var(--fs-small); line-height: var(--lh-body); white-space: nowrap; overflow: hidden; }
+.sb-left, .sb-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.sb-hint { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.sb-item { display: inline-flex; align-items: center; gap: 4px; height: var(--h-status-item); padding: 0 4px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-muted); font-size: var(--fs-small); line-height: var(--lh-body); }
+.sb-item:hover { background: var(--bg-hover); color: var(--text); }
+.sb-item:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.sb-stats { gap: 8px; }
+.sb-checks.good, .sb-checks.good:hover { color: var(--good); }
+.sb-checks.bad, .sb-checks.bad:hover { color: var(--bad); }
+.sb-cost[data-state="good"] { color: var(--good); }
+.sb-cost[data-state="bad"] { color: var(--bad); }
+.sb-cost[data-state="warn"] { color: var(--warn); }
+.sb-renderer { padding: 0 4px; }
+.statusbar .icon-only { width: var(--h-status-item); }
+
+/* ---------------------------------------------------------------- menus (6.10): the main menu now */
+/* On body, in the top layer: --bg-menu, an edge and the raised shadow, 8 px corners, 4 px padding, rows 28 px. */
+.menu {
+  position: fixed; inset: auto; min-width: var(--w-menu-min); margin: 0; padding: 4px; overflow: visible;
+  border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-menu); color: var(--text); box-shadow: var(--shadow-raised);
+}
+.menu-item {
+  display: grid; grid-template-columns: var(--icon) minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; height: var(--h-row); padding: 0 8px;
+  border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); text-align: left; white-space: nowrap;
+}
+.menu-item:hover:not(:disabled), .menu-item:focus-visible { background: var(--bg-hover); }
+.menu-item:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.menu-icon { display: inline-flex; color: var(--text-muted); }
+/* A setting that is on shows its check in --accent-ink, as an active toggle; off, the row keeps the check's room. */
+.menu-item[aria-checked="true"] .menu-icon { color: var(--accent-ink); }
+.menu-item[aria-checked="false"] .menu-icon .icon { visibility: hidden; }
+.menu .menu-key { padding: 0; background: transparent; color: var(--text-muted); font-size: var(--fs-small); }
+.menu-divider { height: 1px; margin: 4px 0; background: var(--line); }
 
 /* ---------------------------------------------------------------- tooltips */
 /* One tooltip for the page (src/app/dom.ts): dark in both themes, 12 px, at most 280 px wide, with an optional shortcut in
@@ -704,25 +817,21 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .gr-ramprow select { white-space: nowrap; text-overflow: ellipsis; }
 .gr-ramprow input.num { width: 100%; }
 
-/* ---------------------------------------------------------------- narrower windows */
-@media (max-width: 1400px) {
-  .workspace { grid-template-columns: 230px minmax(0, 1fr) 330px; }
-  .timeline { --tl-name: 150px; }
-}
-
-/* ?frame=1: only the game screen, at its real size (screenshots). */
+/* ?frame=1: only the game screen, at its real size (screenshots). Nothing of the editor round it: no bars, no splitters, no
+   menu, no scale. */
 .frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
-.frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .transport, .frame-only .timeline-slot,
-.frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-label, .frame-only .tooltip { display: none !important; }
+.frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .timeline-pane, .frame-only .statusbar,
+.frame-only .splitter, .frame-only .menu, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
+.frame-only .tooltip { display: none !important; }
 .frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
-.frame-only .centre { grid-template-rows: minmax(0, 1fr); }
-.frame-only .viewport-wrap { margin: 0; border: 0; }
+.frame-only .centre { grid-area: 1 / 1; grid-template-rows: minmax(0, 1fr); }
+.frame-only .centre > .viewport-wrap { grid-area: 1 / 1; }
 .frame-only .frame-guide { outline: 0; box-shadow: none; }
 
-/* The colour picker, dialogs and the tooltip fade in over 100 ms with a 2 px move. Nothing else moves. */
-.cpick:popover-open, .dlg[open], .tooltip:popover-open { transition: opacity 100ms ease-out, transform 100ms ease-out; }
+/* The colour picker, menus, dialogs and the tooltip fade in over 100 ms with a 2 px move. Nothing else moves. */
+.cpick:popover-open, .menu:popover-open, .dlg[open], .tooltip:popover-open { transition: opacity 100ms ease-out, transform 100ms ease-out; }
 @starting-style {
-  .cpick:popover-open, .dlg[open], .tooltip:popover-open { opacity: 0; transform: translateY(2px); }
+  .cpick:popover-open, .menu:popover-open, .dlg[open], .tooltip:popover-open { opacity: 0; transform: translateY(2px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

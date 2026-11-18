@@ -83,14 +83,14 @@ export class Preview {
   closeOn: 'origin' | 'target' = 'target';
   /** How much the close-up enlarges the game screen (2 = 200 %). */
   closeZoom = 2;
-  /** The share of the real game size the 1080p frame is shown at (1 = game size). */
-  scale = 1;
+  /** Told the scale whenever the view or the preview's size changes it (the editor shows it next to the View buttons). */
+  onScale: ((scale: number) => void) | null = null;
   onTargetMoved: (() => void) | null = null;
 
   private container: HTMLElement;
   private overlay: HTMLDivElement;
   private frameBox: HTMLDivElement;
-  private scaleLabel: HTMLDivElement;
+  private scaleNow = 1;
   private shooterActor!: Actor & { muzzle: Vector3 };
   private targetTank: (Actor & { top: Vector3 }) | null = null;
   private targetTankAt = new Vector3();
@@ -147,16 +147,19 @@ export class Preview {
     this.overlay.className = 'preview-overlay';
     this.frameBox = document.createElement('div');
     this.frameBox.className = 'frame-guide';
-    this.frameBox.innerHTML = '<span class="frame-label">1920 × 1080 game screen</span>';
-    this.scaleLabel = document.createElement('div');
-    this.scaleLabel.className = 'scale-label';
-    this.overlay.append(this.frameBox, this.scaleLabel);
+    this.frameBox.innerHTML = '<span class="frame-label">1920 × 1080</span>';
+    this.overlay.append(this.frameBox);
     this.container.appendChild(this.overlay);
 
     this.setScene(SCENES[0]!.id);
     this.bindPointer();
     new ResizeObserver(() => this.resize()).observe(this.container);
     this.resize();
+  }
+
+  /** The share of the real game size the 1080p frame is shown at (1 = game size). */
+  get scale(): number {
+    return this.scaleNow;
   }
 
   get backendName(): 'WebGPU' | 'WebGL 2' {
@@ -428,7 +431,7 @@ export class Preview {
   private updateView(): void {
     const { x: w, y: h } = this.size;
     const k = this.view === 'whole' ? Math.min(w / SCREEN_W, h / SCREEN_H) * 0.94 : this.view === 'frame' ? Math.min(w / SCREEN_W, h / SCREEN_H) : this.view === 'game' ? 1 : this.closeZoom;
-    this.scale = k;
+    if (k !== this.scaleNow) { this.scaleNow = k; this.onScale?.(k); }
     const vw = w / k, vh = h / k;
     let cx = SCREEN_W / 2, cy = SCREEN_H / 2;
     if (this.view === 'game' || this.view === 'close') {
@@ -446,9 +449,6 @@ export class Preview {
     this.camera.updateProjectionMatrix();
     const left = (0 - (cx - vw / 2)) * k, top = (0 - (cy - vh / 2)) * k;
     Object.assign(this.frameBox.style, { left: `${left}px`, top: `${top}px`, width: `${SCREEN_W * k}px`, height: `${SCREEN_H * k}px` });
-    this.scaleLabel.textContent = this.view === 'whole'
-      ? `Whole game screen · preview at ${Math.round(k * 100)} % of game size`
-      : this.view === 'game' ? 'Game size (100 %): a 1.8 m soldier is about 150 px tall' : `Close-up: ${Math.round(this.closeZoom * 100)} % of game size`;
   }
 
   private async copyOffscreen(): Promise<void> {

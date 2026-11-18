@@ -287,11 +287,23 @@ function showTip(anchor: Element, byFocus: boolean, focused?: Element): void {
   watch = window.setInterval(() => { if (shown && !shown.isConnected) hideTip(); }, 250);
 }
 
-/** Below what it is for, or above when there is no room below; always inside the window. */
+/**
+ * Below what it is for, or above when there is no room below; always inside the window. A row of a menu (inside
+ * [data-tip-beside]) gets it beside the menu instead, level with the row, so it never covers the rows under it.
+ */
 function placeTip(el: HTMLElement, anchor: Element): void {
   const r = anchor.getBoundingClientRect();
   const t = el.getBoundingClientRect();
   const m = 8, gap = 6;
+  const beside = anchor.closest('[data-tip-beside]');
+  if (beside) {
+    const b = beside.getBoundingClientRect();
+    let left = b.right + gap;
+    if (left + t.width > window.innerWidth - m) left = b.left - gap - t.width;
+    el.style.left = `${Math.round(Math.max(m, left))}px`;
+    el.style.top = `${Math.round(Math.max(m, Math.min(r.top, window.innerHeight - m - t.height)))}px`;
+    return;
+  }
   let top = r.bottom + gap;
   if (top + t.height > window.innerHeight - m && r.top - gap - t.height >= m) top = r.top - gap - t.height;
   top = Math.max(m, Math.min(top, window.innerHeight - m - t.height));
@@ -389,6 +401,197 @@ export function installTooltips(lookup: TipHelpLookup): void {
       }
     }
   }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['title'] });
+}
+
+// ---------------------------------------------------------------- menus (docs/ui-redesign.md 6.10)
+
+/** A row of a menu: a command, or a setting that is on or off (checked). A shortcut shows muted on the right. */
+export interface MenuItem {
+  label: string;
+  icon?: IconName;
+  /** The key as the row shows it ("Ctrl+S"), and as aria-keyshortcuts says it ("Control+S"). */
+  shortcut?: string;
+  ariaKeys?: string;
+  /** A setting that is on or off: the row is a menuitemcheckbox with a check while it is on. */
+  checked?: () => boolean;
+  disabled?: () => boolean;
+  action(): void;
+}
+export type MenuEntry = MenuItem | 'divider';
+
+export interface MenuView {
+  el: HTMLElement;
+  isOpen(): boolean;
+  /** Close it; with returnFocus, the keyboard focus goes back to the button that opens it. */
+  close(returnFocus?: boolean): void;
+}
+
+/**
+ * A menu that drops from a button: the main menu now; phase 3 grows it for the chips, + and More. It is a popover (auto),
+ * appended to document.body, so no bar clips it; the button is its declared invoker, so a second click closes it and a click
+ * outside it closes it too. It opens below the button, inside the window, with the focus on its first row.
+ * Keys: ↑ and ↓ move between the rows, Home and End go to the first and last, Enter and Space choose, Esc and Tab close it
+ * and give the focus back to the button. Keys pressed in it are its own (the editor's shortcuts skip a .menu).
+ * Each row has data-help-label (its words without the shortcut), so its tooltip, beside the menu, gives its help text.
+ */
+export function menu(o: { opener: HTMLButtonElement; id: string; label: string; items: MenuEntry[]; helpSection?: string }): MenuView {
+  const el = h('div', { class: 'menu', attrs: { id: o.id, popover: 'auto', role: 'menu', 'aria-label': o.label, 'data-tip-beside': '', ...(o.helpSection ? { 'data-help-section': o.helpSection } : {}) } });
+  const rows: { item: MenuItem; btn: HTMLButtonElement }[] = [];
+  for (const entry of o.items) {
+    if (entry === 'divider') { el.append(h('div', { class: 'menu-divider', attrs: { role: 'separator' } })); continue; }
+    const item = entry;
+    const btn = h('button', {
+      class: 'menu-item',
+      attrs: { type: 'button', role: item.checked ? 'menuitemcheckbox' : 'menuitem', tabindex: '-1', 'data-help-label': item.label, ...(item.ariaKeys ? { 'aria-keyshortcuts': item.ariaKeys } : {}) },
+      on: { click: () => { close(true); item.action(); } },
+    }, h('span', { class: 'menu-icon' }, item.checked ? icon('check') : item.icon ? icon(item.icon) : null), h('span', { class: 'menu-label', text: item.label }),
+    item.shortcut ? h('kbd', { class: 'menu-key', attrs: { 'aria-hidden': 'true' }, text: item.shortcut }) : null);
+    rows.push({ item, btn });
+    el.append(btn);
+  }
+  const enabled = () => rows.map((r) => r.btn).filter((b) => !b.disabled);
+  const states = () => {
+    for (const { item, btn } of rows) {
+      btn.disabled = item.disabled?.() ?? false;
+      if (item.checked) btn.setAttribute('aria-checked', String(item.checked()));
+    }
+  };
+  const isOpen = () => el.matches(':popover-open');
+  const close = (returnFocus = false) => {
+    if (isOpen()) el.hidePopover();
+    if (returnFocus) o.opener.focus();
+  };
+  /**
+   * Below the button, their left edges lined up; moved in to stay inside the window, or above when there is no room below.
+   * Before it shows, its size is not known yet: it goes below the button, and is moved in, if need be, once it shows.
+   */
+  const place = (measured: boolean) => {
+    const r = o.opener.getBoundingClientRect(), m = 4, gap = 4;
+    const w = measured ? el.offsetWidth : 0, hh = measured ? el.offsetHeight : 0;
+    let top = r.bottom + gap;
+    if (top + hh > window.innerHeight - m && r.top - gap - hh >= m) top = r.top - gap - hh;
+    el.style.left = `${Math.round(Math.max(m, Math.min(r.left, window.innerWidth - m - w)))}px`;
+    el.style.top = `${Math.round(Math.max(m, Math.min(top, window.innerHeight - m - hh)))}px`;
+  };
+  o.opener.setAttribute('aria-haspopup', 'menu');
+  o.opener.setAttribute('aria-expanded', 'false');
+  o.opener.setAttribute('aria-controls', o.id);
+  o.opener.popoverTargetElement = el;
+  // beforetoggle comes at once (toggle comes later, as a task): the button says open or closed as soon as it is.
+  el.addEventListener('beforetoggle', (e) => {
+    const open = (e as ToggleEvent).newState === 'open';
+    o.opener.setAttribute('aria-expanded', String(open));
+    if (open) { states(); place(false); }
+  });
+  el.addEventListener('toggle', (e) => {
+    const open = (e as ToggleEvent).newState === 'open';
+    if (open) { place(true); enabled()[0]?.focus({ preventScroll: true }); }
+    // Closed with the focus still in it (it went away under the focus): the button takes it back.
+    else if (el.contains(document.activeElement)) o.opener.focus();
+  });
+  // An arrow pressed on the button while its menu is open, before the focus went into the menu, goes into it.
+  o.opener.addEventListener('keydown', (e) => {
+    if (!isOpen()) return;
+    const list = enabled();
+    const to = e.key === 'ArrowDown' || e.key === 'Home' ? list[0] : e.key === 'ArrowUp' || e.key === 'End' ? list[list.length - 1] : undefined;
+    if (!to) return;
+    e.preventDefault();
+    e.stopPropagation();
+    to.focus({ preventScroll: true });
+  });
+  el.addEventListener('keydown', (e) => {
+    const list = enabled();
+    const at = list.indexOf(document.activeElement as HTMLButtonElement);
+    const go = (i: number) => { const n = list.length; if (n) list[((i % n) + n) % n]!.focus({ preventScroll: true }); };
+    let handled = true;
+    if (e.key === 'ArrowDown') go(at + 1);
+    else if (e.key === 'ArrowUp') go(at < 0 ? -1 : at - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(-1);
+    else if (e.key === 'Escape' || e.key === 'Tab') close(true);
+    else if (e.key === 'Enter' || e.key === ' ') { if (at >= 0) list[at]!.click(); }
+    else handled = false;
+    if (handled) { e.preventDefault(); e.stopPropagation(); }
+  });
+  // The row under the pointer takes the focus, so the keys carry on from where the mouse is.
+  el.addEventListener('pointermove', (e) => {
+    const b = (e.target as Element).closest?.('.menu-item') as HTMLButtonElement | null;
+    if (b && !b.disabled && document.activeElement !== b) b.focus({ preventScroll: true });
+  });
+  document.body.append(el);
+  return { el, isOpen, close };
+}
+
+// ---------------------------------------------------------------- splitters (docs/ui-redesign.md 5.2)
+
+export interface SplitterView {
+  el: HTMLElement;
+  /** The size it sets now, and the sizes it can set, in px (for screen readers). */
+  setValue(now: number, min: number, max: number): void;
+}
+
+/**
+ * A splitter: a 6 px grab strip over the 1 px line between two zones (the line is the zone's own; while the splitter has
+ * the focus or is dragged, its own line in the focus colour covers it). Drag it, or move it with the arrow keys (16 px a
+ * press; Home and End: its limits); a double-click puts the size back to its default. The sizes themselves are the caller's.
+ * orientation is the line's: 'vertical' between columns (left, right), 'horizontal' between rows.
+ */
+export function splitter(o: {
+  label: string; orientation: 'vertical' | 'horizontal'; className: string; tip: string;
+  /** The pointer moved by delta px since the press (x for a vertical line, y for a horizontal one); done at the release. */
+  onDrag(delta: number, done: boolean): void;
+  onStart(): void;
+  /** The arrow keys: +16 or -16 px along the axis (right or down is +), or 'min' and 'max' (Home, End). */
+  onKey(step: number | 'min' | 'max'): void;
+  onReset(): void;
+}): SplitterView {
+  const el = h('div', {
+    class: `splitter ${o.className}`, title: o.tip,
+    attrs: { role: 'separator', tabindex: '0', 'aria-orientation': o.orientation, 'aria-label': o.label, 'data-help-label': o.label },
+  });
+  const vertical = o.orientation === 'vertical';
+  let from: number | null = null;
+  let pointer = -1;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    el.setPointerCapture(e.pointerId);
+    pointer = e.pointerId;
+    from = vertical ? e.clientX : e.clientY;
+    el.classList.add('dragging');
+    o.onStart();
+  });
+  el.addEventListener('pointermove', (e) => { if (from !== null && e.pointerId === pointer) o.onDrag((vertical ? e.clientX : e.clientY) - from, false); });
+  const end = (e: PointerEvent) => {
+    if (from === null || e.pointerId !== pointer) return;
+    const d = (vertical ? e.clientX : e.clientY) - from;
+    from = null;
+    el.classList.remove('dragging');
+    o.onDrag(d, true);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('dblclick', (e) => { e.preventDefault(); o.onReset(); });
+  el.addEventListener('keydown', (e) => {
+    const plus = vertical ? 'ArrowRight' : 'ArrowDown', minus = vertical ? 'ArrowLeft' : 'ArrowUp';
+    let step: number | 'min' | 'max' | null = null;
+    if (e.key === plus) step = 16;
+    else if (e.key === minus) step = -16;
+    else if (e.key === 'Home') step = 'min';
+    else if (e.key === 'End') step = 'max';
+    if (step === null) return;
+    // The splitter's keys, not the editor's (the arrows would step the timeline).
+    e.preventDefault();
+    e.stopPropagation();
+    o.onKey(step);
+  });
+  const setValue = (now: number, min: number, max: number) => {
+    el.setAttribute('aria-valuenow', String(Math.round(now)));
+    el.setAttribute('aria-valuemin', String(Math.round(min)));
+    el.setAttribute('aria-valuemax', String(Math.round(max)));
+  };
+  return { el, setValue };
 }
 
 export { icon, ICON_NAMES } from './icons';

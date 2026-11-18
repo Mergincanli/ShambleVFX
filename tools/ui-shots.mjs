@@ -25,6 +25,7 @@ const SEED = 7;
 //   effect and ms     the effect (by id) and the moment it is paused at: the same for every picture of the state
 //   layer             a layer id, or 'first:<type>' for the first layer of that type in the effect's file
 //   picker            true: the colour picker is open on the effect's main colour
+//   menu              true: the main menu is open (act opens it); the picture is checked for it
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
 //                     and keys with Playwright's real mouse and keyboard
 //   hover(page)       optional: a Playwright locator to rest the pointer on until its tooltip opens, after the effect is
@@ -42,8 +43,11 @@ const STATES = [
   { name: 'tooltip-label', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow',
     hover: (page) => page.locator('.inspector details', { has: page.locator(':scope > summary', { hasText: /^Place$/ }) }).locator('.flab', { hasText: /^Mixes$/ }) },
   { name: 'tooltip-button', project: DEMO, effect: 'rifle_shot', ms: 20, hover: (page) => page.locator('.vbar button.fire') },
-  // (e) menu: a menu open. Menus only exist from phase 3 of the redesign on, so this state is left out for now. Add it
-  // then, for example: { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, act: async (page) => { await page.click('…'); } },
+  // (e) a menu open: the main menu, from the logo (UI phase 2). Phase 3 adds the chips' menus.
+  { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: async (page) => {
+    await page.click('.topbar .logo');
+    await page.waitForSelector('.menu:popover-open', { timeout: 10000 });
+  } },
 ];
 /** Rest the pointer on an element until its tooltip opens (after the hover delay). Nothing it hovers is built again later. */
 async function hoverForTooltip(page, locator) {
@@ -128,11 +132,12 @@ function describe() {
     effect: a.effect()?.id ?? null, effectName: a.effect()?.name ?? null, layer: a.layer()?.id ?? null, layerName: a.layer()?.name ?? null,
     theme: document.documentElement.dataset.theme, pickerOpen: !!document.querySelector('.cpick')?.matches(':popover-open'),
     tooltipOpen: !!document.querySelector('.tooltip')?.matches(':popover-open'),
+    menuOpen: !!document.querySelector('.menu')?.matches(':popover-open'),
     role: a.effect()?.controls.colour ?? null,
     // For the check that the preview is drawn: the game frame, and what lies over it.
     frame: box(document.querySelector('.frame-guide')) ?? box(document.querySelector('.viewport')),
     viewport: box(document.querySelector('.viewport')),
-    covers: ['.frame-label', '.scale-label', '.vhint', '.cpick:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
+    covers: ['.frame-label', '.vhint', '.cpick:popover-open', '.menu:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
     // With a layer selected: the Look, the live picture at the top of its panel (held at a moment from the one shown).
     look: box(document.querySelector('.inspector .look-box')),
     lookState: a.lookForChecks?.() ?? null,
@@ -335,9 +340,8 @@ try {
           await settle(page, false);
           if (state.picker) { const p = await page.evaluate(openPicker, PICKER_ANCHORS); if (p) throw new Error(p); }
           if (state.act) await state.act(page);
-          // Draw last, and twice round a settle. A change of size (the timeline is as tall as the effect has layers;
-          // the first drawing changes the stats and the time, which can wrap the bar above the preview) resizes the
-          // preview's canvas, which clears it, and the paused editor does not draw again by itself.
+          // Draw last, and twice round a settle, so the picture holds still: fonts and images in, the colour picker in its
+          // place. (A change of the preview's size clears its canvas; the editor draws the moment again by itself then.)
           await page.evaluate(draw, { ms: state.ms, seed: SEED });
           await settle(page, state.picker);
           await page.evaluate(draw, { ms: state.ms, seed: SEED });
@@ -352,6 +356,7 @@ try {
           if (state.layer?.startsWith('first:') && !got.layer) wrong.push('no layer is selected');
           if (!!state.picker !== got.pickerOpen) wrong.push(`the colour picker is ${got.pickerOpen ? 'open' : 'closed'}`);
           if (!!state.hover !== got.tooltipOpen) wrong.push(`a tooltip is ${got.tooltipOpen ? 'open' : 'not open'}`);
+          if (!!state.menu !== got.menuOpen) wrong.push(`the main menu is ${got.menuOpen ? 'open' : 'closed'}`);
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);

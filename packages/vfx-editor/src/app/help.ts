@@ -34,8 +34,11 @@ export type ShapeKind =
 
 const SHAPE_KINDS: readonly ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
 
-/** The bars have no section titles of their own: pass one of these as the section of a bar's control. */
-export const BAR_SECTIONS = ['Top bar', 'Preview bar', 'Transport', 'Effects', 'Layers'] as const;
+/**
+ * The bars have no section titles of their own: pass one of these as the section of a bar's control. Transport is the
+ * timeline's header; Main menu is the menu the logo opens.
+ */
+export const BAR_SECTIONS = ['Top bar', 'Main menu', 'Preview bar', 'Transport', 'Status bar', 'Effects', 'Layers'] as const;
 export type BarSection = (typeof BAR_SECTIONS)[number];
 
 /** Where a label is shown. */
@@ -121,7 +124,12 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   },
 
   // ------------------------------------------------------------ cost
-  'Cost': 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; type budgets to see red (over) or green (within).',
+  'Cost': {
+    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; type budgets to see red (over) or green (within).',
+    when: [
+      { in: 'Status bar', text: 'The last Measure against the budgets that count: not measured yet, within budget, how many numbers are over, or out of date when the effect or the scene changed since. Click for Cost.' },
+    ],
+  },
   'Measure': 'Play the effect through once per tier at 60 frames a second, at the game camera, and count what it costs. The preview waits meanwhile.',
   'Draws': 'Draw calls at the busiest moment: one per group in use (stains, light on the ground, the rest on the ground, over the scene). All effects playing share them, at most 4.',
   'Sprites alive': 'Items alive at the busiest moment: each sprite, piece, dot, letter, flame tongue, smoke puff, line, bead and shape counts once, however many outlines it has.',
@@ -152,7 +160,12 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
       { layer: ['sprite', 'shape', 'burst', 'word'], text: 'Draw this layer in the High tier, the full look.' },
     ],
   },
-  'Checks': 'The checker the export uses: it names each problem in the file and where it is, such as an unknown colour, a missing image or a layer with no length.',
+  'Checks': {
+    text: 'The checker the export uses: it names each problem in the file and where it is, such as an unknown colour, a missing image or a layer with no length.',
+    when: [
+      { in: 'Status bar', text: 'The checker the export uses, on the effect shown: all good, or how many problems it found. Click to see them, under Checks in the effect\'s settings.' },
+    ],
+  },
 
   // ------------------------------------------------------------ the layer's card
   'Sprite layer': 'An image from the project\'s images folder, placed on the origin, the target or a projectile, sized in metres and shown for a time.',
@@ -211,7 +224,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Time': {
     text: 'When the layer starts, how long it shows, and whether it moves in steps, like drawn animation, or smoothly.',
     when: [
-      { in: 'Transport', text: 'Where the playhead is and how long the effect lasts, in ms, and which step (1/12 s) it is on. While firing: how many plays are running.' },
+      { in: 'Transport', text: 'Where the playhead is and how long the effect lasts, in ms, and which step (1/12 s) it is on. Click the time to type one: Enter goes there and pauses, Esc leaves it. While firing: how many plays are running.' },
       { title: true, layer: 'projectile', text: 'When the projectile leaves, and whether it moves along its path in steps or smoothly. It lasts as long as its flight.' },
     ],
   },
@@ -692,15 +705,30 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'mode': 'How the image pieces are coloured: keep, their own colours, or multiply, tinted by the Colour (draw such images in white and greys).',
   'Goes at': 'When this tone drops away during the break-up, as a share of it from 0 to 1.',
 
-  // ------------------------------------------------------------ the top bar
+  // ------------------------------------------------------------ the top bar and the main menu
+  'Main menu': 'Projects, a new project, Save and Save as, Export, Import an export, Night mode and the keyboard shortcuts.',
+  'Project': 'The open project; a dot after its name means changes that are not saved. Click it for Projects: open another one, make a new one, or import an export.',
   'Projects…': 'Open another project, make a new one, or make a project from an export folder.',
+  'New project…': 'Make a new, empty project in the projects folder (kept out of git) and open it. It asks for a name first.',
+  'Saved': 'Everything is saved. Save comes back when something changes.',
+  'Import an export…': 'Make a new project from an export folder in exports/. Opens Projects, where the exports are listed.',
   'Save': 'Save the effects, colours and project settings into the project\'s folder. An example cannot change: it asks for a copy (Save as…).',
   'Save as…': 'Save a copy of this project under a new name in the projects folder, and go on in the copy. Examples need it to keep changes.',
   'Export…': 'Write the folder the game loads into exports/: the list of effects, one file per effect, one packed image and the colours. Unsaved changes are asked about first.',
   'Undo': 'Take back the last change; one drag counts as one change.',
   'Redo': 'Bring back the change you took back.',
   'Night mode': 'Dark grey panels instead of the light, warm ones. The preview keeps the game\'s colours; the choice is remembered.',
-  'Keys': 'The keyboard shortcuts.',
+  'Keyboard shortcuts': 'Every key the editor knows, and what the mouse does on the preview.',
+
+  // ------------------------------------------------------------ the status bar (Checks and Cost have their variants above)
+  'Triangles and draw calls': 'What the preview drew in its last frame, as the game would draw it. Click for Cost: the effect measured over its whole length, per tier.',
+  'Renderer': 'The preview uses WebGPU when the browser has it, and the WebGL 2 fallback otherwise. Effects look the same on both.',
+
+  // ------------------------------------------------------------ the splitters between the zones
+  'Resize the left sidebar': 'Makes the effects and layers wider or narrower (200 to 420 px). The width is remembered; with the focus on it, the arrow keys move it 16 px.',
+  'Resize the right panel': 'Makes the settings panel wider or narrower (260 to 480 px). The width is remembered; with the focus on it, the arrow keys move it 16 px.',
+  'Resize the effects list': 'Shares the left sidebar between the effects and the layers. The height is remembered; with the focus on it, the arrow keys move it 16 px.',
+  'Resize the timeline': 'Shares the middle between the preview and the timeline (the timeline takes at most 60 %). The height is remembered; the arrow keys move it 16 px.',
 
   // ------------------------------------------------------------ the bar above the preview
   'Fire': 'Fire the effect from the stand-in to the target, as the game does: each press is a new play, and several can overlap.',
@@ -764,6 +792,7 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   'Game size': '2',
   'Close-up': '3',
   'Delete layer': 'Delete',
+  'Keyboard shortcuts': '?',
 };
 
 /** The cost table's rows, for the budget boxes ("Budget: Draws, Low"). */

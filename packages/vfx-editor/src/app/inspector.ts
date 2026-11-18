@@ -1,9 +1,10 @@
 /**
- * The right panel shows what is selected: the effect's settings, or, with a layer selected, that layer's settings first,
- * under a header that leads back to the effect (its name, or Esc). Cost and Checks stay at the bottom of both.
- * Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
+ * The right panel shows what is selected: the effect's settings, or, with a layer selected, that layer's settings first.
+ * Each starts with the panel's 40 px header, which stays at the top while the panel scrolls: the effect's (a dot in its main
+ * colour, its name and "Effect"), or the layer's, which leads back to the effect (its name, or Esc). Cost and Checks stay at
+ * the bottom of both. Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
  */
-import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, roleNames } from '@shamble/vfx-format';
+import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import { riderLine, ridersOf, whatDraws } from '../doc/layer-info';
 import type { WhatDraws } from '../doc/layer-info';
@@ -65,7 +66,7 @@ export function buildInspector(app: AppApi): InspectorView {
     look.setShown(!!(fx && layer));
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
     if (layer) el.append(layerHeader(app, parts, backToEffect), layerDetails(app, layer, parts, colours, look));
-    else el.append(bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
+    else el.append(effectHeader(app, parts), bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
     const cost = costCard(app);
     parts.push(cost);
     el.append(cost.el, checks(app, parts));
@@ -85,7 +86,28 @@ export function buildInspector(app: AppApi): InspectorView {
   return { el, rebuild, refresh, backToEffect, look };
 }
 
-// ---------------------------------------------------------------- the header of a layer's settings
+// ---------------------------------------------------------------- the headers
+
+/**
+ * The header of the effect's own settings: a dot in its main colour (for the faction shown), its name and "Effect". Its
+ * title takes the focus when you come back from a layer with the keyboard (see rebuild).
+ */
+function effectHeader(app: AppApi, parts: Refresher[]): HTMLElement {
+  const dot = h('span', { class: 'fx-dot' });
+  const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } });
+  const head = h('header', { class: 'insp-head effect-head' }, dot, title, h('span', { class: 'insp-kind', text: 'Effect' }));
+  const draw = () => {
+    const fx = app.effect()!;
+    title.textContent = fx.name;
+    title.title = fx.name;
+    const role = fx.controls.colour;
+    dot.style.backgroundColor = resolveRole(app.palette, role, app.faction) ?? 'transparent';
+    tip(dot, `Main colour: ${role}`);
+  };
+  draw();
+  parts.push({ refresh: draw });
+  return head;
+}
 
 /** The effect's name (back to the effect's settings), "›", the layer's type icon and its name. */
 function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLElement {
@@ -545,7 +567,8 @@ function offsetFields(app: AppApi, get: () => Vec3 | null, set: (o: Vec3) => voi
 
 function checks(app: AppApi, parts: Refresher[]): HTMLElement {
   const list = h('ul', { class: 'problems' });
-  const head = h('h2', {});
+  // It takes the focus when the status bar's checks are clicked.
+  const head = h('h2', { attrs: { tabindex: '-1' } });
   const draw = () => {
     const probs = app.problems();
     head.textContent = probs.length ? `Checks: ${probs.length} problem${probs.length > 1 ? 's' : ''}` : 'Checks: all good';

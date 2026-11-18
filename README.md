@@ -22,7 +22,7 @@ npm run dev
 
 The editor opens in your browser at http://127.0.0.1:5173. Stop it with Ctrl+C in the terminal.
 
-- It uses the **WebGPU** renderer when your browser has it, and the **WebGL 2** fallback otherwise. The badge at the top right says which. To try the fallback on purpose, open http://127.0.0.1:5173/?backend=webgl.
+- It uses the **WebGPU** renderer when your browser has it, and the **WebGL 2** fallback otherwise. The right end of the status bar, at the bottom, says which. To try the fallback on purpose, open http://127.0.0.1:5173/?backend=webgl.
 - Saving goes through the editor's own local server, not the browser's folder picker (which Brave blocks by default). Brave on Windows is not tested yet; if the preview stays empty, use the address with `?backend=webgl`.
 
 The game-side **test page** (it loads only the runtime and an export folder):
@@ -41,8 +41,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 
 1. The **demo project** opens by itself. On the left: the drawing board's four effects rebuilt (**Tank shell (board)**,
    **Rifle shot (board)**, **Hammer leech beam (board)**, **Molotov flame pit (board)**) and the two milestone 1 demos.
-   **Projects…** opens the other example, **Comic hits**: ten hit effects in four sets.
-2. Press **Fire** (or the F key) to play the effect from the shooter to the target, or **Play** to loop it on the timeline.
+   **Projects…** in the main menu (the logo at the top left), or a click on the project's name, opens the other example,
+   **Comic hits**: ten hit effects in four sets.
+2. Press **Fire** (or the F key) to play the effect from the stand-in to the target, or **Play**, in the timeline's header, to
+   loop it on the timeline.
 3. The bar above the preview:
    - **Scene**: who fires and what stands around. Each board effect opens in the board's own set-up; each effect remembers
      its scene (in `project.json`).
@@ -51,24 +53,28 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
      broken ones; a gun's sound word shows only to the one who fired.
    - **Distance from you**: comic words shrink with it, each by its own curve (a new word: full size to 2 m, 60 % from 5 to
      8 m, gone at 11 m). In the tank shell's scene it moves the landing point away from you.
-   - **View**: whole screen, game size, or a close-up on the muzzle or the target.
+   - **View**: whole screen, game size, or a close-up on the muzzle or the target. The scale after the view buttons ("56 %")
+     is how large the preview shows the game screen; the 1920 × 1080 frame is outlined, and the scene outside it dimmed.
    - **Fade other layers**, the striped square after the view buttons: on at first. While a layer is selected, or its row is
      under the mouse in the Layers list or on the timeline, the other layers fade in the preview, so you see which part of
      the effect it is; a projectile keeps the layers riding it. Off, the preview shows the game's look. It is remembered.
-4. **Drag on the ground** to move the target. Hold Shift and drag to move the shooter.
-5. **Play**, **Loop**, the **speed** buttons and the **timeline** work like a video player. The strip under the ruler shows
-   the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
-6. The right panel shows what is selected. No layer: the effect's settings (its name, the four **big controls**, the three
-   **phase** lengths and its colours). Click a **layer** (in the Layers list or on the timeline) and the panel shows that
-   layer's settings, under a header with the effect's name, "›" and the layer's name: click the effect's name, or press
-   Esc, to go back to the effect's settings. They start with **Look**: a live picture of the layer alone, drawn by the
-   game's code on the ground colour, framed on it and playing its own time in a loop at the speed the speed buttons set (a
-   layer that rides a projectile flies along its path; a projectile shows the layers riding it). Fold it to put it away.
-   A sprite still shows its image under Image. Each layer says what draws it: an image ("Image: muzzle_flash.png") or code
-   ("Drawn in code, no image"). A projectile is an invisible path: its panel lists the layers riding it (click one to
-   select it), and those say "rides Bullet" in the Layers list. Shapes, bursts and words show the settings the file has,
-   with optional parts behind a switch, except two that come with the new UI: a word's chance (the words box keeps it
-   when you type the words again) and an image burst's image.
+4. **Drag the ground** to move the target. **Shift + drag** moves the stand-in. The status bar says so while the pointer is
+   over the preview.
+5. The timeline's header (**Play**, the steps, **Loop**, the **speed** buttons and the time) and the **timeline** work like a
+   video player. Click the time ("89 / 299 ms") to type one: Enter goes there, paused, and Esc leaves it. The strip under
+   the ruler shows the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
+6. The right panel shows what is selected. No layer: the effect's settings, under a header with a dot in its main colour,
+   its name and "Effect" (its name, the four **big controls**, the three **phase** lengths and its colours). Click a
+   **layer** (in the Layers list or on the timeline) and the panel shows that layer's settings, under a header with the
+   effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the effect's settings.
+   They start with **Look**: a live picture of the layer alone, drawn by the game's code on the ground colour, framed on it
+   and playing its own time in a loop at the speed the speed buttons set (a layer that rides a projectile flies along its
+   path; a projectile shows the layers riding it). Fold it to put it away. A sprite still shows its image under Image. Each
+   layer says what draws it: an image ("Image: muzzle_flash.png") or code ("Drawn in code, no image"). A projectile is an
+   invisible path: its panel lists the layers riding it (click one to select it), and those say "rides Bullet" in the
+   Layers list. Shapes, bursts and words show the settings the file has, with optional parts behind a switch, except two
+   that come with the new UI: a word's chance (the words box keeps it when you type the words again) and an image burst's
+   image.
 7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project. Each layer
    has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape by its kind (a ring, a
    smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a projectile; a sprite shows
@@ -77,26 +83,36 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    the timeline. A layer's **Shows in** boxes set its tiers.
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
-10. **Cost** (lower in the right panel; the triangle count above the preview jumps there): press **Measure** for draws, sprites
-    alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they are the project's budgets, and
-    typing one switches them on. See [docs/cost.md](docs/cost.md).
-11. **Export…** writes the folder the game loads into `exports/`; **Projects…** → **Import an export** makes a project from one
-    (and keeps its colours as a palette profile).
+10. **Cost** (lower in the right panel; the triangles and the cost in the status bar jump there): press **Measure** for
+    draws, sprites alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they are the
+    project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
+11. **Export…**, in the top bar and the main menu, writes the folder the game loads into `exports/`; **Import an export…** in the
+    main menu (Projects, at its list of exports) makes a project from one (and keeps its colours as a palette profile).
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. The list under Colour shows the
     colours of what is selected: the effect's, or one layer's (with the ones it draws without naming them, such as the
     black ink outline); a projectile has none of its own and shows those of the layers riding it. **Show all** shows every
     colour, the selection's in bold. Change the colour, add colours, and under **Gradients** start from a ready-made
     gradient or make your own; a glow can use one, and smoke, the fire's bed and bursts draw one named in their file. See
     [docs/colours.md](docs/colours.md).
-13. **Night mode**, the sun or moon button in the top bar: dark panels (the preview keeps the game's colours). It is remembered.
-14. The examples cannot change. **Save as…** makes your own copy in `projects/`. That folder is kept out of git, so your art
-    never goes to this public repo.
+13. **Night mode**, the sun or moon button in the top bar, or in the main menu: dark panels (the preview keeps the game's
+    colours). It is remembered.
+14. The examples cannot change: a lock after the project's name says so. **Save as…** (the top bar's Save button on an
+    example, or the main menu) makes your own copy in `projects/`. That folder is kept out of git, so your art never goes to
+    this public repo. On your own project the button says **Save**, or **Saved** when there is nothing to save.
 15. **Tooltips**: rest the pointer for half a second on a label in the right panel (such as **Place**, **Shape: ring** or
     **Width**), a section's title, or a button or setting in the bars: a short tooltip says what it does and how to use it,
     in plain words, for the layer shown (a ring's Width is its line's thickness). Buttons show their shortcut, and Undo and
     Redo name the step. **Tab** to a button shows its tooltip at once; **Esc**, a click or scrolling hides it.
+16. **The main menu**: click the logo (SHAMBLE VFX) for Projects…, New project…, Save, Save as…, Export…, Import an export…,
+    Night mode and Keyboard shortcuts. The arrow keys move in it, Enter chooses, Esc closes it.
+17. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to see them under Checks), this
+    frame's triangles and draw calls, and the cost against the budgets (click either for Cost); in the middle, the hint for
+    what is under the pointer; on the right, the renderer and **?** for the keyboard shortcuts.
+18. **Resize the zones**: drag the lines between them (the left sidebar, the right panel, the effects and the layers, the
+    preview and the timeline). Each size is remembered; a double-click puts the default back. With the keyboard focus on a
+    line, the arrow keys move it 16 px.
 
-Keys: press **Keys** in the top bar.
+Keys: press **?** (or the ? at the right end of the status bar, or **Keyboard shortcuts** in the main menu).
 
 ## The packages
 
@@ -119,7 +135,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (539): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (547): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -151,14 +167,16 @@ project with no palette profile names the one an import makes, after the project
 same colours, the two defaults, the folder made on first use, every route and store function, a profile file with a part
 missing or empty listed with why and deleted like any other, import adding or finding a profile, an import refusing an
 export whose palette.json has such a part, loading a profile keeping what the effects use, and the default bed gradient
-drawing the Molotov's bed as today); the runtime's loader and its version guard; the screen-area count and the cost
-measurement.
+drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
+on, within budget, how many numbers over, compared with the budgets that count); the window's grid (the sidebars within
+their limits, both giving way so the centre keeps 640 px, the effects list's and the timeline's limits, the sizes
+remembered); the runtime's loader and its version guard; the screen-area count and the cost measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (201 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (226 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -182,9 +200,15 @@ tag and the line saying what draws a layer explaining themselves; and every
 label and section title of every layer of both examples, and every control of the bars, with a help text), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
-budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, Save
-as, Export and Import (`project.json` and `editor.json` version 2 with the budgets), the palette profile Import keeps
-(in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
+budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
+shell (the window's grid at 1920 × 1080 and 2560 × 1440, with 8 track rows and 14 layer rows showing at 1920; the four
+splitters: a drag, their limits, the sizes remembered after a reload, a double-click putting the default back, the arrow
+keys, the preview drawn at its new size while one is dragged, the Look following; the status bar: the checks and a click
+to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
+main menu: below the logo, its keys, Esc giving the focus back, a second click and a click outside closing it, every row;
+the ? key, not while typing; the scale after the View buttons; typing a time in the timeline's header; `?frame=1` showing
+nothing of the editor round the game screen), Save as, Export and Import (`project.json` and `editor.json` version 2
+with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
 whose `project.json` is version 1 (it opens, with its scenes, and nothing is written) and one of a newer version (not
 opened, and the editor says why, also when it is the project the editor starts with); the test page on both backends
 (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in
@@ -296,6 +320,11 @@ These write pictures to `out/` (kept out of git):
 - **Seeing what is selected**: a layer's settings start with its **Look**, a live picture of the layer alone drawn by the
   runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
   layers**, in the bar above the preview).
+- **The window** (UI phase 2, docs/ui-redesign.md 5 and 6): a top bar with the logo's main menu, the project's name, Undo,
+  Redo, Night mode, Save and Export…; the effects and layers on the left, the preview in the middle (edge to edge, the game
+  frame outlined and the scene outside it dimmed) over the timeline, whose header holds the transport; the right panel with
+  a header for the effect or the layer; a status bar. Four splitters resize the zones, within limits, and remember the sizes;
+  each zone has default sizes for windows 2200 px wide or more and for narrower ones.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -483,8 +512,6 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     layer's last tier) is the same box at 40 %; the browser's own box would turn pale grey.
   - The picker's two yellow buttons (Add colour, Use on the selected glow) are plain buttons now: only a dialog's main button
     is yellow, and the picker is a popover.
-  - Until phase 2 makes the preview fill its area, it keeps a 1 px `--line` edge with 12 px of `--bg-app` round it, so its
-    edge does not double the lines of the bars above and below it.
   - The timeline keeps its row, ruler and bar heights until phase 5; only its colours, lines, corners and type change now.
   - A timeline bar's 1 px `--tl-bar-edge` is drawn just outside the bar, over the lane, so in Day it stands out from the
     lane (3:1) even on the white word bars. A Day bar looks 1 px longer at each end.
@@ -499,8 +526,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **The right panel after UI phase 1** (Mustafa's feedback of 2026-11-16: a layer's settings first, the colours of the
   selection with Show all, what draws each layer and what a projectile carries; these details are ours):
   - With a layer selected the panel shows only that layer's settings. Its header (the brief's 40 px inspector header) stays
-    at the top while the panel scrolls, so the way back always shows. The effect's view has no header yet (phase 6 brings
-    one): its Effect section is at the top. Cost and Checks stay at the bottom of both views until phase 6.
+    at the top while the panel scrolls, so the way back always shows. Since UI phase 2 the effect's view has a header too (see
+    the shell, below), with its Effect section under it. Cost and Checks stay at the bottom of both views until phase 6.
   - Another selection starts the panel at the top; a part switched on or off keeps its place. When the control you used
     goes with the old view (the effect's name, a rider, Esc pressed in the panel), the keyboard focus moves to the new
     view's title.
@@ -537,7 +564,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     does with them: normal drawing by its alpha, added light by its colour, stains (multiply) by their alpha, which moves
     them towards white (for an image too, where moving the colour towards white would not), and light on the ground
     (screen, which the plan does not name) by its alpha, which weakens it. Every triangle stays, so the triangles and draw
-    calls above the preview do not change; the cost measurement has its own renderer and never sees the fade.
+    calls in the status bar do not change; the cost measurement has its own renderer and never sees the fade.
   - A row under the mouse, in the Layers list or on the timeline, counts before the selection while the mouse is there;
     a scrub that starts on a row's lane is not a hover, so the selection counts while you drag. Fade other layers off
     stops both. Effects still playing from an earlier Fire of another effect fade as a whole. The game
@@ -589,11 +616,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     and "Pause" get their texts when the button changes, and a label added later gets its text as soon as `help.ts` has
     one. Only the editor's own words are looked up, never names people give (an effect called "Fire" does not get Fire's
     text), and not in the colour picker or dialogs, whose titles show as they are.
-  - Where a help text says what a title said, the title went (Save, Export…, Keys, Fire, Play, Loop, New, From preset…,
+  - Where a help text says what a title said, the title went (Save, Export…, Fire, Play, Loop, New, From preset…,
     Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all, Fade other
     layers, the Look's title). The Look's help text took in what its title added (the preview's faction and made-by; a
     rider flying along its path, a projectile showing its riders). The other titles stay and show first (rows' full
-    names, the faction and made-by choices, the triangle count, the renderer, the picker's buttons…). The text inputs,
+    names, the faction and made-by choices, the renderer, the picker's buttons…). The text inputs,
     number boxes and selects get no tooltip of their own: their label explains them.
   - What draws a layer ("Drawn in code, no image", "Image: …", "An invisible path…") and the "rides Bullet" tag in the
     Layers list explain themselves in their tooltips, with the texts `help.ts` has for those lines. A rider's row in its
@@ -613,6 +640,56 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     with reduced motion); none on touch.
   - Its edge is `--line`, as the message at the bottom has; the shortcut is `--text-tooltip-muted` (#A6A6A6, 5.9:1 on the Day
     tooltip, 6.8:1 on Night's) with a faint light edge, the same in both themes as the tooltip is.
+- **The shell** (UI phase 2 of [docs/ui-redesign.md](docs/ui-redesign.md): the grid, the default sizes and limits, the top bar,
+  the main menu's rows, the status bar's contents and the timeline's header are the brief's; these choices are ours, not
+  Mustafa's or the brief's):
+  - Show hints waits for phase 3 (its switch, its row in the main menu, `?hints=`), although 6.1 lists it in the top bar: no
+    button that does nothing.
+  - Until phase 3's View chip, the scale is muted text right after the View buttons ("56 %"), with the tooltip "The preview
+    shows the game screen at 56 % of its size." It follows the view and the preview's size.
+  - The ? key opens Keyboard shortcuts now, since the main menu names it; not while typing in a field, nor in the colour
+    picker or a menu. The Keys dialog is called Keyboard shortcuts, as the menu names it, and lists ? and the arrow keys on a
+    splitter.
+  - The effect's header is plain: a dot in its main colour (for the faction shown; its tooltip names the role), its name and
+    "Effect". No More menu until phase 6. The Effect section stays under it, as it was.
+  - Typing a time in the readout comes now, with the header: Enter goes to the typed time, paused; a comma works as the
+    decimal point; a time past the end stops at the end; Esc, or a click elsewhere, leaves it as it was.
+  - The ruler, the phase strip and the track rows keep their sizes (26, 16 and 26 px): at 1920 × 1080 with the default sizes
+    the tracks get 272 px, and 8 rows with the ruler and the phases take 250, so 4.3's sizes wait for phase 5.
+  - A click on Checks in the status bar shows the effect's settings at its Checks section (its title takes the focus), until
+    phase 6's problems banner.
+  - New project… in the main menu asks for the new project's name at once: the question the Projects dialog's New project…
+    button asks (one function now), then makes the project and opens it. Import an export… opens Projects with the focus on
+    the first export.
+  - One wording for the drag hint, everywhere: "Drag the ground to move the target. Shift + drag moves the stand-in." Over
+    the preview, in the status bar, in the Keys dialog's two rows ("Drag the ground", "Shift + drag") and in What to click.
+  - The status bar's cost has two states 6.6 does not name: "Measuring…", and "Measured, no budgets" when no budget is on (so
+    nothing is within or over). "2 over budget" counts the measured numbers over the budgets that count, as the card colours
+    its cells (out of date numbers are not compared); its tooltip names them. A click on it does what a click on the
+    triangles does: the effect's settings at Cost.
+  - The toolbar keeps today's controls and needs two rows at 1920 and at 2560 px: its row is 36 px at least and grows. Phase 3's
+    chips bring it to one row.
+  - Splitters: at rest only the zone's own 1 px line shows; on hover a `--line-strong` line (hover is not focus, so not
+    yellow); with the keyboard focus or while dragged, `--focus`. A press that does not move remembers nothing. Home and End
+    take a focused splitter to its limits. Sizes are remembered in whole px. When the window is too narrow for both
+    remembered sidebar widths, both give way, each in proportion to its room above its narrowest, and the remembered widths
+    come back when the window grows.
+  - The preview's own observer clears its canvas when it gives it a new size, after the frame was drawn; the editor then
+    draws the moment again at once (also while paused), so the preview follows a splitter while it is dragged.
+  - The project's name is a button that opens Projects; an example's lock sits between the name and the unsaved dot, so the
+    name's text stays "Demo project •". Its tooltip gives the project's folder.
+  - Save: "Saved" is muted at full strength, with its check (a state, not a command you cannot use); "Save" has the save icon;
+    "Save as…" on an example has the save-as icon.
+  - The main menu: rows with the icons of icons.ts, a check for Night mode in `--accent-ink` when it is on (an active toggle),
+    each row's tooltip (its help text) beside the menu, so it never covers the rows under it. Tab closes it as Esc does. While
+    it is open the logo looks like a chip with its menu open (4.6): the field colour, the chevron in `--accent-ink`. The logo's
+    name for screen readers is "Shamble VFX main menu".
+  - The timeline's header keeps Speed's label and Loop's word, as today; Play is a 24 px icon button.
+  - The frame's label reads "1920 × 1080" (it said "1920 × 1080 game screen").
+  - In the 296 px panel the cost table's budget boxes have no spin arrows (Chrome keeps their room even while they are
+    hidden, and "budget" did not fit; the arrow keys still step the number). The row names that do not fit (Sprites alive,
+    CPU ms a frame) end in an ellipsis, with the full name in their tooltip, until phase 6 remakes the card.
+  - A message (the toast) shows 12 px above the status bar.
 
 ## Claude skills
 

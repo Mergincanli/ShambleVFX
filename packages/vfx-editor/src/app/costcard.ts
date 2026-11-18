@@ -54,6 +54,38 @@ export function levelText(c: CountingBudget, b: Budgets): { text: string; title:
   }
 }
 
+/** The cost card's state in a few words, for the status bar (docs/ui-redesign.md 6.6 and 6.8). */
+export interface CostSummary {
+  text: string;
+  /** none: muted; good: within budget; bad: over budget; warn: out of date. */
+  state: 'none' | 'good' | 'bad' | 'warn';
+  /** More, for its tooltip: which numbers are over, or what is being measured. */
+  detail: string;
+}
+
+/**
+ * What the card shows, said short: not measured, measuring, out of date, measured with no budget on, within budget, or how
+ * many numbers are over budget. Over and within compare each measured number with the budget that counts, as the card's
+ * cells do; out of date numbers are not compared.
+ */
+export function costSummary(r: CostReport | undefined, o: { stale: boolean; busy: string | null; counting?: CountingBudget }): CostSummary {
+  if (o.busy) return { text: 'Measuring…', state: 'none', detail: o.busy };
+  if (!r) return { text: 'Cost: not measured', state: 'none', detail: '' };
+  if (o.stale) return { text: 'Out of date', state: 'warn', detail: 'The effect, its colours or the scene changed after measuring.' };
+  const over: string[] = [];
+  let budgets = 0;
+  for (const m of COST_METRICS) {
+    for (const t of TIER_NAMES) {
+      const b = o.counting ? budgetOf(o.counting.limits, t, m) : undefined;
+      if (b === undefined) continue;
+      budgets++;
+      if (measuredOf(r.tiers[t], m) > b) over.push(`${METRIC_LABEL[m]} in ${TIER_LABEL[t]}`);
+    }
+  }
+  if (!budgets) return { text: 'Measured, no budgets', state: 'none', detail: 'No budgets are on, so nothing is over or within.' };
+  return over.length ? { text: `${over.length} over budget`, state: 'bad', detail: `Over budget: ${over.join(', ')}.` } : { text: 'Within budget', state: 'good', detail: '' };
+}
+
 function valueText(c: TierCost, m: CostMetric): { main: string; sub: string } {
   switch (m) {
     case 'draws': return { main: int(c.draws), sub: '' };

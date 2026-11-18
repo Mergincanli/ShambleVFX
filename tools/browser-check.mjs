@@ -9,8 +9,9 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
-//    the selection), the layer icons, the tooltips and their help texts, Save as into projects/, Export and Import, and the
-//    palette profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
+//    the selection), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
+//    status bar, the main menu, the scale, typing a time), Save as into projects/, Export and Import, and the palette
+//    profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
 //    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
@@ -175,6 +176,16 @@ for (const backend of ['webgpu', 'webgl']) {
     for (let y = 0; y < 1080; y += 8) for (let x = 0; x < 1920; x += 8) if (diff(hex(img, x, y), '#B8A683') <= 2) g++;
     ok(`[${label}] game screen ${name} draws the scene`, g > 5000, `${g} ground samples`);
   }
+  // Only the game screen: the preview is the whole window, and none of the editor's parts shows round it, the new ones
+  // included (the status bar, the splitters, the main menu even when opened, the scale next to the View buttons).
+  const frameOnly = await fr.page.evaluate(() => {
+    document.querySelector('.menu')?.showPopover();
+    const shown = (s) => [...document.querySelectorAll(s)].some((e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0);
+    const v = document.querySelector('.viewport').getBoundingClientRect();
+    return { viewport: [v.x, v.y, v.width, v.height].join(), shown: ['.topbar', '.statusbar', '.splitter', '.menu', '.scale-text', '.vbar', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
+  });
+  ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, status bar, splitter, menu or scale round it`,
+    frameOnly.viewport === '0,0,1920,1080' && frameOnly.shown.length === 0, JSON.stringify(frameOnly));
   await fr.page.close();
 }
 
@@ -499,8 +510,12 @@ if (webgpu) {
     const head = ins.querySelector(':scope > .insp-head');
     const card = ins.querySelector(':scope > section.card.layer');
     const top = ins.getBoundingClientRect().top;
+    // The effect's header: its dot, in the colour of the main colour's swatch in the colour list.
+    const dot = head?.querySelector('.fx-dot'), mainChip = ins.querySelector('.swatch[aria-current="true"] .chip'), effectCard = ins.querySelector(':scope > section.card.bigcontrols');
     return {
-      layer: window.__vfx.app.layer()?.id ?? null, first: ins.firstElementChild?.className ?? '',
+      layer: window.__vfx.app.layer()?.id ?? null, first: ins.firstElementChild?.className ?? '', second: ins.children[1]?.className ?? '',
+      kind: head?.querySelector('.insp-kind')?.textContent ?? null, effectTop: effectCard ? Math.round(effectCard.getBoundingClientRect().top - top) : null,
+      dot: dot ? { dot: getComputedStyle(dot).backgroundColor, main: mainChip ? getComputedStyle(mainChip).backgroundColor : null } : null,
       link: head?.querySelector('.crumb')?.textContent ?? null, title: head?.querySelector('.insp-title')?.textContent ?? null,
       icon: !!head?.querySelector('svg, img'), headH: head ? Math.round(head.getBoundingClientRect().height) : null,
       cardTop: card ? Math.round(card.getBoundingClientRect().top - top) : null, effectSettings: !!ins.querySelector('.bigcontrols'),
@@ -516,8 +531,9 @@ if (webgpu) {
       && !sel.effectSettings && sel.costAndChecks === 'cost,checks', JSON.stringify(sel));
   await p.locator('.inspector .insp-head .crumb').click();
   const back = await panel();
-  ok('clicking the effect\'s name in the header goes back to the effect\'s settings', back.layer === null && back.effectSettings && back.first.includes('bigcontrols') && back.link === null
-    && back.costAndChecks === 'cost,checks', JSON.stringify(back));
+  ok('clicking the effect\'s name in the header goes back to the effect\'s settings, under the effect\'s own 40 px header: a dot in its main colour, its name and "Effect"; the Effect section follows',
+    back.layer === null && back.effectSettings && back.first === 'insp-head effect-head' && back.second.includes('bigcontrols') && back.link === null && back.title === 'Rifle shot (demo)'
+      && back.kind === 'Effect' && !!back.dot && back.dot.dot === back.dot.main && back.headH === 40 && back.effectTop === back.headH && back.costAndChecks === 'cost,checks', JSON.stringify(back));
   await layerRow('Hit spark').click();
   await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Layer name$/ }) }).locator('input').focus();
   await p.keyboard.press('Escape');
@@ -1131,7 +1147,9 @@ if (webgpu) {
   const againDir = join(repo, 'projects', againName), againExport = join(repo, 'exports', againName);
   const reopenedImported = importDir ? await savedPage.page.evaluate((id) => { window.confirm = () => true; return window.__vfx.app.openProject(id); }, imported.body.id) : false;
   if (reopenedImported) {
-    await savedPage.page.click('.topbar >> text=Save as…');
+    // Not an example: the top bar's Save says Saved, and Save as… is in the main menu.
+    await savedPage.page.click('.topbar .logo');
+    await savedPage.page.getByRole('menuitem', { name: 'Save as…', exact: true }).click();
     await savedPage.page.fill('dialog input.text', againName);
     await savedPage.page.click('dialog >> text=OK');
     await savedPage.page.waitForFunction((n) => document.querySelector('.project-name')?.textContent?.includes(n) && !document.querySelector('.project-name')?.textContent?.includes('•'), againName, { timeout: 15000 }).catch(() => {});
@@ -1297,11 +1315,11 @@ if (webgpu) {
     ok('a press hides the tooltip, and it does not come back while the pointer stays', loopHover.delay !== null && loopTip.open && loopTip.key === 'L' && !afterPress.open,
       `before the press: ${JSON.stringify(loopTip)}; after: open ${afterPress.open}`);
 
-    // At once on keyboard focus (Shift+Tab from Keys to Night mode), named and explained; Esc hides it and still leaves the
+    // At once on keyboard focus (Shift+Tab from Save to Night mode), named and explained; Esc hides it and still leaves the
     // layer, as Esc does.
     await tp.evaluate(() => { const a = window.__vfx.app; a.selectLayer('flash'); });
     await restPointer();
-    await tp.locator('.topbar button', { hasText: /^Keys$/ }).focus();
+    await tp.locator('.topbar button.save').focus();
     await tp.evaluate(() => Object.assign(window.__tipProbe, { overAt: null, openAt: null, at250: null, tabAt: null }));
     const quietFocus = await tipNow();
     await tp.keyboard.press('Shift+Tab');
@@ -1384,8 +1402,13 @@ if (webgpu) {
           a.selectLayer(null);
         }
       }
-      const BAR = { 'Top bar': ['Projects…', 'Save as…', 'Export…', 'Undo', 'Redo', 'Night mode', 'Keys'], 'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on'],
-        Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], Effects: ['Effects', 'New', 'From preset…'], Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
+      // The top bar (Projects… and Keys moved into the main menu, with Save as…), the main menu (on body, closed), the
+      // timeline's header (Transport) and the status bar.
+      const BAR = { 'Top bar': ['Main menu', 'Project', 'Undo', 'Redo', 'Night mode', 'Save as…', 'Export…'],
+        'Main menu': ['Projects…', 'New project…', 'Save', 'Save as…', 'Export…', 'Import an export…', 'Night mode', 'Keyboard shortcuts'],
+        'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on'],
+        Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
+        Effects: ['Effects', 'New', 'From preset…'], Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
       const bars = [];
       for (const [section, labels] of Object.entries(BAR)) {
         const region = document.querySelector(`[data-help-section="${section}"]`);
@@ -1401,6 +1424,362 @@ if (webgpu) {
       `${sweep.checked} labels and titles checked (${sweep.distinct} different); missing: ${[...sweep.misses.slice(0, 4), ...sweep.bars.slice(0, 4)].join(', ') || 'none'}`);
     ok('the tooltip page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await tp.close();
+  }
+
+  // -- the shell (docs/ui-redesign.md 5.2, 6.1, 6.4, 6.5, 6.8): the grid's sizes at 1920 x 1080 and 2560 x 1440, the four
+  // splitters (drag, limits, remembered after a reload, double-click, the arrow keys, the preview and the Look following at
+  // once), the status bar, the main menu, the ? key, the scale next to the View buttons, and typing a time in the
+  // timeline's header. On a page of its own: the sizes the splitters remember would stay for the pages after it.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const sp = g.page;
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const frames = () => sp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const grid = () => sp.evaluate(() => {
+      const box = (s) => document.querySelector(s).getBoundingClientRect();
+      const slot = box('.timeline-slot'), list = box('.layers-list');
+      const inside = (sel, r) => [...document.querySelectorAll(sel)].filter((x) => { const b = x.getBoundingClientRect(); return b.height > 0 && b.top >= r.top - 0.5 && b.bottom <= r.bottom + 0.5; }).length;
+      return { left: box('.left').width, right: box('.right').width, centre: box('.centre').width, effects: +(box('.effects-section').height / box('.left').height).toFixed(4),
+        timeline: +(box('.timeline-pane').height / box('.centre').height).toFixed(4), tlRows: inside('.timeline .tl-row', slot), layerRows: inside('.layers-list .layer-item', list),
+        top: box('.topbar').height, status: box('.statusbar').height, head: box('.transport').height, insHead: box('.inspector > .insp-head').height, width: box('#app').width };
+    });
+    await sp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); await a.showAt(1000, 7); });
+    const g1920 = await grid();
+    ok('at 1920 x 1080 the window\'s grid has its default sizes: left 248 px, right 296 px, the effects 40 % of the left column, the timeline 30 % of the centre; 8 track rows and 14 layer rows show without scrolling (Hammer leech beam, 16 layers)',
+      g1920.left === 248 && g1920.right === 296 && near(g1920.effects, 0.4, 0.002) && near(g1920.timeline, 0.3, 0.002) && g1920.tlRows >= 8 && g1920.layerRows >= 14
+        && g1920.top === 40 && g1920.status === 24 && g1920.head === 32 && g1920.insHead === 40, JSON.stringify(g1920));
+    await sp.setViewportSize({ width: 2560, height: 1440 });
+    await frames();
+    const g2560 = await grid();
+    ok('at 2560 x 1440: left 280 px, right 320 px, the effects 40 %, the timeline 34 %', g2560.left === 280 && g2560.right === 320 && near(g2560.effects, 0.4, 0.002) && near(g2560.timeline, 0.34, 0.002), JSON.stringify(g2560));
+    await sp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+
+    // The splitters: separators with a name, a size and its limits, and a tooltip that says what to do.
+    const splitters = await sp.evaluate(() => [...document.querySelectorAll('.splitter')].map((s) => {
+      const t = window.__vfx.app.tipForChecks(s);
+      return { name: s.getAttribute('aria-label'), role: s.getAttribute('role'), orientation: s.getAttribute('aria-orientation'), tab: s.getAttribute('tabindex'),
+        now: +s.getAttribute('aria-valuenow'), min: +s.getAttribute('aria-valuemin'), max: +s.getAttribute('aria-valuemax'), tip: t?.lines ?? [] };
+    }));
+    const byName = Object.fromEntries(splitters.map((x) => [x.name, x]));
+    const wantSplit = { 'Resize the left sidebar': ['vertical', 248, 200, 420], 'Resize the right panel': ['vertical', 296, 260, 480], 'Resize the effects list': ['horizontal', 406, 120, 856], 'Resize the timeline': ['horizontal', 305, 140, 610] };
+    ok('four splitters, each a focusable separator with its name, orientation, size and limits (aria-valuenow, -min, -max), and the tooltip "Drag to resize. Double-click to reset." with its help text',
+      splitters.length === 4 && Object.entries(wantSplit).every(([name, [o, now, min, max]]) => {
+        const x = byName[name];
+        return x && x.role === 'separator' && x.orientation === o && x.tab === '0' && Math.abs(x.now - now) <= 1 && x.min === min && Math.abs(x.max - max) <= 1
+          && x.tip[0] === 'Drag to resize. Double-click to reset.' && x.tip[1] === help.helpFor(name);
+      }), JSON.stringify(splitters));
+    const sizes = () => sp.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const stored = Object.fromEntries(['left', 'right', 'effects', 'timeline'].map((k) => [k, localStorage.getItem(`vfx-size:${k}`)]));
+      return { left: Math.round(r('.left').width), right: Math.round(r('.right').width), effects: Math.round(r('.effects-section').height), timeline: Math.round(r('.timeline-pane').height),
+        centre: Math.round(r('.centre').width), stored, time: window.__vfx.app.debugState().mainTime };
+    });
+    const centreOf = async (sel) => { const b = await sp.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+    const drag = async (sel, dx, dy, whileDown) => {
+      const [x, y] = await centreOf(sel);
+      await sp.mouse.move(x, y);
+      await sp.mouse.down();
+      await sp.mouse.move(x + dx, y + dy, { steps: 6 });
+      const during = whileDown ? await whileDown() : null;
+      await sp.mouse.up();
+      return during;
+    };
+    // While the timeline's splitter is dragged, the preview follows at once: its canvas has the new size, and the scene is
+    // drawn on it (not the empty ground a resized canvas shows until the next frame). The clock is stopped here, so only
+    // the redraw for the new size can draw it.
+    const before = await sizes();
+    const mid = await drag('.split-timeline', 0, -80, async () => {
+      await frames();
+      const info = await sp.evaluate(() => {
+        const v = document.querySelector('.viewport'), c = v.querySelector('canvas'), r = v.getBoundingClientRect(), f = document.querySelector('.frame-guide').getBoundingClientRect();
+        return { cw: c.width, ch: c.height, vw: Math.floor(r.width), vh: Math.floor(r.height), frame: { x: Math.max(r.x, f.x), y: Math.max(r.y, f.y), r: Math.min(r.right, f.right), b: Math.min(r.bottom, f.bottom) },
+          timeline: Math.round(document.querySelector('.timeline-pane').getBoundingClientRect().height), dragging: !!document.querySelector('.split-timeline.dragging') };
+      });
+      const png = PNG.sync.read(await sp.screenshot({ path: join(shots, 'shell-splitter-drag.png') }));
+      // Inside the game frame, below its label: a drawn scene is ground and something else; an empty canvas only one of them.
+      let n = 0, ground = 0, other = 0;
+      for (let y = Math.ceil(info.frame.y) + 32; y < info.frame.b - 8; y += 6) for (let x = Math.ceil(info.frame.x) + 8; x < info.frame.r - 8; x += 6) { n++; const d = diff(hex(png, x, y), '#B8A683'); if (d <= 2) ground++; else if (d > 12) other++; }
+      return { ...info, n, ground, other };
+    });
+    ok('while a splitter is dragged the preview follows at once: its canvas takes the new size and the scene is drawn on it, also with the clock stopped',
+      mid.dragging && mid.timeline === before.timeline + 80 && mid.cw === mid.vw && mid.ch === mid.vh && mid.n > 500 && mid.ground > mid.n * 0.2 && mid.other > mid.n * 0.02, JSON.stringify(mid));
+    const tl1 = await sizes();
+    await drag('.split-left', 60, 0);
+    const l1 = await sizes();
+    await drag('.split-right', -100, 0);
+    const r1 = await sizes();
+    await drag('.split-effects', 0, 100);
+    const e1 = await sizes();
+    ok('dragging a splitter resizes its zone and remembers the size (vfx-size:left, right, effects, timeline)',
+      tl1.timeline === before.timeline + 80 && tl1.stored.timeline === String(tl1.timeline) && l1.left === 308 && l1.stored.left === '308' && r1.right === 396 && r1.stored.right === '396'
+        && e1.effects === before.effects + 100 && e1.stored.effects === String(e1.effects), JSON.stringify({ before, tl1, l1, r1, e1 }));
+    // The limits: left 200 to 420 px, right 260 to 480 px, the effects 120 px to the column less 160 px, the timeline 140 px to
+    // 60 % of the centre; the centre never under 640 px.
+    await drag('.split-left', 600, 0); const lMax = await sizes();
+    await drag('.split-left', -600, 0); const lMin = await sizes();
+    await drag('.split-right', -600, 0); const rMax = await sizes();
+    await drag('.split-right', 600, 0); const rMin = await sizes();
+    await drag('.split-effects', 0, 900); const eMax = await sizes();
+    await drag('.split-effects', 0, -900); const eMin = await sizes();
+    await drag('.split-timeline', 0, -900); const tMax = await sizes();
+    await drag('.split-timeline', 0, 900); const tMin = await sizes();
+    ok('the splitters stop at their limits: left 200 to 420 px, right 260 to 480 px, the effects 120 px to the column less 160 px, the timeline 140 px to 60 % of the centre',
+      lMax.left === 420 && lMin.left === 200 && rMax.right === 480 && rMin.right === 260 && eMax.effects === 1016 - 160 && eMin.effects === 120 && tMax.timeline === 610 && tMin.timeline === 140,
+      JSON.stringify({ left: [lMin.left, lMax.left], right: [rMin.right, rMax.right], effects: [eMin.effects, eMax.effects], timeline: [tMin.timeline, tMax.timeline] }));
+    // The arrow keys move a focused splitter 16 px (they do not step the timeline), Home and End go to its limits.
+    await sp.locator('.split-left').focus();
+    await sp.keyboard.press('ArrowRight');
+    const k1 = await sizes();
+    await sp.keyboard.press('ArrowRight');
+    await sp.keyboard.press('ArrowLeft');
+    const k2 = await sizes();
+    await sp.locator('.split-timeline').focus();
+    await sp.keyboard.press('ArrowUp');
+    const k3 = await sizes();
+    await sp.keyboard.press('End');
+    const k4 = await sizes();
+    await sp.waitForTimeout(200); // the line's colour change (120 ms)
+    const focusLine = await sp.evaluate(() => { const s = document.querySelector('.split-timeline'); const probe = document.createElement('span'); probe.style.color = 'var(--focus)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return { line: getComputedStyle(s, '::before').backgroundColor, want }; });
+    ok('a focused splitter moves 16 px a press of the arrow keys (not the timeline\'s steps), End takes it to its limit, and its line shows the focus colour',
+      k1.left === 216 && k2.left === 216 && k1.time === before.time && k2.time === before.time && k3.timeline === 156 && k4.timeline === 610 && k4.stored.timeline === '610' && focusLine.line === focusLine.want,
+      JSON.stringify({ k1: k1.left, k2: k2.left, k3: k3.timeline, k4: k4.timeline, time: [before.time, k2.time], focusLine }));
+    // The widest sidebars in a window that shrinks to 1280 px: the centre keeps 640 px, and they come back when it grows.
+    await drag('.split-left', 600, 0);
+    await drag('.split-right', -600, 0);
+    const wide = await sizes();
+    await sp.setViewportSize({ width: 1280, height: 800 });
+    await frames();
+    const narrow = await sizes();
+    await sp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    const back1920 = await sizes();
+    ok('the centre is never narrower than 640 px: at 1280 px wide both sidebars give way, and they come back when the window grows',
+      wide.left === 420 && wide.right === 480 && narrow.centre >= 640 && narrow.left + narrow.centre + narrow.right === 1280 && narrow.left >= 200 && narrow.right >= 260
+        && back1920.left === 420 && back1920.right === 480 && back1920.stored.left === '420', JSON.stringify({ wide, narrow, back1920 }));
+    // Remembered after a reload; a double-click forgets one and puts its default back.
+    await sp.reload();
+    await sp.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
+    await sp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); await a.showAt(1000, 7); });
+    const reloaded = await sizes();
+    for (const sel of ['.split-left', '.split-right', '.split-effects', '.split-timeline']) await sp.locator(sel).dblclick();
+    const reset = await sizes();
+    ok('the sizes are remembered after a reload; a double-click on a splitter forgets its size and puts the default back',
+      reloaded.left === 420 && reloaded.right === 480 && reloaded.timeline === 610 && reloaded.effects === 120
+        && reset.left === 248 && reset.right === 296 && reset.effects === before.effects && reset.timeline === before.timeline && Object.values(reset.stored).every((v) => v === null),
+      JSON.stringify({ reloaded, reset }));
+    // The Look follows the right splitter at once too: its canvas takes the panel's new width.
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.selectLayer('emitter_glow'); await a.showAt(1000, 7); });
+    const look = await drag('.split-right', -80, 0, async () => { await frames(); return sp.evaluate(() => { const b = document.querySelector('.inspector .look-box'), c = b?.querySelector('canvas'); return { box: b?.clientWidth, canvas: c?.width, panel: Math.round(document.querySelector('.right').getBoundingClientRect().width) }; }); });
+    await sp.locator('.split-right').dblclick();
+    ok('the Look follows the right splitter at once: its picture takes the panel\'s new width while it is dragged', look.panel === 376 && look.canvas === look.box && look.box > 300, JSON.stringify(look));
+
+    // The status bar: the checks, this frame's triangles and draw calls, the cost, the renderer; never the class "status".
+    // Read after the colours' 120 ms change.
+    const bar = async () => { await sp.waitForTimeout(200); return sp.evaluate(() => {
+      const a = window.__vfx.app, s = a.previewForChecks.vfx.stats, b = document.querySelector('.statusbar');
+      const colour = (v) => { const p = document.createElement('span'); p.style.color = `var(${v})`; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+      const checks = b.querySelector('.sb-checks'), cost = b.querySelector('.sb-cost');
+      return { cls: b.className, h: b.getBoundingClientRect().height, font: getComputedStyle(b).fontSize, checks: checks.textContent, checksIcon: checks.querySelector('svg')?.getAttribute('class'), checksColour: getComputedStyle(checks).color,
+        good: colour('--good'), bad: colour('--bad'), warn: colour('--warn'), muted: colour('--text-muted'),
+        tris: b.querySelector('.sb-tris').textContent, draws: b.querySelector('.sb-draws').textContent, want: `${s.triangles} triangle${s.triangles === 1 ? '' : 's'}|${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`,
+        cost: cost.textContent, costColour: getComputedStyle(cost).color, renderer: b.querySelector('.sb-renderer').textContent, rendererTip: a.tipForChecks(b.querySelector('.sb-renderer'))?.lines[0] ?? null,
+        keys: b.querySelector('button[aria-label="Keyboard shortcuts"]') ? a.tipForChecks(b.querySelector('button[aria-label="Keyboard shortcuts"]')) : null, problems: a.problems().length };
+    }); };
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); await a.showAt(20, 7); });
+    const sb1 = await bar();
+    ok('the status bar (24 px, 11 px text) shows the checks ("All good", its check in --good), this frame\'s triangles and draw calls, the cost and the renderer (WebGL 2, with its tooltip), and ? for the keyboard shortcuts',
+      !sb1.cls.split(' ').includes('status') && sb1.h === 24 && sb1.font === '11px' && sb1.checks === 'All good' && sb1.checksIcon === 'icon icon-check' && sb1.checksColour === sb1.good
+        && `${sb1.tris}|${sb1.draws}` === sb1.want && sb1.cost === 'Cost: not measured' && sb1.costColour === sb1.muted && sb1.renderer === 'WebGL 2'
+        && sb1.rendererTip === 'Drawing with the WebGL 2 fallback of the WebGPU renderer.' && sb1.keys?.lines[0] === 'Keyboard shortcuts' && sb1.keys?.key === '?', JSON.stringify(sb1));
+    // A problem: "1 problem" in --bad, with the warning icon. A click shows the effect's view at its Checks section.
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.selectLayer('flash'); a.editLayer(['image'], 'no_such.png'); a.commit(); await a.showAt(20, 7); });
+    const sb2 = await bar();
+    await sp.locator('.statusbar .sb-checks').click();
+    const checksShown = await sp.waitForFunction(() => {
+      const c = document.querySelector('.inspector .checks'), r = document.querySelector('.right').getBoundingClientRect(), h = document.querySelector('.inspector > .insp-head')?.getBoundingClientRect();
+      const b = c?.getBoundingClientRect();
+      return b && h && b.top >= h.bottom - 1 && b.top < r.bottom - 20 ? { layer: window.__vfx.app.layer()?.id ?? null, top: Math.round(b.top - r.top), focus: document.activeElement === c.querySelector('h2'), title: c.querySelector('h2').textContent } : null;
+    }, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+    await sp.keyboard.press('Control+z');
+    await sp.evaluate(async () => { await window.__vfx.app.showAt(20, 7); });
+    const sb3 = await bar();
+    const nProblems = `${sb2.problems} problem${sb2.problems === 1 ? '' : 's'}`;
+    ok('with a problem the status bar says how many ("1 problem") in --bad with the warning icon, from the Checks section\'s list; a click shows the effect\'s settings (no layer selected) at its Checks section',
+      sb2.problems >= 1 && sb2.checks === nProblems && sb2.checksIcon === 'icon icon-warning' && sb2.checksColour === sb2.bad && !!checksShown && checksShown.layer === null && checksShown.focus && checksShown.title === `Checks: ${nProblems}` && sb3.checks === 'All good',
+      JSON.stringify({ sb2: [sb2.checks, sb2.checksIcon], checksShown, after: sb3.checks }));
+    // The triangles: a click shows the effect's view at Cost, the focus on Measure.
+    await sp.evaluate(() => window.__vfx.app.selectLayer('hit'));
+    await sp.locator('.statusbar .sb-stats').click();
+    const costShown = await sp.waitForFunction(() => {
+      const c = document.querySelector('.inspector .costcard'), r = document.querySelector('.right').getBoundingClientRect(), b = c?.getBoundingClientRect();
+      return b && b.top >= r.top && b.top < r.bottom - 20 ? { layer: window.__vfx.app.layer()?.id ?? null, focus: document.activeElement === c.querySelector('button') } : null;
+    }, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+    ok('a click on the triangles and draw calls shows the effect\'s settings (no layer selected) at Cost, the focus on Measure', !!costShown && costShown.layer === null && costShown.focus, JSON.stringify(costShown));
+    // The cost, from the card's own state: measured with no budget on, over budget (--bad), out of date (--warn).
+    await sp.evaluate(() => window.__vfx.app.measureForChecks());
+    const c1 = await bar();
+    await sp.evaluate(() => window.__vfx.app.setBudget('high', 'draws', 0));
+    const c2 = await bar();
+    const c2tip = await sp.evaluate(() => window.__vfx.app.tipForChecks(document.querySelector('.statusbar .sb-cost')));
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.editEffect(['controls', 'size'], 1.5, { label: 'Size' }); a.commit(); await a.showAt(20, 7); });
+    const c3 = await bar();
+    await sp.keyboard.press('Control+z');
+    await sp.evaluate(() => window.__vfx.app.setBudget('high', 'draws', 40));
+    const c4 = await bar();
+    await sp.evaluate(() => window.__vfx.app.setBudget('high', 'draws', undefined));
+    ok('the status bar\'s cost follows the cost card: "Measured, no budgets", "1 over budget" in --bad (which one in its tooltip), "Out of date" in --warn after a change, "Within budget" in --good',
+      c1.cost === 'Measured, no budgets' && c2.cost === '1 over budget' && c2.costColour === c2.bad && c2tip?.lines[0] === 'Over budget: Draws in High.' && c3.cost === 'Out of date' && c3.costColour === c3.warn
+        && c4.cost === 'Within budget' && c4.costColour === c4.good, JSON.stringify([c1.cost, c2.cost, c2tip?.lines[0], c3.cost, c4.cost]));
+    // The hint: over the preview, the drag hint; elsewhere, nothing. A message (the toast) shows above the status bar.
+    const vp = await sp.locator('.viewport').boundingBox();
+    await sp.mouse.move(vp.x + vp.width / 2, vp.y + 40);
+    const hintOver = await sp.locator('.statusbar .sb-hint').textContent();
+    await sp.mouse.move(vp.x + vp.width + 80, vp.y + 200);
+    const hintAway = await sp.locator('.statusbar .sb-hint').textContent();
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.editEffect(['controls', 'size'], 1.5, { label: 'Size' }); a.commit(); });
+    await sp.keyboard.press('Control+z');
+    const toast = await sp.evaluate(() => ({ shown: document.querySelector('.status').classList.contains('show'), bottom: document.querySelector('.status').getBoundingClientRect().bottom, bar: document.querySelector('.statusbar').getBoundingClientRect().top }));
+    ok('the status bar\'s middle shows the drag hint while the pointer is over the preview, and nothing elsewhere; a message shows above the status bar',
+      hintOver === 'Drag the ground to move the target. Shift + drag moves the stand-in.' && hintAway === '' && toast.shown && toast.bottom <= toast.bar, JSON.stringify({ hintOver, hintAway, toast }));
+
+    // The main menu: opens below the logo with the focus on its first row; the arrows, Home and End move; Esc closes it and
+    // gives the focus back to the logo; a second click closes it, and so does a click outside it.
+    const menuState = () => sp.evaluate(() => {
+      const m = document.querySelector('.menu'), logo = document.querySelector('.topbar .logo'), r = m.getBoundingClientRect(), l = logo.getBoundingClientRect();
+      return { open: m.matches(':popover-open'), role: m.getAttribute('role'), parent: m.parentElement === document.body, expanded: logo.getAttribute('aria-expanded'), focus: document.activeElement?.dataset.helpLabel ?? document.activeElement?.className ?? null,
+        rows: [...m.querySelectorAll('.menu-item, .menu-divider')].map((x) => x.matches('.menu-divider') ? '—' : `${x.getAttribute('role')}:${x.querySelector('.menu-label').textContent}${x.querySelector('.menu-key') ? `(${x.querySelector('.menu-key').textContent})` : ''}${x.hasAttribute('aria-checked') ? `=${x.getAttribute('aria-checked')}` : ''}`),
+        below: Math.round(r.top - l.bottom), left: Math.round(r.left - l.left), inside: r.right <= innerWidth && r.bottom <= innerHeight, rowH: Math.round(m.querySelector('.menu-item').getBoundingClientRect().height) };
+    });
+    await sp.locator('.topbar .logo').click();
+    await sp.waitForFunction(() => document.activeElement?.closest('.menu'), null, { timeout: 5000 }).catch(() => {});
+    const m1 = await menuState();
+    await sp.keyboard.press('ArrowDown'); const fDown = (await menuState()).focus;
+    await sp.keyboard.press('End'); const fEnd = (await menuState()).focus;
+    await sp.keyboard.press('ArrowDown'); const fWrap = (await menuState()).focus;
+    await sp.keyboard.press('ArrowUp'); await sp.keyboard.press('Home'); const fHome = (await menuState()).focus;
+    const tBefore = (await sp.evaluate(() => window.__vfx.app.debugState().mainTime));
+    await sp.keyboard.press('Escape');
+    const m2 = await menuState();
+    const tAfter = (await sp.evaluate(() => window.__vfx.app.debugState().mainTime));
+    ok('the main menu opens below the logo, on body, with the focus on its first row: Projects…, New project…, Save (Ctrl+S), Save as…, Export…, Import an export…, a line, Night mode (a check), Keyboard shortcuts (?)',
+      m1.open && m1.role === 'menu' && m1.parent && m1.expanded === 'true' && m1.focus === 'Projects…' && m1.below >= 0 && m1.below <= 8 && m1.left === 0 && m1.inside && m1.rowH === 28
+        && m1.rows.join(' | ') === 'menuitem:Projects… | menuitem:New project… | menuitem:Save(Ctrl+S) | menuitem:Save as… | menuitem:Export… | menuitem:Import an export… | — | menuitemcheckbox:Night mode=false | menuitem:Keyboard shortcuts(?)',
+      JSON.stringify(m1));
+    ok('in the main menu ↑ and ↓ move between the rows (round from the last to the first), Home and End go to the ends; Esc closes it and gives the focus back to the logo, and the keys stay the menu\'s',
+      fDown === 'New project…' && fEnd === 'Keyboard shortcuts' && fWrap === 'Projects…' && fHome === 'Projects…' && !m2.open && m2.expanded === 'false' && m2.focus === 'Main menu' && tAfter === tBefore,
+      JSON.stringify({ fDown, fEnd, fWrap, fHome, after: m2, time: [tBefore, tAfter] }));
+    await sp.locator('.topbar .logo').click();
+    const m3 = (await menuState()).open;
+    await sp.locator('.topbar .logo').click();
+    const m4 = (await menuState()).open;
+    await sp.locator('.topbar .logo').click();
+    const m5 = (await menuState()).open;
+    const hintBox = await sp.locator('.statusbar .sb-hint').boundingBox();
+    await sp.mouse.click(hintBox.x + hintBox.width / 2, hintBox.y + hintBox.height / 2);
+    const m6 = (await menuState()).open;
+    ok('a second click on the logo closes the main menu, and so does a click outside it', m3 && !m4 && m5 && !m6, JSON.stringify({ m3, m4, m5, m6 }));
+    // Its rows work: each opens what it names, and nothing is written (the dialogs are cancelled).
+    const chooseRow = async (name) => { await sp.locator('.topbar .logo').click(); await sp.getByRole('menuitem', { name, exact: true }).or(sp.getByRole('menuitemcheckbox', { name, exact: true })).click(); };
+    const dialogTitle = () => sp.waitForFunction(() => document.querySelector('dialog[open] h2')?.textContent ?? null, null, { timeout: 15000 }).then((x) => x.jsonValue(), () => null);
+    const closeDialog = () => sp.evaluate(() => document.querySelector('dialog[open]')?.close());
+    await chooseRow('Keyboard shortcuts');
+    const keysTitle = await dialogTitle();
+    const keysRows = await sp.evaluate(() => [...document.querySelectorAll('dialog[open] .keys tr')].map((r) => r.querySelector('kbd').textContent));
+    await closeDialog();
+    await chooseRow('Projects…');
+    const projTitle = await dialogTitle();
+    await closeDialog();
+    await chooseRow('Import an export…');
+    const importTitle = await dialogTitle();
+    const importShown = await sp.evaluate(() => { const h = [...document.querySelectorAll('dialog[open] h3')].find((x) => x.textContent === 'Import an export'); const r = h?.getBoundingClientRect(); return !!r && r.top >= 0 && r.bottom <= innerHeight; });
+    await closeDialog();
+    await chooseRow('New project…');
+    const newTitle = await dialogTitle();
+    await sp.locator('dialog[open] >> text=Cancel').click();
+    await chooseRow('Save as…');
+    const saveAsTitle = await dialogTitle();
+    await sp.locator('dialog[open] >> text=Cancel').click();
+    // On an example, Save asks for a copy (Save as); Export… with changes asks first, and Cancel writes nothing.
+    await chooseRow('Save');
+    const saveTitle = await dialogTitle();
+    await sp.locator('dialog[open] >> text=Cancel').click();
+    await sp.evaluate(() => { const a = window.__vfx.app; a.editEffect(['controls', 'size'], 1.5, { label: 'Size' }); a.commit(); });
+    await chooseRow('Export…');
+    const exportTitle = await dialogTitle();
+    await sp.locator('dialog[open] button[data-answer="cancel"]').click();
+    await sp.keyboard.press('Control+z');
+    await chooseRow('Night mode');
+    const nightOn = await sp.evaluate(() => ({ theme: document.documentElement.dataset.theme, pressed: document.querySelector('.theme-toggle').getAttribute('aria-pressed'), stored: localStorage.getItem('vfx-theme') }));
+    await sp.locator('.topbar .logo').click();
+    const checkedRow = await sp.evaluate(() => document.querySelector('.menu .menu-item[role="menuitemcheckbox"]').getAttribute('aria-checked'));
+    await sp.getByRole('menuitemcheckbox', { name: 'Night mode', exact: true }).click();
+    const nightOff = await sp.evaluate(() => document.documentElement.dataset.theme);
+    ok('the main menu\'s rows work: Keyboard shortcuts, Projects… and Import an export… (Projects, at its exports) open their dialogs, New project… and Save as… ask for a name, Save on an example asks for a copy, Export… asks about unsaved changes, Night mode is a check',
+      keysTitle === 'Keyboard shortcuts' && keysRows.includes('?') && keysRows.includes('Drag the ground') && keysRows.includes('Shift + drag') && projTitle === 'Projects' && importTitle === 'Projects' && importShown
+        && newTitle === 'New project' && saveAsTitle === 'Save as' && saveTitle === 'Save as' && exportTitle === 'Export' && nightOn.theme === 'dark' && nightOn.pressed === 'true' && nightOn.stored === 'dark'
+        && checkedRow === 'true' && nightOff === 'light', JSON.stringify({ keysTitle, keysRows, projTitle, importTitle, importShown, newTitle, saveAsTitle, saveTitle, exportTitle, nightOn, checkedRow, nightOff }));
+    // The ? key opens the keyboard shortcuts (the focus is on the logo now, as the menu left it), but not while typing in a
+    // field (the time readout's box, below).
+    await sp.keyboard.press('?');
+    const qTitle = await dialogTitle();
+    await closeDialog();
+
+    // The time readout: "89 / 299 ms" and "step 1" (its tooltip: the comic step rate). A click on the time makes it a box:
+    // Enter goes to the typed time, paused; Esc leaves it; a time past the end stops at the end. While firing: how many play.
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.pickEffect('shell_flight'); await a.showAt(250, 7); });
+    const readout = () => sp.evaluate(() => {
+      const t = document.querySelector('.transport .time'), box = t.querySelector('.time-input');
+      return { text: [...t.children].filter((x) => !x.hidden).map((x) => x.textContent).join(''), box: !box.hidden, focus: document.activeElement?.className ?? null, time: window.__vfx.app.debugState().mainTime, playing: window.__vfx.app.debugState().playing,
+        step: window.__vfx.app.tipForChecks(t.querySelector('.time-step'))?.lines[0] ?? null, stepColour: getComputedStyle(t.querySelector('.time-step')).color, muted: (() => { const p = document.createElement('span'); p.style.color = 'var(--text-muted)'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; })() };
+    });
+    const r0 = await readout();
+    await sp.locator('.transport .time-now').click();
+    const r1b = await readout();
+    await sp.keyboard.press('?');
+    const typedQ = await sp.evaluate(() => ({ dialog: !!document.querySelector('dialog[open]'), value: document.querySelector('.time-input').value }));
+    await sp.locator('.transport .time-input').fill('120');
+    await sp.keyboard.press('Enter');
+    const r2 = await readout();
+    await sp.locator('.transport .time-now').click();
+    await sp.locator('.transport .time-input').fill('50');
+    await sp.keyboard.press('Escape');
+    const r3 = await readout();
+    await sp.locator('.transport .time-now').click();
+    await sp.locator('.transport .time-input').fill('99999');
+    await sp.keyboard.press('Enter');
+    const r4 = await readout();
+    const len = await sp.evaluate(() => window.__vfx.app.timeline().lengthMs);
+    await sp.evaluate(async () => { const a = window.__vfx.app; a.fire(); await a.tickForChecks(40); });
+    const r5 = await readout();
+    await sp.evaluate(async () => { await window.__vfx.app.showAt(0, 7); });
+    ok('the ? key opens the keyboard shortcuts, but not while typing in a field', qTitle === 'Keyboard shortcuts' && !typedQ.dialog && typedQ.value.endsWith('?'), JSON.stringify({ qTitle, typedQ }));
+    ok('the time readout says "250 / … ms" and "step 3" (muted, its tooltip the comic step rate); a click on the time types one: Enter goes there, paused, Esc leaves it, a time past the end stops at the end; while firing it says how many play',
+      r0.text === `250 / ${Math.round(len)} msstep 3` && r0.step === 'Steps of 1/12 s, the comic step rate' && r0.stepColour === r0.muted && r1b.box && r1b.focus?.includes('time-input')
+        && r2.time === 120 && !r2.playing && !r2.box && r2.text.startsWith('120 / ') && r2.focus === 'time-now' && r3.time === 120 && !r3.box && r4.time === len && r5.text === 'Firing: 1 playing',
+      JSON.stringify({ r0, r1b: [r1b.box, r1b.focus], r2: [r2.text, r2.time, r2.playing, r2.focus], r3: [r3.time, r3.box], r4: r4.time, len, r5: r5.text }));
+
+    // The scale, right after the View buttons: muted, with its tooltip; it follows the view and the preview's size.
+    const scaleNow = () => sp.evaluate(() => {
+      const s = document.querySelector('.vbar .scale-text');
+      return { text: s?.textContent, after: s?.previousElementSibling?.querySelector('[aria-label="View"]') ? 'View' : s?.previousElementSibling?.textContent, tip: s ? window.__vfx.app.tipForChecks(s)?.lines[0] : null,
+        want: `${Math.round(window.__vfx.app.previewForChecks.scale * 100)} %`, colour: s ? getComputedStyle(s).color : null };
+    });
+    const s1 = await scaleNow();
+    await drag('.split-timeline', 0, -120);
+    await frames();
+    const s2 = await scaleNow();
+    await sp.locator('.split-timeline').dblclick();
+    await sp.click('.vbar >> text=Game size');
+    const s3 = await scaleNow();
+    await sp.click('.vbar >> text=Close-up');
+    const s4 = await scaleNow();
+    await sp.click('.vbar >> text=Whole screen');
+    ok('the scale shows right after the View buttons ("56 %", muted, with its tooltip), and follows the preview\'s size and the view (Game size 100 %, Close-up 200 %)',
+      s1.after === 'View' && s1.text === s1.want && s1.tip === `The preview shows the game screen at ${s1.text} of its size.` && s1.colour === sb1.muted && s2.text === s2.want && s2.text !== s1.text
+        && s3.text === '100 %' && s4.text === '200 %' && !(await sp.locator('.scale-label').count()), JSON.stringify({ s1, s2: s2.text, s3: s3.text, s4: s4.text }));
+    ok('the shell page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await sp.close();
   }
 
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.

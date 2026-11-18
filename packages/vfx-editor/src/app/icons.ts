@@ -112,6 +112,10 @@ const ICONS = {
   gradient: [{ d: 'M5.2 4h13.6A1.2 1.2 0 0 1 20 5.2v13.6a1.2 1.2 0 0 1-1.2 1.2H5.2A1.2 1.2 0 0 1 4 18.8V5.2A1.2 1.2 0 0 1 5.2 4z' }, { d: 'M4 14.5L14.5 4M4 19.5L19.5 4M9.5 20L20 9.5M15 20l5-5' }],
   preset: [{ d: 'M11 3.5l1.8 4.7 4.7 1.8-4.7 1.8L11 16.5l-1.8-4.7L4.5 10l4.7-1.8z' }, { d: 'M18 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z' }],
   info: [{ circle: [12, 12, 8.5] }, { d: 'M12 11v5.2M12 7.9v.1' }],
+  // The shell (UI phase 2): an example's lock, a problem's warning, the keyboard shortcuts' question mark.
+  lock: [{ d: 'M7 10.5h10a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 17 20H7a1.5 1.5 0 0 1-1.5-1.5V12A1.5 1.5 0 0 1 7 10.5z' }, { d: 'M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5M12 14.3v2.2' }],
+  warning: [{ d: 'M10.3 4.4L3 17.3a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.4a2 2 0 0 0-3.4 0z' }, { d: 'M12 9.6v4.2M12 17v.1' }],
+  question: [{ circle: [12, 12, 8.5] }, { d: 'M9.5 9.7a2.6 2.6 0 0 1 5 .8c0 1.8-2.5 2.2-2.5 3.8M12 16.9v.1' }],
   'faction-soviets': [{ d: star(12, 12.8, 9.5, 0.42), cls: 'insignia' }],
   'faction-allies': [{ d: chevron(12, 12, 19), cls: 'insignia' }],
   'faction-empire': [{ d: flower(12, 12, 9.6, 0.27), cls: 'insignia' }],
