@@ -691,6 +691,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     it is open the logo looks like a chip with its menu open (4.6): the field colour, the chevron in `--accent-ink`. The logo's
     name for screen readers is "Shamble VFX main menu".
   - The timeline's header keeps Speed's label and Loop's word, as today; Play is a 24 px icon button.
+  - The time in the readout is a button whose focus ring is drawn inside it, as on the status bar's items, and whose box
+    reaches 2 px past the time on the right (4 px on the left) and gives those 2 px back with its margin: the text keeps
+    its spacing ("89 / 299 ms"), and the ring ends before the slash.
   - The frame's label reads "1920 × 1080" (it said "1920 × 1080 game screen").
   - In the 296 px panel the cost table's budget boxes have no spin arrows (Chrome keeps their room even while they are
     hidden, and "budget" did not fit; the arrow keys still step the number). The row names that do not fit (Sprites alive,
