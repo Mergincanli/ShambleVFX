@@ -1521,12 +1521,20 @@ if (webgpu) {
     await drag('.split-right', -600, 0); const rMax = await sizes();
     await drag('.split-right', 600, 0); const rMin = await sizes();
     await drag('.split-effects', 0, 900); const eMax = await sizes();
+    // The Layers section is then 160 px tall: its list gives way, so its add menu and buttons stay inside the column.
+    const layersAtMax = await sp.evaluate(() => {
+      const left = document.querySelector('.left').getBoundingClientRect(), list = document.querySelector('.layers-list').getBoundingClientRect();
+      const parts = [document.querySelector('.layers-section .add-layer'), ...document.querySelectorAll('.layers-section .layer-tools button')].map((e) => e.getBoundingClientRect());
+      return { section: Math.round(document.querySelector('.layers-section').getBoundingClientRect().height), list: Math.round(list.height), lowest: Math.round(Math.max(...parts.map((r) => r.bottom))), column: Math.round(left.bottom), parts: parts.length };
+    });
     await drag('.split-effects', 0, -900); const eMin = await sizes();
     await drag('.split-timeline', 0, -900); const tMax = await sizes();
     await drag('.split-timeline', 0, 900); const tMin = await sizes();
     ok('the splitters stop at their limits: left 200 to 420 px, right 260 to 480 px, the effects 120 px to the column less 160 px, the timeline 140 px to 60 % of the centre',
       lMax.left === 420 && lMin.left === 200 && rMax.right === 480 && rMin.right === 260 && eMax.effects === 1016 - 160 && eMin.effects === 120 && tMax.timeline === 610 && tMin.timeline === 140,
       JSON.stringify({ left: [lMin.left, lMax.left], right: [rMin.right, rMax.right], effects: [eMin.effects, eMax.effects], timeline: [tMin.timeline, tMax.timeline] }));
+    ok('with the effects list at its largest, the Layers section (160 px) keeps its add menu and its buttons inside the column: its list gets shorter, one row at the least',
+      layersAtMax.section === 160 && layersAtMax.parts === 5 && layersAtMax.lowest <= layersAtMax.column && layersAtMax.list >= 28, JSON.stringify(layersAtMax));
     // The arrow keys move a focused splitter 16 px (they do not step the timeline), Home and End go to its limits.
     await sp.locator('.split-left').focus();
     await sp.keyboard.press('ArrowRight');

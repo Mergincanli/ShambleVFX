@@ -433,7 +433,9 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 /* Lists: rows edge to edge, 28 px. Selected: a tint, a 2 px bar on the left, weight 500. */
 .list { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--pad-panel)); overflow: auto; }
 .list .empty { padding: 6px var(--pad-panel); }
-.layers-list { flex: 1; min-height: 80px; }
+/* The list gives way first, down to one row: with the effects list at its largest (the column less 160 px), the add menu
+   and the buttons under the list stay inside the column. */
+.layers-list { flex: 1; min-height: var(--h-row); }
 .item { position: relative; display: flex; align-items: center; gap: 4px; width: 100%; min-height: var(--h-row); padding: 0; border: 0; background: transparent; color: var(--text); text-align: left; }
 .item:hover:not(.sel) { background: var(--bg-hover); }
 .item.sel { background: var(--bg-selected); font-weight: 500; }

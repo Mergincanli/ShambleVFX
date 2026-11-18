@@ -176,7 +176,7 @@ remembered); the runtime's loader and its version guard; the screen-area count a
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (227 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (228 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -202,8 +202,9 @@ phase starts, New from preset, tiers, game events (unsaved ones are asked about 
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
 shell (the window's grid at 1920 × 1080 and 2560 × 1440, with 8 track rows and 14 layer rows showing at 1920; the four
-splitters: a drag, their limits, the sizes remembered after a reload, a double-click putting the default back, the arrow
-keys, the preview drawn at its new size while one is dragged, the Look following; the status bar: the checks and a click
+splitters: a drag, their limits (the Layers section's buttons staying in the column with the effects list at its largest),
+the sizes remembered after a reload, a double-click putting the default back, the arrow keys, the preview drawn at its new
+size while one is dragged, the Look following; the status bar: the checks and a click
 to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
 main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
 closing it, every row; the ? key, not while typing; the scale after the View buttons; typing a time in the timeline's
@@ -674,6 +675,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     take a focused splitter to its limits. Sizes are remembered in whole px. When the window is too narrow for both
     remembered sidebar widths, both give way, each in proportion to its room above its narrowest, and the remembered widths
     come back when the window grows.
+  - With the effects list at its largest (the column less 160 px, as 5.2 says), the Layers section is 160 px tall: its list
+    gives way, down to one row, so the add menu and the buttons under the list stay in the column. Phase 4 takes those two
+    rows away, and the list gets the room.
   - The preview's own observer clears its canvas when it gives it a new size, after the frame was drawn; the editor then
     draws the moment again at once (also while paused), so the preview follows a splitter while it is dragged.
   - The project's name is a button that opens Projects; an example's lock sits between the name and the unsaved dot, so the
