@@ -4,11 +4,11 @@ Every effect shows what it costs, per quality tier, next to budgets you type (de
 so the editor invents no limits: the boxes start empty, and a number turns red (over) or green (within) only once you type a
 budget.
 
-Press **Measure** on the **Cost** card in the right panel (the triangle count above the preview jumps there). The editor plays
-the effect through **once per tier**, through `VfxRenderer` (the code the game ships), at a **fresh game camera** on the
-1920 × 1080 screen, at **60 frames a second**, with **seed 1**, in the scene, faction, "made by" and distance the preview has
-now. The preview waits while it measures. The card prints these conditions under the table; when the effect or any of them
-changes, the numbers turn amber and say so.
+Press **Measure** on the **Cost** card in the right panel (the triangles and the cost in the status bar jump there). The
+editor plays the effect through **once per tier**, through `VfxRenderer` (the code the game ships), at a **fresh game
+camera** on the 1920 × 1080 screen, at **60 frames a second**, with **seed 1**, in the scene, faction, "made by" and distance
+the preview has now. The preview waits while it measures. The card prints these conditions under the table; when the effect
+or any of them changes, the numbers turn amber and say so.
 
 **Each number is the most at any moment of the effect**, on its own: the most draws may come at another moment than the most
 triangles.

@@ -690,6 +690,15 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     hidden, and "budget" did not fit; the arrow keys still step the number). The row names that do not fit (Sprites alive,
     CPU ms a frame) end in an ellipsis, with the full name in their tooltip, until phase 6 remakes the card.
   - A message (the toast) shows 12 px above the status bar.
+  - The right panel stays the column that scrolls, with the cards straight inside it: its 40 px header is sticky at the top
+    of that scroll, not a row of its own over a scrolling body (the browser check and the settings inventory read the cards
+    there). Where scrollbars take room, the right panel's runs beside the header too.
+  - The splitters are 6 px strips laid over the zones' own 1 px lines (each placed in the grid on that line), not rows or
+    columns of their own: the workspace keeps its three columns, and the left sidebar and the centre their rows.
+  - The rule for windows under 1400 px went (the grid has its own defaults now), so the timeline's names column is 180 px
+    at every width until phase 5 makes it 200 and 176 px.
+  - The Effects header's New and From preset… fit the 248 px sidebar with nothing to spare; in a narrower one (it can be
+    dragged to 200 px) their words end in an ellipsis rather than being cut off, until phase 4's + menu takes their place.
 
 ## Claude skills
 

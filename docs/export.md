@@ -16,9 +16,9 @@ exports/demo-project/
 
 ## Make one
 
-- In the editor: **Export…** in the top bar. It exports the project **as saved on disk**: with unsaved changes it asks first
-  (Save, then export; or export what is saved). An example cannot be saved, so Save as first to export your changes.
-  A report says what went where, or what stopped it.
+- In the editor: **Export…** in the top bar or the main menu. It exports the project **as saved on disk**: with unsaved
+  changes it asks first (Save, then export; or export what is saved). An example cannot be saved, so Save as first to
+  export your changes. A report says what went where, or what stopped it.
 - From the command line, the same code:
 
 ```bash
@@ -46,7 +46,7 @@ not match the files. The game's build can run the same checker (`checkExport` in
 
 ## Import one
 
-- In the editor: **Projects…**, then a name under **Import an export**.
+- In the editor: **Import an export…** in the main menu (it opens **Projects…**), then a name under **Import an export**.
 - From the command line: `npm run import -- exports/demo-project projects/demo-back "Demo back"`. It keeps the colours as a
   palette profile in `palettes/` too, and says which.
 
