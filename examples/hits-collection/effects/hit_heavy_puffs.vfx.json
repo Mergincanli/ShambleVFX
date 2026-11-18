@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 5,
+  "version": 6,
   "id": "hit_heavy_puffs",
   "name": "Heavy: puff cluster",
   "controls": {

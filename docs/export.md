@@ -8,7 +8,7 @@ exports/demo-project/
   palette.json             the colours: roles (team colours per faction) and gradients; the project's own, or the built-in one
   atlas.png                every image the effects use, packed on one page (plus two small blocks of the runtime's own)
   atlas.json               where each image sits on the page
-  effects/<id>.vfx.json    one effect file each, in the current effect format (version 5)
+  effects/<id>.vfx.json    one effect file each, in the current effect format (version 6)
   editor.json              the editor's own notes (preview scenes, budgets, the palette profile's name): the game ignores it
 ```
 
@@ -100,11 +100,11 @@ The editor's own notes. The game ignores this file.
   "format": "shamble-vfx-export",
   "version": 1,
   "name": "Demo project",
-  "effectVersion": 5,
+  "effectVersion": 6,
   "palette": "palette.json",
   "atlas": { "image": "atlas.png", "map": "atlas.json", "width": 2048, "height": 892 },
   "effects": [
-    { "id": "board_muzzle", "name": "Rifle shot (board)", "version": 5, "file": "effects/board_muzzle.vfx.json", "events": ["rifle.shot"] }
+    { "id": "board_muzzle", "name": "Rifle shot (board)", "version": 6, "file": "effects/board_muzzle.vfx.json", "events": ["rifle.shot"] }
   ],
   "events": { "rifle.shot": "board_muzzle" }
 }
@@ -148,7 +148,7 @@ and `vfx.stats.notDrawn` names it for that frame (the effect, the layer and the 
 
 - not an export: "… is not a Shamble VFX export: export the project again with the editor";
 - a newer export or newer effects: "… update the runtime";
-- older effects: "the effects in this export are version 4, and this runtime plays version 5: export them again with the
+- older effects: "the effects in this export are version 5, and this runtime plays version 6: export them again with the
   editor, which upgrades old effects";
 - a missing file, an atlas of the wrong size, or an event that points at an effect not in the folder.
 

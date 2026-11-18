@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 5,
+  "version": 6,
   "id": "hit_bullet_dust",
   "name": "Bullet hit: dust (stone, ground)",
   "controls": {

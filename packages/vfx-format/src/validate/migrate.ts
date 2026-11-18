@@ -70,7 +70,18 @@ function v4to5(doc: Obj): Obj {
   return out;
 }
 
-export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3, 3: v3to4, 4: v4to5 };
+/**
+ * Version 5 -> 6: nothing in a version 5 file changes but its number. Version 6 says how a fire's bed reads its gradient:
+ * from the middle (0) to the rim (1), as a glow does. Version 5 as first pushed (15 November) read it from the rim (0) to
+ * the middle (1); the push of 16 November turned it round without a new number. A bed keeps its gradient name, and
+ * nothing is turned round (an assumption, see README: the editor never offered a gradient on a bed, no example has one,
+ * and every version 5 file written since 16 November means "middle to rim").
+ */
+function v5to6(doc: Obj): Obj {
+  return { ...doc, version: 6 };
+}
+
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: v1to2, 2: v2to3, 3: v3to4, 4: v4to5, 5: v5to6 };
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; from: number; steps: number }

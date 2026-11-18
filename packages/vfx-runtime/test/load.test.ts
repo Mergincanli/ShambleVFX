@@ -69,14 +69,14 @@ describe('loading an export folder', () => {
     );
   });
 
-  it('plays version 5, and refuses an export made with version 4 effects in plain words', async () => {
-    expect(FORMAT_VERSION).toBe(5);
-    expect((await loadExport(URL_, folder())).manifest.effectVersion).toBe(5);
-    await expect(loadExport(URL_, folder((f) => { manifestOf(f).effectVersion = 4; }))).rejects.toThrow(
-      'the effects in this export are version 4, and this runtime plays version 5: export them again with the editor, which upgrades old effects',
+  it('plays version 6, and refuses an export made with version 5 effects in plain words', async () => {
+    expect(FORMAT_VERSION).toBe(6);
+    expect((await loadExport(URL_, folder())).manifest.effectVersion).toBe(6);
+    await expect(loadExport(URL_, folder((f) => { manifestOf(f).effectVersion = 5; }))).rejects.toThrow(
+      'the effects in this export are version 5, and this runtime plays version 6: export them again with the editor, which upgrades old effects',
     );
-    await expect(loadExport(URL_, folder((f) => { (f['effects/shot.vfx.json'] as Record<string, unknown>).version = 4; }))).rejects.toThrow(
-      'https://game.test/vfx/effects/shot.vfx.json is version 4, not 5: export it again',
+    await expect(loadExport(URL_, folder((f) => { (f['effects/shot.vfx.json'] as Record<string, unknown>).version = 5; }))).rejects.toThrow(
+      'https://game.test/vfx/effects/shot.vfx.json is version 5, not 6: export it again',
     );
   });
 

@@ -1628,11 +1628,11 @@ if (webgpu) {
     const old = join(repo, 'exports', '_check-old-effects');
     cpSync(join(repo, 'exports', 'demo-project'), old, { recursive: true });
     const m = JSON.parse(readFileSync(join(old, 'manifest.json'), 'utf8'));
-    m.effectVersion = 2;
+    m.effectVersion = 5;
     writeFileSync(join(old, 'manifest.json'), JSON.stringify(m, null, 2) + '\n');
     const g1 = await open(`${tpBase}/?export=_check-old-effects&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);
     const e1 = await g1.page.evaluate(() => window.__test.error ?? '');
-    ok('test page: effects of an older version are refused in plain words', /version 2, and this runtime plays version 5: export them again/.test(e1), e1);
+    ok('test page: effects of an older version are refused in plain words', /version 5, and this runtime plays version 6: export them again/.test(e1), e1);
     await g1.page.close();
     rmSync(old, { recursive: true, force: true });
     const g2 = await open(`${tpBase}/?export=_check-missing&offscreen=1&backend=webgl`, () => window.__test && window.__test.ready);

@@ -4,7 +4,7 @@ import os
 
 # The effect format's version these presets write, and its JSON Schema (packages/vfx-format/schema, made from the checker's
 # own schema): the order of the fields the editor writes comes from it.
-FORMAT_VERSION = 5
+FORMAT_VERSION = 6
 SCHEMA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "packages", "vfx-format", "schema",
                            f"effect.v{FORMAT_VERSION}.schema.json")
 STEPS = {"mode": "steps", "perSecond": 12}

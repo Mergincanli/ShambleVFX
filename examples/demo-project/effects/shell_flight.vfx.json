@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 5,
+  "version": 6,
   "id": "shell_flight",
   "name": "Tank shell flight (demo)",
   "controls": {

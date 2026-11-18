@@ -119,10 +119,11 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (537): the format, the checker and the upgrades from versions 1, 2, 3 and 4; every example effect byte
-for byte as the editor saves it; word chances (the four rules, the checker's warnings, a total just over 100 % shown
-with the decimals that say so, and the word each play shows: what is drawn, and the same as version 4 for every seed
-when no word has a chance); the word odds over 1,000 plays, near the four rules' shares; the words box keeping chances;
+The unit tests (539): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
+four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
+shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
+plays, near the four rules' shares; the words box keeping chances;
 a space in a word drawn as a gap; the colours each layer can use, checked against the real runtime (every example drawn
 at 60 frames a second for every made-by and faction, each layer in a tier it shows in, and made-up layers of every kind,
 edge and gradient: the list holds every colour the runtime asks the palette for; a test holds the runtime to drawing a
@@ -225,7 +226,7 @@ These write pictures to `out/` (kept out of git):
 
 ## What works now
 
-- **Effect files, version 5** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2, 3 and 4.
+- **Effect files, version 6** ([docs/format.md](docs/format.md)), with upgrades from versions 1, 2, 3, 4 and 5.
   - **Colours per project**: the project's own `palette.json` (version 2, with gradients), edited with the colour picker;
     the built-in palette for projects without one ([docs/colours.md](docs/colours.md)).
   - **Gradients**: smooth or banded ramps in the palette. A glow and the fire's bed run one from the middle to the rim (on
@@ -403,9 +404,20 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     runtime, so the answer is needed before then.
   - The checker warns when a bed's banded gradient has more than 8 stops (each stop is a band of lumps): 8 is our guess,
     twice the four tones a bed starts with.
-  - No new format version for turning the bed's gradient round: version 5 had been pushed the same day, no example or
-    default effect uses a bed gradient, and no effect file changes. A palettes folder made in between keeps the old
-    `fire.bed` (stops from the rim); restoring the defaults does not replace a profile that is there.
+- **Effect format 6** (making version 6, with an upgrade, is Mustafa's decision of 2026-11-18; what the upgrade does, and
+  why, is ours):
+  - Version 5 as first pushed (15 November) read a bed's gradient from the rim (0) to the middle (1). The push of 16
+    November turned it round, from the middle (0) to the rim (1), as a glow's, but kept the number 5. Version 6 is the
+    number that says "middle to rim".
+  - The upgrade from 5 to 6 changes only the version number: a bed keeps its gradient name, and nothing is turned round.
+    Why: the editor never offered a gradient on a bed (`optionalKeysFor` in `src/app/specform.ts`: a bed's only optional
+    part is `breakUp`); no example effect has one; every version 5 file written since 16 November means "middle to rim";
+    and turning old beds round would need a new setting in the format, for files that almost certainly do not exist.
+  - The upgrade cannot change palette files. A palettes folder made by the editor as pushed on 15 November keeps the old
+    `fire.bed` in its default profile "Built-in with gradients", with its stops from the rim (and so does a `palette.json`
+    filled from it); a bed uses it only if someone typed its name into the effect file. To get the new `fire.bed`, delete
+    the palettes folder: the editor makes it again, with the two default profiles, the next time it needs it (the
+    profiles you made in it go too).
 - **Alpha in smoke and burst gradients** fades every part of the puff or piece: rim, light top and halftone; ink edge and
   speed streak (they keep their colours). Each part is see-through on its own, so the rounds of a puff show where they
   overlap (darker overlaps, edges showing through), as with a layer's alpha. A puff or piece at alpha 0 is not drawn, and

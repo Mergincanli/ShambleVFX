@@ -46,7 +46,7 @@ palette.gradients = {
 
 const molotov = JSON.parse(readFileSync(join(repo, 'examples', 'demo-project', 'effects', 'board_molotov.vfx.json'), 'utf8'));
 const layer = (id) => structuredClone(molotov.layers.find((l) => l.id === id));
-const effect = (id, name, phases, layers) => ({ format: 'shamble-vfx', version: 5, id, name, controls: { ...molotov.controls }, phases, layers });
+const effect = (id, name, phases, layers) => ({ format: 'shamble-vfx', version: 6, id, name, controls: { ...molotov.controls }, phases, layers });
 const grad = (l, g) => { if (!g) return l; if (l.type === 'shape') l.shape.gradient = g; else l.gradient = g; return l; };
 
 const smoke = (g, edit) => {

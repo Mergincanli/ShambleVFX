@@ -1,9 +1,10 @@
-# The effect file, version 5
+# The effect file, version 6
 
 One effect is one JSON file: `effects/<id>.vfx.json` in a project folder, next to `images/` (PNG files), `project.json` and,
 when the project has its own colours, `palette.json`.
-The exact schema is `packages/vfx-format/schema/effect.v5.schema.json`; the types are `packages/vfx-format/src/types.ts`.
-Files of versions 1, 2, 3 and 4 open unchanged: the checker upgrades them (see the end).
+The exact schema is `packages/vfx-format/schema/effect.v6.schema.json`; the types are `packages/vfx-format/src/types.ts`.
+`effect.v5.schema.json` stays next to it: it is the same but for the version number.
+Files of versions 1, 2, 3, 4 and 5 open unchanged: the checker upgrades them (see the end).
 
 What the game loads is an **export folder** made from a project: see [export.md](export.md).
 
@@ -110,8 +111,10 @@ if it had no gradient. What the gradient runs along:
   the rounds' edges show through each other, and billows behind show through (as with a layer's `alpha`). For smoke that
   thins without those marks, use colours only, as the default `smoke.lighten` does ([colours.md](colours.md)). Where the
   alpha is 0 the puff is not drawn at all.
-- **bed**: from the middle (0) to the rim (1), as on a glow: the first stop is the hot middle, the last one the rim. The
-  gradient takes the place of the tones' colours (`tones` stay, and count when there is no gradient). The bed is drawn in
+- **bed**: from the middle (0) to the rim (1), as on a glow: the first stop is the hot middle, the last one the rim.
+  Version 6 is the number that says so: version 5 as first pushed read it from the rim. The upgrade from version 5 keeps
+  a bed's gradient as it is, since the editor never offered one and no example effect has one (see 5 → 6 at the end).
+  The gradient takes the place of the tones' colours (`tones` stay, and count when there is no gradient). The bed is drawn in
   bands of lumps, and the bands do not share one middle: each band in sits a tenth of the bed's radius nearer the camera
   than the one round it, so the hot middle sits low, in front, as the tones have always drawn it. A band never sits nearer
   the camera by as much as its own reach, so every band still reaches past the bed's middle. A place on a band is its
@@ -245,15 +248,28 @@ The checker upgrades an old file when it reads it, one version at a time. Save t
   With no chances, every play shows the same word as before, for every seed. Version 5 also lets smoke, the fire's bed and
   bursts name a gradient (nothing to change in an old file); the new number makes an older runtime refuse an effect it could
   not draw.
+- **5 → 6**: nothing in the file changes but its number. A bed keeps its `gradient` name, and nothing is turned round.
+  Version 6 says how a bed reads its gradient: from the middle (0) to the rim (1), as a glow does (see Gradients, above).
+  The upgrade turns nothing round because the editor never offered a gradient on a bed (in its form, a bed's only
+  optional part is `breakUp`), no example effect has one, every version 5 file written since 16 November means "middle
+  to rim", and turning old beds round would need a new setting in the format for files that almost certainly do not
+  exist (our assumption: see README, Assumptions). The new number makes an older runtime refuse a version 6 file: the
+  runtime first pushed with version 5 would draw a bed's gradient the wrong way round.
 
 Note: a few optional fields were added to version 2 after its first push, before anyone used it (`alpha`, `liftM`, `areaM`,
 `streak`, `inkRole`, the `spike` piece, `squash` on rings and dots). They are optional, so every version 2 file stays valid;
 no version number was spent on them.
 
-Note: in version 5 as first pushed, the fire's bed ran its gradient from the rim to the middle, and a smooth gradient made one
-band per stop. The same day, before any effect used it, it was turned round to run from the middle to the rim, as a glow's,
-and a smooth gradient now keeps the tones' bands. No effect file changes, so no version number was spent on it (an
-assumption).
+Note: in version 5 as first pushed (15 November), the fire's bed read its gradient from the rim (0) to the very middle (1),
+and a smooth gradient made one band per stop. The push of 16 November turned it round: from the middle (0) to the rim (1),
+as a glow's. A smooth gradient now keeps the bed's own bands (one per tone) and blends its colours over them; a banded one
+gives one band per stop. That push kept the number 5. Version 6 (Mustafa, 2026-11-18) is the number that says so.
+
+Note: the upgrade cannot change palette files. A palettes folder made by the editor as pushed on 15 November keeps the old
+`fire.bed` in the default profile "Built-in with gradients", with its stops from the rim (and so does a `palette.json`
+filled from it). A bed uses `fire.bed` only if someone typed that name into the effect file. To get the new `fire.bed`,
+delete the palettes folder: the editor makes it again, with the two default profiles, the next time it needs it (the
+profiles you made in it go too).
 
 ## Planned (each with an upgrade step)
 

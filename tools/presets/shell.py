@@ -86,7 +86,7 @@ layers.append({"id": "word", "name": "Sound word", "type": "word", "start": {"ph
     "bounce": 0.35, "turnDeg": 4, "slantDeg": 9, "pop": {"scale": 1.15, "steps": 2}, "breakUp": {"phase": "fade"}, "breakSteps": 5,
     "riseM": round(0.25 * RR, 4), "distance": {"curve": DIST, "minPx": 14}, "visibleTo": "everyone", "seed": 4, "perPlay": True})
 
-fx = {"format": "shamble-vfx", "version": 5, "id": "board_shell", "name": "Tank shell (board)",
+fx = {"format": "shamble-vfx", "version": 6, "id": "board_shell", "name": "Tank shell (board)",
       "controls": {"size": 1, "intensity": 1, "duration": 1, "colour": "heat.1"},
       "phases": {"windupMs": 560, "peakMs": 490, "fadeMs": 900}, "layers": layers}
 sys.path.insert(0, __file__.rsplit('/', 1)[0])

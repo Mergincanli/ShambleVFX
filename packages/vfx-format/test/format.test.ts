@@ -281,7 +281,7 @@ describe('versions and upgrades', () => {
 
   it('runs upgrade steps in order (tested with a made-up version 0)', () => {
     const v0 = { format: 'shamble-vfx', version: 0, id: 'old', title: 'Old effect', controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' }, layers: [] };
-    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]!, 3: MIGRATIONS[3]!, 4: MIGRATIONS[4]! };
+    const fake = { 0: (d: Record<string, unknown>) => { const { title, ...rest } = d; return { ...rest, name: title, version: 1 }; }, 1: MIGRATIONS[1]!, 2: MIGRATIONS[2]!, 3: MIGRATIONS[3]!, 4: MIGRATIONS[4]!, 5: MIGRATIONS[5]! };
     const r = checkEffect(v0, { palette, images, migrations: fake });
     expect(problemLines(r.problems)).toEqual([]);
     expect(r.upgradedFrom).toBe(0);
@@ -296,7 +296,7 @@ describe('version 3 -> 4, and gradients', () => {
     expect(MIGRATIONS[3]!(structuredClone(v3))).toEqual({ ...goodEffect(), version: 4 });
     const r = checkEffect(v3, { palette, images });
     expect(r.upgradedFrom).toBe(3);
-    // It has no word layer, so the step to version 5 changes its number only too.
+    // It has no word layer, so the steps to versions 5 and 6 change its number only too.
     expect(r.effect).toEqual({ ...goodEffect(), version: FORMAT_VERSION });
   });
 
@@ -393,9 +393,12 @@ describe('version 4 -> 5: words with chances, gradients on smoke, the bed and bu
     expect(r.upgradedFrom).toBe(4);
     expect((r.effect!.layers[1] as WordLayer).words).toEqual([{ text: 'BOOM' }, { text: 'BANG' }]);
     // The upgraded file is the old one, field for field and in the same order, with the new number and word objects.
+    // The step to version 5 makes the word objects; the step to version 6 changes only the number.
     const want = JSON.parse(JSON.stringify(old));
     want.version = 5;
     want.layers[1].words = [{ text: 'BOOM' }, { text: 'BANG' }];
+    expect(JSON.stringify(MIGRATIONS[4]!(structuredClone(old)))).toBe(JSON.stringify(want));
+    want.version = FORMAT_VERSION;
     expect(JSON.stringify(r.upgraded)).toBe(JSON.stringify(want));
     expect(JSON.stringify(old)).toBe(JSON.stringify(v4())); // the input is not changed
   });
@@ -543,5 +546,66 @@ describe('version 4 -> 5: words with chances, gradients on smoke, the bed and bu
     expect(lines(gradient(16, 'smooth'), [lumps, detail])).toEqual([]);
     const glow = newShapeLayer('glow', 'Glow', 'glow');
     expect(lines(gradient(16, 'banded'), [{ ...glow, shape: { ...glow.shape, gradient: 'fire.many' } as ShapeLayer['shape'] }])).toEqual([]);
+  });
+});
+
+describe('version 5 -> 6: a bed reads its gradient from the middle to the rim', () => {
+  /** The built-in palette has no gradients: this one has the gradient the beds name (from the middle out). */
+  const withBedGradient: Palette = {
+    ...palette,
+    gradients: { 'fire.bed': { kind: 'banded', from: 'assumed', stops: [{ at: 0, role: 'heat.3' }, { at: 0.33, role: 'heat.2' }, { at: 0.5533, role: 'heat.1' }, { at: 0.7766, role: 'heat.dark' }] } },
+  };
+  /** A version 5 file as it was saved: a fire's bed, its lumps and its detail, both naming a gradient. */
+  const v5 = () => {
+    const fx = newEffect('fire', 'Fire, version 5') as unknown as Record<string, unknown>;
+    const bed = newShapeLayer('bed', 'Bed', 'bed');
+    fx.version = 5;
+    fx.layers = [
+      { ...bed, shape: { ...(bed.shape as BedShape), gradient: 'fire.bed' } },
+      { ...bed, id: 'bed_detail', name: 'Bed detail', shape: { ...(bed.shape as BedShape), part: 'detail', gradient: 'fire.bed' } },
+    ];
+    return fx;
+  };
+
+  it('changes only the number: a bed keeps its gradient name, and nothing is turned round', () => {
+    const old = v5();
+    // The step: the same file, field for field and in the same order, with the number 6.
+    const want = JSON.parse(JSON.stringify(old));
+    want.version = 6;
+    expect(JSON.stringify(MIGRATIONS[5]!(structuredClone(old)))).toBe(JSON.stringify(want));
+    // Read by the checker: upgraded from 5, with no problems, and otherwise the same file.
+    const r = checkEffect(old, { palette: withBedGradient, images });
+    expect(problemLines(r.problems)).toEqual([]);
+    expect(r.upgradedFrom).toBe(5);
+    want.version = FORMAT_VERSION;
+    expect(JSON.stringify(r.upgraded)).toBe(JSON.stringify(want));
+    expect(r.effect).toEqual(want);
+    expect(r.effect!.layers.map((l) => ((l as ShapeLayer).shape as BedShape).gradient)).toEqual(['fire.bed', 'fire.bed']);
+    expect(JSON.stringify(old)).toBe(JSON.stringify(v5())); // the input is not changed
+  });
+
+  it('still takes files of versions 1, 2, 3 and 4 all the way to version 6, to the same effect', () => {
+    // One small effect as each version saved it: version 1 had no phases, no blend on a sprite and a projectile's
+    // speedMps; version 2 had no tiers; version 4 is version 3 with a new number (no word layer, so 4 -> 5 changes only the number).
+    const head = { format: 'shamble-vfx', id: 'old_shot', name: 'Old shot', controls: { size: 1, intensity: 1, duration: 1, colour: 'glow' } };
+    const phases = { windupMs: 0, peakMs: 0, fadeMs: 0 };
+    const shot = { id: 'bullet', name: 'Bullet', type: 'projectile', start: { ms: 0 }, timing: { mode: 'smooth' }, from: { input: 'origin', offset: [0, 0, 0] }, to: { input: 'target', offset: [0, 0, 0] }, stretch: 1, spinDegPerS: 0 };
+    const flight = { flight: { mode: 'speed', mps: 800 }, arcM: 0 };
+    const flash = { id: 'flash', name: 'Flash', type: 'sprite', start: { ms: 0 }, timing: { mode: 'steps', perSecond: 24 }, at: { input: 'origin', offset: [0, 0, 0] }, image: 'flash.png', pivot: [0.16, 0.5], sizeM: [1.2, 1.2], tint: { mode: 'keep' }, facing: 'path', durationMs: 160 };
+    const files: Record<number, Record<string, unknown>> = {
+      1: { ...head, version: 1, layers: [{ ...shot, speedMps: 800 }, flash] },
+      2: { ...head, version: 2, phases, layers: [{ ...shot, ...flight }, { ...flash, blend: 'normal' }] },
+      3: { ...head, version: 3, phases, layers: [{ ...shot, ...flight }, { ...flash, blend: 'normal', tiers: ['low', 'medium', 'high'] }] },
+    };
+    files[4] = { ...files[3]!, version: 4 };
+    const now = checkEffect(files[4], { palette, images }).effect;
+    expect(now?.version).toBe(6);
+    for (const from of [1, 2, 3, 4]) {
+      const r = checkEffect(files[from], { palette, images });
+      expect(problemLines(r.problems)).toEqual([]);
+      expect(r.upgradedFrom).toBe(from);
+      expect(migrate(files[from])).toMatchObject({ ok: true, from, steps: 6 - from });
+      expect(r.effect).toEqual(now);
+    }
   });
 });

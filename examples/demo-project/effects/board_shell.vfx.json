@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 5,
+  "version": 6,
   "id": "board_shell",
   "name": "Tank shell (board)",
   "controls": {

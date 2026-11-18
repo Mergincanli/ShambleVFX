@@ -1,5 +1,5 @@
 /**
- * The effect file, version 5.
+ * The effect file, version 6.
  *
  * Rules that hold for every effect file:
  * - Times are in milliseconds, sizes and distances in metres, ink widths in px on a 1080p screen.
@@ -11,7 +11,7 @@
  */
 
 export const FORMAT_ID = 'shamble-vfx' as const;
-export const FORMAT_VERSION = 5 as const;
+export const FORMAT_VERSION = 6 as const;
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];

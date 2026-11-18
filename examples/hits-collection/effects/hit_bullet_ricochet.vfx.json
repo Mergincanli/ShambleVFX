@@ -1,6 +1,6 @@
 {
   "format": "shamble-vfx",
-  "version": 5,
+  "version": 6,
   "id": "hit_bullet_ricochet",
   "name": "Bullet hit: ricochet",
   "controls": {

@@ -51,7 +51,7 @@ const line = (prefix, texts, px, look, y, gap, seeds = []) => {
   });
 };
 const effect = (id, name, layers) => ({
-  format: 'shamble-vfx', version: 5, id, name, controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' },
+  format: 'shamble-vfx', version: 6, id, name, controls: { size: 1, intensity: 1, duration: 1, colour: 'heat.2' },
   phases: { windupMs: 0, peakMs: 2000, fadeMs: 0 }, layers,
 });
 
