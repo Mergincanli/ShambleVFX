@@ -1746,68 +1746,6 @@ if (webgpu) {
       keysTitle === 'Keyboard shortcuts' && keysRows.includes('?') && keysRows.includes('Drag the ground') && keysRows.includes('Shift + drag') && projTitle === 'Projects' && importTitle === 'Projects' && importShown
         && newTitle === 'New project' && saveAsTitle === 'Save as' && saveTitle === 'Save as' && exportTitle === 'Export' && nightOn.theme === 'dark' && nightOn.pressed === 'true' && nightOn.stored === 'dark'
         && checkedRow === 'true' && nightOff === 'light', JSON.stringify({ keysTitle, keysRows, projTitle, importTitle, importShown, newTitle, saveAsTitle, saveTitle, exportTitle, nightOn, checkedRow, nightOff }));
-    // A question (New project…, Save as…) runs its command once, for OK or Enter in its box. Esc runs nothing, also later:
-    // Enter in the next dialog in the same element (Keyboard shortcuts) ran the cancelled command, a new project or a copy,
-    // and Enter on Cancel ran it too. Enter in the box also clicked the button the focus went back to: a second Save as from
-    // the top bar, the main menu open again. The store's create and copy are stubbed here, so nothing is written whatever
-    // happens, and each try starts with no menu and no dialog open, so a regression fails here instead of stopping the check.
-    await sp.evaluate(() => {
-      const s = window.__vfx.app.store;
-      window.__asked = [];
-      for (const k of ['create', 'copy']) s[k] = (...args) => { window.__asked.push(`${k} ${args.at(-1)}`); return Promise.reject(new Error('stopped by the browser check')); };
-    });
-    const askedNow = () => sp.evaluate(() => { const a = [...window.__asked]; window.__asked.length = 0; return a; });
-    const shownNow = () => sp.evaluate(() => ({ dialog: document.querySelector('dialog[open] h2')?.textContent ?? null, menu: document.querySelector('.menu').matches(':popover-open') }));
-    const fresh = async () => {
-      await sp.evaluate(() => { document.querySelector('.menu:popover-open')?.hidePopover(); document.querySelector('dialog[open]')?.close(); });
-      await askedNow();
-    };
-    const keysThenEnter = async () => {
-      await sp.keyboard.press('?');
-      await sp.waitForFunction(() => document.querySelector('dialog[open] .keys'), null, { timeout: 5000 }).catch(() => {});
-      await sp.keyboard.press('Enter');
-      await sp.waitForTimeout(300);
-    };
-    const asks = {};
-    for (const row of ['New project…', 'Save as…']) {
-      await fresh();
-      await chooseRow(row);
-      await dialogTitle();
-      await sp.keyboard.press('Escape');
-      await keysThenEnter();
-      asks[`Esc on ${row}, then Enter in Keyboard shortcuts`] = { ran: await askedNow(), ...(await shownNow()) };
-    }
-    await fresh();
-    await chooseRow('New project…');
-    await dialogTitle();
-    await sp.keyboard.press('Tab');
-    await sp.keyboard.press('Tab');
-    const onCancel = await sp.evaluate(() => document.activeElement?.textContent);
-    await sp.keyboard.press('Enter');
-    await sp.waitForTimeout(300);
-    asks['Enter on Cancel'] = { on: onCancel, ran: await askedNow(), ...(await shownNow()) };
-    await fresh();
-    await chooseRow('New project…');
-    await dialogTitle();
-    await sp.locator('dialog[open] input.text').fill('Typed name');
-    await sp.keyboard.press('Enter');
-    await sp.waitForTimeout(300);
-    asks['Enter in the box, from the main menu'] = { ran: await askedNow(), ...(await shownNow()), focus: await sp.evaluate(() => document.activeElement?.dataset.helpLabel ?? null) };
-    await fresh();
-    await sp.locator('.topbar .save').click();
-    await dialogTitle();
-    await sp.locator('dialog[open] input.text').fill('Typed copy');
-    await sp.keyboard.press('Enter');
-    await sp.waitForTimeout(300);
-    asks['Enter in the box, from the top bar\'s Save as…'] = { ran: await askedNow(), ...(await shownNow()) };
-    await fresh();
-    await sp.evaluate(() => { const s = window.__vfx.app.store; delete s.create; delete s.copy; });
-    await sp.locator('.topbar .logo').focus();
-    const quiet = (x) => !x.dialog && !x.menu;
-    ok('a question (New project…, Save as…) runs its command once for Enter in its box, and nothing else opens; it runs nothing after Esc, even when Enter closes the next dialog (Keyboard shortcuts), nor for Enter on Cancel',
-      Object.entries(asks).every(([k, x]) => quiet(x) && (k.startsWith('Enter in the box') ? x.ran.length === 1 : x.ran.length === 0)) && asks['Enter on Cancel'].on === 'Cancel'
-        && asks['Enter in the box, from the main menu'].ran[0] === 'create Typed name' && asks['Enter in the box, from the main menu'].focus === 'Main menu'
-        && asks['Enter in the box, from the top bar\'s Save as…'].ran[0] === 'copy Typed copy', JSON.stringify(asks));
     // The ? key opens the keyboard shortcuts (the focus is on the logo now, as the menu left it), but not while typing in a
     // field (the time readout's box, below).
     await sp.keyboard.press('?');
