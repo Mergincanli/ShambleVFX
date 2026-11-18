@@ -176,7 +176,7 @@ remembered); the runtime's loader and its version guard; the screen-area count a
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (226 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (227 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -205,9 +205,9 @@ shell (the window's grid at 1920 × 1080 and 2560 × 1440, with 8 track rows and
 splitters: a drag, their limits, the sizes remembered after a reload, a double-click putting the default back, the arrow
 keys, the preview drawn at its new size while one is dragged, the Look following; the status bar: the checks and a click
 to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
-main menu: below the logo, its keys, Esc giving the focus back, a second click and a click outside closing it, every row;
-the ? key, not while typing; the scale after the View buttons; typing a time in the timeline's header; `?frame=1` showing
-nothing of the editor round the game screen), Save as, Export and Import (`project.json` and `editor.json` version 2
+main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
+closing it, every row; the ? key, not while typing; the scale after the View buttons; typing a time in the timeline's
+header; `?frame=1` showing nothing of the editor round the game screen), Save as, Export and Import (`project.json` and `editor.json` version 2
 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
 whose `project.json` is version 1 (it opens, with its scenes, and nothing is written) and one of a newer version (not
 opened, and the editor says why, also when it is the project the editor starts with); the test page on both backends

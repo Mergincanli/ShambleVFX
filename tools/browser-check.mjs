@@ -1679,6 +1679,21 @@ if (webgpu) {
     await sp.mouse.click(hintBox.x + hintBox.width / 2, hintBox.y + hintBox.height / 2);
     const m6 = (await menuState()).open;
     ok('a second click on the logo closes the main menu, and so does a click outside it', m3 && !m4 && m5 && !m6, JSON.stringify({ m3, m4, m5, m6 }));
+    // Tab closes it too: the focus goes back to the logo, whose tooltip Tab shows at once, and nothing throws. (The menu hid
+    // with the focus still in it, so the browser gave the focus back in the middle of hiding, where the tooltip could not
+    // open: "Invalid to show a popover during another show operation".)
+    const errorsBeforeTab = g.errors.length;
+    await sp.locator('.topbar .logo').click();
+    await sp.waitForFunction(() => document.activeElement?.closest('.menu'), null, { timeout: 5000 }).catch(() => {});
+    const inMenu = (await menuState()).focus;
+    await sp.keyboard.press('Tab');
+    await sp.waitForTimeout(150);
+    const mTab = await menuState();
+    const tabTip = await sp.evaluate(() => (document.querySelector('.tooltip')?.matches(':popover-open') ? document.querySelector('.tooltip .tip-first > span')?.textContent ?? null : null));
+    ok('Tab in the main menu closes it and gives the focus back to the logo, with the logo\'s tooltip, and no error',
+      inMenu === 'Projects…' && !mTab.open && mTab.expanded === 'false' && mTab.focus === 'Main menu' && tabTip === 'Main menu' && g.errors.length === errorsBeforeTab,
+      JSON.stringify({ inMenu, after: { open: mTab.open, focus: mTab.focus }, tabTip, errors: g.errors.slice(errorsBeforeTab, errorsBeforeTab + 2) }));
+    await sp.keyboard.press('Escape');
     // Its rows work: each opens what it names, and nothing is written (the dialogs are cancelled).
     const chooseRow = async (name) => { await sp.locator('.topbar .logo').click(); await sp.getByRole('menuitem', { name, exact: true }).or(sp.getByRole('menuitemcheckbox', { name, exact: true })).click(); };
     const dialogTitle = () => sp.waitForFunction(() => document.querySelector('dialog[open] h2')?.textContent ?? null, null, { timeout: 15000 }).then((x) => x.jsonValue(), () => null);

@@ -457,9 +457,11 @@ export function menu(o: { opener: HTMLButtonElement; id: string; label: string; 
     }
   };
   const isOpen = () => el.matches(':popover-open');
+  // The focus goes back to the button before the menu hides. Hidden with the focus still in it, the browser gives the focus
+  // back itself, in the middle of hiding, where no popover can open: the tooltip that Tab shows at once threw there.
   const close = (returnFocus = false) => {
-    if (isOpen()) el.hidePopover();
     if (returnFocus) o.opener.focus();
+    if (isOpen()) el.hidePopover();
   };
   /**
    * Below the button, their left edges lined up; moved in to stay inside the window, or above when there is no room below.
