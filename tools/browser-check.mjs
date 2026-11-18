@@ -1848,7 +1848,8 @@ if (webgpu) {
         && r2.time === 120 && !r2.playing && !r2.box && r2.text.startsWith('120 / ') && r2.focus === 'time-now' && r3.time === 120 && !r3.box && r4.time === len && r5.text === 'Firing: 1 playing',
       JSON.stringify({ r0, r1b: [r1b.box, r1b.focus], r2: [r2.text, r2.time, r2.playing, r2.focus], r3: [r3.time, r3.box], r4: r4.time, len, r5: r5.text }));
     // With the keyboard focus on the time (Tab from the speed buttons), its focus ring ends before the slash of " / … ms"
-    // (it crossed it). An inset shadow reaches no further than the box.
+    // (it crossed it), and the text keeps its spacing: the slash is no further from the time's last digit than one space and
+    // the box's 1 px edge (3.8 px; a first fix made it 7.8). An inset shadow reaches no further than the box.
     await sp.evaluate(async () => { await window.__vfx.app.showAt(250, 7); });
     await sp.locator('.transport [aria-label="Speed"] button').last().focus();
     await sp.keyboard.press('Tab');
@@ -1860,10 +1861,17 @@ if (webgpu) {
       const slash = document.createRange(), i = t.textContent.indexOf('/');
       slash.setStart(t, i);
       slash.setEnd(t, i + 1);
-      return { focus: b.className, visible: b.matches(':focus-visible') && g.outlineStyle === 'solid', ringRight: +(r.right + out).toFixed(2), slash: +slash.getBoundingClientRect().left.toFixed(2) };
+      const digits = document.createRange();
+      digits.selectNodeContents(b);
+      const space = document.createRange();
+      space.setStart(t, 0);
+      space.setEnd(t, 1);
+      return { focus: b.className, visible: b.matches(':focus-visible') && g.outlineStyle === 'solid', ringRight: +(r.right + out).toFixed(2), slash: +slash.getBoundingClientRect().left.toFixed(2),
+        gap: +(slash.getBoundingClientRect().left - digits.getBoundingClientRect().right).toFixed(2), space: +space.getBoundingClientRect().width.toFixed(2) };
     });
     await sp.evaluate(async () => { await window.__vfx.app.showAt(0, 7); });
-    ok('the time\'s focus ring, from the keyboard, ends before the slash of " / … ms"', ring.focus === 'time-now' && ring.visible && ring.ringRight <= ring.slash, JSON.stringify(ring));
+    ok('the time\'s focus ring, from the keyboard, ends before the slash of " / … ms", and the text keeps its spacing',
+      ring.focus === 'time-now' && ring.visible && ring.ringRight <= ring.slash && ring.gap <= ring.space + 1.5, JSON.stringify(ring));
 
     // The scale, right after the View buttons: muted, with its tooltip; it follows the view and the preview's size.
     const scaleNow = () => sp.evaluate(() => {
