@@ -1445,7 +1445,7 @@ if (webgpu) {
     });
     await sp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); await a.showAt(1000, 7); });
     const g1920 = await grid();
-    ok('at 1920 x 1080 the window\'s grid has its default sizes: left 248 px, right 296 px, the effects 40 % of the left column, the timeline 30 % of the centre; 8 track rows and 14 layer rows show without scrolling (Hammer leech beam, 16 layers)',
+    ok('at 1920 x 1080 the window\'s grid has its default sizes: left 248 px, right 296 px, the effects 40 % of the left column, the timeline 30 % of the centre; at least 8 track rows and 14 layer rows show without scrolling (Hammer leech beam, 16 layers)',
       g1920.left === 248 && g1920.right === 296 && near(g1920.effects, 0.4, 0.002) && near(g1920.timeline, 0.3, 0.002) && g1920.tlRows >= 8 && g1920.layerRows >= 14
         && g1920.top === 40 && g1920.status === 24 && g1920.head === 32 && g1920.insHead === 40, JSON.stringify(g1920));
     await sp.setViewportSize({ width: 2560, height: 1440 });

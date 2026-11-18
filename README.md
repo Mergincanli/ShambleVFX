@@ -201,7 +201,7 @@ label and section title of every layer of both examples, and every control of th
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
-shell (the window's grid at 1920 × 1080 and 2560 × 1440, with 8 track rows and 14 layer rows showing at 1920; the four
+shell (the window's grid at 1920 × 1080 and 2560 × 1440, with at least 8 track rows and 14 layer rows showing at 1920; the four
 splitters: a drag, their limits (the Layers section's buttons staying in the column with the effects list at its largest),
 the sizes remembered after a reload, a double-click putting the default back, the arrow keys, the preview drawn at its new
 size while one is dragged, the Look following; the status bar: the checks and a click
