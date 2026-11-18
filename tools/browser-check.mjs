@@ -1547,8 +1547,12 @@ if (webgpu) {
     const k3 = await sizes();
     await sp.keyboard.press('End');
     const k4 = await sizes();
-    await sp.waitForTimeout(200); // the line's colour change (120 ms)
-    const focusLine = await sp.evaluate(() => { const s = document.querySelector('.split-timeline'); const probe = document.createElement('span'); probe.style.color = 'var(--focus)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return { line: getComputedStyle(s, '::before').backgroundColor, want }; });
+    // The line's colour change takes 120 ms, but this software-drawing browser can hold its animation frames back while it
+    // draws the preview again at the size End gave it (one run read the line 12 ms into its change, 200 ms after the key):
+    // wait until the change is done, at most 5 s, then read it.
+    const lineNow = () => { const s = document.querySelector('.split-timeline'); const probe = document.createElement('span'); probe.style.color = 'var(--focus)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return { line: getComputedStyle(s, '::before').backgroundColor, want }; };
+    await sp.waitForFunction(`(({ line, want }) => line === want)((${lineNow})())`, null, { timeout: 5000, polling: 50 }).catch(() => {});
+    const focusLine = await sp.evaluate(lineNow);
     ok('a focused splitter moves 16 px a press of the arrow keys (not the timeline\'s steps), End takes it to its limit, and its line shows the focus colour',
       k1.left === 216 && k2.left === 216 && k1.time === before.time && k2.time === before.time && k3.timeline === 156 && k4.timeline === 610 && k4.stored.timeline === '610' && focusLine.line === focusLine.want,
       JSON.stringify({ k1: k1.left, k2: k2.left, k3: k3.timeline, k4: k4.timeline, time: [before.time, k2.time], focusLine }));
