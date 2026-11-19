@@ -913,13 +913,17 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     them.
   - **Drag to reorder.** A press becomes a drag once the pointer moves 4 px; less is a click, which selects the row. A drag
     does not select the row. While it lasts, the dragged row stays highlighted, in the list and on the timeline, and near
-    the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected.
+    the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected. The whole
+    row is the handle: there is no grip icon (4.5 lists one; 6.2 does not put one on the row).
   - **The row's buttons** show on hover, on the selected row and while the keyboard focus is in the row. The keyboard
     reaches them on the selected row (Tab); on other rows the menu is a right-click or the context-menu key away. They act on
     their own row's layer, which need not be the selected one: Move up and Move down keep the selection; Delete in a row's
     menu asks nothing, as the Delete key never did, and when it deletes the selected layer, the next one takes its place.
     While a row's menu is open, its buttons stay, and More looks as a chip with its menu open (4.6 names only chips): the
     field colour, the icon in `--accent-ink`. So does a header's + while its menu is open.
+  - **A row's menu acts on its own row**, in both lists: More or a right-click on a row that is not selected leaves the
+    selection as it is. While the menu is open, only More's open look shows which row it is for; a right-clicked row is not
+    marked.
   - **The tag on hover.** On hover, and on the selected row, the buttons take the tag's place (the tag stays in the page,
     hidden). So a rider's "rides Bullet" is said in the row's own tooltip ("Tracer: rides Bullet") rather than in the tag's.
     A row both selected and left out of the tier shows its buttons in place of "not in Low": its icon and name stay faded,
