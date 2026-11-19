@@ -256,7 +256,7 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
     const c = selectField({ label: 'Gradient, middle to rim', options: opts(), value: current(), onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
     parts.push({ refresh: () => { c.setOptions(opts()); c.set(current()); } });
     return h('div', { class: 'gradient-field' }, c.el,
-      h('p', { class: 'hint', text: 'Gradients live in the palette: click a colour swatch, then Gradients, to make or change one. With a gradient, the glow takes its colours from it.' }));
+      h('p', { class: 'hint', text: 'Make or change gradients in the colour picker, under Gradients.' }));
   };
 
   const obj = get([]) as Record<string, unknown> | undefined;

@@ -106,15 +106,16 @@ export class GradientPanel {
     const body = h('div', { class: 'gr-body' },
       h('div', { class: 'gr-preview' }, disc, h('div', { class: 'gr-side' }, kind, bar)),
       h('div', { class: 'cp-label', text: 'Stops (0 = the middle, 100 = the rim)' }), stops, add,
-      h('details', { class: 'gr-ramp' }, h('summary', { text: 'Make a ramp between two colours' }),
-        h('p', { class: 'hint', text: 'Even steps to the eye (OKLCH). The ends stay roles, so they follow the faction; the steps between are fixed colours, worked out for the faction shown.' }),
+      h('details', { class: 'gr-ramp' }, h('summary', { text: 'Make a ramp between two colours', attrs: { 'data-tip': 'Even steps to the eye (OKLCH). The ends stay roles, so they follow the faction; the steps between are fixed colours, worked out for the faction shown.' } }),
+        h('p', { class: 'hint', text: 'Even steps to the eye. The ends follow the faction; the steps between are fixed colours.' }),
         h('div', { class: 'gr-ramprow' }, h('label', {}, h('span', { text: 'From' }), rampFrom), h('label', {}, h('span', { text: 'To' }), rampTo), h('label', {}, h('span', { text: 'Steps' }), rampSteps)),
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Make the ramp', on: { click: () => this.makeRampStops() } })),
       h('div', { class: 'cp-actions' }, use),
       h('p', { class: 'hint', text: 'A gradient cannot be renamed or removed this round: effects use it by name.' }));
-    const editor = h('details', { class: 'gr-editor' }, h('summary', {}, icon('gradient'), h('span', { text: 'Gradient editor' })), h('div', { class: 'gr-head' }, title), createRow, error, body) as HTMLDetailsElement;
-    const el = h('details', { class: 'cp-section gr' }, h('summary', { text: 'Gradients' }),
-      h('p', { class: 'hint', text: 'Only ramps the game can draw: smooth or banded, from the middle out. Blurred, mesh and image gradients are not in.' }),
+    const editor = h('details', { class: 'gr-editor' }, h('summary', { attrs: { 'data-tip': 'A gradient cannot be renamed or removed this round: effects use it by name.' } }, icon('gradient'), h('span', { text: 'Gradient editor' })),
+      h('div', { class: 'gr-head' }, title), createRow, error, body) as HTMLDetailsElement;
+    const el = h('details', { class: 'cp-section gr' }, h('summary', { text: 'Gradients', attrs: { 'data-tip': 'Only ramps the game can draw: smooth or banded, from the middle out. Blurred, mesh and image gradients are not in.' } }),
+      h('p', { class: 'hint', text: 'Only ramps the game can draw: smooth or banded, from the middle out.' }),
       h('div', { class: 'cp-label', text: 'Ready-made' }), presets,
       h('div', { class: 'cp-label', text: 'In this project' }), mine,
       editor);

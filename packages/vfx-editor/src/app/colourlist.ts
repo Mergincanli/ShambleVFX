@@ -153,9 +153,10 @@ export function colourList(app: AppApi): ColourListView {
     note.hidden = noteText === '';
     el.classList.toggle('empty', empty);
     const mainShown = items.get(`role:${main}`)?.hidden === false;
+    // One line; the full words are in the Colour title's and the colours' own tooltips (help.ts, and each colour's).
     const hintText = sel.of === 'effect'
-      ? 'The effect\'s colours. The marked one is its main colour: layers tinted "main" use it. Click a colour to change it.'
-      : `Click a colour to change it everywhere it is used.${mainShown ? ' The marked one is the effect\'s main colour.' : ''}`;
+      ? 'Click a colour to change it. The marked one is the effect\'s main colour.'
+      : `Click a colour to change it everywhere it is used.${mainShown ? ' The marked one is the main colour.' : ''}`;
     if (hint.textContent !== hintText) hint.textContent = hintText;
     // Only when there is a colour to click: not under "It uses no palette colours" (a colour the palette lacks and a hex
     // stop cannot be clicked either).

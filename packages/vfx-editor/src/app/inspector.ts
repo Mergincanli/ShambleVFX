@@ -138,11 +138,11 @@ function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLEle
 function bigControls(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
   const c = () => app.effect()!.controls;
   const name = textField({ label: 'Effect name', value: app.effect()!.name, onChange: (v) => app.editEffect(['name'], v.trim() || 'Effect', { label: 'Rename effect' }) });
-  const size = slider({ label: 'Size', min: 0.25, max: 3, step: 0.01, value: c().size, unit: '×', big: true, hint: 'Every sprite and offset. Not the start and target points, not speeds.',
+  const size = slider({ label: 'Size', min: 0.25, max: 3, step: 0.01, value: c().size, unit: '×', big: true, hint: 'Sprites, shapes, words, pieces and offsets. Not the start, the target or speeds.',
     onInput: (v) => app.editEffect(['controls', 'size'], v, { mergeKey: 'size', label: 'Size' }), onCommit: () => app.commit() });
   const intensity = slider({ label: 'Intensity', min: 0, max: 3, step: 0.01, value: c().intensity, unit: '×', big: true, hint: 'Flashes, hits and landings grow; streaks get longer. Never see-through.',
     onInput: (v) => app.editEffect(['controls', 'intensity'], v, { mergeKey: 'intensity', label: 'Intensity' }), onCommit: () => app.commit() });
-  const duration = slider({ label: 'Duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. Flight time still comes from distance and speed.',
+  const duration = slider({ label: 'Duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. A flight by speed still takes distance ÷ speed.',
     onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
   const ph = () => app.effect()!.phases;
   const phase = (key: 'windupMs' | 'peakMs' | 'fadeMs', label: string) => numberField({ label, value: ph()[key], step: 10, min: 0, unit: 'ms',
@@ -237,7 +237,7 @@ function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
   parts.push({ refresh: draw });
   return h('div', { class: 'field wide events' },
     h('span', { class: 'flab', text: 'Game events it answers' }), box, problems,
-    h('span', { class: 'hint', text: 'The names the game starts this effect by, separated by commas. One event plays one effect. The names are proposals until the game settles them.' }));
+    h('span', { class: 'hint', text: 'Names the game plays this effect by, separated by commas.' }));
 }
 
 const TIER_TEXT: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
@@ -578,7 +578,7 @@ function checks(app: AppApi, parts: Refresher[]): HTMLElement {
   draw();
   parts.push({ refresh: draw });
   return h('section', { class: 'card checks' }, head, list,
-    h('p', { class: 'hint', text: 'The same checker the export will use: schema, colour roles, images, links between layers, lengths.' }));
+    h('p', { class: 'hint', text: 'The same checker the export uses.' }));
 }
 
 function clamp01(v: number): number {

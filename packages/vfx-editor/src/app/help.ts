@@ -91,7 +91,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
       { kind: 'beads', text: 'How big each bead is, in metres, such as 0.24.' },
     ],
   },
-  'Intensity': 'Sprites at the origin or target grow, sprites riding a projectile stretch longer along the path, and bursts throw more pieces. Shapes and words stay; 1 = as made.',
+  'Intensity': 'Sprites at the origin or target grow, sprites riding a projectile stretch longer along the path, and bursts throw more pieces. Shapes and words stay; 1 = as made. It never makes anything see-through.',
   'Duration': 'Stretches the effect\'s own times: phases, delays, lengths and fixed flight times. A flight by speed, the step rate and times inside a shape (such as Grow time) stay.',
   'Phases': 'The effect\'s three phases, one after the other: wind-up, peak, fade. Layers can start with one, last until one ends, fly during one or break up during one.',
   'Wind-up': 'How long the wind-up lasts, in ms: the first phase, before the peak. 0 skips it; all three at 0 means the effect has no phases.',
@@ -100,9 +100,9 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Colour': {
     text: 'A colour from the palette. Team and glow colours follow the faction that fired.',
     when: [
-      { title: true, layer: 'sprite', text: 'Whether the image keeps its own colours or is tinted with a colour from the palette, and the palette colours this layer uses.' },
-      { title: true, layer: 'projectile', text: 'A projectile has no colours of its own: these are the colours of the layers riding it.' },
-      { title: true, layer: ['shape', 'burst', 'word'], text: 'The palette colours this layer uses, also those it draws without naming them, such as the black ink. Click one to change it everywhere.' },
+      { title: true, layer: 'sprite', text: 'Whether the image keeps its own colours or is tinted with a colour from the palette, and the palette colours this layer uses. Click a colour to change it everywhere it is used; the marked one is the effect\'s main colour.' },
+      { title: true, layer: 'projectile', text: 'A projectile has no colours of its own: these are the colours of the layers riding it. Click a colour to change it everywhere it is used; the marked one is the effect\'s main colour.' },
+      { title: true, layer: ['shape', 'burst', 'word'], text: 'The palette colours this layer uses, also those it draws without naming them, such as the black ink. Click one to change it everywhere it is used; the marked one is the effect\'s main colour.' },
       { in: 'Colour', layer: 'sprite', text: 'Keep the image\'s colours, or multiply them by a palette colour. Draw images meant for tinting in white and greys, so the colour shows true.' },
       { in: 'Effect', text: 'Colours from the palette. The marked one is the effect\'s main colour, used by every layer whose colour is "main"; click a colour to change it or make it the main one.' },
       { in: 'Look', text: 'The pieces\' colour, from the palette.' },
@@ -125,7 +125,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
 
   // ------------------------------------------------------------ cost
   'Cost': {
-    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; type budgets to see red (over) or green (within).',
+    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; type budgets to see red (over) or green (within). Each number is the most at any moment of the effect, at 60 frames a second with a fixed seed; hover a row\'s name for what it counts. No budget is decided yet, so type your own: the boxes are the project\'s budgets, saved in project.json.',
     when: [
       { in: 'Status bar', text: 'The last Measure against the budgets that count: not measured yet, within budget, how many numbers are over, or out of date when the effect or the scene changed since. Click for Cost.' },
     ],
@@ -161,7 +161,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
     ],
   },
   'Checks': {
-    text: 'The checker the export uses: it names each problem in the file and where it is, such as an unknown colour, a missing image or a layer with no length.',
+    text: 'The checker the export uses: the schema, colour roles, images, links between layers and lengths. It names each problem in the file and where it is, such as an unknown colour, a missing image or a layer with no length.',
     when: [
       { in: 'Status bar', text: 'The checker the export uses, on the effect shown: all good, or how many problems it found. Click to see them, under Checks in the effect\'s settings.' },
     ],
@@ -659,7 +659,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Dark middle': 'A darker middle, as a share of the stain\'s size: 0.6 covers 60 %; 0 = none.',
   'Middle colour': 'The colour of the stain\'s darker middle, from the palette.',
   'Gone after (share of life)': 'The lines shorten and are gone after this share of the layer\'s life: 0.5 is halfway.',
-  'Gradient, middle to rim': 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make one in the colour picker.',
+  'Gradient, middle to rim': 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make or change one in the colour picker: click a colour swatch, then Gradients.',
   'Length (share of path)': 'How much of the path behind the projectile the streak covers, as a share of the whole path: 0.1 is a tenth.',
   'Hot head': 'The front part of the streak in another colour, like a shell\'s hot head. Set its colour and its share of the streak.',
   'Share': 'How much of the streak, from the front, is the hot head: 0.4 is 40 %.',
@@ -762,7 +762,8 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'New': 'Make a new, empty effect in this project.',
   'From preset…': 'Copy a ready-made effect from the example projects into this one, such as the drawing board\'s four and the comic hits. The preset itself stays as it is.',
   'Delete effect': 'Delete this effect. Undo brings it back until you leave the editor.',
-  'Layers': 'The selected effect\'s layers. The top of the list draws on top; click a layer to see its settings.',
+  // Its tooltip's first line, the title's own words, is "Top of the list draws on top." (App.ts).
+  'Layers': 'The selected effect\'s layers. Click a layer to see its settings.',
   'Add a layer': 'Add a sprite (an image), a projectile (a path in flight), one of 14 shapes, a burst of pieces or a word. It goes above the selected layer.',
   'Move up': 'Move the selected layer up the list, so it draws over more.',
   'Move down': 'Move the selected layer down the list, so it draws under more.',

@@ -1398,9 +1398,15 @@ if (webgpu) {
     const sweep = await tp.evaluate(async () => {
       const a = window.__vfx.app;
       const LABELS = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check, details > summary, section.card > h2, .card-head > h2, table.cost th';
-      const misses = new Set(), seen = new Set();
-      let checked = 0;
+      const misses = new Set(), seen = new Set(), long = new Set();
+      let checked = 0, hints = 0;
       const look = (where) => {
+        // Each hint shown in the panel (296 px wide here): one line, two at most (16 px a line).
+        for (const el of document.querySelectorAll('.inspector .hint')) {
+          if (!el.textContent.trim() || getComputedStyle(el).display === 'none' || !el.getClientRects().length) continue;
+          hints++;
+          if (Math.round(el.getBoundingClientRect().height / 16) > 2) long.add(`${where}: "${el.textContent.trim()}"`);
+        }
         for (const el of document.querySelectorAll(`.inspector :is(${LABELS})`)) {
           if (el.matches('table.cost thead th') && !el.textContent.trim()) continue; // the empty corner of the cost table
           checked++;
@@ -1435,11 +1441,48 @@ if (webgpu) {
           if (!el || !a.helpForChecks(el)) bars.push(`${section}: ${label}${el ? '' : ' (not found)'}`);
         }
       }
-      return { checked, distinct: seen.size, misses: [...misses], bars };
+      return { checked, distinct: seen.size, misses: [...misses], bars, hints, long: [...long], panel: Math.round(document.querySelector('.right').getBoundingClientRect().width) };
     });
     ok('every label and section title of the right panel (every layer of both examples) and every control of the bars has a help text',
       sweep.misses.length === 0 && sweep.bars.length === 0 && sweep.checked > 5000 && sweep.distinct >= 195,
       `${sweep.checked} labels and titles checked (${sweep.distinct} different); missing: ${[...sweep.misses.slice(0, 4), ...sweep.bars.slice(0, 4)].join(', ') || 'none'}`);
+    ok('every hint in the right panel, for every layer of both examples, is one line, two at most, at the default panel width',
+      sweep.panel === 296 && sweep.hints > 100 && sweep.long.length === 0, `${sweep.hints} hints seen in the ${sweep.panel} px panel; longer than two lines: ${sweep.long.slice(0, 3).join(', ') || 'none'}`);
+    // The full words of each rewritten hint are in the tooltip of what it explains (the colour picker's: its sections' titles).
+    const longWords = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      if (!a.debugState().effects.includes('board_beam')) { window.confirm = () => true; return a.openProject('examples/demo-project').then(() => null); }
+      return null;
+    }).then(() => tp.evaluate(() => {
+      const a = window.__vfx.app;
+      const find = (sel, text) => [...document.querySelectorAll(sel)].find((x) => x.textContent.replace(/\s+/g, ' ').trim() === text);
+      const tipOf = (el) => (el ? a.tipForChecks(el) : null);
+      const words = (el) => tipOf(el)?.lines.join(' ') ?? '';
+      a.pickEffect('board_beam');
+      const out = {
+        events: words(find('.inspector .flab', 'Game events it answers')), size: words(find('.inspector .lab > label', 'Size')),
+        intensity: words(find('.inspector .lab > label', 'Intensity')), duration: words(find('.inspector .lab > label', 'Duration')),
+        cost: words(find('.inspector .costcard h2', 'Cost')), checks: words(document.querySelector('.inspector .checks h2')),
+        layers: tipOf(find('.layers-section h2', 'Layers'))?.lines ?? null,
+        colour: words(find('.inspector .colour-row .lab > span', 'Colour')),
+      };
+      a.selectLayer('emitter_glow');
+      out.gradient = words(find('.inspector .flab', 'Gradient, middle to rim'));
+      out.layerColour = words(find('.inspector details > summary', 'Colour'));
+      a.selectLayer(null);
+      out.newColour = words(find('.cpick summary', 'New colour'));
+      out.gradients = words(find('.cpick summary', 'Gradients'));
+      out.ramp = words(find('.cpick summary', 'Make a ramp between two colours'));
+      out.editor = words(document.querySelector('.cpick .gr-editor > summary'));
+      return out;
+    }));
+    ok('the full words of each rewritten hint are in the tooltip of what it explains: Game events, Size, Intensity, Duration, Cost, Checks, the Layers title, Colour, a glow\'s gradient, and the colour picker\'s New colour, Gradients, ramp and gradient editor',
+      longWords.events.includes('One event plays one effect; the names are proposals until the game settles them') && longWords.size.includes('sprites, shapes, pieces, words and offsets')
+        && longWords.intensity.includes('never makes anything see-through') && longWords.duration.includes('A flight by speed') && longWords.cost.includes('fixed seed') && longWords.cost.includes('saved in project.json')
+        && longWords.checks.includes('links between layers') && longWords.layers?.[0] === 'Top of the list draws on top.' && longWords.colour.includes('used by every layer whose colour is "main"')
+        && longWords.gradient.includes('click a colour swatch, then Gradients') && longWords.layerColour.includes('the marked one is the effect\'s main colour')
+        && longWords.newColour.includes('Effects name it') && longWords.gradients.includes('Blurred, mesh and image gradients are not in') && longWords.ramp.includes('(OKLCH)')
+        && longWords.editor.includes('cannot be renamed or removed this round'), JSON.stringify(longWords));
     ok('the tooltip page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await tp.close();
   }
@@ -2196,15 +2239,20 @@ if (webgpu) {
     await openMenu();
     await hp.getByRole('menuitem', { name: 'Projects…', exact: true }).click();
     await hp.waitForSelector('dialog[open] .plist .meta', { timeout: 15000 }).catch(() => {});
-    const meta = await hp.evaluate(() => { const m = [...document.querySelectorAll('dialog[open] .meta')]; return { n: m.length, shown: m.filter((e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0).length, first: m[0]?.textContent.trim() ?? null }; });
+    const meta = await hp.evaluate(() => {
+      const shown = (e) => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
+      const m = [...document.querySelectorAll('dialog[open] .meta')];
+      const own = [...document.querySelectorAll('dialog[open] p')].find((p) => p.textContent.startsWith('Makes a new project from an export folder'));
+      return { n: m.length, shown: m.filter(shown).length, first: m[0]?.textContent.trim() ?? null, ownLine: shown(own) };
+    });
     await hp.evaluate(() => document.querySelector('dialog[open]')?.close());
     ok('Show hints is on at first: the light bulb in the top bar, left of Night mode, is pressed (its icon in the accent, as an active toggle), its row in the main menu is checked, and the hints and the drag hint over the preview show',
       atFirst.data === 'on' && atFirst.stored === null && atFirst.label === 'Show hints' && atFirst.pressed === 'true' && atFirst.beforeNight && atFirst.yellow && atFirst.row === 'true'
         && atFirst.hints >= 8 && atFirst.hintsShown === atFirst.hints && atFirst.vhint, JSON.stringify(atFirst));
-    ok('the light bulb hides the one-line hints and the drag hint over the preview, and remembers it (vfx-hints); lines that carry a state and meta text stay, and the status bar still shows the drag hint over the preview',
+    ok('the light bulb hides the one-line hints and the drag hint over the preview, and remembers it (vfx-hints); lines that carry a state, meta text and a dialog\'s own line stay, and the status bar still shows the drag hint over the preview',
       offByBulb.data === 'off' && offByBulb.stored === 'off' && offByBulb.pressed === 'false' && !offByBulb.yellow && offByBulb.hints >= 8 && offByBulb.hintsShown === 0 && !offByBulb.vhint
         && offByBulb.states.includes('cost-status:true') && offByBulb.states.includes('cost-level:true') && !offByBulb.states.includes(':false') && barHint === DRAG
-        && meta.n >= 3 && meta.shown === meta.n, JSON.stringify({ offByBulb, barHint, meta }));
+        && meta.n >= 3 && meta.shown === meta.n && meta.ownLine, JSON.stringify({ offByBulb, barHint, meta }));
     // The main menu's row does the same, and the choice outlives a reload.
     await openMenu();
     const rowOff = (await hintsNow()).row;

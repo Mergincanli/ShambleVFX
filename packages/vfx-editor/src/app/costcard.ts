@@ -128,8 +128,8 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   const el = h('section', { class: 'card costcard' },
     h('div', { class: 'card-head' }, h('h2', { text: 'Cost' }), measure),
     status, table, heavy, cond,
-    h('p', { class: 'hint', text: `Each number is the most at any moment of the effect (${FRAMES_PER_SECOND} frames a second, fixed seed); hover a row name for what it counts. Budgets: none is decided yet, so type your own; red is over, green within. ` +
-      'The boxes are the project\'s budgets, saved in project.json.' }),
+    // One line; the full words are the tooltip of the card's title (help.ts, "Cost").
+    h('p', { class: 'hint', text: `Most at any moment, ${FRAMES_PER_SECOND} frames a second. The boxes are the project's budgets.` }),
     level);
 
   const refresh = () => {

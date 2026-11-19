@@ -583,7 +583,9 @@ export class App implements AppApi {
     const effectsSection = h('section', { class: 'card effects-section', attrs: { 'data-help-section': 'Effects' } }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
       h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => this.newEffect() } }, icon('plus'), h('span', { text: 'New' })),
       h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => void this.presetDialog() } }, icon('preset'), h('span', { text: 'From preset…' }))), effects);
-    const layersSection = h('section', { class: 'card grow layers-section', attrs: { 'data-help-section': 'Layers' } }, h('div', { class: 'card-head' }, h('h2', { text: 'Layers' }), h('span', { class: 'hint', text: 'top draws on top' })),
+    // The Layers title's tooltip starts with what its hint says (help.ts adds the rest).
+    const layersSection = h('section', { class: 'card grow layers-section', attrs: { 'data-help-section': 'Layers' } },
+      h('div', { class: 'card-head' }, h('h2', { text: 'Layers', attrs: { 'data-tip': 'Top of the list draws on top.' } }), h('span', { class: 'hint', text: 'top draws on top' })),
       h('div', { class: 'layer-tools' },
         addMenu),
       layers,
@@ -907,7 +909,7 @@ export class App implements AppApi {
       }
       if (items.length) groups.push(h('h3', { text: p.name }), h('ul', { class: 'plist' }, ...items));
     }
-    d.replaceChildren(h('h2', { text: 'New from preset' }), h('p', { class: 'hint', text: 'A copy goes into this project; the preset itself stays as it is.' }), ...groups,
+    d.replaceChildren(h('h2', { text: 'New from preset' }), h('p', { text: 'A copy goes into this project; the preset itself stays as it is.' }), ...groups,
       h('div', { class: 'dlg-buttons' }, h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
     d.showModal();
   }
@@ -937,12 +939,12 @@ export class App implements AppApi {
     const importRows = exportsList.map((e) => h('li', {},
       h('button', { class: 'linkish', attrs: { type: 'button' }, text: e.name, on: { click: () => { d.close(); void this.importDialog(e); } } }),
       h('span', { class: 'meta', text: ` exports/${e.folder} · ${e.effects} effect${e.effects === 1 ? '' : 's'}, ${e.events} event${e.events === 1 ? '' : 's'}` })));
-    const importTitle = h('h3', { text: 'Import an export' });
+    const importTitle = h('h3', { text: 'Import an export', attrs: { 'data-tip': 'Makes a new project from an export folder: the effects as they are, each image cut back out of the atlas, the game events, scenes and budgets.' } });
     d.replaceChildren(
       h('h2', { text: 'Projects' }),
       h('ul', { class: 'plist' }, ...rows),
       importTitle,
-      h('p', { class: 'hint', text: 'Makes a new project from an export folder: the effects as they are, each image cut back out of the atlas, the game events, scenes and budgets.' }),
+      h('p', { text: 'Makes a new project from an export folder, with its effects, images, game events, scenes and budgets.' }),
       importRows.length ? h('ul', { class: 'plist imports' }, ...importRows) : h('p', { class: 'state-line', text: 'No exports yet: Export… writes one into exports/.' }),
       h('div', { class: 'dlg-buttons' },
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'New project…', on: { click: () => { d.close(); void this.newProject(); } } }),

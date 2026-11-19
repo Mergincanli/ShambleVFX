@@ -188,7 +188,7 @@ remembered); the runtime's loader and its version guard; the screen-area count a
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (246 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (248 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -208,8 +208,10 @@ is selected, and playing in a loop while the editor runs), the tooltips (after t
 such as a ring's Width; a title moving into the tooltip; a name in brackets, "Smoke (2)", kept whole; Undo naming the step;
 hidden by a press, a scroll and Esc, which still leaves the layer; no tooltip after a click on a row built again under the
 pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both themes; names of controls unchanged; the "rides"
-tag and the line saying what draws a layer explaining themselves; and every
-label and section title of every layer of both examples, and every control of the bars, with a help text), the add menu,
+tag and the line saying what draws a layer explaining themselves; every
+label and section title of every layer of both examples, and every control of the bars, with a help text; every hint in
+the right panel one line, two at most, at the default width; the full words of each rewritten hint in the tooltip of what
+it explains), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
@@ -793,6 +795,21 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     yet…" under Gradients). The Look's line and the panel's readouts were never hints. The colour list's hint stays a hint:
     its words and when it shows still come from the list (only when there is a colour to click), and Show hints off hides
     it too.
+  - **One-line hints**: each explanation longer than two lines at the panel's default width (about 90 characters) is one
+    line now, and its full words are in the tooltip of the setting or section it explains: Game events; the Cost and
+    Checks titles; a glow's gradient; the colour list (the Colour titles, and each colour's own tooltip); in the colour
+    picker, the titles of New colour, Gradients, the ramp and the gradient editor (the picker's tooltips have no help
+    texts, so these titles carry the words themselves). The shorter hints stay as they were, and their words are in their
+    labels' tooltips too (Intensity's tooltip now also says it never makes anything see-through). Where a short line did
+    not quite say what the code does, it does now: Size also scales shapes, words and pieces (the brief's example named
+    sprites and offsets only); Duration stretches a flight with a fixed time and leaves a flight by speed to distance ÷
+    speed; the cost card's boxes are the project's budgets, while a class's or the effect's own budgets can count instead
+    (the line under the table says which), so the line says "The boxes are the project's budgets" (the brief's example:
+    "Budgets are shared by the project").
+  - The Layers title's tooltip starts with "Top of the list draws on top." (6.2); its hint, "top draws on top", stays.
+  - Dialogs: the line in New from preset and the one under Import an export in Projects explain the whole dialog, so they
+    are the dialogs' own text, always shown and kept short. The second one's full words ("each image cut back out of the
+    atlas") are the tooltip of the title Import an export.
 
 ## Claude skills
 
