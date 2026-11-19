@@ -2833,10 +2833,19 @@ if (webgpu) {
         const b = r.getBoundingClientRect(), lb = l.getBoundingClientRect();
         return { sel: r.classList.contains('sel'), inView: b.top >= lb.top - 1 && b.bottom <= lb.bottom + 1 };
       });
-      ok('clearing a search keeps the selected effect in sight: its own folders stay open, and the other folders the search opened close again, as they were',
+      // The same with the Clear the search button, after typing on until nothing matched.
+      await lp.locator('.effects-list .folder[data-folder="Weapons"]').click();
+      const shutAgain = await folderState('Weapons');
+      await lp.locator('.effects-search input').fill('pit');
+      await lp.locator('.effects-list .item[data-effect="board_molotov"] .item-main').click();
+      await lp.locator('.effects-search input').fill('pitzzz');
+      await lp.locator('.effects-list .list-empty button', { hasText: 'Clear the search' }).click();
+      const byButton = await listNow();
+      ok('clearing a search keeps the selected effect in sight: its own folders stay open, and the other folders the search opened close again, as they were; the Clear the search button too',
         shutBefore.join() === 'false,false' && inSight.search === '' && inSight.rows.some((r) => /^\+ Weapons \(\d+\)$/.test(r)) && inSight.rows.some((r) => /^  \+ Grenades \(\d+\)$/.test(r))
-          && inSight.rows.includes('    - Molotov flame pit (board) *') && inSight.rows.some((r) => /^\+ Vehicles \(\d+\) closed$/.test(r)) && molotovRow?.sel === true && molotovRow?.inView === true,
-        JSON.stringify({ shutBefore, rows: inSight.rows, molotovRow }));
+          && inSight.rows.includes('    - Molotov flame pit (board) *') && inSight.rows.some((r) => /^\+ Vehicles \(\d+\) closed$/.test(r)) && molotovRow?.sel === true && molotovRow?.inView === true
+          && shutAgain === 'false' && byButton.search === '' && byButton.rows.some((r) => /^\+ Weapons \(\d+\)$/.test(r)) && byButton.rows.includes('    - Molotov flame pit (board) *'),
+        JSON.stringify({ shutBefore, rows: inSight.rows, molotovRow, shutAgain, byButton: byButton.rows }));
       // A project with no effects: "No effects yet." and Make an effect, which makes a new effect (New effect), selected.
       for (const f of readdirSync(join(edir, 'effects'))) rmSync(join(edir, 'effects', f));
       await lp.evaluate(async (p) => { await window.__vfx.app.openProject(p); }, `projects/${fname}-empty`);
@@ -3200,9 +3209,15 @@ if (webgpu) {
 
     // A right-click menu opened while nothing had the keyboard focus: Esc closes it, and the focus leaves the menu at once,
     // so a key pressed right after (Space) can't reach a hidden row of it (it opened a rename box for the layer).
-    await lp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer(null); document.activeElement?.blur?.(); });
-    const tracerAt = await layerRowOf('tracer').boundingBox();
-    await lp.mouse.click(tracerAt.x + 50, tracerAt.y + 14, { button: 'right' });
+    // The right-click is the contextmenu event alone, so it gives nothing the focus (a press on the row would focus it).
+    await lp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer(null); });
+    const rightClickUnfocused = () => lp.evaluate(() => {
+      document.activeElement?.blur?.();
+      const row = document.querySelector('.layers-list .layer-item[data-layer="tracer"]'), r = row.getBoundingClientRect();
+      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 50, clientY: r.top + 14, button: 2, buttons: 0 }));
+      return document.activeElement === document.body || document.activeElement?.closest?.('#layer-menu') != null;
+    });
+    const unfocused1 = await rightClickUnfocused();
     await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
     const escNow = await lp.evaluate(() => {
       const m = document.getElementById('layer-menu'), before = document.activeElement;
@@ -3210,15 +3225,14 @@ if (webgpu) {
       const f = document.activeElement;
       return { wasIn: !!before?.closest?.('#layer-menu'), open: m.matches(':popover-open'), inMenu: !!f?.closest?.('#layer-menu') };
     });
-    await lp.evaluate(() => document.activeElement?.blur?.());
-    await lp.mouse.click(tracerAt.x + 50, tracerAt.y + 14, { button: 'right' });
+    const unfocused2 = await rightClickUnfocused();
     await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
     await lp.keyboard.press('Escape');
     await lp.keyboard.press(' ');
     const spaceAfter = await lp.evaluate(() => ({ rename: !!document.querySelector('.layers-list input.rename'), inMenu: !!document.activeElement?.closest?.('.menu'), open: document.getElementById('layer-menu').matches(':popover-open') }));
     await lp.evaluate(async () => { window.__vfxManual = true; await window.__vfx.app.showAt(250, 7); document.querySelector('.status')?.classList.remove('show'); });
     ok('a right-click menu opened while nothing had the focus lets go of the focus as Esc closes it, so Space pressed right after opens no rename box',
-      escNow.wasIn && !escNow.open && !escNow.inMenu && !spaceAfter.rename && !spaceAfter.inMenu && !spaceAfter.open, JSON.stringify({ escNow, spaceAfter }));
+      unfocused1 && unfocused2 && escNow.wasIn && !escNow.open && !escNow.inMenu && !spaceAfter.rename && !spaceAfter.inMenu && !spaceAfter.open, JSON.stringify({ unfocused1, unfocused2, escNow, spaceAfter }));
     // On hover the row's buttons take the tag's place, so a rider says what it rides in the row's own tooltip.
     await lp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer(null); });
     await lp.mouse.move(900, 300);

@@ -75,16 +75,17 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     const cleared = !!query.trim() && !q.trim();
     query = q;
     searchToggles.clear();
-    // Cleared: the folders the search opened close again, as they were, but the selected effect's own folders stay open,
-    // so its row still shows.
-    if (cleared) {
-      scrollToSelected = true;
-      const sel = act.effects().find((e) => e.id === act.selected());
-      if (sel) openTo(sel);
-    }
+    if (cleared) keepSelectedInSight();
     render();
   } });
   const setQuery = (q: string) => { query = q; search.set(q); searchToggles.clear(); };
+  /** A search cleared: the folders it opened close again, as they were, but the selected effect's own folders stay open,
+   *  so its row still shows (and scrolls into view). */
+  const keepSelectedInSight = () => {
+    scrollToSelected = true;
+    const sel = act.effects().find((e) => e.id === act.selected());
+    if (sel) openTo(sel);
+  };
 
   const list = h('div', { class: 'list effects-list', attrs: { 'aria-label': 'Effects' } });
   const el = h('section', { class: 'card effects-section', attrs: { 'data-help-section': 'Effects' } },
@@ -336,7 +337,7 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Make an effect', on: { click: () => act.newEffect() } })));
     } else if (!shown.length) {
       rows.push(h('div', { class: 'list-empty' }, h('p', { class: 'empty', text: `Nothing matches "${q}".` }),
-        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Clear the search', on: { click: () => { setQuery(''); scrollToSelected = true; render(); search.input.focus(); } } })));
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Clear the search', on: { click: () => { setQuery(''); keepSelectedInSight(); render(); search.input.focus(); } } })));
     }
     list.replaceChildren(...rows);
 
