@@ -264,16 +264,16 @@ after another project; the search by name, folder, file and game event, the "1 o
 again, Esc and a second Esc, / and not while typing, no match and Clear the search; the More button on hover and on the
 selected row, its menu and a second click closing it, the button staying and looking open while its menu is, a right-click;
 renaming in place by a double-click and F2, Enter, Esc,
-an empty name and a click elsewhere, and another row's More clicked meanwhile, whose menu opens below it; Move to folder (a folder, No folder, New folder… with the dialog's OK), Duplicate (its
-name, folder, scene, own budgets and no events; one undo with nothing unsaved left, redo, project.json after saving) and
-Delete with its question, each one undo step; the main-colour dot and its edge, following the faction; a project with no
-effects, its "No effects yet." and Make an effect), the layers list (the
-add menu's groups and the 14 shapes with their names, a new layer above the selected one and selected; a row's buttons in its
-tag's place on hover and on the selected row, their tooltips and keys, its menu by More and by a right-click, the buttons
-staying while it is open, and Esc closing only the menu; Move up, Move
-down, Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
-opens below it; a press of less than 4 px a click, a drag with its 2 px
-line in one undo step, and Esc cancelling it (letting go after that is not a click); the empty state; the hover highlight both ways with the timeline; a new
+an empty name and a click elsewhere, and another row's More clicked meanwhile, whose menu opens below it; Move to folder (a
+folder, No folder, New folder… with the dialog's OK), Duplicate (its name, folder, scene, own budgets and no events; one
+undo with nothing unsaved left, redo, project.json after saving) and Delete with its question, each one undo step; the
+main-colour dot and its edge, following the faction; a project with no effects, its "No effects yet." and Make an
+effect), the layers list (the add menu's groups and the 14 shapes with their names, a new layer above the selected one
+and selected; a row's buttons in its tag's place on hover and on the selected row, their tooltips and keys, its menu by
+More and by a right-click, the buttons staying while it is open, and Esc closing only the menu; Move up, Move down,
+Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
+opens below it; a press of less than 4 px a click, a drag with its 2 px line in one undo step, and Esc cancelling it
+(letting go after that is not a click); the empty state; the hover highlight both ways with the timeline; a new
 selection scrolled into view in both, nothing round them moving), the keys /, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while
 typing or with a menu open; inside the rename and search boxes Space, Delete, Backspace, ← and → only type, and Esc does only
 the nearest thing; Keyboard shortcuts listing them), Save as, Export and Import
