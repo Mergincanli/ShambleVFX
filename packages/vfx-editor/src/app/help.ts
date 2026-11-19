@@ -163,7 +163,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Checks': {
     text: 'The checker the export uses: the schema, colour roles, images, links between layers and lengths. It names each problem in the file and where it is, such as an unknown colour, a missing image or a layer with no length.',
     when: [
-      { in: 'Status bar', text: 'The checker the export uses, on the effect shown: all good, or how many problems it found. Click to see them, under Checks in the effect\'s settings.' },
+      { in: 'Status bar', text: 'The checker the export uses, on the effect shown: all good, or how many problems it found. Click to open their list at the top of the right panel. It looks at the schema, colour roles, images, links between layers and lengths.' },
     ],
   },
 

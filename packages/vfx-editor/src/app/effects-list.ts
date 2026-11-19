@@ -53,6 +53,13 @@ export interface EffectsListView {
   startRename(id: string): void;
   /** An effect's row is being renamed. */
   renaming(): boolean;
+  /**
+   * Move to folder… for an effect from elsewhere (the right panel's header, UI phase 6): the same folder menu, below
+   * `below`.
+   */
+  openFolderMenu(id: string, below: HTMLElement): void;
+  /** Move an effect to a folder ('' for none): its name rewritten in one undo step, within the 80 characters. */
+  moveToFolder(id: string, folder: string): void;
 }
 
 /** The longest name allowed, as a sentence. */
@@ -215,6 +222,7 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     else if (menuAt && 'x' in menuAt) m.openAt(menuAt.x, menuAt.y);
     else m.open();
   };
+  const openFolderMenuFor = (id: string, below: HTMLElement) => { menuFor = id; menuAt = { button: below }; openFolderMenu(); };
   // Made now too, so its rows and their help texts are there before it is first opened.
   makeFolderMenu();
 
@@ -361,5 +369,7 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     focusSearch: () => { search.input.focus(); search.input.select(); },
     startRename,
     renaming: () => !!renaming,
+    openFolderMenu: openFolderMenuFor,
+    moveToFolder: moveTo,
   };
 }

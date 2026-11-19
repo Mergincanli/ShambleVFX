@@ -35,6 +35,26 @@ export interface AppApi {
   /** The checker's problems for the current effect. */
   problems(): Problem[];
   /**
+   * The problems stop the preview from drawing the effect (a schema, format or version problem). The preview, the cost
+   * measurement and the right panel's problems banner all ask this one question.
+   */
+  previewWaits(): boolean;
+
+  /** What the right panel header's More menus do (UI phase 6): what the lists' row menus do (phase 4). */
+  duplicateEffect(id: string): void;
+  /** Move to folder… for an effect: the folder menu (the folders there are, No folder, New folder…) below a button. */
+  openFolderMenu(id: string, below: HTMLElement): void;
+  /** Delete an effect, after asking (undo brings it back). */
+  deleteEffect(id: string): void;
+  /** Rename a layer in place, in its row of the Layers list (as F2 does). */
+  renameLayerInPlace(id: string): void;
+  /** Duplicate a layer: the copy goes just above it, and is selected. */
+  duplicateLayer(id: string): void;
+  /** Move a layer by delta places in the file (+1: up the list, so it draws over more): one undo step. */
+  moveLayer(id: string, delta: number): void;
+  /** Delete a layer; when it is the selected one, the layer that takes its place is selected. */
+  deleteLayer(id: string): void;
+  /**
    * The layers of the current effect the preview could not draw at the moment shown (the last frame), and why, in plain
    * words: an image that did not load, or one that is not in the project. A layer the tier leaves out gets no note.
    */

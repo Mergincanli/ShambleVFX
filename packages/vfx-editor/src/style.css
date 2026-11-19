@@ -422,7 +422,7 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .card-head > .mini { flex: 0 1 auto; min-width: 0; }
 .card-head > .mini > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .inspector > .empty { padding: var(--pad-panel); }
-/* A section scrolled to (the status bar's Checks and Cost) shows under the header, not behind it. */
+/* A section scrolled to (the status bar's triangles and Cost) shows under the header, not behind it. */
 .inspector > section { scroll-margin-top: var(--h-inspector-head); }
 /* The panel's header: the effect's (its main colour's dot, its name, "Effect"), or a layer's (the effect's name, back to its
    settings, "›", the layer's icon and name). It stays at the top while the panel scrolls; its line is its own, not the next
@@ -443,6 +443,29 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .insp-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-dot { width: var(--dot); height: var(--dot); flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .insp-kind { flex: none; color: var(--text-muted); }
+/* An effect's folder, before its name in the header: muted, in the title's size, not bold. */
+.insp-folder { color: var(--text-muted); font-weight: 400; }
+/* The header's More (6.6), at its right end: its menu does what the lists' row menus do. */
+.insp-head .insp-more { flex: none; margin-right: -4px; }
+/* The problems banner (6.6): only while the checker finds problems, right under the header, on --bad-bg: the warning icon,
+   how many, and a chevron that opens the list. Each problem: its path in Plex Mono (a button that selects its layer, when
+   it points at one) and its message. When the problems stop the preview, a line says so. */
+.problems-banner { padding: 0 var(--pad-panel) 4px; background: var(--bad-bg); color: var(--text); }
+.banner-head {
+  display: flex; align-items: center; gap: 6px; width: calc(100% + 2 * var(--pad-panel)); min-height: var(--h-row); margin: 0 calc(-1 * var(--pad-panel));
+  padding: 0 var(--pad-panel); border: 0; background: transparent; color: var(--bad); font-weight: 600; text-align: left;
+}
+.banner-head .icon { color: var(--bad); }
+.banner-chev { margin-left: auto; transform: rotate(-90deg); }
+.banner-head[aria-expanded="true"] .banner-chev { transform: none; }
+.banner-head:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.banner-wait, .banner-list { margin: 0 0 4px 22px; font-size: var(--fs-small); line-height: var(--lh-body); }
+.banner-list { display: flex; flex-direction: column; gap: 4px; padding: 0; list-style: none; }
+.banner-path { padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; }
+.banner-path code, code.banner-path { font-size: var(--fs-small); overflow-wrap: anywhere; }
+button.banner-path { cursor: pointer; text-decoration: underline transparent; text-underline-offset: 2px; }
+button.banner-path:hover { text-decoration-color: currentColor; }
+.banner-msg { overflow-wrap: anywhere; }
 /* The Look, first in a layer's settings: right under the header, so its line is the header's; the layer's kind after it
    starts a section of its own, with the usual line above. The picture is the preview's ground (a game colour) until the
    runtime draws on it: no edge, since the ground stands out from the panel in both themes. */
@@ -816,8 +839,6 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 /* The pivot: a neutral handle that shows on any image. */
 .pivot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--handle-edge); border-radius: 50%; background: var(--handle-fill); pointer-events: none; }
 .readout { margin: 4px 0 8px; font-size: var(--fs-small); color: var(--text-muted); }
-.checks h2.good { color: var(--good); }
-.checks h2.bad { color: var(--bad); }
 .problems { margin: 0 0 8px; padding-left: 16px; }
 .problems code { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-field); font-size: var(--fs-small); }
 .events input.text { font-family: var(--mono); }

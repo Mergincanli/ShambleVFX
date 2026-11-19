@@ -283,6 +283,11 @@ export class App implements AppApi {
     return list;
   }
 
+  /** The problems stop the preview (a schema, format or version problem): it waits until they are fixed. */
+  previewWaits(): boolean {
+    return this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
+  }
+
   async importImages(): Promise<void> {
     if (!this.project) return;
     if (!this.project.writable) {
@@ -436,8 +441,8 @@ export class App implements AppApi {
   private async runMeasure(): Promise<void> {
     const fx = this.effect();
     if (!fx || this.measuring) return;
-    if (this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version')) {
-      this.say('This effect has errors (see Checks): fix them, then measure.', true);
+    if (this.previewWaits()) {
+      this.say('This effect has errors: fix the problems listed at the top of the right panel, then measure.', true);
       return;
     }
     this.measuring = 'Starting…';
@@ -467,12 +472,13 @@ export class App implements AppApi {
     (card?.querySelector('button') as HTMLButtonElement | null)?.focus({ preventScroll: true });
   }
 
-  /** The status bar's checks: the effect's own view, scrolled to its Checks section, the focus on its title. */
+  /**
+   * The status bar's checks: with problems, the right panel's problems banner opens its list, in the view shown (the panel
+   * scrolled to the top, the focus on the banner); with none, a message says so and what the checker looked at.
+   */
   private showChecks(): void {
-    if (this.selLayer) this.selectLayer(null);
-    const card = this.els.root.querySelector('.inspector .checks');
-    card?.scrollIntoView({ block: 'start', behavior: scrollBehaviour() });
-    (card?.querySelector('h2') as HTMLElement | null)?.focus({ preventScroll: true });
+    if (this.inspector.openProblems()) return;
+    this.say('All good: the checker finds no problems in this effect (its schema, colour roles, images, links between layers and lengths).');
   }
 
   /** Show the preview in a view (Whole screen, Game size, Close-up): the View chip's menu, and the 1, 2 and 3 keys. */
@@ -1153,7 +1159,7 @@ export class App implements AppApi {
    * budgets, without its game events (one event plays one effect), selected. One undo step takes away the copy, its scene
    * and its budgets. project.json is written at the next save anyway, since the effects differ, so nothing else is unsaved.
    */
-  private duplicateEffect(id: string): void {
+  duplicateEffect(id: string): void {
     const r = duplicateEffect(this.history.doc, id);
     if (!r.id) return;
     const copy = r.id;
@@ -1285,13 +1291,37 @@ export class App implements AppApi {
   }
 
   /** A new name for a layer, typed in its row: one undo step. */
+  // The right panel header's More menus (UI phase 6) do what the lists' row menus do: the same functions.
+
+  /** Move to folder… for an effect, below a button (the header's More): the Effects list's folder menu. */
+  openFolderMenu(id: string, below: HTMLElement): void {
+    this.effectsList.openFolderMenu(id, below);
+  }
+
+  /** Rename a layer in place, in its row of the Layers list, as F2 and the row's menu do. */
+  renameLayerInPlace(id: string): void {
+    this.layersList.startRename(id);
+  }
+
+  duplicateLayer(id: string): void {
+    this.duplicateLayerOf(id);
+  }
+
+  moveLayer(id: string, delta: number): void {
+    this.moveLayerBy(id, delta);
+  }
+
+  deleteLayer(id: string): void {
+    this.deleteLayerOf(id);
+  }
+
   private renameLayer(id: string, name: string): void {
     if (!this.selEffect) return;
     this.history.apply('Rename layer', setLayerValue(this.history.doc, this.selEffect, id, ['name'], name));
     this.history.endGesture();
   }
 
-  private deleteEffect(id: string): void {
+  deleteEffect(id: string): void {
     if (!confirm('Delete this effect? (Undo brings it back until you leave.)')) return;
     this.history.apply('Delete effect', removeEffect(this.history.doc, id));
     this.selEffect = this.history.doc.effects[0]?.id ?? null;
@@ -1412,7 +1442,7 @@ export class App implements AppApi {
     }
     const lookup = (id: string) => effectById(this.history.doc, id);
     // An effect the schema refuses (a value typed out of range) is not drawn until it is fixed: the checks panel says why.
-    const drawable = fx && !this.problems().some((p) => p.kind === 'schema' || p.kind === 'format' || p.kind === 'version');
+    const drawable = fx && !this.previewWaits();
     const shown = fx && drawable && Number.isFinite(this.mainTime) && this.mainTime >= 0;
     const focus = this.fadeFocus(fx);
     this.drawing = true;

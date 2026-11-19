@@ -108,7 +108,7 @@ export function colourList(app: AppApi): ColourListView {
     }
     for (const role of sel.missing) {
       order.push({ key: `missing:${role}`, show: true, make: () => extra(`missing:${role}`, role, null,
-        `${role}: not in the palette. Add it under New colour in the colour picker, or pick another colour (see Checks).`) });
+        `${role}: not in the palette. Add it under New colour in the colour picker, or pick another colour (see the problems at the top of the right panel).`) });
     }
     for (const s of sel.hexes) {
       order.push({ key: `hex:${s.hex}`, show: true, make: () => extra(`hex:${s.hex}`, s.hex, s.hex,

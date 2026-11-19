@@ -10,7 +10,8 @@
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
 //    the selection; its rows: numbers you drag or type, groups of numbers, shortened segments, the colour roles' swatches,
-//    Tab through every number box), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
+//    Tab through every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer), the
+//    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
 //    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
@@ -559,9 +560,10 @@ if (webgpu) {
     && levelAfter.trim() === 'The project\'s budgets count for this effect.' && projectBudgets.on === true && projectBudgets.limits.high?.draws === 1, `"${levelBefore.trim()}" -> "${levelAfter.trim()}"`);
   await p.screenshot({ path: join(shots, 'editor-cost-panel.png') });
 
-  // -- the right panel shows what is selected. A layer: its settings first, under a header with the effect's name (back to
-  // the effect's settings, as Esc is), "›", its icon and name; Cost and Checks stay under it. Every layer says what draws
-  // it; a projectile, which draws nothing, lists the layers riding it, and they say so in the Layers list.
+  // -- the right panel shows what is selected. A layer: only its settings, under a header with the effect's name (back to
+  // the effect's settings, as Esc is), "›", its icon and name; since UI phase 6 no Cost and no Checks under it (the effect's
+  // view ends with Cost; the problems banner and the status bar show the problems). Every layer says what draws it; a
+  // projectile, which draws nothing, lists the layers riding it, and they say so in the Layers list.
   const layerInfo = await server.ssrLoadModule('/src/doc/layer-info.ts');
   const layerRow = (name) => p.locator('.layers-list .layer-item', { has: p.locator(':scope > span', { hasText: new RegExp(`^${name.replace(/[()]/g, '\\$&')}$`) }) });
   const panel = () => p.evaluate(() => {
@@ -579,20 +581,22 @@ if (webgpu) {
       icon: !!head?.querySelector('svg, img'), headH: head ? Math.round(head.getBoundingClientRect().height) : null,
       cardTop: card ? Math.round(card.getBoundingClientRect().top - top) : null, effectSettings: !!ins.querySelector('.bigcontrols'),
       draws: card?.querySelector(':scope > .draws')?.textContent ?? null, drawsFile: card?.querySelector(':scope > .draws code')?.textContent ?? null,
-      costAndChecks: [...ins.children].slice(-2).map((c) => c.classList.contains('costcard') ? 'cost' : c.classList.contains('checks') ? 'checks' : c.className).join(),
+      // Cost and Checks in the view, in order, and whether Cost is the last section.
+      costAndChecks: [...ins.children].map((c) => c.classList.contains('costcard') ? 'cost' : c.classList.contains('checks') ? 'checks' : null).filter(Boolean).join(),
+      costLast: !!ins.lastElementChild?.classList.contains('costcard'),
     };
   });
   await p.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
   await layerRow('Muzzle flash').click();
   const sel = await panel();
-  ok('a layer\'s settings come first, under a header: the effect\'s name, "›", the layer\'s icon and name; the effect\'s settings are not shown, Cost and Checks stay at the bottom',
+  ok('a layer\'s settings come first, under a header: the effect\'s name, "›", the layer\'s icon and name; the effect\'s settings are not shown, and neither are Cost and Checks',
     sel.layer === 'flash' && sel.first === 'insp-head' && sel.link === 'Rifle shot (demo)' && sel.title === 'Muzzle flash' && sel.icon && sel.cardTop === sel.headH
-      && !sel.effectSettings && sel.costAndChecks === 'cost,checks', JSON.stringify(sel));
+      && !sel.effectSettings && sel.costAndChecks === '', JSON.stringify(sel));
   await p.locator('.inspector .insp-head .crumb').click();
   const back = await panel();
-  ok('clicking the effect\'s name in the header goes back to the effect\'s settings, under the effect\'s own 40 px header: a dot in its main colour, its name and "Effect"; the Effect section follows',
+  ok('clicking the effect\'s name in the header goes back to the effect\'s settings, under the effect\'s own 40 px header: a dot in its main colour, its name and "Effect"; the Effect section follows, and Cost ends it',
     back.layer === null && back.effectSettings && back.first === 'insp-head effect-head' && back.second.includes('bigcontrols') && back.link === null && back.title === 'Rifle shot (demo)'
-      && back.kind === 'Effect' && !!back.dot && back.dot.dot === back.dot.main && back.headH === 40 && back.effectTop === back.headH && back.costAndChecks === 'cost,checks', JSON.stringify(back));
+      && back.kind === 'Effect' && !!back.dot && back.dot.dot === back.dot.main && back.headH === 40 && back.effectTop === back.headH && back.costAndChecks === 'cost' && back.costLast, JSON.stringify(back));
   await layerRow('Hit spark').click();
   await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Layer name$/ }) }).locator('input').focus();
   await p.keyboard.press('Escape');
@@ -836,6 +840,179 @@ if (webgpu) {
       [...demoTab.wrapped, ...hitsTab.wrapped].slice(0, 4).join(', ') || 'none wraps');
     ok('the rows page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await rp.close();
+  }
+
+  // -- the right panel's header menus and its problems (docs/ui-redesign.md 6.6, UI phase 6). Each header has a More
+  // button: the effect's (Duplicate effect, Move to folder…, Delete effect) and a layer's (Rename, Duplicate, Move up, Move
+  // down, Delete), doing what the lists' row menus do, each one undo step. The problems banner shows only when the checker
+  // finds problems: how many, a list that opens, each path in Plex Mono (a click on one that points at a layer selects it),
+  // and "The preview waits until these are fixed." when they stop the preview. The status bar's Checks opens it. Cost and
+  // Checks no longer sit under a layer. On a page of its own.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const hp = g.page;
+    hp.on('dialog', (d) => d.accept());
+    const menuNow = (id) => hp.evaluate((id) => {
+      const m = document.getElementById(id);
+      return { open: !!m?.matches(':popover-open'), rows: m ? [...m.querySelectorAll('.menu-item, .menu-divider')].map((c) => c.matches('.menu-divider') ? '—'
+        : `${c.querySelector('.menu-label').textContent}${c.querySelector('.menu-key') ? ` ${c.querySelector('.menu-key').textContent}` : ''}${c.disabled ? ' (off)' : ''}`) : [] };
+    }, id);
+    const more = () => hp.locator('.inspector > .insp-head .insp-more');
+    // A press on a menu's button less than 100 ms after the menu closed counts as the press that closed it (dom.ts, menu's
+    // openBelow), so the check waits a little, as a person always does, before it opens the menu again.
+    const openMore = async (id) => { await hp.waitForTimeout(150); await more().click(); await hp.waitForSelector(`#${id}:popover-open`, { timeout: 5000 }); };
+    const muted = await hp.evaluate(() => { const s = document.createElement('span'); s.style.color = 'var(--text-muted)'; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
+    await hp.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('rifle_shot'); a.selectLayer(null); });
+
+    // The effect's More: Duplicate effect, Move to folder… (New folder…, the question dialog's OK clicked), Delete effect.
+    const fxMore = await more().evaluate((b) => ({ name: b.getAttribute('aria-label'), popup: b.getAttribute('aria-haspopup'), tip: window.__vfx.app.tipForChecks(b)?.lines[0] ?? null }));
+    await openMore('insp-effect-menu');
+    const fxMenu = await menuNow('insp-effect-menu');
+    const fxLook = await openLook(hp, more(), 'insp-effect-menu');
+    await menuRow(hp, 'insp-effect-menu', 'Duplicate effect').click();
+    const dup = await hp.evaluate(() => { const a = window.__vfx.app; return { id: a.effect()?.id, name: a.effect()?.name, undo: a.history.undoLabel }; });
+    await hp.keyboard.press('Control+z');
+    const dupGone = await hp.evaluate((id) => !window.__vfx.app.debugState().effects.includes(id), dup.id);
+    await hp.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
+    await openMore('insp-effect-menu');
+    await menuRow(hp, 'insp-effect-menu', 'Move to folder…').click();
+    await hp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+    const folderBelow = await hp.evaluate(() => Math.round(document.getElementById('folder-menu').getBoundingClientRect().top - document.querySelector('.inspector .insp-more').getBoundingClientRect().bottom));
+    await menuRow(hp, 'folder-menu', 'New folder…').click();
+    await hp.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+    await hp.locator('dialog[open] input.text').fill('Tests');
+    await hp.locator('dialog[open] button', { hasText: 'OK' }).click();
+    const moved = await hp.evaluate(() => {
+      const a = window.__vfx.app, t = document.querySelector('.inspector .insp-title'), f = t.querySelector('.insp-folder');
+      return { name: a.effect().name, undo: a.history.undoLabel, title: t.textContent, folder: f?.textContent ?? null, folderColour: f ? getComputedStyle(f).color : null, folderWeight: f ? getComputedStyle(f).fontWeight : null };
+    });
+    await hp.keyboard.press('Control+z');
+    const movedBack = await hp.evaluate(() => window.__vfx.app.effect().name);
+    await openMore('insp-effect-menu');
+    await menuRow(hp, 'insp-effect-menu', 'Delete effect').click();
+    const deleted = await hp.evaluate(() => ({ gone: !window.__vfx.app.debugState().effects.includes('rifle_shot'), undo: window.__vfx.app.history.undoLabel }));
+    await hp.keyboard.press('Control+z');
+    const deleteUndone = await hp.evaluate(() => window.__vfx.app.debugState().effects.includes('rifle_shot'));
+    ok('the effect\'s header has a More button (looks open while its menu is): Duplicate effect, Move to folder… (below the button) and Delete effect do what the Effects list\'s menu does, each one undo step',
+      fxMore.popup === 'menu' && fxMore.name === 'More: Rifle shot (demo)' && fxMore.tip === 'More' && fxMenu.open && fxMenu.rows.join('|') === 'Duplicate effect Ctrl+D|Move to folder…|—|Delete effect'
+        && fxLook.shown && fxLook.expanded === 'true' && fxLook.icon && fxLook.field && dup.name === 'Rifle shot (demo) copy' && dup.undo === 'Duplicate effect' && dupGone
+        && folderBelow >= 0 && folderBelow <= 8 && moved.name === 'Tests / Rifle shot (demo)' && moved.undo === 'Move to folder' && movedBack === 'Rifle shot (demo)'
+        && deleted.gone && deleted.undo === 'Delete effect' && deleteUndone,
+      JSON.stringify({ fxMore, fxMenu: fxMenu.rows, fxLook, dup, dupGone, folderBelow, moved: [moved.name, moved.undo, movedBack], deleted, deleteUndone }));
+    ok('the effect\'s header shows its folder as a muted prefix before its name, in the title\'s size, not bold', moved.title === 'Tests / Rifle shot (demo)' && moved.folder === 'Tests / '
+      && moved.folderColour === muted && moved.folderWeight === '400', JSON.stringify(moved));
+
+    // A layer's More: Rename (in place, in the Layers list), Duplicate, Move up, Move down, Delete.
+    await hp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer('flash'); });
+    const order = () => hp.evaluate(() => window.__vfx.app.effect().layers.map((l) => l.id));
+    const order0 = await order();
+    const i = order0.indexOf('flash');
+    const swap = (a, b) => { const o = [...order0]; [o[a], o[b]] = [o[b], o[a]]; return o.join(); };
+    await openMore('insp-layer-menu');
+    const layerMenu = await menuNow('insp-layer-menu');
+    const layerLook = await openLook(hp, more(), 'insp-layer-menu');
+    await menuRow(hp, 'insp-layer-menu', 'Rename').click();
+    const renameBox = await hp.waitForFunction(() => { const b = document.querySelector('.layers-list .layer-item[data-layer="flash"] input.rename'); return b && document.activeElement === b ? b.value : null; }, null, { timeout: 5000 })
+      .then((x) => x.jsonValue(), () => null);
+    await hp.locator('.layers-list input.rename').fill('Flash two');
+    await hp.keyboard.press('Enter');
+    const renamed = await hp.evaluate(() => ({ name: window.__vfx.app.effect().layers.find((l) => l.id === 'flash').name, undo: window.__vfx.app.history.undoLabel }));
+    await hp.keyboard.press('Control+z');
+    const step = async (label) => {
+      await openMore('insp-layer-menu');
+      await menuRow(hp, 'insp-layer-menu', label).click();
+      const r = await hp.evaluate(() => ({ order: window.__vfx.app.effect().layers.map((l) => l.id).join(), sel: window.__vfx.app.layer()?.id ?? null, undo: window.__vfx.app.history.undoLabel }));
+      await hp.keyboard.press('Control+z');
+      await hp.evaluate(() => window.__vfx.app.selectLayer('flash'));
+      return r;
+    };
+    const dupL = await step('Duplicate'), upL = await step('Move up'), downL = await step('Move down'), delL = await step('Delete');
+    const order1 = (await order()).join();
+    // The layer at the top of the list (the last in the file) cannot move up; the one at the bottom cannot move down.
+    await hp.evaluate((id) => window.__vfx.app.selectLayer(id), order0[order0.length - 1]);
+    await openMore('insp-layer-menu');
+    const topMenu = await menuNow('insp-layer-menu');
+    await hp.keyboard.press('Escape');
+    ok('a layer\'s header has a More button (looks open while its menu is): Rename (in place, in the Layers list), Duplicate, Move up, Move down and Delete do what the Layers list\'s menu does, each one undo step',
+      layerMenu.rows.join('|') === 'Rename F2|Duplicate Ctrl+D|Move up Ctrl+]|Move down Ctrl+[|—|Delete Del' && layerLook.expanded === 'true' && layerLook.icon && layerLook.field
+        && renameBox === 'Muzzle flash' && renamed.name === 'Flash two' && renamed.undo === 'Rename layer' && dupL.sel !== 'flash' && dupL.order.split(',').length === order0.length + 1 && dupL.undo === 'Duplicate layer'
+        && upL.order === swap(i, i + 1) && upL.undo === 'Move layer' && downL.order === swap(i, i - 1) && downL.undo === 'Move layer'
+        && delL.order === order0.filter((x) => x !== 'flash').join() && delL.sel === order0[i + 1] && delL.undo === 'Delete layer' && order1 === order0.join()
+        && topMenu.rows.includes('Move up Ctrl+] (off)') && topMenu.rows.includes('Move down Ctrl+['),
+      JSON.stringify({ layerMenu: layerMenu.rows, layerLook, renameBox, renamed, dupL, upL, downL, delL, order0, order1, topMenu: topMenu.rows }));
+
+    // The problems banner: none without problems; with one, in both views, right under the header.
+    const bannerNow = () => hp.evaluate(() => {
+      const a = window.__vfx.app, ins = document.querySelector('.inspector'), b = ins.querySelector('.problems-banner');
+      if (!b) return { shown: false, layer: a.layer()?.id ?? null, waits: a.previewWaits() };
+      const head = b.querySelector('.banner-head'), list = b.querySelector('.banner-list'), wait = b.querySelector('.banner-wait');
+      const probe = document.createElement('span'); probe.style.backgroundColor = 'var(--bad-bg)'; document.body.append(probe); const badBg = getComputedStyle(probe).backgroundColor; probe.remove();
+      return { shown: true, layer: a.layer()?.id ?? null, second: ins.children[1] === b, count: b.querySelector('.banner-count').textContent, icon: head.querySelector('svg')?.getAttribute('class'),
+        bg: getComputedStyle(b).backgroundColor, badBg, open: head.getAttribute('aria-expanded'), listShown: !list.hidden && list.getClientRects().length > 0,
+        items: [...list.querySelectorAll('li')].map((li) => ({ path: li.querySelector('code')?.textContent, font: getComputedStyle(li.querySelector('code')).fontFamily.split(',')[0].replace(/"/g, ''),
+          button: !!li.querySelector('button.banner-path'), message: li.querySelector('.banner-msg')?.textContent })),
+        wait: !wait.hidden && wait.getClientRects().length ? wait.textContent : null, waits: a.previewWaits(), tip: a.tipForChecks(head)?.lines.join(' ') ?? '' };
+    });
+    await hp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer(null); });
+    const none = await bannerNow();
+    await hp.evaluate(() => window.__vfx.app.selectLayer('flash'));
+    const noneLayer = await bannerNow();
+    await hp.evaluate(() => { const a = window.__vfx.app; a.editLayer(['image'], 'no_such.png'); a.commit(); });
+    const inLayer = await bannerNow();
+    await hp.evaluate(() => window.__vfx.app.selectLayer(null));
+    const inEffect = await bannerNow();
+    ok('the problems banner shows only when the checker finds problems, in both views, right under the header: --bad-bg, the warning icon and how many ("1 problem"); its tooltip names what the checker checks',
+      !none.shown && !noneLayer.shown && inLayer.shown && inLayer.second && inLayer.count === '1 problem' && inLayer.icon === 'icon icon-warning' && inLayer.bg === inLayer.badBg
+        && inEffect.shown && inEffect.second && inEffect.tip.includes('links between layers'), JSON.stringify({ none, noneLayer, inLayer, inEffect: [inEffect.shown, inEffect.second] }));
+    await hp.locator('.inspector .problems-banner .banner-head').click();
+    const opened = await bannerNow();
+    await hp.locator('.inspector .problems-banner button.banner-path').first().click();
+    const picked = await bannerNow();
+    ok('the banner\'s list opens with its chevron: each problem\'s path in Plex Mono and its message; a click on a path that points at a layer selects that layer, and the banner stays, open',
+      inEffect.open === 'false' && !inEffect.listShown && opened.open === 'true' && opened.listShown && opened.items.length === 1 && opened.items[0].path === `layers[${i}].image`
+        && opened.items[0].font === 'IBM Plex Mono' && opened.items[0].button && /no_such\.png/.test(opened.items[0].message ?? '') && picked.layer === 'flash' && picked.shown && picked.open === 'true' && picked.listShown,
+      JSON.stringify({ closed: [inEffect.open, inEffect.listShown], opened, picked: [picked.layer, picked.open, picked.listShown] }));
+    // The preview waits only for problems that stop it (schema, format or version): a size the schema refuses does.
+    await hp.keyboard.press('Control+z');
+    await hp.evaluate(() => { const a = window.__vfx.app; a.selectLayer(null); a.editEffect(['controls', 'size'], -1, { label: 'Size' }); a.commit(); });
+    const waiting = await bannerNow();
+    await hp.keyboard.press('Control+z');
+    const clean = await bannerNow();
+    ok('when the problems stop the preview (a value the schema refuses), the banner says "The preview waits until these are fixed."; for a missing image it does not; fixed, the banner goes',
+      picked.wait === null && !picked.waits && waiting.shown && waiting.wait === 'The preview waits until these are fixed.' && waiting.waits && !clean.shown && !clean.waits,
+      JSON.stringify({ image: [picked.wait, picked.waits], schema: [waiting.count, waiting.wait, waiting.waits], clean }));
+
+    // The status bar's Checks: with problems, it opens the banner's list where the panel shows it; with none, a message.
+    await hp.evaluate(() => { const a = window.__vfx.app; a.selectLayer('flash'); a.editLayer(['image'], 'no_such.png'); a.commit(); });
+    await hp.locator('.inspector .problems-banner .banner-head').click();
+    await hp.evaluate(() => { document.querySelector('.right').scrollTop = 400; });
+    const closedAgain = await bannerNow();
+    await hp.locator('.statusbar .sb-checks').click();
+    const fromBar = await hp.evaluate(() => {
+      const b = document.querySelector('.inspector .problems-banner'), h = document.querySelector('.inspector > .insp-head');
+      return { layer: window.__vfx.app.layer()?.id ?? null, open: b?.querySelector('.banner-head').getAttribute('aria-expanded') ?? null, focus: !!b && document.activeElement === b.querySelector('.banner-head'),
+        top: document.querySelector('.right').scrollTop, below: b && h ? Math.round(b.getBoundingClientRect().top - h.getBoundingClientRect().bottom) : null };
+    });
+    await hp.keyboard.press('Control+z');
+    await hp.locator('.statusbar .sb-checks').click();
+    const allGood = await hp.waitForFunction(() => document.querySelector('.status.show')?.textContent ?? null, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+    ok('the status bar\'s Checks opens the banner\'s list (the panel scrolled to the top, the focus on the banner, the layer still selected); with no problems, a click on "All good" says so in a message',
+      closedAgain.open === 'false' && fromBar.layer === 'flash' && fromBar.open === 'true' && fromBar.focus && fromBar.top === 0 && fromBar.below !== null && Math.abs(fromBar.below) <= 1 && /^All good/.test(allGood ?? ''),
+      JSON.stringify({ closedAgain: closedAgain.open, fromBar, allGood }));
+
+    // Cost and Checks: none under a layer; the effect's view ends with Cost; no Checks section anywhere.
+    const placement = await hp.evaluate(() => {
+      const a = window.__vfx.app, ins = document.querySelector('.inspector');
+      const kinds = () => [...ins.children].map((c) => c.classList.contains('costcard') ? 'cost' : c.classList.contains('checks') ? 'checks' : null).filter(Boolean).join();
+      a.pickEffect('rifle_shot'); a.selectLayer('flash');
+      const layerView = kinds();
+      a.selectLayer(null);
+      return { layerView, effectView: kinds(), last: ins.lastElementChild?.classList.contains('costcard') ?? false, checks: !!document.querySelector('.inspector .checks') };
+    });
+    ok('Cost and Checks no longer sit under a layer: a layer\'s view has neither; the effect\'s view ends with Cost, and there is no Checks section (the banner and the status bar show the problems)',
+      placement.layerView === '' && placement.effectView === 'cost' && placement.last && !placement.checks, JSON.stringify(placement));
+    ok('the header and problems page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await hp.close();
   }
 
   // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
@@ -1740,7 +1917,9 @@ if (webgpu) {
       const out = {
         events: words(find('.inspector .flab', 'Game events it answers')), size: words(find('.inspector .flab', 'Size')),
         intensity: words(find('.inspector .flab', 'Intensity')), duration: words(find('.inspector .flab', 'Duration')),
-        cost: words(find('.inspector .costcard h2', 'Cost')), checks: words(document.querySelector('.inspector .checks h2')),
+        // The checker's five things: in the Checks section's title until UI phase 6; since, in the status bar's Checks (and the
+        // problems banner, which shows only with problems: see the header and problems page).
+        cost: words(find('.inspector .costcard h2', 'Cost')), checks: words(document.querySelector('.statusbar .sb-checks')),
         layers: tipOf(find('.layers-section h2', 'Layers'))?.lines ?? null,
         colour: words(find('.inspector .colour-row .lab > span', 'Colour')),
       };
@@ -1962,21 +2141,24 @@ if (webgpu) {
       !sb1.cls.split(' ').includes('status') && sb1.h === 24 && sb1.font === '11px' && sb1.checks === 'All good' && sb1.checksIcon === 'icon icon-check' && sb1.checksColour === sb1.good
         && `${sb1.tris}|${sb1.draws}` === sb1.want && sb1.cost === 'Cost: not measured' && sb1.costColour === sb1.muted && sb1.renderer === 'WebGL 2'
         && sb1.rendererTip === 'Drawing with the WebGL 2 fallback of the WebGPU renderer.' && sb1.keys?.lines[0] === 'Keyboard shortcuts' && sb1.keys?.key === '?', JSON.stringify(sb1));
-    // A problem: "1 problem" in --bad, with the warning icon. A click shows the effect's view at its Checks section.
+    // A problem: "1 problem" in --bad, with the warning icon. Since UI phase 6 a click opens the problems banner's list in the
+    // view shown (the layer stays selected), right under the header, the focus on the banner; before, it showed the effect's
+    // view at its Checks section, which is gone.
     await sp.evaluate(async () => { const a = window.__vfx.app; a.selectLayer('flash'); a.editLayer(['image'], 'no_such.png'); a.commit(); await a.showAt(20, 7); });
     const sb2 = await bar();
     await sp.locator('.statusbar .sb-checks').click();
     const checksShown = await sp.waitForFunction(() => {
-      const c = document.querySelector('.inspector .checks'), r = document.querySelector('.right').getBoundingClientRect(), h = document.querySelector('.inspector > .insp-head')?.getBoundingClientRect();
-      const b = c?.getBoundingClientRect();
-      return b && h && b.top >= h.bottom - 1 && b.top < r.bottom - 20 ? { layer: window.__vfx.app.layer()?.id ?? null, top: Math.round(b.top - r.top), focus: document.activeElement === c.querySelector('h2'), title: c.querySelector('h2').textContent } : null;
+      const c = document.querySelector('.inspector .problems-banner'), r = document.querySelector('.right').getBoundingClientRect(), h = document.querySelector('.inspector > .insp-head')?.getBoundingClientRect();
+      const b = c?.getBoundingClientRect(), head = c?.querySelector('.banner-head');
+      return b && h && b.top >= h.bottom - 1 && b.top < r.bottom - 20 && head?.getAttribute('aria-expanded') === 'true'
+        ? { layer: window.__vfx.app.layer()?.id ?? null, top: Math.round(b.top - r.top), focus: document.activeElement === head, title: c.querySelector('.banner-count').textContent } : null;
     }, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
     await sp.keyboard.press('Control+z');
     await sp.evaluate(async () => { await window.__vfx.app.showAt(20, 7); });
     const sb3 = await bar();
     const nProblems = `${sb2.problems} problem${sb2.problems === 1 ? '' : 's'}`;
-    ok('with a problem the status bar says how many ("1 problem") in --bad with the warning icon, from the Checks section\'s list; a click shows the effect\'s settings (no layer selected) at its Checks section',
-      sb2.problems >= 1 && sb2.checks === nProblems && sb2.checksIcon === 'icon icon-warning' && sb2.checksColour === sb2.bad && !!checksShown && checksShown.layer === null && checksShown.focus && checksShown.title === `Checks: ${nProblems}` && sb3.checks === 'All good',
+    ok('with a problem the status bar says how many ("1 problem") in --bad with the warning icon, as the problems banner does; a click opens the banner\'s list right under the header, the focus on it, the layer still selected',
+      sb2.problems >= 1 && sb2.checks === nProblems && sb2.checksIcon === 'icon icon-warning' && sb2.checksColour === sb2.bad && !!checksShown && checksShown.layer === 'flash' && checksShown.focus && checksShown.title === nProblems && sb3.checks === 'All good',
       JSON.stringify({ sb2: [sb2.checks, sb2.checksIcon], checksShown, after: sb3.checks }));
     // The triangles: a click shows the effect's view at Cost, the focus on Measure.
     await sp.evaluate(() => window.__vfx.app.selectLayer('hit'));

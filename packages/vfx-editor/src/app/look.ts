@@ -329,7 +329,7 @@ export class LookView {
     const span = loopSpan(f.effect, f.timeline, f.layer);
     let alone: EffectFile | undefined, at: number | undefined, text: string;
     this.zoom = null;
-    if (f.waits) text = 'The picture waits until the effect\'s problems are fixed (see Checks).';
+    if (f.waits) text = 'The picture waits until the effect\'s problems are fixed (see the top of the right panel).';
     else if (!span) text = 'Nothing to show: it has no time of its own.';
     else {
       alone = this.aloneOf(f.effect, f.layer);

@@ -78,7 +78,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    its name and "Effect" (its name, the four **big controls**, the three **phase** lengths and its colours). Click a
    **layer** (in the Layers list, or its name or its bar on the timeline) and the panel shows that layer's settings, under
    a header with the effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the
-   effect's settings.
+   effect's settings. Each header has a **More** button (three dots) at its right end: the effect's has Duplicate effect,
+   Move to folder… and Delete effect; a layer's has Rename, Duplicate, Move up, Move down and Delete, as in the lists. While
+   the checker finds problems, a red strip under the header says how many: click it for the list, and click a problem's
+   path to select the layer it is in.
    Each setting is a row: its name on the left, its control on the right. **Drag a number's name sideways** to change it
    (a step for every 4 px, ten with Shift), or click the number and type it ("0,5" works as well as "0.5"); ↑ and ↓ step
    it, and Esc puts back what you typed. Two or three numbers share a row, each with a short word or letter inside ("R",
@@ -102,9 +105,9 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    list and on the timeline. A layer's **Shows in** boxes set its tiers.
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
-10. **Cost** (lower in the right panel; the triangles and the cost in the status bar jump there): press **Measure** for
-    draws, sprites alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they are the
-    project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
+10. **Cost** (at the bottom of the effect's settings; the triangles and the cost in the status bar go there): press
+    **Measure** for draws, sprites alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they
+    are the project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
 11. **Export…**, in the top bar and the main menu, writes the folder the game loads into `exports/`; **Import an export…** in the
     main menu (Projects, at its list of exports) makes a project from one (and keeps its colours as a palette profile).
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. The list under Colour shows the
@@ -129,9 +132,9 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 17. **The main menu**: click the logo (SHAMBLE VFX) for Projects…, New project…, Save, Save as…, Export…, Import an export…,
     Show hints, Night mode and Keyboard shortcuts. The arrow keys move in it, a letter jumps to the row that starts with it, Enter
     chooses, Esc closes it.
-18. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to see them under Checks), this
-    frame's triangles and draw calls, and the cost against the budgets (click either for Cost); in the middle, the hint for
-    what is under the pointer; on the right, the renderer and **?** for the keyboard shortcuts.
+18. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to open their list at the top
+    of the right panel), this frame's triangles and draw calls, and the cost against the budgets (click either for Cost);
+    in the middle, the hint for what is under the pointer; on the right, the renderer and **?** for the keyboard shortcuts.
 19. **Resize the zones**: drag the lines between them (the left sidebar, the right panel, the effects and the layers, the
     preview and the timeline). Each size is remembered; a double-click puts the default back. With the keyboard focus on a
     line, the arrow keys move it 16 px.
@@ -222,7 +225,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (328 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (337 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -236,7 +239,11 @@ a grid of label and control, 28 px rows 4 px apart; a number dragged by its name
 once, with nothing written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
 one unit; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
-examples changing nothing; every segmented choice on one line at 1920), Fade
+examples changing nothing; every segmented choice on one line at 1920; the headers' More menus, each row doing what the
+lists' menus do in one undo step, Move to folder… below the button and an effect's folder muted before its name; the
+problems banner only with problems, in both views, its count, its list, a path selecting its layer, "The preview waits until
+these are fixed." only for problems that stop the preview, the status bar's Checks opening it and "All good" saying so;
+no Cost or Checks under a layer), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
@@ -260,7 +267,7 @@ splitters: a drag, their limits (with the effects list at its largest, the Layer
 row showing, with its buttons on hover),
 the sizes remembered after a reload, a double-click putting the default back, the arrow keys, the preview drawn at its new
 size while one is dragged, the Look following; the status bar: the checks and a click
-to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
+opening the problems banner, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
 main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
 closing it, every row; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
 header, and the time's focus ring clear of the text after it; `?frame=1` showing nothing of the editor round the game
@@ -645,7 +652,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   selection with Show all, what draws each layer and what a projectile carries; these details are ours):
   - With a layer selected the panel shows only that layer's settings. Its header (the brief's 40 px inspector header) stays
     at the top while the panel scrolls, so the way back always shows. Since UI phase 2 the effect's view has a header too (see
-    the shell, below), with its Effect section under it. Cost and Checks stay at the bottom of both views until phase 6.
+    the shell, below), with its Effect section under it. Cost and Checks stayed at the bottom of both views until phase 6;
+    since then Cost sits only at the bottom of the effect's settings, and the problems banner took the place of Checks (see
+    "The inspector").
   - Another selection starts the panel at the top; a part switched on or off keeps its place. When the control you used
     goes with the old view (the effect's name, a rider, Esc pressed in the panel), the keyboard focus moves to the new
     view's title.
@@ -772,14 +781,15 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - The ? key opens Keyboard shortcuts now, since the main menu names it; not while typing in a field, nor in the colour
     picker or a menu. The Keys dialog is called Keyboard shortcuts, as the menu names it, and lists ? and the arrow keys on a
     splitter.
-  - The effect's header is plain: a dot in its main colour (for the faction shown; its tooltip names the role), its name and
-    "Effect". No More menu until phase 6. The Effect section stays under it, as it was.
+  - The effect's header: a dot in its main colour (for the faction shown; its tooltip names the role), its name and
+    "Effect"; since phase 6 also its folder before its name and a More menu (see "The inspector"). The Effect section stays
+    under it.
   - Typing a time in the readout comes now, with the header: Enter goes to the typed time, paused; a comma works as the
     decimal point; a time past the end stops at the end; Esc, or a click elsewhere, leaves it as it was.
   - The ruler, the phase strip and the track rows kept their sizes (26, 16 and 26 px) until phase 5 gave them 4.3's (24, 16
     and 24 px): at 1920 × 1080 with the default sizes the tracks get 272 px, which hold the ruler, the phases and 9 rows.
-  - A click on Checks in the status bar shows the effect's settings at its Checks section (its title takes the focus), until
-    phase 6's problems banner.
+  - A click on Checks in the status bar showed the effect's settings at its Checks section until phase 6; since then it opens
+    the problems banner (see "The inspector").
   - New project… in the main menu asks for the new project's name at once: the question the Projects dialog's New project…
     button asks (one function now), then makes the project and opens it. Import an export… opens Projects with the focus on
     the first export.
@@ -1039,7 +1049,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     has them.
 - **The inspector** (UI phase 6 of [docs/ui-redesign.md](docs/ui-redesign.md): the property rows, numbers you drag or type,
   rows of two or three numbers with prefixes, sliders, segmented choices, the colour roles' swatches and the folds are the
-  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first one's:
+  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first two's (the
+  rows and fields; the header's More menus, the problems banner, and Cost and Checks out of a layer's view):
   - **Rows**: 28 px, with 4 px between them, as the brief's words say (a row 32 px from the next). The label column is at
     least 84 px and at most 38 % of the row, so 103 px at 1920 and 112 px at 2560. Every control fills its column, number
     boxes too, so the numbers, right-aligned, line up at the panel's right edge. A checkbox's words sit in the label column
@@ -1086,6 +1097,26 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Folds**: the chevron is the icons' chevron (turned down when open), the title 13 px semibold and cut with an ellipsis.
     The colour picker's sections keep their small chevron until the picker's phase.
   - The Phases hint starts with a capital letter now: "Layers can start with a phase or last until one ends."
+  - **The headers' More**: the lists' More button (three dots, 24 px) at the header's right end; its menus run the lists'
+    own actions, each one undo step, with their help texts. The effect's menu has no Rename (the Name field, F2 and the list
+    rename it); its Duplicate effect shows Ctrl+D, since Ctrl+D duplicates the effect while no layer is selected. A layer's
+    Rename renames it in place in the Layers list, as F2 does. Move to folder… opens the Effects list's folder menu below the
+    same button.
+  - **An effect's folder** shows before its name in the header ("Weapons / Rifle shot"): muted, in the title's size, not
+    bold; the name stays semibold.
+  - **The problems banner**: in both views, right under the header, only while there are problems. Its list is closed at
+    first, and stays open or closed as you leave it while the editor runs (not after a reload); the status bar's Checks
+    opens it. A path that points at a layer ("layers[3].image") is a button that selects the layer; another path
+    ("controls.size") is plain. "The preview waits until these are fixed." shows while the problems stop the preview,
+    whether the list is open or not. While the schema refuses a value, the checker names only that problem: it checks the
+    rest once the file reads.
+  - **The status bar's Checks**: with problems, a click opens the banner's list in the view shown (a selected layer stays
+    selected; the panel scrolls to the top; the focus goes to the banner). With none, a click on "All good" says so in a
+    message that names what the checker looks at.
+  - **The checker's five things** (the schema, colour roles, images, links between layers, lengths) are in the tooltips of
+    the banner and of the status bar's Checks: the Checks section that held them in its title is gone.
+  - **Cost** stays at the bottom of the effect's settings for now (the next slice makes it a section that folds), and never
+    shows under a layer. The status bar's triangles and cost still go there.
 
 ## Claude skills
 

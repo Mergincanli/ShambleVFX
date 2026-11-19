@@ -63,6 +63,20 @@ const STATES = [
   // "w" of "wind-up" and the ruler's 0. The Lock ring, near the bottom, is selected: at 1920 x 1080 the rows scroll to it,
   // under the ruler and the phase strip, which stay at the top. (rifle-effect shows the Bullet's label beside its bar.)
   { name: 'timeline', project: DEMO, effect: 'board_beam', ms: 20, layer: 'lock_ring' },
+  // The inspector (UI phase 6): the problems banner open, with two problems made in the page and never saved (the example on
+  // disk does not change; an example cannot be saved): a missing image and a colour the palette lacks, so the preview still
+  // draws. And each header's More menu open: the effect's, and a layer's.
+  { name: 'problems', project: DEMO, effect: 'rifle_shot', ms: 20, act: async (page) => {
+    await page.evaluate(() => {
+      const a = window.__vfx.app;
+      a.selectLayer('flash'); a.editLayer(['image'], 'no_such.png'); a.commit();
+      a.selectLayer('hit'); a.editLayer(['tint'], { mode: 'multiply', role: 'no.such.colour' }); a.commit();
+      a.selectLayer(null);
+    });
+    await page.click('.inspector .problems-banner .banner-head');
+  } },
+  { name: 'effect-more', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-effect-menu') },
+  { name: 'layer-more', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'flash', menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-layer-menu') },
 ];
 /** Click a button and wait for what it opens (a menu, a popover). */
 async function openFrom(page, button, what) {
@@ -263,9 +277,10 @@ function readInventory() {
 }
 
 const ABOUT = 'The settings inventory of the editor\'s right panel (the inspector), made by tools/ui-shots.mjs --fields. '
-  + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect, Cost and Checks cards); '
-  + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect, '
-  + 'then the Cost and Checks cards, which are the same for every layer, so they are listed once, in the effect\'s view). '
+  + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect and Cost sections; until UI phase 6 also Checks, '
+  + 'which became the problems banner under the header, shown only when the checker finds problems, so none here); '
+  + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect; '
+  + 'until UI phase 6 the Cost and Checks cards followed it, the same for every layer, so they were listed once, in the effect\'s view; since then they do not show under a layer). '
   + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
   + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
   + 'A row of two or three numbers (since UI phase 6) lists its label, then each box by its full name, the name a screen reader says (the box itself shows a short prefix): "Offset", "Right", "Up", "Forward"; "Life", "Life, min", "Life, max". '

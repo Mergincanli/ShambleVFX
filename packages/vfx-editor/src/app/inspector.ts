@@ -1,11 +1,15 @@
 /**
- * The right panel shows what is selected: the effect's settings, or, with a layer selected, that layer's settings first.
+ * The right panel shows what is selected: the effect's settings, or, with a layer selected, that layer's settings only.
  * Each starts with the panel's 40 px header, which stays at the top while the panel scrolls: the effect's (a dot in its main
- * colour, its name and "Effect"), or the layer's, which leads back to the effect (its name, or Esc). Cost and Checks stay at
- * the bottom of both. Fields are built once per selection and refreshed in place, so a slider keeps working while you drag it.
+ * colour, its name with its folder muted before it, "Effect" and More), or the layer's, which leads back to the effect (its
+ * name, or Esc), with More. The More menus do what the lists' row menus do. Under the header, only while the checker finds
+ * problems, the problems banner. Cost sits at the bottom of the effect's settings, never under a layer. Fields are built once
+ * per selection and refreshed in place, so a slider keeps working while you drag it.
  */
 import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
+import type { Problem } from '@shamble/vfx-format/validate';
+import { FOLDER_SEP, folderOf, splitName } from '../doc/folders';
 import { riderLine, ridersOf, whatDraws } from '../doc/layer-info';
 import type { WhatDraws } from '../doc/layer-info';
 import type { AppApi } from './api';
@@ -13,7 +17,7 @@ import { colourList } from './colourlist';
 import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
 import type { SegmentOption } from './dom';
-import { checkField, fold, h, numberBox, numberField, numberGroup, segmented, selectField, slider, textField, tip } from './dom';
+import { checkField, fold, h, icon, iconButton, menu, numberBox, numberField, numberGroup, segmented, selectField, slider, textField, tip } from './dom';
 import { NEW_THIS_ROUND } from './help';
 import { layerGlyph, layerGlyphKey } from './layer-icons';
 import { LookView } from './look';
@@ -39,9 +43,17 @@ export interface InspectorView {
   rebuild(): void;
   refresh(): void;
   backToEffect(): void;
+  /**
+   * The status bar's checks: open the problems banner's list where the panel shows it (scrolled to the top, the focus on
+   * the banner). False when there are no problems (there is no banner then).
+   */
+  openProblems(): boolean;
   /** The live picture at the top of a layer's settings (the app draws it in its frames). */
   look: LookView;
 }
+
+/** The problems banner's list: open or closed. Kept from one view to the next while the editor runs; closed at first. */
+interface BannerState { open: boolean }
 
 export function buildInspector(app: AppApi): InspectorView {
   // data-help-*: where the help texts in the tooltips look for the layer type and shape kind shown (src/app/helptips.ts).
@@ -50,6 +62,9 @@ export function buildInspector(app: AppApi): InspectorView {
   const colours = colourList(app);
   // One Look too: a layer's view puts it at its top, and its renderer lives while a layer's view shows it.
   const look = new LookView();
+  // The headers' More menus: made once (on body), opened below the More button of the header shown.
+  const menus = headerMenus(app);
+  const banner: BannerState = { open: false };
   let parts: Refresher[] = [];
   let builtFor = '';
   let shownSelection = '';
@@ -72,11 +87,16 @@ export function buildInspector(app: AppApi): InspectorView {
     if (another) { shownSelection = selection; if (el.parentElement) el.parentElement.scrollTop = 0; }
     look.setShown(!!(fx && layer));
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
-    if (layer) el.append(layerHeader(app, parts, backToEffect), layerDetails(app, layer, parts, colours, look));
-    else el.append(effectHeader(app, parts), bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }));
-    const cost = costCard(app);
-    parts.push(cost);
-    el.append(cost.el, checks(app, parts));
+    const head = layer ? layerHeader(app, parts, backToEffect, menus) : effectHeader(app, parts, menus);
+    if (layer) el.append(head, layerDetails(app, layer, parts, colours, look));
+    else {
+      // Cost sits at the bottom of the effect's settings only (docs/ui-redesign.md 6.6: never under a layer).
+      const cost = costCard(app);
+      parts.push(cost);
+      el.append(head, bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }), cost.el);
+    }
+    // The problems banner goes in right under the header, and only while there are problems.
+    parts.push(problemsBanner(app, banner, head));
     colours.refresh();
     // The control that had the focus (the way back, a rider) went with the old view: the new view's title takes it, so the
     // keyboard carries on from the top of what is now selected.
@@ -89,24 +109,138 @@ export function buildInspector(app: AppApi): InspectorView {
     for (const p of parts) p.refresh();
     colours.refresh();
   };
+  const openProblems = () => {
+    if (!app.effect() || !app.problems().length) return false;
+    banner.open = true;
+    refresh();
+    if (el.parentElement) el.parentElement.scrollTop = 0;
+    el.querySelector<HTMLElement>(':scope > .problems-banner .banner-head')?.focus({ preventScroll: true });
+    return true;
+  };
   rebuild();
-  return { el, rebuild, refresh, backToEffect, look };
+  return { el, rebuild, refresh, backToEffect, openProblems, look };
+}
+
+// ---------------------------------------------------------------- the headers' More menus
+
+interface HeaderMenus {
+  /** Open the effect's menu (Duplicate effect, Move to folder…, Delete effect) below the header's More button. */
+  effect(button: HTMLElement, id: string): void;
+  /** Open a layer's menu (Rename, Duplicate, Move up, Move down, Delete) below the header's More button. */
+  layer(button: HTMLElement, id: string): void;
+}
+
+/**
+ * The headers' More menus (docs/ui-redesign.md 6.6): the effect's and a layer's. They do what the lists' row menus do
+ * (src/app/effects-list.ts, layers-list.ts), through the same functions of the app, each one undo step; Move to folder…
+ * opens the Effects list's folder menu below the same button. Their rows keep the lists' help texts (data-help-section).
+ */
+function headerMenus(app: AppApi): HeaderMenus {
+  let fxId: string | null = null, layerId: string | null = null, button: HTMLElement | null = null;
+  const canMove = (delta: number) => {
+    const layers = app.effect()?.layers ?? [];
+    const i = layers.findIndex((l) => l.id === layerId);
+    return i >= 0 && i + delta >= 0 && i + delta < layers.length;
+  };
+  const effectMenu = menu({ id: 'insp-effect-menu', label: 'Effect', helpSection: 'Effects', items: [
+    { label: 'Duplicate effect', icon: 'copy', shortcut: 'Ctrl+D', ariaKeys: 'Control+D', helpLabel: 'Duplicate', action: () => { if (fxId) app.duplicateEffect(fxId); } },
+    { label: 'Move to folder…', icon: 'folder', action: () => { if (fxId && button?.isConnected) app.openFolderMenu(fxId, button); } },
+    'divider',
+    { label: 'Delete effect', icon: 'trash', action: () => { if (fxId) app.deleteEffect(fxId); } },
+  ] });
+  const layerMenu = menu({ id: 'insp-layer-menu', label: 'Layer', helpSection: 'Layers', items: [
+    { label: 'Rename', icon: 'edit', shortcut: 'F2', ariaKeys: 'F2', action: () => { if (layerId) app.renameLayerInPlace(layerId); } },
+    { label: 'Duplicate', icon: 'copy', shortcut: 'Ctrl+D', ariaKeys: 'Control+D', action: () => { if (layerId) app.duplicateLayer(layerId); } },
+    { label: 'Move up', icon: 'up', shortcut: 'Ctrl+]', ariaKeys: 'Control+]', disabled: () => !canMove(1), action: () => { if (layerId && canMove(1)) app.moveLayer(layerId, 1); } },
+    { label: 'Move down', icon: 'down', shortcut: 'Ctrl+[', ariaKeys: 'Control+[', disabled: () => !canMove(-1), action: () => { if (layerId && canMove(-1)) app.moveLayer(layerId, -1); } },
+    'divider',
+    { label: 'Delete', icon: 'trash', shortcut: 'Del', ariaKeys: 'Delete', helpLabel: 'Delete layer', action: () => { if (layerId) app.deleteLayer(layerId); } },
+  ] });
+  return {
+    effect: (b, id) => { fxId = id; button = b; effectMenu.openBelow(b); },
+    layer: (b, id) => { layerId = id; button = b; layerMenu.openBelow(b); },
+  };
+}
+
+/** A header's More button: a 24 px icon button whose name says what it is for; its menu opens below it. */
+function moreButton(open: (b: HTMLButtonElement) => void): HTMLButtonElement {
+  const b: HTMLButtonElement = iconButton({ icon: 'more', label: 'More', className: 'mini more insp-more', onClick: () => open(b) });
+  b.setAttribute('aria-haspopup', 'menu');
+  b.setAttribute('aria-expanded', 'false');
+  tip(b, 'More');
+  return b;
+}
+
+// ---------------------------------------------------------------- the problems banner
+
+/** The layer a problem's path points at ("layers[2].tint.role"), if any. */
+function layerOfPath(app: AppApi, path: string): Layer | undefined {
+  const m = /^layers\[(\d+)\]/.exec(path);
+  return m ? app.effect()?.layers[Number(m[1])] : undefined;
+}
+
+/**
+ * The problems banner (docs/ui-redesign.md 6.6), in both views, right under the header, and only while the checker finds
+ * problems: on --bad-bg, the warning icon, how many, and a chevron that opens the list. Each problem: its path in Plex Mono
+ * (a button that selects its layer when it points at one) and its message. When the problems stop the preview (schema,
+ * format or version), it says so. Its tooltip is the help text for Checks (what the checker looks at). It puts itself in
+ * after the header, or takes itself out, on every refresh: problems come and go without the panel being built again.
+ */
+function problemsBanner(app: AppApi, state: BannerState, head: HTMLElement): Refresher {
+  const count = h('span', { class: 'banner-count' });
+  const chev = icon('chevron-down');
+  chev.classList.add('banner-chev');
+  const toggle = h('button', {
+    class: 'banner-head', attrs: { type: 'button', 'aria-expanded': 'false', 'aria-controls': 'insp-problems', 'data-help-label': 'Checks' },
+    on: { click: () => { state.open = !state.open; draw(); } },
+  }, icon('warning'), count, chev);
+  const wait = h('p', { class: 'banner-wait', text: 'The preview waits until these are fixed.' });
+  const list = h('ul', { class: 'banner-list', attrs: { id: 'insp-problems' } });
+  const el = h('section', { class: 'problems-banner', attrs: { 'aria-label': 'Problems' } }, toggle, wait, list);
+  let shown = '';
+  const item = (p: Problem) => {
+    const layer = layerOfPath(app, p.path);
+    const path = layer
+      ? h('button', { class: 'banner-path', title: `Select ${layer.name}`, attrs: { type: 'button' }, on: { click: () => app.selectLayer(layer.id) } }, h('code', { text: p.path }))
+      : h('code', { class: 'banner-path', text: p.path });
+    return h('li', {}, path, ' ', h('span', { class: 'banner-msg', text: p.message }));
+  };
+  const draw = () => {
+    const probs = app.problems();
+    if (!probs.length) { el.remove(); return; }
+    if (!el.isConnected && head.isConnected) head.after(el);
+    count.textContent = `${probs.length} problem${probs.length === 1 ? '' : 's'}`;
+    toggle.setAttribute('aria-expanded', String(state.open));
+    list.hidden = !state.open;
+    wait.hidden = !app.previewWaits();
+    const key = JSON.stringify([probs.map((p) => [p.path, p.message]), app.effect()?.layers.map((l) => l.name)]);
+    if (key !== shown) { shown = key; list.replaceChildren(...probs.map(item)); }
+  };
+  draw();
+  return { refresh: draw };
 }
 
 // ---------------------------------------------------------------- the headers
 
 /**
- * The header of the effect's own settings: a dot in its main colour (for the faction shown), its name and "Effect". Its
- * title takes the focus when you come back from a layer with the keyboard (see rebuild).
+ * The header of the effect's own settings: a dot in its main colour (for the faction shown), its name (its folder, if any,
+ * muted before it: "Weapons / " then "Rifle shot"), "Effect", and More (Duplicate effect, Move to folder…, Delete effect).
+ * Its title takes the focus when you come back from a layer with the keyboard (see rebuild).
  */
-function effectHeader(app: AppApi, parts: Refresher[]): HTMLElement {
+function effectHeader(app: AppApi, parts: Refresher[], menus: HeaderMenus): HTMLElement {
   const dot = h('span', { class: 'fx-dot' });
-  const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } });
-  const head = h('header', { class: 'insp-head effect-head' }, dot, title, h('span', { class: 'insp-kind', text: 'Effect' }));
+  const folder = h('span', { class: 'insp-folder' });
+  const name = h('span', { class: 'insp-name' });
+  const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } }, folder, name);
+  const more = moreButton((b) => menus.effect(b, app.effect()!.id));
+  const head = h('header', { class: 'insp-head effect-head' }, dot, title, h('span', { class: 'insp-kind', text: 'Effect' }), more);
   const draw = () => {
     const fx = app.effect()!;
-    title.textContent = fx.name;
+    const path = folderOf(fx.name);
+    folder.textContent = path ? `${path}${FOLDER_SEP}` : '';
+    name.textContent = path ? splitName(fx.name).base : fx.name;
     title.title = fx.name;
+    more.setAttribute('aria-label', `More: ${fx.name}`);
     const role = fx.controls.colour;
     dot.style.backgroundColor = resolveRole(app.palette, role, app.faction) ?? 'transparent';
     tip(dot, `Main colour: ${role}`);
@@ -116,15 +250,16 @@ function effectHeader(app: AppApi, parts: Refresher[]): HTMLElement {
   return head;
 }
 
-/** The effect's name (back to the effect's settings), "›", the layer's type icon and its name. */
-function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLElement {
+/** The effect's name (back to the effect's settings), "›", the layer's type icon, its name, and More. */
+function layerHeader(app: AppApi, parts: Refresher[], back: () => void, menus: HeaderMenus): HTMLElement {
   const link = h('button', { class: 'crumb', attrs: { type: 'button' }, on: { click: back } });
   const title = h('h2', { class: 'insp-title', attrs: { tabindex: '-1' } });
   // The layer's icon (a sprite: its image). A new kind, look or image does not rebuild the panel, so draw() swaps it.
   const urlOf = (n: string) => app.imageUrl(n);
   let glyphKey = layerGlyphKey(app.layer()!, urlOf);
   let glyph = layerGlyph(app.layer()!, urlOf);
-  const head = h('header', { class: 'insp-head' }, link, h('span', { class: 'crumb-sep', attrs: { 'aria-hidden': 'true' }, text: '›' }), glyph, title);
+  const more = moreButton((b) => menus.layer(b, app.layer()!.id));
+  const head = h('header', { class: 'insp-head' }, link, h('span', { class: 'crumb-sep', attrs: { 'aria-hidden': 'true' }, text: '›' }), glyph, title, more);
   const draw = () => {
     const fx = app.effect()!, l = app.layer()!;
     link.textContent = fx.name;
@@ -132,6 +267,7 @@ function layerHeader(app: AppApi, parts: Refresher[], back: () => void): HTMLEle
     link.setAttribute('aria-label', `Back to the effect: ${fx.name}`);
     title.textContent = l.name;
     title.title = l.name;
+    more.setAttribute('aria-label', `More: ${l.name}`);
     const k = layerGlyphKey(l, urlOf);
     if (k !== glyphKey) { const g = layerGlyph(l, urlOf); glyph.replaceWith(g); glyph = g; glyphKey = k; }
   };
@@ -585,24 +721,6 @@ function offsetFields(app: AppApi, key: string, get: () => Vec3 | null, set: (o:
   const refresh = () => { const o = get(); el.hidden = !o; if (o) { x.set(o[0]); y.set(o[1]); z.set(o[2]); } };
   refresh();
   return { el, refresh };
-}
-
-// ---------------------------------------------------------------- live checks
-
-function checks(app: AppApi, parts: Refresher[]): HTMLElement {
-  const list = h('ul', { class: 'problems' });
-  // It takes the focus when the status bar's checks are clicked.
-  const head = h('h2', { attrs: { tabindex: '-1' } });
-  const draw = () => {
-    const probs = app.problems();
-    head.textContent = probs.length ? `Checks: ${probs.length} problem${probs.length > 1 ? 's' : ''}` : 'Checks: all good';
-    head.className = probs.length ? 'bad' : 'good';
-    list.replaceChildren(...probs.map((p) => h('li', {}, h('code', { text: p.path }), ` ${p.message}`)));
-  };
-  draw();
-  parts.push({ refresh: draw });
-  return h('section', { class: 'card checks' }, head, list,
-    h('p', { class: 'hint', text: 'The same checker the export uses.' }));
 }
 
 function clamp01(v: number): number {
