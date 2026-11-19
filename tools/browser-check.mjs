@@ -2615,6 +2615,37 @@ if (webgpu) {
           && bolt === 'Bolt' && clickedAway.sel === 'rifle_shot' && boltUndone === 'Arrow' && undoBefore === escaped.canUndo,
         JSON.stringify({ escaped: [escaped.name, escaped.focus], f2: [f2.focus, f2.sel], emptyName, bolt, clickedAway: clickedAway.sel, boltUndone }));
 
+      // A click on another row's More while a rename box is open: the click keeps the name typed (the list is built again for
+      // it), and the menu still opens below that row's More, not in the window's corner; Move to folder… opens there too, and
+      // Esc gives the focus back to that More.
+      await lp.keyboard.press('F2');
+      await lp.keyboard.type('Rifle shot (demo) 2');
+      const arrowRow = effectRow(lp, 'Arrow');
+      await arrowRow.hover();
+      const arrowMore = await arrowRow.locator('.more').boundingBox();
+      await arrowRow.locator('.more').click();
+      await lp.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
+      const placeOf = (id) => lp.evaluate((id) => { const r = document.getElementById(id).getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), bottom: Math.round(r.bottom) }; }, id);
+      const midMenu = await placeOf('effect-menu');
+      const midRow = await lp.evaluate(() => {
+        const b = document.querySelector('.effects-list .item[data-effect="arrow"] > .more');
+        return { expanded: b?.getAttribute('aria-expanded') ?? null, shown: !!b && b.getClientRects().length > 0, name: window.__vfx.app.history.doc.effects.find((e) => e.id === 'rifle_shot').name, undo: window.__vfx.app.history.undoLabel };
+      });
+      await menuRow(lp, 'effect-menu', 'Move to folder…').click();
+      await lp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+      const midFolders = await placeOf('folder-menu');
+      await lp.keyboard.press('Escape');
+      const midBack = await lp.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+      await lp.keyboard.press('Control+z');
+      const midUndone = await nameOf('rifle_shot');
+      /** Below the More button (or above it, where there is no room below), their left edges lined up. */
+      const underArrowMore = (m) => Math.abs(m.x - Math.round(arrowMore.x)) <= 1
+        && (Math.abs(m.y - (arrowMore.y + arrowMore.height + 4)) <= 1 || Math.abs(m.bottom - (arrowMore.y - 4)) <= 1);
+      ok('a click on another row\'s More while a rename box is open keeps the name typed, in one undo step, and opens that row\'s menu below its More (not in the window\'s corner); Move to folder… opens there too, and Esc gives the focus back to that More',
+        midRow.name === 'Rifle shot (demo) 2' && midRow.undo === 'Rename effect' && underArrowMore(midMenu) && midRow.expanded === 'true' && midRow.shown
+          && underArrowMore(midFolders) && midBack === 'More: Arrow' && midUndone === 'Rifle shot (demo)',
+        JSON.stringify({ midMenu, arrowMore, midRow, midFolders, midBack, midUndone }));
+
       // Inside the rename box and the search box, Space, Delete, Backspace, ← and → only type: they never play, delete the
       // selected layer or step the time. Esc there does only the innermost thing (cancel the rename, clear the search): the
       // layer stays selected; only a third Esc, with nothing going on, leaves it.
@@ -2954,6 +2985,29 @@ if (webgpu) {
     ok('inside a layer\'s rename box Space, Delete, Backspace, ← and → only type (no play, no deleted layer, no step); Esc keeps the old name, and the layer stays selected',
       inBox.renaming === 'Hot spot sta' && !inBox.playing && inBox.time === f2.time && inBox.n === start.n && inBox.sel === 'spot_star' && boxEsc.renaming === null && boxEsc.sel === 'spot_star' && keptName === 'Hot spot star',
       JSON.stringify({ inBox: [inBox.renaming, inBox.playing, inBox.time, inBox.n, inBox.sel], boxEsc: [boxEsc.renaming, boxEsc.sel], keptName }));
+
+    // A click on another row's More while a rename box is open: the click keeps the name typed (the list is built again for
+    // it), and the menu still opens below that row's More, not in the window's corner; Esc gives the focus back to that More.
+    await lp.keyboard.press('F2');
+    await lp.keyboard.type('Star 2');
+    await layerRowOf('beads').hover();
+    const beadsMore = await layerRowOf('beads').locator('.item-tools button.more').boundingBox();
+    await layerRowOf('beads').locator('.item-tools button.more').click();
+    await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
+    const midLayer = await lp.evaluate(() => {
+      const r = document.getElementById('layer-menu').getBoundingClientRect(), b = document.querySelector('.layers-list .layer-item[data-layer="beads"] .item-tools button.more');
+      return { x: Math.round(r.left), y: Math.round(r.top), bottom: Math.round(r.bottom), expanded: b?.getAttribute('aria-expanded') ?? null, shown: !!b && b.getClientRects().length > 0,
+        name: window.__vfx.app.effect().layers.find((l) => l.id === 'spot_star').name, undo: window.__vfx.app.history.undoLabel };
+    });
+    await lp.keyboard.press('Escape');
+    const midLayerBack = await lp.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+    await lp.keyboard.press('Control+z');
+    const midLayerUndone = await lp.evaluate(() => window.__vfx.app.effect().layers.find((l) => l.id === 'spot_star').name);
+    ok('a click on another layer\'s More while a rename box is open keeps the name typed, in one undo step, and opens that row\'s menu below its More (not in the window\'s corner); Esc gives the focus back to that More',
+      midLayer.name === 'Star 2' && midLayer.undo === 'Rename layer' && Math.abs(midLayer.x - Math.round(beadsMore.x)) <= 1
+        && (Math.abs(midLayer.y - (beadsMore.y + beadsMore.height + 4)) <= 1 || Math.abs(midLayer.bottom - (beadsMore.y - 4)) <= 1)
+        && midLayer.expanded === 'true' && midLayer.shown && midLayerBack === 'More: Beads' && midLayerUndone === 'Hot spot star',
+      JSON.stringify({ midLayer, beadsMore, midLayerBack, midLayerUndone }));
 
     // Drag to reorder: a press that moves less than 4 px is a click (it selects); a drag shows a 2 px --accent-ink line where
     // the row will land and moves it there in one moveLayer, one undo step, however far; Esc cancels a drag, nothing moves,

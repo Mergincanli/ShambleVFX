@@ -201,7 +201,13 @@ export function buildLayersList(act: LayersListActions): LayersListView {
     const down = btn('down', 'Move down', () => act.move(l.id, -1), 'Ctrl+[');
     up.disabled = index === 0;
     down.disabled = index === last;
-    const more = btn('more', 'More', (b) => { menuFor = l.id; rowMenu.openBelow(b); });
+    // A click that ends a rename builds the list again before it gets here: the menu then opens below this row's new More.
+    const more = btn('more', 'More', (b) => {
+      const at = b.isConnected ? b : rowFor(l.id)?.querySelector<HTMLElement>('.item-tools .more');
+      if (!at) return;
+      menuFor = l.id;
+      rowMenu.openBelow(at);
+    });
     more.setAttribute('aria-haspopup', 'menu');
     more.setAttribute('aria-expanded', 'false');
     row.append(glyph, h('span', {}, name), code, h('div', { class: 'item-tools' }, up, down, more));

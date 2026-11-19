@@ -264,8 +264,15 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     }
     const main = h('button', { class: 'item-main', title: `${fx.name} (file ${fx.id}.vfx.json)`, attrs: { type: 'button', ...(sel ? { 'aria-current': 'true' } : {}) } },
       dot, h('span', { class: 'item-name', text: base }));
-    // Its More button: its name says which effect (for screen readers); its tooltip says "More" and what is in the menu.
-    const more = iconButton({ icon: 'more', label: `More: ${base}`, className: 'mini more', onClick: () => { menuFor = fx.id; menuAt = { button: more }; rowMenu.openBelow(more); } });
+    // Its More button: its name says which effect (for screen readers); its tooltip says "More" and what is in the menu. A
+    // click that ends a rename builds the list again before it gets here: the menu then opens below this row's new More.
+    const more = iconButton({ icon: 'more', label: `More: ${base}`, className: 'mini more', onClick: () => {
+      const at = more.isConnected ? more : list.querySelector<HTMLElement>(`.item[data-effect="${CSS.escape(fx.id)}"] > .more`);
+      if (!at) return;
+      menuFor = fx.id;
+      menuAt = { button: at };
+      rowMenu.openBelow(at);
+    } });
     more.setAttribute('aria-haspopup', 'menu');
     more.setAttribute('aria-expanded', 'false');
     tip(more, 'More');
