@@ -2157,6 +2157,32 @@ if (webgpu) {
         && arrows.distance === 4.1 && arrows.chip === '4.1 m' && arrows.time === t0 && numberFocus.focus === 'Distance from you, in metres' && numberFocus.tip === help.helpFor('Distance from you', { section: 'Preview bar' })
         && comma.distance === 0.5 && comma.chip === '0.5 m' && comma.slider === '0.5' && dot.distance === 2.5 && dot.chip === '2.5 m' && !popClosed.open && popClosed.focus === 'the chip' && popClosed.expanded === 'false',
       JSON.stringify({ popOpen, arrows: [arrows.distance, arrows.chip, arrows.time, t0], numberFocus, comma: [comma.distance, comma.chip, comma.slider], dot: [dot.distance, dot.chip], popClosed }));
+    // Past 14 m (the target dragged far in the tank shell's scene, which has you in it): the popover's number box shows the
+    // distance the chip shows, and the slider stays at its end; Enter in the untouched box and ↑ change nothing, ↓ steps down
+    // from 14 m, as before. Then the scene and the distance go back.
+    await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'board_shell', scene: 'board-shell', distance: 4 }); await a.showAt(300, 7); });
+    const tgt = await tp.evaluate(() => { const pv = window.__vfx.app.previewForChecks; const r = document.querySelector('.viewport').getBoundingClientRect(); const [x, y] = pv.toCanvas(pv.target); return { x: r.x + x, y: r.y + y, top: r.y }; });
+    await tp.mouse.move(tgt.x, tgt.y);
+    await tp.mouse.down();
+    await tp.mouse.move(tgt.x + 300, tgt.top + 40, { steps: 12 });
+    await tp.mouse.up();
+    const farNow = () => tp.evaluate(() => { const pop = document.getElementById('distance-popover'); return { distance: +window.__vfx.app.previewForChecks.viewerDistanceM.toFixed(1), chip: document.querySelector('.vbar .distance-chip .chip-value').textContent, box: pop.querySelector('input.num').value, slider: pop.querySelector('input[type="range"]').value, open: pop.matches(':popover-open') }; });
+    await tp.click('.vbar .distance-chip');
+    await tp.waitForFunction(() => document.activeElement?.closest('.popover'), null, { timeout: 5000 }).catch(() => {});
+    const far = await farNow();
+    await tp.locator('.distance-pop input.num').focus();
+    await press('Enter');
+    const farEnter = await farNow();
+    await press('ArrowUp');
+    const farUp = await farNow();
+    await press('ArrowDown');
+    const farDown = await farNow();
+    await press('Escape');
+    await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'board_shell', scene: 'board-shell', distance: 4 }); await a.setupForChecks({ effect: 'rifle_shot', scene: 'street', distance: 4 }); await a.showAt(100, 7); });
+    ok('Distance past 14 m (the target dragged far in the tank shell\'s scene): the popover\'s number box shows what the chip shows, the slider stays at 14 m; Enter in the untouched box and ↑ change nothing, ↓ goes to 13.9 m',
+      far.distance > 14 && far.open && far.box === far.chip.replace(' m', '') && far.slider === '14' && farEnter.distance === far.distance && farEnter.box === far.box
+        && farUp.distance === far.distance && farUp.box === far.box && farDown.distance === 13.9 && farDown.box === '13.9' && farDown.chip === '13.9 m',
+      JSON.stringify({ far, farEnter, farUp, farDown }));
 
     // A menu opened at a point (a right-click; phase 4 gives the lists' rows theirs): near the window's corner it turns left
     // and up, so it stays inside the window, open after the button is let go, the focus on its first row; Esc closes it.

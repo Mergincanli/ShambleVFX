@@ -771,7 +771,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     opens with the focus on the slider, whose keys do what they did on the old slider: ← and → (and ↑ ↓) step 0.1 m,
     PageUp and PageDown 1.4 m, Home and End go to 0 and 14 m. Tab goes on to the number box; Tab from there, or Shift+Tab
     from the slider, closes the popover and gives the focus back to the chip, as Esc does. Enter in the box sets the number
-    and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m with Shift).
+    and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m with Shift). Past 14 m (the target dragged further in
+    the tank shell's scene) the box shows the distance as the chip does, and the slider stays at its end. The keys still
+    work from 14 m, as before: ↓ goes to 13.9 m, and ↑ or Enter in the untouched box change nothing.
   - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
     your team's: `core/draw.ts`), so its row says "broken edges, your own words show" (the brief: "your own words show").
     Each Tier row says "draws only the layers in this tier", as the brief does (a projectile has no tiers; the layers riding

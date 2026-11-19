@@ -813,21 +813,29 @@ export function scrubDrag(handle: HTMLElement, o: {
  * typed comma works as the decimal point ("0,5" or "0.5"). The value sits right, the unit inside the field as a muted
  * suffix. ↑ and ↓ step it (Shift: ten steps). Enter or leaving the box sets what was typed; Esc puts the number back.
  * onInput comes with each change; onCommit when a drag or typing ends. The input keeps the num class.
+ * A number set from outside past a limit (the target dragged further than the Distance slider goes) shows as it is, so the
+ * box says what the chip says; the keys, a drag and typing still start from the number within the limits, as before.
  */
 export function scrubNumber(o: {
   label: string; value: number; step: number; digits: number; min?: number; max?: number; unit?: string; prefix?: string;
   pxPerStep?: number; onInput(v: number): void; onCommit?(): void;
 }): Control<number> & { input: HTMLInputElement; dragFrom(handle: HTMLElement): void } {
+  /** The number within the limits, which the keys, a drag and typing start from. */
   let value = o.value;
+  /** The number the box shows: the value, or what was set from outside past a limit. */
+  let shown = o.value;
   const input = h('input', { class: 'num scrub-input', attrs: { type: 'text', inputmode: 'decimal', spellcheck: 'false', autocomplete: 'off', 'aria-label': o.label } });
-  const show = () => { if (document.activeElement !== input) input.value = value.toFixed(o.digits); };
+  const text = () => shown.toFixed(o.digits);
+  const show = () => { if (document.activeElement !== input) input.value = text(); };
   const change = (v: number) => {
     const next = fitValue(v, o);
     if (next === value) return;
-    value = next;
+    value = shown = next;
     show();
     o.onInput(value);
   };
+  /** The number typed; while the box still holds the number it shows, the number within the limits. */
+  const typed = () => (input.value === text() ? value : parseDecimal(input.value));
   const prefix = o.prefix ? h('span', { class: 'scrub-prefix', attrs: { 'aria-hidden': 'true' }, text: o.prefix }) : null;
   const el = h('span', { class: 'scrub' }, prefix, input, o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null);
   const dragFrom = (handle: HTMLElement) => {
@@ -836,25 +844,25 @@ export function scrubNumber(o: {
   };
   if (prefix) dragFrom(prefix);
   const typedValue = () => {
-    const v = parseDecimal(input.value);
-    if (v === null) { input.value = value.toFixed(o.digits); return; }
+    const v = typed();
+    if (v === null) { input.value = text(); return; }
     change(v);
-    input.value = value.toFixed(o.digits);
+    input.value = text();
     o.onCommit?.();
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); typedValue(); input.select(); }
-    else if (e.key === 'Escape' && input.value !== value.toFixed(o.digits)) { e.preventDefault(); e.stopPropagation(); input.value = value.toFixed(o.digits); input.select(); }
+    else if (e.key === 'Escape' && input.value !== text()) { e.preventDefault(); e.stopPropagation(); input.value = text(); input.select(); }
     else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
-      change((parseDecimal(input.value) ?? value) + (e.key === 'ArrowUp' ? 1 : -1) * o.step * (e.shiftKey ? 10 : 1));
-      input.value = value.toFixed(o.digits);
+      change((typed() ?? value) + (e.key === 'ArrowUp' ? 1 : -1) * o.step * (e.shiftKey ? 10 : 1));
+      input.value = text();
       input.select();
     }
   });
   input.addEventListener('change', typedValue);
   input.addEventListener('focus', () => input.select());
-  const set = (v: number) => { value = fitValue(v, o); show(); };
+  const set = (v: number) => { value = fitValue(v, o); shown = fitValue(v, { digits: o.digits }); show(); };
   show();
   return { el, set, input, dragFrom };
 }
