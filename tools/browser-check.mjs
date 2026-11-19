@@ -1483,6 +1483,16 @@ if (webgpu) {
         && longWords.gradient.includes('click a colour swatch, then Gradients') && longWords.layerColour.includes('the marked one is the effect\'s main colour')
         && longWords.newColour.includes('Effects name it') && longWords.gradients.includes('Blurred, mesh and image gradients are not in') && longWords.ramp.includes('(OKLCH)')
         && longWords.editor.includes('cannot be renamed or removed this round'), JSON.stringify(longWords));
+    // One name for one thing: the Game events hint says what the game does with the names in the words of its tooltip and
+    // README ("starts").
+    const eventsHint = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      a.pickEffect('board_beam');
+      const field = document.querySelector('.inspector .field.events');
+      return { hint: field?.querySelector(':scope > .hint')?.textContent ?? null, tip: field ? a.tipForChecks(field.querySelector('.flab'))?.lines.join(' ') ?? '' : '' };
+    });
+    ok('the Game events hint uses its tooltip\'s verb: "Names the game starts this effect by, separated by commas."',
+      eventsHint.hint === 'Names the game starts this effect by, separated by commas.' && eventsHint.tip.includes('The names the game starts this effect by'), JSON.stringify(eventsHint));
     ok('the tooltip page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await tp.close();
   }

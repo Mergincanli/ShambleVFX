@@ -237,7 +237,8 @@ function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
   parts.push({ refresh: draw });
   return h('div', { class: 'field wide events' },
     h('span', { class: 'flab', text: 'Game events it answers' }), box, problems,
-    h('span', { class: 'hint', text: 'Names the game plays this effect by, separated by commas.' }));
+    // The game "starts" an effect by its names, as the tooltip (help.ts) and README say: one name for one thing.
+    h('span', { class: 'hint', text: 'Names the game starts this effect by, separated by commas.' }));
 }
 
 const TIER_TEXT: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };

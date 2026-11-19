@@ -808,6 +808,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     speed; the cost card's boxes are the project's budgets, while a class's or the effect's own budgets can count instead
     (the line under the table says which), so the line says "The boxes are the project's budgets" (the brief's example:
     "Budgets are shared by the project").
+  - Game events' line says the game **starts** an effect by its names ("Names the game starts this effect by, separated by
+    commas."), as its tooltip and What to click say. The brief's example says "plays"; one name for one thing.
   - The Layers title's tooltip starts with "Top of the list draws on top." (6.2); its hint, "top draws on top", stays.
   - Dialogs: the line in New from preset and the one under Import an export in Projects explain the whole dialog, so they
     are the dialogs' own text, always shown and kept short. The second one's full words ("each image cut back out of the
