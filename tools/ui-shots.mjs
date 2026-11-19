@@ -25,7 +25,8 @@ const SEED = 7;
 //   effect and ms     the effect (by id) and the moment it is paused at: the same for every picture of the state
 //   layer             a layer id, or 'first:<type>' for the first layer of that type in the effect's file
 //   picker            true: the colour picker is open on the effect's main colour
-//   menu              true: a menu is open (act opens it: the main menu, or a chip's); the picture is checked for it
+//   menu              true: a menu is open (act opens it: the main menu, a chip's, an effect row's, the add menu); the
+//                     picture is checked for it
 //   popover           true: the Distance popover is open (act opens it); the picture is checked for it
 //   query             more of the address, such as 'hints=off' (Show hints off for the picture; the picture is checked for it)
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
@@ -50,6 +51,10 @@ const STATES = [
   { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.topbar .logo', '#main-menu') },
   { name: 'faction-menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.vbar .faction-chip', '#faction-menu') },
   { name: 'view-menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.vbar .view-chip', '#view-menu') },
+  // The lists (UI phase 4): an effect row's menu, from the More button of the selected row (Rename, Duplicate, Move to
+  // folder…, Delete); and the Layers header's add menu (the kinds, the 14 shapes), with a layer selected.
+  { name: 'effect-menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.effects-list .item.sel .more', '#effect-menu') },
+  { name: 'add-menu', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow', menu: true, act: (page) => openFrom(page, '.layers-section .add-layer', '#add-layer-menu') },
   // Show hints off (UI phase 3): the effect's own view, which has the most hints, and the drag hint over the preview gone.
   { name: 'hints-off', project: DEMO, effect: 'rifle_shot', ms: 20, query: 'hints=off' },
   // The Distance popover, in the tank shell's scene (you are in it: the distance moves the target).

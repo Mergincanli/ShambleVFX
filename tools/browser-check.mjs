@@ -10,7 +10,9 @@
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
 //    the selection), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
-//    status bar, the main menu, the scale, typing a time), Save as into projects/, Export and Import, and the palette
+//    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
+//    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
+//    reorder, the sync with the timeline) with their keys, Save as into projects/, Export and Import, and the palette
 //    profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
 //    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
@@ -102,6 +104,26 @@ async function effectMenu(page, name, label) {
   await row.locator('.more').click();
   await page.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
   if (label) await menuRow(page, 'effect-menu', label).click();
+}
+/**
+ * An icon button whose menu is open, after the pointer has gone into the menu: is it still shown, and does it look open as a
+ * chip with its menu open (4.6): the field colour, the icon in --accent-ink?
+ */
+async function openLook(page, button, menuId) {
+  const box = await page.locator(`#${menuId}`).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 4);
+  await page.waitForTimeout(250);
+  return button.evaluate((b) => {
+    const probe = document.createElement('i');
+    probe.style.color = 'var(--accent-ink)';
+    probe.style.backgroundColor = 'var(--bg-field)';
+    document.body.append(probe);
+    const want = getComputedStyle(probe);
+    const look = { shown: b.getClientRects().length > 0, expanded: b.getAttribute('aria-expanded'),
+      icon: getComputedStyle(b.querySelector('svg')).color === want.color, field: getComputedStyle(b).backgroundColor === want.backgroundColor };
+    probe.remove();
+    return look;
+  });
 }
 /** The + menu of the Effects header: New effect or From preset…. */
 async function addEffectMenu(page, label) {
@@ -1876,6 +1898,8 @@ if (webgpu) {
       keysTitle === 'Keyboard shortcuts' && keysRows.includes('?') && keysRows.includes('Drag the ground') && keysRows.includes('Shift + drag') && projTitle === 'Projects' && importTitle === 'Projects' && importShown
         && newTitle === 'New project' && saveAsTitle === 'Save as' && saveTitle === 'Save as' && exportTitle === 'Export' && nightOn.theme === 'dark' && nightOn.pressed === 'true' && nightOn.stored === 'dark'
         && checkedRow === 'true' && nightOff === 'light', JSON.stringify({ keysTitle, keysRows, projTitle, importTitle, importShown, newTitle, saveAsTitle, saveTitle, exportTitle, nightOn, checkedRow, nightOff }));
+    ok('the Keyboard shortcuts dialog lists the keys of the lists: F2, Ctrl+D, Ctrl+] / Ctrl+[ and /, and Esc still', ['F2', 'Ctrl+D', 'Ctrl+] / Ctrl+[', '/', 'Esc', 'Delete'].every((k) => keysRows.includes(k)),
+      JSON.stringify(keysRows));
     // The ? key opens the keyboard shortcuts (the focus is on the logo now, as the menu left it), but not while typing in a
     // field (the time readout's box, below).
     await sp.keyboard.press('?');
@@ -2396,6 +2420,9 @@ if (webgpu) {
     const fname = `browser-check-folders-${Date.now()}`;
     const fdir = join(repo, 'projects', fname);
     cpSync(join(repo, 'examples', 'demo-project'), fdir, { recursive: true });
+    // And one with no effects at all, for the empty list (its effect files are taken away below).
+    const edir = join(repo, 'projects', `${fname}-empty`);
+    cpSync(join(repo, 'examples', 'demo-project'), edir, { recursive: true });
     const fxFile = (id) => join(fdir, 'effects', `${id}.vfx.json`);
     const readFx = (id) => JSON.parse(readFileSync(fxFile(id), 'utf8'));
     const writeFx = (fx) => writeFileSync(fxFile(fx.id), `${JSON.stringify(fx, null, 2)}\n`);
@@ -2530,6 +2557,7 @@ if (webgpu) {
       await lp.waitForFunction(() => document.activeElement?.closest('#effect-menu'), null, { timeout: 5000 }).catch(() => {});
       const byClick = await menuNow();
       const expanded = await shotRow.locator('.more').getAttribute('aria-expanded');
+      const moreOpen = await openLook(lp, shotRow.locator('.more'), 'effect-menu');
       await shotRow.locator('.more').click();
       await lp.waitForTimeout(200);
       const secondClick = await menuNow();
@@ -2544,6 +2572,8 @@ if (webgpu) {
       ok('an effect\'s row shows its More button on hover and on the selected row; it opens the row\'s menu below it (Rename F2, Duplicate Ctrl+D, Move to folder…, Delete), and a second click closes it',
         !hiddenMore && hoverMore && selMore && byClick.open && Math.abs(byClick.y - (moreBox.y + moreBox.height + 4)) <= 1 && byClick.rows.join('|') === 'Rename(F2)|Duplicate(Ctrl+D)|Move to folder…|—|Delete'
           && byClick.focus === 'Rename' && expanded === 'true' && !secondClick.open, JSON.stringify({ hiddenMore, hoverMore, selMore, byClick, expanded, secondClick: secondClick.open }));
+      ok('while its menu is open, the More button stays (the pointer gone into the menu) and looks open, as a chip with its menu open: the field colour, the icon in --accent-ink',
+        moreOpen.shown && moreOpen.expanded === 'true' && moreOpen.icon && moreOpen.field, JSON.stringify(moreOpen));
       ok('a right-click on an effect\'s row opens the same menu at the pointer; Esc closes it', byRight.open && byRight.x === Math.round(arrowBox.x + 60) && byRight.y === Math.round(arrowBox.y + 14)
         && byRight.rows.join('|') === byClick.rows.join('|') && !afterEsc.open, JSON.stringify({ byRight, afterEsc: afterEsc.open }));
 
@@ -2756,10 +2786,20 @@ if (webgpu) {
       ok('each effect\'s row has a 10 px dot in its main colour for the faction shown, with a 1 px edge in --text-faint; it follows the faction',
         dotSoviets.size === '10x10' && dotSoviets.colour === dotSoviets.want && dotSoviets.edge && dotAllies.colour === dotAllies.want && dotAllies.colour !== dotSoviets.colour,
         JSON.stringify({ dotSoviets, dotAllies }));
+      // A project with no effects: "No effects yet." and Make an effect, which makes a new effect (New effect), selected.
+      for (const f of readdirSync(join(edir, 'effects'))) rmSync(join(edir, 'effects', f));
+      await lp.evaluate(async (p) => { await window.__vfx.app.openProject(p); }, `projects/${fname}-empty`);
+      const noEffects = await listNow();
+      await lp.locator('.effects-list .list-empty button', { hasText: 'Make an effect' }).click();
+      const made = await listNow();
+      ok('a project with no effects says "No effects yet." with a Make an effect button, which makes a new effect and selects it',
+        noEffects.rows.join('|') === '(No effects yet.)' && noEffects.count === '0' && made.n === 1 && made.name === 'New effect' && made.rows.join('|') === '- New effect *',
+        JSON.stringify({ noEffects: [noEffects.rows, noEffects.count], made: [made.n, made.name, made.rows] }));
       ok('the Effects list page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     } finally {
       await g?.page.close();
       rmSync(fdir, { recursive: true, force: true });
+      rmSync(edir, { recursive: true, force: true });
     }
   }
 
@@ -2831,6 +2871,7 @@ if (webgpu) {
     });
     await layerRowOf('beads').locator('.item-tools button.more').click();
     await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
+    const layerMoreOpen = { ...(await openLook(lp, layerRowOf('beads').locator('.item-tools button.more'), 'layer-menu')), row: await rowState('beads') };
     const layerMenu = await lp.evaluate(() => [...document.getElementById('layer-menu').children].map((c) => c.matches('.menu-divider') ? '—' : `${c.querySelector('.menu-label').textContent}(${c.querySelector('.menu-key')?.textContent ?? ''})${c.disabled ? ' off' : ''}`));
     await menuRow(lp, 'layer-menu', 'Move up').click();
     const menuUp = await layersNow();
@@ -2859,6 +2900,9 @@ if (webgpu) {
       tips[0]?.lines[0] === 'Move up' && tips[0]?.lines[1] === help.helpFor('Move up', { section: 'Layers' }) && tips[0]?.key === 'Ctrl+]'
         && tips[1]?.lines[0] === 'Move down' && tips[1]?.key === 'Ctrl+[' && tips[2]?.lines[0] === 'More' && tips[2]?.lines[1] === help.helpFor('More', { section: 'Layers' }),
       JSON.stringify(tips));
+    ok('while a layer\'s menu is open, its row keeps Move up, Move down and More in the tag\'s place (the pointer gone into the menu), and More looks open',
+      layerMoreOpen.shown && layerMoreOpen.expanded === 'true' && layerMoreOpen.icon && layerMoreOpen.field && layerMoreOpen.row.tools.join() === 'Move up,Move down,More' && layerMoreOpen.row.tag === 'none',
+      JSON.stringify(layerMoreOpen));
     ok('the row\'s menu (More, or a right-click at the pointer): Rename (F2), Duplicate (Ctrl+D), Move up (Ctrl+]), Move down (Ctrl+[), Delete (Del); Move up there, and the row\'s Move up and Move down buttons, move it one place, each one undo step; at the top, Move up is off',
       layerMenu.join('|') === 'Rename(F2)|Duplicate(Ctrl+D)|Move up(Ctrl+])|Move down(Ctrl+[)|—|Delete(Del)' && menuUp.order.indexOf('beads') === beadsAt - 1 && menuUp.undo === 'Move layer'
         && buttonUp.order.indexOf('beads') === beadsAt - 1 && buttonDown.order.indexOf('beads') === beadsAt + 1 && buttonDown.undo === 'Move layer' && topRow[0] === true && topRow[1] === false
@@ -2982,6 +3026,13 @@ if (webgpu) {
     const kMenu = await layersNow();
     const menuOpen = await lp.evaluate(() => document.getElementById('layer-menu').matches(':popover-open'));
     await lp.keyboard.press('Escape');
+    // Esc closes only the menu; the next Esc, with nothing going on, leaves the layer.
+    const menuEsc = { ...(await layersNow()), open: await lp.evaluate(() => document.getElementById('layer-menu').matches(':popover-open')) };
+    await lp.keyboard.press('Escape');
+    const secondEsc = await layersNow();
+    ok('Esc in a layer\'s menu closes only the menu, and the layer stays selected; the next Esc leaves the layer',
+      !menuEsc.open && menuEsc.sel === 'beads' && secondEsc.sel === null, JSON.stringify({ menuEsc: [menuEsc.open, menuEsc.sel], second: secondEsc.sel }));
+    await lp.evaluate(() => window.__vfx.app.selectLayer('beads'));
     const at = k0.order.indexOf('beads');
     ok('Ctrl+] and Ctrl+[ move the selected layer up and down the list, each one undo step', kUp.order.indexOf('beads') === at - 1 && kUp.undo === 'Move layer' && kDown.order.indexOf('beads') === at + 1 && kDown.sel === 'beads',
       JSON.stringify({ at, up: kUp.order.indexOf('beads'), down: kDown.order.indexOf('beads') }));

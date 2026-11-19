@@ -82,10 +82,12 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    Layers list. Shapes, bursts and words show the settings the file has, with optional parts behind a switch, except two
    that come with the new UI: a word's chance (the words box keeps it when you type the words again) and an image burst's
    image.
-7. **＋ Add…** adds a layer of any kind. **From preset…** copies one of the ready-made effects into your project. Each layer
-   has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape by its kind (a ring, a
-   smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a projectile; a sprite shows
-   its own image (the first frame of a flipbook).
+7. The **+** in the Layers header adds a layer of any kind, just above the selected one: Sprite, Projectile, one of the 14
+   shapes (its plain name, and on the right, muted, the name in the file, which the list's tag shows), Burst or Word. The
+   **+** in the Effects header makes a **New effect**, or copies one of the ready-made effects into your project (**From
+   preset…**). Each layer has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape
+   by its kind (a ring, a smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a
+   projectile; a sprite shows its own image (the first frame of a flipbook). See 20 and 21 for the two lists.
 8. The **Tier** chip (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the
    list and on the timeline. A layer's **Shows in** boxes set its tiers.
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
@@ -123,8 +125,25 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 19. **Resize the zones**: drag the lines between them (the left sidebar, the right panel, the effects and the layers, the
     preview and the timeline). Each size is remembered; a double-click puts the default back. With the keyboard focus on a
     line, the arrow keys move it 16 px.
+20. **The effects list** (top left). A name such as "Weapons / Rifle shot" puts the effect in the folder Weapons, and
+    "Vehicles / Tank / Shell" puts it in Tank, inside Vehicles. The file keeps the whole name: folders are only in the list.
+    Folders come first, then effects, each A to Z, and a folder shows how many effects are in it. Click a folder to close or
+    open it; each project remembers it. **Search effects** (or the / key) shows only the effects whose name, folder, file or
+    game events hold the words you type; the count then says "3 of 16", and Esc clears the search. Each row has a dot in the
+    effect's main colour. Rest the pointer on a row, or select it, for its **More** button (three dots): **Rename** (F2),
+    **Duplicate** (Ctrl+D), **Move to folder…** and **Delete**. A right-click on a row opens the same menu, and a
+    double-click on its name renames it in place: Enter keeps the new name, Esc keeps the old one. Duplicate makes "… copy",
+    with the same scene and its own budgets, but no game events (one event plays one effect).
+21. **The layers list** (bottom left), the top of the drawing order first. Rest the pointer on a row, or select it: **Move
+    up**, **Move down** and **More** take the place of its tag. More, or a right-click on the row, has **Rename** (F2),
+    **Duplicate** (Ctrl+D), **Move up** (Ctrl+]), **Move down** (Ctrl+[) and **Delete** (Del). Drag a row up or down to move
+    the layer: a line shows where it lands, Esc stops the drag, and one Ctrl+Z puts it back. A double-click on a name renames
+    the layer in place. The row under the mouse is highlighted on the timeline too, and the other way round; a layer you
+    select scrolls into view in both. An effect with no layers offers **Add a layer**.
 
-Keys: press **?** (or the ? at the right end of the status bar, or **Keyboard shortcuts** in the main menu).
+Keys: press **?** (or the ? at the right end of the status bar, or **Keyboard shortcuts** in the main menu). **Esc** does one
+thing at a time: it cancels a rename or a drag, clears the search, or closes a menu or the colour picker; only when none of
+these is going on does it leave the layer.
 
 ## The packages
 
@@ -147,7 +166,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (551): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (560): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -170,7 +189,9 @@ out, the same times), its loop, the moment it holds for a picture and its framin
 picture, the board rifle's tracer, which crosses the screen in 22 ms, also at Duration 2× and 4×); the checker's warning for a bed's banded gradient with more than 8 stops; the palette; same-seed playback; steps, phases, flights and arcs; every shape
 kind, bursts and words; friend or foe; quality tiers; the item count behind "sprites alive"; the letters (A to Z and !,
 built from their data, no stroke thinner than the board's); the fire's layout; every example effect drawn all through;
-undo and redo; the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
+undo and redo; duplicating an effect ("… copy", its id from its own id and never from its name, within the 48 characters an
+id may have, one undo step); the effects list's folders from the names (" / ", nested, A to Z with numbers in order, the
+counts) and its search (name, folder, file and game events, every word typed); the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
 back byte for byte; the tests' own version 1 files written as today's examples; a newer version refused); budgets at
 three levels (which one counts, every edit, only what differs written); `editor.json` version 2 and the older one; the
 export checker; export, import and export again giving the same files, byte for byte, on both examples, on a version 1
@@ -190,7 +211,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (251 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (294 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -218,7 +239,8 @@ phase starts, New from preset, tiers, game events (unsaved ones are asked about 
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
 shell (the window's grid at 1920 × 1080 and 2560 × 1440, with at least 8 track rows and 14 layer rows showing at 1920; the four
-splitters: a drag, their limits (the Layers section's buttons staying in the column with the effects list at its largest),
+splitters: a drag, their limits (with the effects list at its largest, the Layers header and its + staying in the column, and a
+row showing, with its buttons on hover),
 the sizes remembered after a reload, a double-click putting the default back, the arrow keys, the preview drawn at its new
 size while one is dragged, the Look following; the status bar: the checks and a click
 to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
@@ -234,7 +256,25 @@ keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's sc
 the keys working from 14 m as before; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
 and showing the hints and the drag hint over the preview, remembered after a reload; `?hints=off` and `?hints=on` for their
-page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), Save as, Export and Import
+page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), the effects list (on a
+throwaway project with folders, deleted after: folders from " / " in the names, nested, folders first, each A to Z with
+numbers in order, the counts, the indent of each level; a folder closed and opened, remembered per project after a reload and
+after another project; the search by name, folder, file and game event, the "1 of 9" count, the folders it opens closing
+again, Esc and a second Esc, / and not while typing, no match and Clear the search; the More button on hover and on the
+selected row, its menu and a second click closing it, the button staying and looking open while its menu is, a right-click;
+renaming in place by a double-click and F2, Enter, Esc,
+an empty name and a click elsewhere; Move to folder (a folder, No folder, New folder… with the dialog's OK), Duplicate (its
+name, folder, scene, own budgets and no events; one undo with nothing unsaved left, redo, project.json after saving) and
+Delete with its question, each one undo step; the main-colour dot and its edge, following the faction; a project with no
+effects, its "No effects yet." and Make an effect), the layers list (the
+add menu's groups and the 14 shapes with their names, a new layer above the selected one and selected; a row's buttons in its
+tag's place on hover and on the selected row, their tooltips and keys, its menu by More and by a right-click, the buttons
+staying while it is open, and Esc closing only the menu; Move up, Move
+down, Duplicate and Delete, each one undo step; renaming in place; a press of less than 4 px a click, a drag with its 2 px
+line in one undo step, and Esc cancelling it; the empty state; the hover highlight both ways with the timeline; a new
+selection scrolled into view in both, nothing round them moving), the keys /, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while
+typing or with a menu open; inside the rename and search boxes Space, Delete, Backspace, ← and → only type, and Esc does only
+the nearest thing; Keyboard shortcuts listing them), Save as, Export and Import
 (`project.json` and `editor.json` version 2
 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
 whose `project.json` is version 1 (it opens, with its scenes, and nothing is written) and one of a newer version (not
@@ -334,7 +374,7 @@ These write pictures to `out/` (kept out of git):
 
 - **The editor's look** ([docs/ui-redesign.md](docs/ui-redesign.md), section 4): two themes, Day and Night, from one set
   of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
-  to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
+  to the icon; those with only an icon, such as Undo, Redo, Night mode and a row's More, give their names in
   their tooltips. The Faction chip shows each faction's marking from sheet 16. Every kind of layer has its own icon: the 14
   shapes, the nine looks of a burst's pieces, the word, the projectile and the sprite.
 - **Tooltips that explain** (docs/ui-redesign.md 6.9): one tooltip for the whole editor, dark in both themes. Every label
@@ -358,6 +398,10 @@ These write pictures to `out/` (kept out of git):
   value (Scene, Faction that fired, Made by, Distance from you, Tier, and View with the scale), each opening a small menu
   that works by mouse and by keyboard; Distance is dragged sideways or typed. The parts it is made of (icon buttons, menus,
   also at a right-click, chips and numbers you drag or type) are in `src/app/dom.ts`, ready for the next phases.
+- **The lists** (UI phase 4, docs/ui-redesign.md 6.2): the effects in folders made from their names, with a search and each
+  row's menu (Rename, Duplicate, Move to folder…, Delete); the layers with an add menu, each row's buttons and menu,
+  renaming in place and drag to reorder; the row under the mouse highlighted in the Layers list and on the timeline. Their
+  parts (a search box, a box to rename in place, a menu one list shares, drag to reorder) are in `src/app/dom.ts`.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -552,8 +596,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - A timeline bar's 1 px `--tl-bar-edge` is drawn just outside the bar, over the lane, so in Day it stands out from the
     lane (3:1) even on the white word bars. A Day bar looks 1 px longer at each end.
   - A layer's "not in Low" tag stays in `--bad`, as before, and its name on the timeline stays muted, except on the selected
-    row: there both take `--text`, because `--bad` and `--text-muted` on the selected tint are under 4.5:1 in Night
-    (section 6.5 asks for the name muted).
+    row: there the name takes `--text`, because `--text-muted` on the selected tint is under 4.5:1 in Night (section 6.5
+    asks for the name muted). Since phase 4 the Layers list's selected row shows its buttons in the tag's place (see "The
+    lists").
   - In the Layers list a long tag stops at half the row, so the layer's name always shows.
   - The effect's main colour in the palette grid (the grid goes in phase 6) is marked with `--bg-field`, a 1 px
     `--line-strong` edge and weight 500, not the yellow selected look: it is a stored choice, not a selection.
@@ -715,8 +760,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     remembered sidebar widths, both give way, each in proportion to its room above its narrowest, and the remembered widths
     come back when the window grows.
   - With the effects list at its largest (the column less 160 px, as 5.2 says), the Layers section is 160 px tall: its list
-    gives way, down to one row, so the add menu and the buttons under the list stay in the column. Phase 4 takes those two
-    rows away, and the list gets the room.
+    gives way, down to one row, so its header with the + stays in the column. Since phase 4 nothing sits under the list:
+    the add menu is the header's +, and the buttons are on the rows.
   - The preview's own observer clears its canvas when it gives it a new size, after the frame was drawn; the editor then
     draws the moment again at once (also while paused), so the preview follows a splitter while it is dragged.
   - The project's name is a button that opens Projects; an example's lock sits between the name and the unsaved dot, so the
@@ -744,8 +789,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     columns of their own: the workspace keeps its three columns, and the left sidebar and the centre their rows.
   - The rule for windows under 1400 px went (the grid has its own defaults now), so the timeline's names column is 180 px
     at every width until phase 5 makes it 200 and 176 px.
-  - The Effects header's New and From preset… fit the 248 px sidebar with nothing to spare; in a narrower one (it can be
-    dragged to 200 px) their words end in an ellipsis rather than being cut off, until phase 4's + menu takes their place.
+  - Since phase 4 the Effects header holds the title, the count and a + menu (New effect, From preset…): it fits the
+    narrowest sidebar (200 px) with room to spare.
 - **The toolbar and hints** (UI phase 3 of [docs/ui-redesign.md](docs/ui-redesign.md): the toolbar's order, the chips and
   their menus, the parts in `src/app/dom.ts`, Show hints and the one-line hints are the brief's; these choices are ours, not
   Mustafa's or the brief's):
@@ -756,7 +801,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     screen, 1476 px in Game size and 1469 px in Close-up. In a narrower window it wraps onto a second row (65 px): nothing
     is cut, the controls keep their order, and Fade other layers and View wrap together, side by side.
   - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
-    the browser check tries it; phase 4 gives the lists' rows their menus. While the button is still down (Linux and macOS
+    the browser check tries it; since phase 4 the lists' rows have their menus there. While the button is still down (Linux and macOS
     ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when
     the pointer is not over it. Near the window's edges it turns left or up, so it stays inside the window.
   - **`scrubNumber`** (a number you drag sideways or type) is used by Distance only for now: its popover's number box, and
@@ -825,6 +870,75 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Dialogs: the line in New from preset and the one under Import an export in Projects explain the whole dialog, so they
     are the dialogs' own text, always shown and kept short. The second one's full words ("each image cut back out of the
     atlas") are the tooltip of the title Import an export.
+- **The lists** (UI phase 4 of [docs/ui-redesign.md](docs/ui-redesign.md): folders from " / " in effect names, the search,
+  the rows' menus, the add menu, renaming in place, drag to reorder, the empty states, the sync with the timeline and the
+  keys are the brief's; these choices are ours, not Mustafa's or the brief's):
+  - **Two names for one shape.** The add menu shows each shape's plain name ("Beam", "Star of shards", "Flame tongues") and,
+    on the right, muted, the name in the file ("band", "shards", "flames"): the word the list's tag shows (in Plex Sans, as
+    the tag), so the two are tied together where a layer is made. Nothing else is renamed; choosing one set of names is
+    Mustafa's.
+  - **Folders.** Each level is indented 20 px (a folder's chevron and the gap after it), so an effect's dot sits under its
+    folder's icon and its name under the folder's name. A folder's count is every effect inside it, those in its folders
+    too; while a search is on, the effects in it that match. Folder names are exact: "Weapons" and "weapons" are two folders.
+  - **Open or closed.** Remembered per project in `localStorage`, as `vfx-folders:<project>`, the list of closed folders, so
+    a folder never seen before starts open. When an effect is selected another way than a click on its row (Duplicate, New
+    effect, From preset…, undo, a delete, the right panel's name), or moves to another folder (Move to folder, or a rename
+    that adds a folder), its folders open and its row scrolls into view; a moved effect does so even when it is not
+    selected. Opening a project leaves its folders as they were left: its first effect may sit in a closed folder, whose
+    name then shows in the selected row's weight (not in yellow: the folder is not the selection).
+  - **Search.** Every word typed must be found, in any case, in the effect's name (its folder is part of it), its file
+    (`rifle_shot.vfx.json`) or one of its game events. While a search is on, the header's count says "3 of 16"; folders with
+    matches show open, and a click opens or closes them for that search only; when the search is cleared, the folders it
+    opened close again, as they were, and the selected effect's row scrolls into view. While the selected effect does not
+    match, its row is not in the list (the right panel and the Layers list still show it). Something that selects an effect
+    the search hides (New effect, Duplicate, F2 on it) clears the search, so its row shows. Esc in the box clears it; Esc in
+    the empty box gives the keys back to the editor (the box lets go of the focus); neither leaves the layer. Opening
+    another project clears the search.
+  - **Rename in place.** The box holds the name without its folder, all of it selected. A " / " typed in it makes folders
+    inside the effect's own folder; to move an effect to another folder, use Move to folder (or the right panel's name,
+    which holds the whole name). Enter or a click elsewhere keeps the name typed, and the click still does what it does
+    (another row clicked is selected); Tab keeps it too; Esc keeps the old name; the window losing the focus does not end
+    it. An empty name keeps the old one (the right panel's name field makes an empty name "Effect" or "Layer"). A name
+    longer than 80 characters with its folder is refused, with a message. Undo, redo or Ctrl+S while the box is open leave
+    the box as it is, with what was typed.
+  - **Duplicate.** The copy takes the source's own budgets (its class and numbers) as well as its scene, and no game events.
+    It goes just after the source in the project, and is selected. Its id is freeEffectId's, from the source's id without a
+    number at its end (`rifle_shot_2` gives `rifle_shot_3`; as for layers, a free id without a number is taken), within
+    the 48 characters an id may have; its name is "<name> copy", within 80 characters (a long name gives way at its end).
+    One undo takes away the copy, its scene and its budgets, and leaves nothing unsaved that was saved before; redo brings
+    them all back. A copy deleted later keeps them, as every deleted effect does, until you leave.
+  - **Move to folder…** lists every folder in use, nested ones by their path ("Vehicles / Tank"), A to Z, with a dot at the
+    effect's own. New folder… asks for a name with the question dialog (default "New folder"); a " / " in it makes a folder
+    inside a folder. It opens where the effect's menu was. Folder names are names people give: no help text is looked up for
+    them.
+  - **Drag to reorder.** A press becomes a drag once the pointer moves 4 px; less is a click, which selects the row. A drag
+    does not select the row. While it lasts, the dragged row stays highlighted, in the list and on the timeline, and near
+    the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected.
+  - **The row's buttons** show on hover, on the selected row and while the keyboard focus is in the row. The keyboard
+    reaches them on the selected row (Tab); on other rows the menu is a right-click or the context-menu key away. They act on
+    their own row's layer, which need not be the selected one: Move up and Move down keep the selection; Delete in a row's
+    menu asks nothing, as the Delete key never did, and when it deletes the selected layer, the next one takes its place.
+    While a row's menu is open, its buttons stay, and More looks as a chip with its menu open (4.6 names only chips): the
+    field colour, the icon in `--accent-ink`. So does a header's + while its menu is open.
+  - **The tag on hover.** On hover, and on the selected row, the buttons take the tag's place (the tag stays in the page,
+    hidden). So a rider's "rides Bullet" is said in the row's own tooltip ("Tracer: rides Bullet") rather than in the tag's.
+    A row both selected and left out of the tier shows its buttons in place of "not in Low": its icon and name stay faded,
+    and its tooltip still says it is not drawn in that tier.
+  - **Empty states.** "No effects yet." with **Make an effect** (New effect); "Nothing matches "…"." with **Clear the
+    search**; "No layers yet." with **Add a layer**, which opens the add menu below it. With no effect, the Layers list
+    still says "No effect.".
+  - **The hover highlight** is `--bg-hover`, as on a row under the mouse; a selected row keeps its own look. A new selection
+    scrolls only the Layers list and the timeline's rows, as little as needed.
+  - **Keys.** / puts the focus in the search without typing the /. Ctrl+D, Ctrl+] and Ctrl+[ go by the character typed, so
+    they follow the keyboard's layout; Ctrl+D stops the browser's bookmark only when it duplicates something, and does
+    nothing while you type in a field. All of them, and F2, wait while a menu, the colour picker or a dialog is open, or
+    while you type. Ctrl+D duplicates the selected layer since the first part of phase 4, as the old Duplicate button's
+    tooltip already named it.
+  - **Effect rows** keep the shape the browser check reads (`div.item` with `button.item-main`), and layer rows theirs
+    (`div.item.layer-item` with the icon, the name's `span` and the tag's `code` as its own children): the name is a button
+    inside its span, for the keyboard and screen readers, and a click anywhere on the row selects it.
+  - **Trying 40 effects.** The throwaway project `projects/phase-4-forty` (44 effects in 12 folders, made and deleted again by
+    a script) was used to try the list with many effects; its pictures are `out/ui/phase-4-forty-*.png`.
 
 ## Claude skills
 

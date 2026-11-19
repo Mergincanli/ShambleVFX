@@ -971,6 +971,8 @@ export function renameBox(o: { value: string; label: string; maxLength: number; 
   const input = h('input', { class: 'text rename', attrs: { type: 'text', 'aria-label': o.label, spellcheck: 'false', autocomplete: 'off', maxlength: String(Math.max(1, o.maxLength)) } });
   input.value = o.value;
   let done = false;
+  /** A press elsewhere took the focus: the name is kept when its click comes, even when the row is built again before. */
+  let waiting = false;
   const end = (text: string | null, how: 'key' | 'elsewhere') => {
     if (done) return;
     done = true;
@@ -985,11 +987,12 @@ export function renameBox(o: { value: string; label: string; maxLength: number; 
     if (done || !document.hasFocus()) return;
     if (!pointerIsDown) { end(input.value, 'elsewhere'); return; }
     // A press elsewhere: keep the name when its click comes (before the click's own work), or once it is let go.
-    const keep = () => end(input.value, 'elsewhere');
+    waiting = true;
+    const keep = () => { waiting = false; end(input.value, 'elsewhere'); };
     document.addEventListener('click', keep, { capture: true, once: true });
     document.addEventListener('pointerup', () => setTimeout(() => { document.removeEventListener('click', keep, true); keep(); }), { capture: true, once: true });
   });
-  return { el: input, dispose: () => { done = true; } };
+  return { el: input, dispose: () => { if (!waiting) done = true; } };
 }
 
 /** How far the pointer must move, in px, before a press on a row becomes a drag (less is a click). */

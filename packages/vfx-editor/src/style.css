@@ -251,6 +251,11 @@ button:disabled { opacity: 0.4; cursor: default; }
 .transport .tb[aria-pressed="true"], .icon-only[aria-pressed="true"], .cp-hexrow .mini[aria-pressed="true"] { background: var(--bg-field); color: var(--text); }
 .transport .tb[aria-pressed="true"]:hover:not(:disabled), .icon-only[aria-pressed="true"]:hover:not(:disabled), .cp-hexrow .mini[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
 .transport .tb[aria-pressed="true"] .icon, .icon-only[aria-pressed="true"] .icon, .cp-hexrow .mini[aria-pressed="true"] .icon { color: var(--accent-ink); }
+/* An icon button with its menu open (a list's +, a row's More) looks as a chip with its menu open (4.6): the field colour
+   with the icon in --accent-ink. */
+.icon-only[aria-expanded="true"] { background: var(--bg-field); color: var(--text); }
+.icon-only[aria-expanded="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
+.icon-only[aria-expanded="true"] .icon { color: var(--accent-ink); }
 /* Night mode shows the sun in Day and the moon in Night. */
 .theme-toggle[aria-pressed="true"] .icon-sun, .theme-toggle[aria-pressed="false"] .icon-moon { display: none; }
 
@@ -458,9 +463,9 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
    dark colour still shows in Night. */
 .effects-list .fx-dot { margin: 0 3px; box-shadow: 0 0 0 1px var(--text-faint); }
 /* A row's buttons (More; a layer's Move up and Move down too) show on hover, on the selected row and with the keyboard focus
-   in the row. */
+   in the row, and stay while the row's More menu is open. */
 .item > .more, .item-tools { display: none; }
-.item:hover > .more, .item.sel > .more, .item:focus-within > .more { display: inline-flex; }
+.item:hover > .more, .item.sel > .more, .item:focus-within > .more, .item > .more[aria-expanded="true"] { display: inline-flex; }
 .effects-list .item > .more { margin-right: 6px; }
 /* A folder: its chevron (turned down when open), the folder icon, its name, and how many effects are inside. */
 .folder {
@@ -500,9 +505,11 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .layer-item .item-main { display: block; width: 100%; height: var(--h-row); padding: 0; line-height: var(--h-row); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .layer-item .item-main:focus-visible { outline: none; box-shadow: none; }
 .layer-item:has(> span > .item-main:focus-visible) { outline: 1px solid var(--focus); outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
-.layer-item:hover > code, .layer-item.sel > code, .layer-item:focus-within > code, .layer-item.renaming > code { display: none; }
+.layer-item:hover > code, .layer-item.sel > code, .layer-item:focus-within > code, .layer-item.renaming > code,
+.layer-item:has(.more[aria-expanded="true"]) > code { display: none; }
 .item-tools { flex: none; align-items: center; margin: 0 -6px 0 auto; }
-.layer-item:hover > .item-tools, .layer-item.sel > .item-tools, .layer-item:focus-within > .item-tools { display: flex; }
+.layer-item:hover > .item-tools, .layer-item.sel > .item-tools, .layer-item:focus-within > .item-tools,
+.layer-item:has(.more[aria-expanded="true"]) > .item-tools { display: flex; }
 .layer-item.renaming > .item-tools { display: none; }
 /* The row under the mouse in the other list (the Layers list, the timeline) is highlighted too. */
 .layer-item.hovered:not(.sel), .tl-row.hovered:not(.sel) { background: var(--bg-hover); }

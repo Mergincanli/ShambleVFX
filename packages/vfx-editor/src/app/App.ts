@@ -1102,7 +1102,10 @@ export class App implements AppApi {
     const keys: [string, string][] = [
       ['Space', 'Play or pause'], ['F', 'Fire from the stand-in to the target'], ['← / →', 'One step back or forward (1/12 s)'],
       ['L', 'Loop on or off'], ['1 / 2 / 3', 'Whole screen / game size / close-up'], ['Ctrl+Z', 'Undo'], ['Ctrl+Shift+Z or Ctrl+Y', 'Redo'],
-      ['Ctrl+S', 'Save'], ['Delete', 'Delete the selected layer'], ['Esc', 'Close the menu or the colour picker; otherwise leave the layer and go back to the effect'],
+      ['Ctrl+S', 'Save'], ['Delete', 'Delete the selected layer'],
+      ['F2', 'Rename the selected layer, or the effect, in place'], ['Ctrl+D', 'Duplicate the selected layer, or the effect'],
+      ['Ctrl+] / Ctrl+[', 'Move the selected layer up / down the list'], ['/', 'Search the effects'],
+      ['Esc', 'Cancel a rename or a drag, clear the search, or close the menu or the colour picker; with none of these, leave the layer and go back to the effect'],
       ['?', 'These keyboard shortcuts'], ['Arrow keys on a splitter', 'Move it 16 px'],
       ['Drag the ground', 'Move the target'], ['Shift + drag', 'Move the stand-in'],
     ];
