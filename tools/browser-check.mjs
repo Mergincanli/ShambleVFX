@@ -12,7 +12,8 @@
 //    the selection), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
-//    reorder, the sync with the timeline) with their keys, Save as into projects/, Export and Import, and the palette
+//    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
+//    bars, the phases' names), Save as into projects/, Export and Import, and the palette
 //    profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
 //    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
@@ -3244,6 +3245,154 @@ if (webgpu) {
     ok('a rider\'s row says what it rides in its own tooltip on hover ("Tracer: rides Bullet"), where its buttons take the tag\'s place', tipText === 'Tracer: rides Bullet', String(tipText));
     ok('the Layers list page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await lp.close();
+  }
+
+  // -- the timeline (docs/ui-redesign.md 6.5): its sizes at 1920 x 1080 and 2560 x 1440 (the names column, the ruler, the
+  // phase strip, the rows, the bars); every bar's label in full view in its lane, inside its bar when it fits, else beside
+  // it in --text-muted (the Rifle shot's Bullet; a bar near the end of the span), also after a splitter makes the lanes
+  // narrower and back; the phases' names inside when they fit, their times in their tooltips. On a page of its own: the
+  // splitters' sizes are remembered.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const tp = g.page;
+    const frames = () => tp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    /** Show an effect paused at a moment, with a layer selected or none. */
+    const showTl = (effect, ms, layer = null) => tp.evaluate(async ([effect, ms, layer]) => {
+      const a = window.__vfx.app;
+      window.__vfxManual = true;
+      if (a.effect()?.id !== effect) a.pickEffect(effect);
+      a.selectLayer(layer);
+      await a.showAt(ms, 7);
+    }, [effect, ms, layer]);
+    const tlSizes = () => tp.evaluate(() => {
+      const r = (el) => el.getBoundingClientRect();
+      const all = (s) => [...document.querySelectorAll(s)];
+      return { name: r(document.querySelector('.timeline .tl-name')).width, ruler: r(document.querySelector('.timeline .tl-ruler')).height, phases: r(document.querySelector('.timeline .tl-phases')).height,
+        rows: [...new Set(all('.timeline .tl-row').map((x) => r(x).height))], bars: [...new Set(all('.timeline .tl-bar').map((x) => r(x).height))],
+        radius: [...new Set(all('.timeline .tl-bar').map((x) => getComputedStyle(x).borderRadius))], font: getComputedStyle(document.querySelector('.timeline .tl-name span')).fontSize };
+    });
+    await showTl('board_beam', 1000);
+    const z1920 = await tlSizes();
+    await tp.setViewportSize({ width: 2560, height: 1440 });
+    await frames();
+    const z2560 = await tlSizes();
+    await tp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    const sizesRight = (z) => z.ruler === 24 && z.phases === 16 && z.rows.join() === '24' && z.bars.join() === '16' && z.radius.join() === '3px' && z.font === '12px';
+    ok('the timeline\'s sizes (6.5): the names column 176 px at 1920 and 200 px at 2560, the ruler 24 px, the phase strip 16 px, rows 24 px, bars 16 px with 3 px corners, names in 12 px',
+      z1920.name === 176 && z2560.name === 200 && sizesRight(z1920) && sizesRight(z2560), JSON.stringify({ z1920, z2560 }));
+
+    // Every bar's label: in full view in its lane; inside the bar (its padding on both sides) when it fits there, in
+    // --tl-bar-text; else just right of the bar, or left of it, in --text-muted.
+    const labelsNow = () => tp.evaluate(() => {
+      const probe = (v) => { const s = document.createElement('span'); s.style.color = v; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+      const muted = probe('var(--text-muted)'), ink = probe('var(--tl-bar-text)');
+      const pad = parseFloat(getComputedStyle(document.querySelector('.timeline')).getPropertyValue('--tl-label-pad'));
+      return [...document.querySelectorAll('.timeline .tl-row')].map((row) => {
+        const lane = row.querySelector('.tl-lane').getBoundingClientRect(), bar = row.querySelector('.tl-bar'), b = bar.getBoundingClientRect();
+        const label = bar.querySelector('.tl-label'), l = label.getBoundingClientRect();
+        const where = l.left >= b.left + 1 + pad - 0.5 && l.right <= b.right - 1 - pad + 0.5 ? 'inside' : l.left >= b.right ? 'right' : l.right <= b.left ? 'left' : 'over';
+        const fits = l.width + 2 * (pad + 1) <= b.width;
+        const colour = getComputedStyle(label).color;
+        return { id: row.dataset.layer, text: label.textContent, fit: bar.dataset.fit, where, fits, w: +l.width.toFixed(1), bar: +b.width.toFixed(1),
+          inLane: l.left >= lane.left - 0.5 && l.right <= lane.right + 0.5 && l.top >= lane.top - 0.5 && l.bottom <= lane.bottom + 0.5,
+          shown: getComputedStyle(label).visibility === 'visible' && l.width > 0, colourOk: colour === (where === 'inside' ? ink : muted) };
+      });
+    });
+    const labelsRight = (list) => list.every((x) => x.inLane && x.shown && x.colourOk && x.where === x.fit && (x.fits ? x.where === 'inside' : x.where === 'right' || x.where === 'left'));
+    const labelSweep = async () => {
+      const out = {};
+      for (const id of ['rifle_shot', 'board_beam', 'board_molotov', 'board_muzzle', 'board_shell', 'shell_flight']) { await showTl(id, 20); out[id] = await labelsNow(); }
+      return out;
+    };
+    const sweep1920 = await labelSweep();
+    await tp.setViewportSize({ width: 2560, height: 1440 });
+    await frames();
+    const sweep2560 = await labelSweep();
+    await tp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    const wrong = (sw) => Object.entries(sw).flatMap(([fx, list]) => list.filter((x) => !labelsRight([x])).map((x) => `${fx}/${x.id} ${JSON.stringify(x)}`));
+    const bullet = (sw) => sw.rifle_shot.find((x) => x.id === 'bullet');
+    ok('every bar\'s label shows whole in its lane at 1920 and 2560: inside its bar when it fits there, else beside it in --text-muted (the Rifle shot\'s Bullet, "9 ms in the air", right of its bar)',
+      wrong(sweep1920).length === 0 && wrong(sweep2560).length === 0 && Object.values(sweep1920).flat().length > 60 && bullet(sweep1920).where === 'right' && bullet(sweep2560).where === 'right'
+        && bullet(sweep1920).text === '9 ms in the air' && Object.values(sweep1920).flat().some((x) => x.where === 'inside'),
+      `wrong: ${[...wrong(sweep1920), ...wrong(sweep2560)].slice(0, 3).join('; ') || 'none'}; Bullet ${JSON.stringify(bullet(sweep1920))}`);
+
+    // A bar near the end of the span: the Rifle shot's Tracer core made to start at 910 ms and last 15 ms (then undone): the
+    // span is then 1000 ms, so the bar ends 75 ms before the lane does. Its label goes beside it, inside the lane, at both
+    // sizes.
+    await tp.evaluate(async () => {
+      const a = window.__vfx.app;
+      a.pickEffect('rifle_shot');
+      a.selectLayer('tracer_core');
+      a.editLayer(['start'], { ms: 910 });
+      a.editLayer(['durationMs'], 15);
+      a.commit();
+      a.selectLayer(null);
+      await a.showAt(20, 7);
+    });
+    const late1920 = (await labelsNow()).find((x) => x.id === 'tracer_core');
+    await tp.setViewportSize({ width: 2560, height: 1440 });
+    await frames();
+    const late2560 = (await labelsNow()).find((x) => x.id === 'tracer_core');
+    await tp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    ok('a short bar near the end of the span (15 ms, ending at 925 of 1000 ms) has its label beside it, whole, inside the lane, at 1920 and 2560',
+      labelsRight([late1920, late2560]) && late1920.text === '15 ms' && late1920.where !== 'inside' && late2560.where !== 'inside', JSON.stringify({ late1920, late2560 }));
+
+    // The splitters make the lanes narrower: a label that fitted moves beside its bar, still whole (the Molotov's 250 ms
+    // bars). In the narrowest centre (a window 1280 px wide, the sidebars at their widest: 640 px) the late bar's label has
+    // no room left on its right and goes left of its bar. A double-click puts the sizes back, and the labels with them.
+    const centreOf = async (sel) => { const b = await tp.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+    const dragSplit = async (sel, dx) => {
+      const [x, y] = await centreOf(sel);
+      await tp.mouse.move(x, y);
+      await tp.mouse.down();
+      await tp.mouse.move(x + dx, y, { steps: 6 });
+      await tp.mouse.up();
+      await frames();
+    };
+    await dragSplit('.split-left', 300);
+    await dragSplit('.split-right', -300);
+    await tp.setViewportSize({ width: 1280, height: 1080 });
+    await frames();
+    const narrowLate = (await labelsNow()).find((x) => x.id === 'tracer_core');
+    const narrowest = await tp.evaluate(() => Math.round(document.querySelector('.centre').getBoundingClientRect().width));
+    await tp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    await showTl('board_molotov', 20);
+    const narrowMolotov = await labelsNow();
+    const narrowPhases = await tp.evaluate(() => [...document.querySelectorAll('.timeline .tl-phase')].map((p) => ({ name: p.classList[1], fit: p.dataset.fit, visible: getComputedStyle(p.querySelector('span')).visibility === 'visible', tip: window.__vfx.app.tipForChecks(p)?.lines[0] ?? null })));
+    const lanes = await tp.evaluate(() => Math.round(document.querySelector('.timeline .tl-lane').getBoundingClientRect().width));
+    await tp.locator('.split-left').dblclick();
+    await tp.locator('.split-right').dblclick();
+    await frames();
+    const wideMolotov = await labelsNow();
+    // The Tracer core's two edits undone.
+    await tp.evaluate(() => document.activeElement?.blur());
+    await tp.keyboard.press('Control+z');
+    await tp.keyboard.press('Control+z');
+    const lateBack = await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); const l = a.effect().layers.find((x) => x.id === 'tracer_core'); return JSON.stringify([l.start, l.durationMs]); });
+    const ign = (list) => list.find((x) => x.id === 'ignition_lines');
+    ok('a splitter dragged until a bar\'s label no longer fits: the label moves beside its bar, whole and in --text-muted (Molotov\'s 250 ms bars); with no room on its right it goes left (the late 15 ms bar, in a 640 px centre); a double-click on the splitters brings it back inside',
+      labelsRight(narrowMolotov) && ign(narrowMolotov).where === 'right' && labelsRight([narrowLate]) && narrowLate.where === 'left' && labelsRight(wideMolotov) && ign(wideMolotov).where === 'inside'
+        && narrowest === 640 && lateBack === '[{"ms":0},80]',
+      JSON.stringify({ lanes, narrowest, narrow: ign(narrowMolotov), late: narrowLate, wide: ign(wideMolotov), lateBack }));
+
+    // The phases: each name inside its phase when it fits (Hammer leech beam), hidden when it does not (the Molotov's
+    // 250 ms wind-up in the narrow lanes); the times in the tooltip either way.
+    await showTl('board_beam', 1000);
+    const beamPhases = await tp.evaluate(() => [...document.querySelectorAll('.timeline .tl-phase')].map((p) => {
+      const b = p.getBoundingClientRect(), s = p.querySelector('span').getBoundingClientRect();
+      return { name: p.classList[1], text: p.querySelector('span').textContent, fit: p.dataset.fit, visible: getComputedStyle(p.querySelector('span')).visibility === 'visible',
+        inside: s.left >= b.left + 3.5 && s.right <= b.right - 3.5, size: getComputedStyle(p.querySelector('span')).fontSize, tip: window.__vfx.app.tipForChecks(p)?.lines[0] ?? null };
+    }));
+    ok('the phase strip: each phase\'s name inside it in 11 px when it fits (Hammer leech beam), hidden when it does not (the Molotov\'s 250 ms wind-up, lanes made narrow); its times in its tooltip ("wind-up: 0–350 ms")',
+      beamPhases.length === 3 && beamPhases.every((p) => p.fit === 'yes' && p.visible && p.inside && p.size === '11px') && beamPhases.map((p) => p.tip).join(' | ') === 'wind-up: 0–350 ms | peak: 350–2850 ms | fade: 2850–3150 ms'
+        && narrowPhases[0].name === 'windup' && narrowPhases[0].fit === 'no' && !narrowPhases[0].visible && narrowPhases[0].tip === 'wind-up: 0–250 ms' && narrowPhases.slice(1).every((p) => p.fit === 'yes' && p.visible),
+      JSON.stringify({ beamPhases, narrowPhases }));
+    ok('the timeline page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await tp.close();
   }
 
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.

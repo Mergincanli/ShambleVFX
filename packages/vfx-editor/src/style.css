@@ -49,6 +49,16 @@
   --fold-actions-w: 96px; /* room on a section's header row for its actions (Show all) */
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
+  /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
+     row (its 1 px line included), a bar in it; a bar's label inside it, from its left edge, or beside it, from its edge. */
+  --tl-name: 176px;
+  --h-ruler: 24px;
+  --h-phases: 16px;
+  --h-track: 24px;
+  --h-bar: 16px;
+  --tl-bar-top: 4px;      /* from the row's top: 4 px over the bar, 3 px and the row's line under it */
+  --tl-label-pad: 4px;
+  --tl-label-gap: 6px;
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
   /* The window's grid (docs/ui-redesign.md 5.2), for windows narrower than 2200 px (1920 x 1080); wider ones below. A size
      dragged with a splitter is set on #app, over these (src/app/layout.ts). */
@@ -58,7 +68,7 @@
   --timeline-h: 30%; /* of the centre column, its header included */
 }
 @media (min-width: 2200px) {
-  :root { --left-w: 280px; --right-w: 320px; --timeline-h: 34%; }
+  :root { --left-w: 280px; --right-w: 320px; --timeline-h: 34%; --tl-name: 200px; }
 }
 
 /* ---------------------------------------------------------------- Day */
@@ -599,36 +609,46 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .time-len { white-space: pre; }
 .time-step { margin-left: 8px; color: var(--text-muted); }
 
-/* The timeline: the names on the panel colour, the lanes on --tl-lane, each bar in its type's colour. Nothing past its
-   right edge shows (the ruler's last label, the playhead's head at the very end), so it never scrolls sideways. */
-.timeline { --tl-name: 180px; background: var(--tl-lane); user-select: none; overflow-x: clip; }
-.tl-track { position: relative; cursor: ew-resize; touch-action: none; background: linear-gradient(to right, var(--bg-panel) var(--tl-name), transparent var(--tl-name)); }
-/* The column line is a shadow, not a border, so the ticks line up with the bars and with where a press scrubs to. */
-.tl-ruler { position: relative; height: 26px; margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
+/* The timeline (6.5): the names column on the panel colour, running to the bottom with its 1 px line, the lanes on
+   --tl-lane, each bar in its type's colour. Nothing past its right edge shows (the ruler's last label, the playhead's head
+   at the very end), so it never scrolls sideways. */
+.timeline {
+  min-height: 100%; user-select: none; overflow-x: clip;
+  background: linear-gradient(to right, var(--bg-panel) calc(var(--tl-name) - 1px), var(--line) calc(var(--tl-name) - 1px) var(--tl-name), var(--tl-lane) var(--tl-name));
+}
+.tl-track { position: relative; cursor: ew-resize; touch-action: none; }
+/* The ruler (24 px): a label every 100, 200 or 500 ms at the top, in --text-faint; the major ticks its full height, the
+   1/12 s steps short and fainter at the bottom. The column line is a shadow, not a border, so the ticks line up with the
+   bars and with where a press scrubs to. */
+.tl-ruler { position: relative; height: var(--h-ruler); margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--tick); }
-.tl-tick span { position: absolute; left: 3px; top: 4px; font-size: var(--fs-small); line-height: 1; color: var(--text-faint); }
+.tl-tick span { position: absolute; left: 3px; top: 3px; font-size: var(--fs-small); line-height: 1; color: var(--text-faint); }
 .tl-step { position: absolute; bottom: 0; height: 6px; border-left: 1px solid var(--tick-step); }
-.tl-unit { position: absolute; right: 4px; top: 4px; font-size: var(--fs-small); line-height: 1; color: var(--text-faint); }
-.tl-phases { position: relative; height: 16px; margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
-.tl-phase { position: absolute; top: 1px; bottom: 1px; display: flex; align-items: center; padding-left: 4px; overflow: hidden; color: var(--tl-phase-text); }
+.tl-unit { position: absolute; right: 4px; top: 3px; font-size: var(--fs-small); line-height: 1; color: var(--text-faint); }
+/* The phase strip (16 px): each phase's name inside it when it fits (timeline.ts measures it: data-fit), its times in its
+   tooltip. */
+.tl-phases { position: relative; height: var(--h-phases); margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
+.tl-phase { position: absolute; top: 1px; bottom: 1px; display: flex; align-items: center; padding: 0 4px; overflow: hidden; color: var(--tl-phase-text); }
 .tl-phase span { font-size: var(--fs-small); line-height: 1; white-space: nowrap; }
+.tl-phase[data-fit="no"] span { visibility: hidden; }
 .tl-phase.windup { background: var(--tl-windup); }
 .tl-phase.peak { background: var(--tl-peak); }
 .tl-phase.fade { background: var(--tl-fade); }
-.tl-row { position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: 26px; border-bottom: 1px solid var(--tl-row-line); }
+/* A row (24 px, its 1 px line included): the layer's icon and name, then its lane. */
+.tl-row { position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line); }
 .tl-row:not(.sel):hover { background: var(--bg-hover); }
 .tl-row.sel { background: var(--bg-selected); }
 .tl-row.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent-ink); }
-.tl-name { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; overflow: hidden; white-space: nowrap; cursor: pointer; }
+.tl-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 8px 0 var(--pad-panel); border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; overflow: hidden; white-space: nowrap; cursor: pointer; }
 .tl-name[aria-pressed="true"] { font-weight: 500; }
 .tl-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tl-name:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
 .tl-lane { position: relative; }
-/* The 1 px edge is drawn just outside the bar, over the lane, so it stands out from the lane (3:1 in Day) whatever the
-   bar's fill. The border stays, transparent, so the label and the step marks keep their places. */
+/* A bar: 16 px, 3 px corners. The 1 px edge is drawn just outside the bar, over the lane, so it stands out from the lane
+   (3:1 in Day) whatever the bar's fill. The border stays, transparent, so the step marks keep their places. */
 .tl-bar {
-  position: absolute; top: 4px; bottom: 4px; display: flex; align-items: center; padding-left: 4px; overflow: hidden;
-  border: 1px solid transparent; border-radius: var(--r-bar); background-color: var(--tl-sprite); color: var(--tl-bar-text);
+  position: absolute; top: var(--tl-bar-top); height: var(--h-bar);
+  border: 1px solid transparent; border-radius: var(--r-bar); background-color: var(--tl-sprite);
   box-shadow: 0 0 0 1px var(--tl-bar-edge);
 }
 .tl-bar.projectile { background-color: var(--tl-projectile); }
@@ -636,7 +656,11 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .tl-bar.burst { background-color: var(--tl-burst); }
 .tl-bar.word { background-color: var(--tl-word); }
 .tl-bar.steps { background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--step) - 1px), var(--tl-bar-step) calc(var(--step) - 1px) var(--step)); }
-.tl-bar span { font-size: var(--fs-small); line-height: 1; white-space: nowrap; }
+/* Its label ("250 ms", "9 ms in the air"): inside the bar when it fits; else just right of it, or left of it when the lane
+   ends first, in --text-muted (timeline.ts measures it: data-fit on the bar). Never cut. */
+.tl-label { position: absolute; top: 0; bottom: 0; left: var(--tl-label-pad); display: flex; align-items: center; font-size: var(--fs-small); line-height: 1; white-space: nowrap; color: var(--tl-bar-text); }
+.tl-bar[data-fit="right"] .tl-label { left: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
+.tl-bar[data-fit="left"] .tl-label { left: auto; right: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
 .tl-row.sel .tl-bar { outline: 2px solid var(--accent-ink); }
 /* Left out of the tier the preview draws. */
 .tl-row.off .tl-bar { opacity: 0.35; }

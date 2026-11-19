@@ -51,8 +51,19 @@ export interface LayersListView {
   dragging(): boolean;
 }
 
-const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
+/** A tier's name, as the Tier chip and the Shows in boxes say it. */
+export const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * A layer row's tooltip, in the Layers list and on the timeline's names column: the full name (a long one ends in an
+ * ellipsis in the row), and whether the tier leaves it out or it rides a projectile.
+ */
+export function layerRowTip(fx: EffectFile, l: Layer, tier: TierName): string {
+  const hidden = l.type !== 'projectile' && !l.tiers.includes(tier);
+  const rides = ridingOn(fx, l);
+  return `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`;
+}
 
 /** A few words after a layer's name in the list: its image, its flight, its shape, its word. */
 export function layerTag(l: Layer): string {
@@ -176,7 +187,7 @@ export function buildLayersList(act: LayersListActions): LayersListView {
     const row = h('div', {
       class: `item layer-item type-${l.type}${sel ? ' sel' : ''}${hidden ? ' off' : ''}${act.hovered() === l.id ? ' hovered' : ''}`, attrs: { 'data-layer': l.id },
       // The full name, since a long one ends in an ellipsis in the row.
-      title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
+      title: layerRowTip(fx, l, tier),
     });
     const glyph = layerGlyph(l, (n) => act.imageUrl(n));
     if (renaming?.id === l.id) {
