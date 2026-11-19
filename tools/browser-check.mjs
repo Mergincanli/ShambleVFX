@@ -193,7 +193,7 @@ for (const backend of ['webgpu', 'webgl']) {
     const popupShown = popups.filter((m) => { m.showPopover(); const v = visible(m); m.hidePopover(); return v; }).map((m) => m.id);
     const v = document.querySelector('.viewport').getBoundingClientRect();
     return { viewport: [v.x, v.y, v.width, v.height].join(), popups: popups.length, popupShown,
-      shown: ['.topbar', '.statusbar', '.splitter', '.menu', '.popover', '.scale-text', '.vbar', '.chip-btn', '.fire', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
+      shown: ['.topbar', '.hints-toggle', '.statusbar', '.splitter', '.menu', '.popover', '.scale-text', '.vbar', '.chip-btn', '.fire', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
   });
   ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, chip, status bar, splitter, menu, popover or scale round it`,
     frameOnly.viewport === '0,0,1920,1080' && frameOnly.shown.length === 0 && frameOnly.popups >= 7 && frameOnly.popupShown.length === 0, JSON.stringify(frameOnly));
@@ -1421,8 +1421,8 @@ if (webgpu) {
       // The top bar (Projects… and Keys moved into the main menu, with Save as…), the main menu (on body, closed), the
       // viewport toolbar with its chips' menus and the Distance popover (on body, closed), the timeline's header (Transport)
       // and the status bar.
-      const BAR = { 'Top bar': ['Main menu', 'Project', 'Undo', 'Redo', 'Night mode', 'Save as…', 'Export…'],
-        'Main menu': ['Projects…', 'New project…', 'Save', 'Save as…', 'Export…', 'Import an export…', 'Night mode', 'Keyboard shortcuts'],
+      const BAR = { 'Top bar': ['Main menu', 'Project', 'Undo', 'Redo', 'Show hints', 'Night mode', 'Save as…', 'Export…'],
+        'Main menu': ['Projects…', 'New project…', 'Save', 'Save as…', 'Export…', 'Import an export…', 'Show hints', 'Night mode', 'Keyboard shortcuts'],
         'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on',
           'Whole screen', 'Game size', 'Close-up', 'Close-up on the muzzle', 'Close-up on the target', 'Made by an enemy', 'Made by your team', 'Made by you', 'Fade other layers'],
         Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
@@ -1692,9 +1692,9 @@ if (webgpu) {
     await sp.keyboard.press('Escape');
     const m2 = await menuState();
     const tAfter = (await sp.evaluate(() => window.__vfx.app.debugState().mainTime));
-    ok('the main menu opens below the logo, on body, with the focus on its first row: Projects…, New project…, Save (Ctrl+S), Save as…, Export…, Import an export…, a line, Night mode (a check), Keyboard shortcuts (?)',
+    ok('the main menu opens below the logo, on body, with the focus on its first row: Projects…, New project…, Save (Ctrl+S), Save as…, Export…, Import an export…, a line, Show hints and Night mode (checks), Keyboard shortcuts (?)',
       m1.open && m1.role === 'menu' && m1.parent && m1.expanded === 'true' && m1.focus === 'Projects…' && m1.below >= 0 && m1.below <= 8 && m1.left === 0 && m1.inside && m1.rowH === 28
-        && m1.rows.join(' | ') === 'menuitem:Projects… | menuitem:New project… | menuitem:Save(Ctrl+S) | menuitem:Save as… | menuitem:Export… | menuitem:Import an export… | — | menuitemcheckbox:Night mode=false | menuitem:Keyboard shortcuts(?)',
+        && m1.rows.join(' | ') === 'menuitem:Projects… | menuitem:New project… | menuitem:Save(Ctrl+S) | menuitem:Save as… | menuitem:Export… | menuitem:Import an export… | — | menuitemcheckbox:Show hints=true | menuitemcheckbox:Night mode=false | menuitem:Keyboard shortcuts(?)',
       JSON.stringify(m1));
     ok('in the main menu ↑ and ↓ move between the rows (round from the last to the first), Home and End go to the ends; Esc closes it and gives the focus back to the logo, and the keys stay the menu\'s',
       fDown === 'New project…' && fEnd === 'Keyboard shortcuts' && fWrap === 'Projects…' && fHome === 'Projects…' && !m2.open && m2.expanded === 'false' && m2.focus === 'Main menu' && tAfter === tBefore,
@@ -2154,6 +2154,88 @@ if (webgpu) {
     await tp.keyboard.press('Escape');
     ok('the toolbar page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await tp.close();
+  }
+
+  // -- Show hints (docs/ui-redesign.md 6.9, 6.1, 6.4): on at first; the top bar's light bulb (left of Night mode) and the main
+  // menu's row hide and show the one-line hints and the drag hint over the preview, and the choice is remembered (vfx-hints)
+  // after a reload; ?hints=off and ?hints=on count for their page only. Meta text and lines that carry a state stay when the
+  // hints hide, and the status bar keeps the drag hint over the preview.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    let hp = g.page;
+    const DRAG = 'Drag the ground to move the target. Shift + drag moves the stand-in.';
+    const hintsNow = (page = hp) => page.evaluate(() => {
+      const shown = (e) => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
+      const b = document.querySelector('.topbar .hints-toggle');
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--accent-ink)';
+      document.body.append(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      // Hints with words in the window, in what is open (the colour list's hides by its own rule when there is no colour to
+      // click; the closed colour picker's, a closed popover's, fold's or dialog's are not on screen anyway).
+      const hints = [...document.querySelectorAll('#app .hint')].filter((e) => e.textContent.trim() && !e.closest('[hidden], details:not([open]), dialog:not([open])'));
+      return { data: document.documentElement.dataset.hints, stored: localStorage.getItem('vfx-hints'), pressed: b?.getAttribute('aria-pressed'), label: b?.getAttribute('aria-label'),
+        beforeNight: !!b?.nextElementSibling?.matches('.theme-toggle'), yellow: !!b && getComputedStyle(b.querySelector('svg.icon-hint')).color === accent,
+        hints: hints.length, hintsShown: hints.filter(shown).length, vhint: shown(document.querySelector('.vhint')),
+        states: [...document.querySelectorAll('.costcard .state-line')].filter((e) => e.textContent.trim()).map((e) => `${e.className.replace('state-line ', '')}:${shown(e)}`).join(),
+        row: [...document.querySelectorAll('#main-menu .menu-item')].find((x) => x.querySelector('.menu-label').textContent === 'Show hints')?.getAttribute('aria-checked') ?? null };
+    });
+    const openMenu = async () => { await hp.click('.topbar .logo'); await hp.waitForFunction(() => document.activeElement?.closest('#main-menu'), null, { timeout: 5000 }).catch(() => {}); };
+    await hp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('rifle_shot'); await a.showAt(20, 7); });
+    await openMenu();
+    const atFirst = await hintsNow();
+    await hp.keyboard.press('Escape');
+    await hp.locator('.topbar .hints-toggle').click();
+    const offByBulb = await hintsNow();
+    // The status bar's drag hint, with the hints off.
+    const vp = await hp.locator('.viewport').boundingBox();
+    await hp.mouse.move(vp.x + vp.width / 2, vp.y + 60);
+    const barHint = await hp.locator('.statusbar .sb-hint').textContent();
+    // Meta text stays: the ids and the exports' folders in Projects.
+    await openMenu();
+    await hp.getByRole('menuitem', { name: 'Projects…', exact: true }).click();
+    await hp.waitForSelector('dialog[open] .plist .meta', { timeout: 15000 }).catch(() => {});
+    const meta = await hp.evaluate(() => { const m = [...document.querySelectorAll('dialog[open] .meta')]; return { n: m.length, shown: m.filter((e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0).length, first: m[0]?.textContent.trim() ?? null }; });
+    await hp.evaluate(() => document.querySelector('dialog[open]')?.close());
+    ok('Show hints is on at first: the light bulb in the top bar, left of Night mode, is pressed (its icon in the accent, as an active toggle), its row in the main menu is checked, and the hints and the drag hint over the preview show',
+      atFirst.data === 'on' && atFirst.stored === null && atFirst.label === 'Show hints' && atFirst.pressed === 'true' && atFirst.beforeNight && atFirst.yellow && atFirst.row === 'true'
+        && atFirst.hints >= 8 && atFirst.hintsShown === atFirst.hints && atFirst.vhint, JSON.stringify(atFirst));
+    ok('the light bulb hides the one-line hints and the drag hint over the preview, and remembers it (vfx-hints); lines that carry a state and meta text stay, and the status bar still shows the drag hint over the preview',
+      offByBulb.data === 'off' && offByBulb.stored === 'off' && offByBulb.pressed === 'false' && !offByBulb.yellow && offByBulb.hints >= 8 && offByBulb.hintsShown === 0 && !offByBulb.vhint
+        && offByBulb.states.includes('cost-status:true') && offByBulb.states.includes('cost-level:true') && !offByBulb.states.includes(':false') && barHint === DRAG
+        && meta.n >= 3 && meta.shown === meta.n, JSON.stringify({ offByBulb, barHint, meta }));
+    // The main menu's row does the same, and the choice outlives a reload.
+    await openMenu();
+    const rowOff = (await hintsNow()).row;
+    await hp.getByRole('menuitemcheckbox', { name: 'Show hints', exact: true }).click();
+    const onByRow = await hintsNow();
+    await openMenu();
+    await hp.getByRole('menuitemcheckbox', { name: 'Show hints', exact: true }).click();
+    const offByRow = await hintsNow();
+    await hp.reload();
+    await hp.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
+    await openMenu();
+    const reloaded = await hintsNow();
+    await hp.keyboard.press('Escape');
+    ok('Show hints in the main menu, a check before Night mode, does what the light bulb does, and the choice is remembered after a reload',
+      rowOff === 'false' && onByRow.data === 'on' && onByRow.stored === 'on' && onByRow.pressed === 'true' && onByRow.hintsShown === onByRow.hints && onByRow.vhint
+        && offByRow.data === 'off' && offByRow.stored === 'off' && offByRow.hintsShown === 0 && reloaded.data === 'off' && reloaded.pressed === 'false' && reloaded.row === 'false' && reloaded.hintsShown === 0 && !reloaded.vhint,
+      JSON.stringify({ rowOff, onByRow, offByRow, reloaded }));
+    // ?hints=on over a remembered off: on for that page, and off is still remembered.
+    await hp.goto(`${base}/?backend=webgl&hints=on&project=examples/demo-project`);
+    await hp.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
+    const onByQuery = await hintsNow();
+    const errors = [...g.errors];
+    await hp.close();
+    // ?hints=off in a browser that never chose: off for that page, and nothing is remembered.
+    const q = await open(`${base}/?backend=webgl&hints=off&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const offByQuery = await hintsNow(q.page);
+    await q.page.close();
+    ok('?hints=off hides the hints for its page only (nothing is remembered), and ?hints=on shows them over a remembered off',
+      offByQuery.data === 'off' && offByQuery.stored === null && offByQuery.pressed === 'false' && offByQuery.hintsShown === 0 && !offByQuery.vhint
+        && onByQuery.data === 'on' && onByQuery.stored === 'off' && onByQuery.pressed === 'true' && onByQuery.hintsShown === onByQuery.hints && onByQuery.vhint, JSON.stringify({ offByQuery, onByQuery }));
+    ok('the Show hints pages have no errors', errors.length === 0 && q.errors.length === 0, [...errors, ...q.errors].slice(0, 2).join(' | '));
   }
 
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.

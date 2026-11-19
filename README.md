@@ -103,21 +103,24 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     [docs/colours.md](docs/colours.md).
 13. **Night mode**, the sun or moon button in the top bar, or in the main menu: dark panels (the preview keeps the game's
     colours). It is remembered.
-14. The examples cannot change: a lock after the project's name says so. **Save as…** (the top bar's Save button on an
+14. **Show hints**, the light bulb left of Night mode, or in the main menu: the one-line hints under the settings, and the
+    drag hint over the preview. Off hides them (their full words are in the tooltips); counts, folders and lines that say
+    how things stand keep showing, and so does the drag hint in the status bar. It is remembered.
+15. The examples cannot change: a lock after the project's name says so. **Save as…** (the top bar's Save button on an
     example, or the main menu) makes your own copy in `projects/`. That folder is kept out of git, so your art never goes to
     this public repo. On your own project the button says **Save**, or **Saved** when there is nothing to save.
-15. **Tooltips**: rest the pointer for half a second on a label in the right panel (such as **Place**, **Shape: ring** or
+16. **Tooltips**: rest the pointer for half a second on a label in the right panel (such as **Place**, **Shape: ring** or
     **Width**), a section's title, or a button or setting in the bars: a short tooltip says what it does and how to use it,
     in plain words, for the layer shown (a ring's Width is its line's thickness). Buttons show their shortcut, and Undo and
     Redo name the step. **Tab** to a button, a box or a list shows its tooltip at once (a box shows its label's, above it);
     **Esc**, a click or scrolling hides it.
-16. **The main menu**: click the logo (SHAMBLE VFX) for Projects…, New project…, Save, Save as…, Export…, Import an export…,
-    Night mode and Keyboard shortcuts. The arrow keys move in it, a letter jumps to the row that starts with it, Enter
+17. **The main menu**: click the logo (SHAMBLE VFX) for Projects…, New project…, Save, Save as…, Export…, Import an export…,
+    Show hints, Night mode and Keyboard shortcuts. The arrow keys move in it, a letter jumps to the row that starts with it, Enter
     chooses, Esc closes it.
-17. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to see them under Checks), this
+18. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to see them under Checks), this
     frame's triangles and draw calls, and the cost against the budgets (click either for Cost); in the middle, the hint for
     what is under the pointer; on the right, the renderer and **?** for the keyboard shortcuts.
-18. **Resize the zones**: drag the lines between them (the left sidebar, the right panel, the effects and the layers, the
+19. **Resize the zones**: drag the lines between them (the left sidebar, the right panel, the effects and the layers, the
     preview and the timeline). Each size is remembered; a double-click puts the default back. With the keyboard focus on a
     line, the arrow keys move it 16 px.
 
@@ -185,7 +188,7 @@ remembered); the runtime's loader and its version guard; the screen-area count a
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (241 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (246 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -224,7 +227,10 @@ chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Ent
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
 a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
 keys and a typed "0,5"; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
-box or a select, and none after a click into a box), Save as, Export and Import (`project.json` and `editor.json` version 2
+box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
+and showing the hints and the drag hint over the preview, remembered after a reload; `?hints=off` and `?hints=on` for their
+page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), Save as, Export and Import
+(`project.json` and `editor.json` version 2
 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
 whose `project.json` is version 1 (it opens, with its scenes, and nothing is written) and one of a newer version (not
 opened, and the editor says why, also when it is the project the editor starts with); the test page on both backends
@@ -329,7 +335,8 @@ These write pictures to `out/` (kept out of git):
 - **Tooltips that explain** (docs/ui-redesign.md 6.9): one tooltip for the whole editor, dark in both themes. Every label
   and section title of the right panel, for the effect and every layer type, and the controls of the bars and lists explain
   what they do and how to use them, in plain words written against the code (`src/app/help.ts`), true for what is shown.
-  The browser's own tooltips are gone: every title shows in the same tooltip.
+  The browser's own tooltips are gone: every title shows in the same tooltip. **Show hints** (the light bulb in the top bar)
+  shows or hides the one-line hints; their full words are always in the tooltips.
 - **The right panel shows what is selected**: the effect's settings, or one layer's, first, under a header that leads back
   to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
   so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
@@ -338,7 +345,7 @@ These write pictures to `out/` (kept out of git):
   runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
   layers**, in the bar above the preview).
 - **The window** (UI phase 2, docs/ui-redesign.md 5 and 6): a top bar with the logo's main menu, the project's name, Undo,
-  Redo, Night mode, Save and Export…; the effects and layers on the left, the preview in the middle (edge to edge, the game
+  Redo, Show hints, Night mode, Save and Export…; the effects and layers on the left, the preview in the middle (edge to edge, the game
   frame outlined and the scene outside it dimmed) over the timeline, whose header holds the transport; the right panel with
   a header for the effect or the layer; a status bar. Four splitters resize the zones, within limits, and remember the sizes;
   each zone has default sizes for windows 2200 px wide or more and for narrower ones.
@@ -668,8 +675,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **The shell** (UI phase 2 of [docs/ui-redesign.md](docs/ui-redesign.md): the grid, the default sizes and limits, the top bar,
   the main menu's rows, the status bar's contents and the timeline's header are the brief's; these choices are ours, not
   Mustafa's or the brief's):
-  - Show hints waits for phase 3 (its switch, its row in the main menu, `?hints=`), although 6.1 lists it in the top bar: no
-    button that does nothing.
+  - Show hints is in the top bar (a light bulb, left of Night mode) and in the main menu since phase 3, with `?hints=` (see
+    "The toolbar and hints").
   - The scale is muted text in the View chip, after the view's name ("59 %"). It keeps its own tooltip there, "The preview
     shows the game screen at 59 % of its size.", and follows the view and the preview's size.
   - The ? key opens Keyboard shortcuts now, since the main menu names it; not while typing in a field, nor in the colour
@@ -708,7 +715,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     name's text stays "Demo project •". Its tooltip gives the project's folder.
   - Save: "Saved" is muted at full strength, with its check (a state, not a command you cannot use); "Save" has the save icon;
     "Save as…" on an example has the save-as icon.
-  - The main menu: rows with the icons of icons.ts, a check for Night mode in `--accent-ink` when it is on (an active toggle),
+  - The main menu: rows with the icons of icons.ts, a check for Show hints and for Night mode in `--accent-ink` when it is on
+    (an active toggle),
     each row's tooltip (its help text) beside the menu, so it never covers the rows under it. Tab closes it as Esc does. While
     it is open the logo looks like a chip with its menu open (4.6): the field colour, the chevron in `--accent-ink`. The logo's
     name for screen readers is "Shamble VFX main menu".
@@ -773,6 +781,18 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     panel ("Target" is one there); scene and faction names get none.
   - The scale keeps its own tooltip inside the View chip; the rest of the chip has View's.
   - The chips' menus and the Distance popover hide with the rest of the editor under `?frame=1`.
+  - **`?hints=on` or `off`** works as `?theme=` does: it counts for that page and is not remembered. A choice made with the
+    light bulb or the menu's row is remembered as `vfx-hints` (`on` or `off`); a browser that never chose shows the hints.
+  - Show hints is an icon toggle like Night mode: on, the field colour and the bulb in `--accent-ink` (an active toggle);
+    off, a ghost button. Its light bulb is our drawing, in the style of icons.ts. It has no key.
+  - Off hides every `.hint` and the drag hint over the preview (`.vhint`); the status bar keeps showing the drag hint while
+    the pointer is over the preview. Lines that look like hints but are not keep showing, with classes of their own and the
+    same look: meta text (`.meta`: a project's folder and "example, read-only", an export's folder and counts, a preset's
+    layer count in the dialogs) and lines that carry a state (`.state-line`: the cost card's state, its "Most triangles in
+    High" line, its measuring conditions and the line saying which budgets count; "No exports yet…" in Projects; "None
+    yet…" under Gradients). The Look's line and the panel's readouts were never hints. The colour list's hint stays a hint:
+    its words and when it shows still come from the list (only when there is a colour to click), and Show hints off hides
+    it too.
 
 ## Claude skills
 

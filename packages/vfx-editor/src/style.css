@@ -204,7 +204,10 @@ kbd { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-fiel
 .layer-thumb { display: block; object-fit: contain; border-radius: var(--r-segment); background: var(--ground); outline: 1px solid var(--swatch-edge); outline-offset: -1px; }
 /* A long thin frame (a tracer's streak) would be a line about a pixel thick: a slice from its middle fills the tile. */
 .layer-thumb[data-fit="slice"] { object-fit: cover; }
-.hint { font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+/* Hints explain (one or two lines; Show hints off hides them, their words stay in tooltips). Meta text (counts, folders,
+   ids) and lines that carry a state (the cost card's, an empty list's) look the same and always show. */
+.hint, .meta, .state-line { font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+:root[data-hints="off"] .hint, :root[data-hints="off"] .vhint { display: none; }
 .empty { color: var(--text-muted); }
 .fatal { margin: 24px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); white-space: pre-wrap; font-family: var(--mono); }
 /* Its first line is a sentence, not file text; the stack trace under it stays Plex Mono. */
@@ -834,7 +837,7 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 
 /* Gradients, in the colour picker. */
 .gr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.gr-tiles > .hint { grid-column: 1 / -1; }
+.gr-tiles > .state-line { grid-column: 1 / -1; }
 .gr-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 4px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); }
 .gr-tile:hover { background: var(--bg-hover); }
 .gr-tile.sel { background: var(--bg-selected); box-shadow: inset 0 0 0 2px var(--accent-ink); }
@@ -873,7 +876,7 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
    menus or popovers, no scale. */
 .frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
 .frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .timeline-pane, .frame-only .statusbar,
-.frame-only .splitter, .frame-only .menu, .frame-only .popover, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
+.frame-only .splitter, .frame-only .menu, .frame-only .popover, .frame-only .hints-toggle, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
 .frame-only .tooltip { display: none !important; }
 .frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
 .frame-only .centre { grid-area: 1 / 1; grid-template-rows: minmax(0, 1fr); }

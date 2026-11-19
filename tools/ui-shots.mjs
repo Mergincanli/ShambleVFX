@@ -27,6 +27,7 @@ const SEED = 7;
 //   picker            true: the colour picker is open on the effect's main colour
 //   menu              true: a menu is open (act opens it: the main menu, or a chip's); the picture is checked for it
 //   popover           true: the Distance popover is open (act opens it); the picture is checked for it
+//   query             more of the address, such as 'hints=off' (Show hints off for the picture; the picture is checked for it)
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
 //                     and keys with Playwright's real mouse and keyboard
 //   hover(page)       optional: a Playwright locator to rest the pointer on until its tooltip opens, after the effect is
@@ -49,6 +50,8 @@ const STATES = [
   { name: 'menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.topbar .logo', '#main-menu') },
   { name: 'faction-menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.vbar .faction-chip', '#faction-menu') },
   { name: 'view-menu', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.vbar .view-chip', '#view-menu') },
+  // Show hints off (UI phase 3): the effect's own view, which has the most hints, and the drag hint over the preview gone.
+  { name: 'hints-off', project: DEMO, effect: 'rifle_shot', ms: 20, query: 'hints=off' },
   // The Distance popover, in the tank shell's scene (you are in it: the distance moves the target).
   { name: 'distance-popover', project: DEMO, effect: 'board_shell', ms: 300, popover: true, act: (page) => openFrom(page, '.vbar .distance-chip', '#distance-popover') },
 ];
@@ -138,7 +141,7 @@ function describe() {
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
   return {
     effect: a.effect()?.id ?? null, effectName: a.effect()?.name ?? null, layer: a.layer()?.id ?? null, layerName: a.layer()?.name ?? null,
-    theme: document.documentElement.dataset.theme, pickerOpen: !!document.querySelector('.cpick')?.matches(':popover-open'),
+    theme: document.documentElement.dataset.theme, hints: document.documentElement.dataset.hints, pickerOpen: !!document.querySelector('.cpick')?.matches(':popover-open'),
     tooltipOpen: !!document.querySelector('.tooltip')?.matches(':popover-open'),
     menuOpen: !!document.querySelector('.menu:popover-open'),
     popoverOpen: !!document.querySelector('.popover:popover-open'),
@@ -342,7 +345,7 @@ try {
     for (const theme of THEMES) {
       for (const size of SIZES) {
         const file = join(outDir, `${prefix}${state.name}-${theme.name}-${size.width}.png`);
-        const { page, errors } = await open(`backend=webgl&theme=${theme.param}&project=${state.project}`, size);
+        const { page, errors } = await open(`backend=webgl&theme=${theme.param}&project=${state.project}${state.query ? `&${state.query}` : ''}`, size);
         try {
           const problem = await page.evaluate(select, { effect: state.effect, layer: state.layer ?? null });
           if (problem) throw new Error(problem);
@@ -359,6 +362,8 @@ try {
           const got = await page.evaluate(describe);
           const wrong = [];
           if (got.theme !== theme.param) wrong.push(`theme is ${got.theme}, want ${theme.param}`);
+          const wantHints = /(^|&)hints=off(&|$)/.test(state.query ?? '') ? 'off' : 'on';
+          if (got.hints !== wantHints) wrong.push(`Show hints is ${got.hints}, want ${wantHints}`);
           if (got.effect !== state.effect) wrong.push(`effect is ${got.effect}, want ${state.effect}`);
           if (!state.layer && got.layer !== null) wrong.push(`layer ${got.layer} is selected, want none`);
           if (state.layer && !state.layer.startsWith('first:') && got.layer !== state.layer) wrong.push(`layer is ${got.layer}, want ${state.layer}`);

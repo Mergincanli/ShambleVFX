@@ -706,7 +706,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Goes at': 'When this tone drops away during the break-up, as a share of it from 0 to 1.',
 
   // ------------------------------------------------------------ the top bar and the main menu
-  'Main menu': 'Projects, a new project, Save and Save as, Export, Import an export, Night mode and the keyboard shortcuts.',
+  'Main menu': 'Projects, a new project, Save and Save as, Export, Import an export, Show hints, Night mode and the keyboard shortcuts.',
   'Project': 'The open project; a dot after its name means changes that are not saved. Click it for Projects: open another one, make a new one, or import an export.',
   'Projects…': 'Open another project, make a new one, or make a project from an export folder.',
   'New project…': 'Make a new, empty project in the projects folder (kept out of git) and open it. It asks for a name first.',
@@ -717,6 +717,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Export…': 'Write the folder the game loads into exports/: the list of effects, one file per effect, one packed image and the colours. Unsaved changes are asked about first.',
   'Undo': 'Take back the last change; one drag counts as one change.',
   'Redo': 'Bring back the change you took back.',
+  'Show hints': 'One-line hints under the settings that have one, and the drag hint over the preview. Off hides them; their full words stay in the tooltips. The choice is remembered.',
   'Night mode': 'Dark grey panels instead of the light, warm ones. The preview keeps the game\'s colours; the choice is remembered.',
   'Keyboard shortcuts': 'Every key the editor knows, and what the mouse does on the preview.',
 

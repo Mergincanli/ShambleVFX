@@ -58,6 +58,8 @@ const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const THEME_KEY = 'vfx-theme';
+/** Show hints, remembered: 'on' or 'off' (a browser that never chose shows them). */
+const HINTS_KEY = 'vfx-hints';
 /** One wording for the drag hint everywhere: over the preview, in the status bar, and in README. */
 const DRAG_HINT = 'Drag the ground to move the target. Shift + drag moves the stand-in.';
 
@@ -65,6 +67,13 @@ const DRAG_HINT = 'Drag the ground to move the target. Shift + drag moves the st
 function applyTheme(dark: boolean): void {
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 }
+
+/** Show hints: the one-line hints show, or hide (the stylesheet, by data-hints). Their full words are in tooltips either way. */
+function applyHints(on: boolean): void {
+  document.documentElement.dataset.hints = on ? 'on' : 'off';
+}
+
+const hintsOn = () => document.documentElement.dataset.hints !== 'off';
 
 export class App implements AppApi {
   faction: FactionId = 'soviets';
@@ -94,7 +103,7 @@ export class App implements AppApi {
   private problemCache: { fx: EffectFile | undefined; images: number; list: Problem[]; palette: Palette } | null = null;
   private els!: {
     root: HTMLElement; projectName: HTMLElement; project: HTMLButtonElement; lock: HTMLElement; save: HTMLButtonElement; undo: HTMLButtonElement; redo: HTMLButtonElement;
-    night: HTMLButtonElement; effects: HTMLElement; layers: HTMLElement; viewport: HTMLElement; play: HTMLButtonElement; time: HTMLElement;
+    hints: HTMLButtonElement; night: HTMLButtonElement; effects: HTMLElement; layers: HTMLElement; viewport: HTMLElement; play: HTMLButtonElement; time: HTMLElement;
     timeNow: HTMLButtonElement; timeInput: HTMLInputElement; timeLen: HTMLElement; timeStep: HTMLElement; timeFiring: HTMLElement;
     status: HTMLElement; dialog: HTMLDialogElement;
     sbChecks: HTMLButtonElement; sbTris: HTMLElement; sbDraws: HTMLElement; sbCost: HTMLButtonElement; sbHint: HTMLElement; sbRenderer: HTMLElement;
@@ -450,6 +459,10 @@ export class App implements AppApi {
     const params = new URLSearchParams(location.search);
     const stored = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
     applyTheme((params.get('theme') ?? stored) === 'dark');
+    // Show hints: on in a browser that never chose. ?hints=on or off (for pictures) counts for this page only, as ?theme=
+    // does: it is not remembered.
+    const storedHints = (() => { try { return localStorage.getItem(HINTS_KEY); } catch { return null; } })();
+    applyHints((params.get('hints') ?? storedHints) !== 'off');
     // One tooltip for the page: every title, and the help texts for labels (help.ts).
     installTooltips(lookupHelp);
     this.fadeOn = (() => { try { return localStorage.getItem(FADE_KEY) !== '0'; } catch { return true; } })();
@@ -525,6 +538,8 @@ export class App implements AppApi {
     const project = h('button', { class: 'project-btn', attrs: { type: 'button', 'data-help-label': 'Project' }, on: { click: () => void this.projectsDialog() } }, projectName);
     const save = h('button', { class: 'tb save', attrs: { type: 'button' }, on: { click: () => void this.save() } }, h('span', { class: 'save-icon' }, icon('save')), h('span', { class: 'save-label', text: 'Save' }));
     // An icon toggle: the sun shows in Day, the moon in Night (the stylesheet picks one by aria-pressed).
+    // Show hints, a light bulb, left of Night mode: an icon toggle (on: the field colour, the bulb in --accent-ink).
+    const hints = iconButton({ icon: 'hint', label: 'Show hints', className: 'tb hints-toggle', pressed: hintsOn(), onClick: () => this.setHints(!hintsOn()) });
     const night = iconButton({ icon: ['sun', 'moon'], label: 'Night mode', className: 'tb theme-toggle', pressed: document.documentElement.dataset.theme === 'dark',
       onClick: () => this.setTheme(document.documentElement.dataset.theme !== 'dark') });
     const undo = iconButton({ icon: 'undo', label: 'Undo', className: 'tb', onClick: () => this.history.undo() });
@@ -533,7 +548,7 @@ export class App implements AppApi {
     const dialog = h('dialog', { class: 'dlg' });
     const top = h('header', { class: 'topbar', attrs: { 'data-help-section': 'Top bar' } },
       logo, h('div', { class: 'project' }, project),
-      h('div', { class: 'tools' }, undo, redo, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), night, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), save,
+      h('div', { class: 'tools' }, undo, redo, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), hints, night, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), save,
         h('button', { class: 'tb export', attrs: { type: 'button' }, on: { click: () => void this.exportDialog() } }, icon('export'), h('span', { text: 'Export…' }))));
     // The main menu: what left the top bar (Projects…, Save as…, Keys) and the rest of a project's commands. A menu of
     // dom.ts, appended to document.body, so nothing clips it.
@@ -545,6 +560,7 @@ export class App implements AppApi {
       { label: 'Export…', icon: 'export', disabled: () => !this.project, action: () => void this.exportDialog() },
       { label: 'Import an export…', icon: 'import', action: () => void this.projectsDialog(true) },
       'divider',
+      { label: 'Show hints', checked: hintsOn, action: () => this.setHints(!hintsOn()) },
       { label: 'Night mode', checked: () => document.documentElement.dataset.theme === 'dark', action: () => this.setTheme(document.documentElement.dataset.theme !== 'dark') },
       { label: 'Keyboard shortcuts', icon: 'keys', shortcut: '?', ariaKeys: '?', action: () => this.keysDialog() },
     ] });
@@ -653,7 +669,7 @@ export class App implements AppApi {
     document.addEventListener('pointerover', (e) => this.setStatusHint(((e.target as Element).closest?.('[data-status-hint]') as HTMLElement | null)?.dataset.statusHint ?? ''));
     document.addEventListener('pointerout', (e) => { if (e.relatedTarget === null) this.setStatusHint(''); });
     this.els = {
-      root, projectName, project, lock, save, undo, redo, night, effects, layers, viewport, play, time, timeNow, timeInput, timeLen, timeStep, timeFiring, status, dialog,
+      root, projectName, project, lock, save, undo, redo, hints, night, effects, layers, viewport, play, time, timeNow, timeInput, timeLen, timeStep, timeFiring, status, dialog,
       sbChecks, sbTris, sbDraws, sbCost, sbHint, sbRenderer,
     };
   }
@@ -887,7 +903,7 @@ export class App implements AppApi {
         if (!fx) continue;
         const preset = fx, scene = scenes[fx.id]?.scene;
         items.push(h('li', {}, h('button', { class: 'linkish', attrs: { type: 'button' }, text: fx.name, on: { click: () => { d.close(); this.addFromPreset(preset, scene); } } }),
-          h('span', { class: 'hint', text: ` ${fx.layers.length} layers` })));
+          h('span', { class: 'meta', text: ` ${fx.layers.length} layers` })));
       }
       if (items.length) groups.push(h('h3', { text: p.name }), h('ul', { class: 'plist' }, ...items));
     }
@@ -915,19 +931,19 @@ export class App implements AppApi {
     const d = this.els.dialog;
     const rows = listing.projects.map((p) => h('li', {},
       h('button', { class: 'linkish', attrs: { type: 'button' }, text: p.name, on: { click: () => { d.close(); void this.openProject(p.id); } } }),
-      h('span', { class: 'hint', text: ` ${p.id}${p.writable ? '' : ' · example, read-only'}` })));
+      h('span', { class: 'meta', text: ` ${p.id}${p.writable ? '' : ' · example, read-only'}` })));
     let exportsList: ExportSummary[] = [];
     try { exportsList = await this.store.listExports(); } catch { /* no exports to show */ }
     const importRows = exportsList.map((e) => h('li', {},
       h('button', { class: 'linkish', attrs: { type: 'button' }, text: e.name, on: { click: () => { d.close(); void this.importDialog(e); } } }),
-      h('span', { class: 'hint', text: ` exports/${e.folder} · ${e.effects} effect${e.effects === 1 ? '' : 's'}, ${e.events} event${e.events === 1 ? '' : 's'}` })));
+      h('span', { class: 'meta', text: ` exports/${e.folder} · ${e.effects} effect${e.effects === 1 ? '' : 's'}, ${e.events} event${e.events === 1 ? '' : 's'}` })));
     const importTitle = h('h3', { text: 'Import an export' });
     d.replaceChildren(
       h('h2', { text: 'Projects' }),
       h('ul', { class: 'plist' }, ...rows),
       importTitle,
       h('p', { class: 'hint', text: 'Makes a new project from an export folder: the effects as they are, each image cut back out of the atlas, the game events, scenes and budgets.' }),
-      importRows.length ? h('ul', { class: 'plist imports' }, ...importRows) : h('p', { class: 'hint', text: 'No exports yet: Export… writes one into exports/.' }),
+      importRows.length ? h('ul', { class: 'plist imports' }, ...importRows) : h('p', { class: 'state-line', text: 'No exports yet: Export… writes one into exports/.' }),
       h('div', { class: 'dlg-buttons' },
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'New project…', on: { click: () => { d.close(); void this.newProject(); } } }),
         h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Close', on: { click: () => d.close() } })));
@@ -1446,6 +1462,13 @@ export class App implements AppApi {
   /** The middle of the status bar: the hint for what is under the pointer (the preview's), or nothing. */
   private setStatusHint(text: string): void {
     if (this.els) setText(this.els.sbHint, text);
+  }
+
+  /** Show hints on or off, from the top bar's button or the main menu (remembered as vfx-hints). */
+  private setHints(on: boolean): void {
+    applyHints(on);
+    this.els.hints.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(HINTS_KEY, on ? 'on' : 'off'); } catch { /* storage may be blocked */ }
   }
 
   /** Night mode on or off, from the top bar's button or the main menu (remembered). */

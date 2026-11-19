@@ -56,7 +56,7 @@ export class GradientPanel {
     p.presets.replaceChildren(...GRADIENT_PRESETS.map((pr) => this.tile(pr.label, { ...pr.gradient, from: 'assumed' }, `Start a gradient from "${pr.label}"`, () => this.fromPreset(pr))));
     const names = Object.keys(pal.gradients ?? {}).sort();
     p.mine.replaceChildren(...(names.length ? names.map((n) => this.tile(n, pal.gradients[n]!, `Change ${n}`, () => this.edit(n), n === this.editing))
-      : [h('p', { class: 'hint', text: 'None yet: start one from the ready-made ones above, or make one below.' })]));
+      : [h('p', { class: 'state-line', text: 'None yet: start one from the ready-made ones above, or make one below.' })]));
     const g = this.editing ? pal.gradients?.[this.editing] : undefined;
     if (this.editing && !g) this.editing = null;
     p.createRow.hidden = !!g;

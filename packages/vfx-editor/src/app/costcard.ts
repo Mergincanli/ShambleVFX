@@ -4,8 +4,8 @@
  *
  * Budgets come at three levels (the project's, a class's, the effect's own: see ../cost/budgets.ts). Until the UI redesign
  * rebuilds this card (its phase 6), the boxes show and edit the project's budgets, a number typed switches them on, the
- * colours compare with the level that counts for the effect, and one short hint line says which level that is (more in its
- * tooltip).
+ * colours compare with the level that counts for the effect, and one short line says which level that is (more in its
+ * tooltip). The card's lines that carry its state are not hints: Show hints off keeps them (the class state-line).
  */
 import { TIER_NAMES } from '@shamble/vfx-format';
 import type { TierName } from '@shamble/vfx-format';
@@ -97,7 +97,8 @@ function valueText(c: TierCost, m: CostMetric): { main: string; sub: string } {
 }
 
 export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
-  const status = h('p', { class: 'hint cost-status' });
+  // Lines that carry the card's state (not hints: Show hints off keeps them).
+  const status = h('p', { class: 'state-line cost-status' });
   const measureLabel = h('span', { text: 'Measure' });
   const measure = h('button', { class: 'tb', attrs: { type: 'button' }, on: { click: () => app.measureCost() } },
     icon('gauge'), measureLabel);
@@ -121,9 +122,9 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   const table = h('table', { class: 'cost' },
     h('thead', {}, h('tr', {}, h('th', {}), ...TIER_NAMES.map((t) => h('th', { attrs: { scope: 'col' }, text: TIER_LABEL[t] })))),
     h('tbody', {}, ...rows));
-  const heavy = h('p', { class: 'hint' });
-  const cond = h('p', { class: 'hint cost-cond' });
-  const level = h('p', { class: 'hint cost-level' });
+  const heavy = h('p', { class: 'state-line cost-heavy' });
+  const cond = h('p', { class: 'state-line cost-cond' });
+  const level = h('p', { class: 'state-line cost-level' });
   const el = h('section', { class: 'card costcard' },
     h('div', { class: 'card-head' }, h('h2', { text: 'Cost' }), measure),
     status, table, heavy, cond,
