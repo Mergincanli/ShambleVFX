@@ -1066,8 +1066,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     shows is kept as it is until you change it: Tab through the box, or Enter on what it shows, changes nothing.
   - Each box keeps the step and the limits it had. A slider's box still takes any number typed, as before (the file may go
     past the slider's ends: Size up to 20, Speed up to 10000 m/s); a drag on the slider's name stays within the slider's
-    ends, as the slider does. A drag is a step for every 4 px, ten with Shift, as Distance's; a press that does not move is
-    a click on the name, which puts the focus in the box. Each press of ↑ or ↓ is one undo step, as before.
+    ends, as the slider does. A drag is a step for every 4 px, ten with Shift, as Distance's. A press on a number's own name
+    that does not move is a click, which puts the focus in its box; a slider's name and a prefix ("R") take no focus. Each
+    press of ↑ or ↓ is one undo step, as before.
   - An undo (or anything else) that changes a number while its box has the focus shows in the box at once, unless you are
     typing in it; leaving the box then writes nothing back. Before, the box kept the old number until you left it.
   - A change that adds or takes away a part of the layer (the first nudge adds one) builds the panel again; a drag goes on
@@ -1092,11 +1093,14 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     name a screen reader says): a sprite's Colour, **Keep** and **Multiply** (the brief's words; the tooltip says "Multiply
     by a colour role", where the button said "Multiply by a role"); a sprite's Faces, **Camera** and **Path**; a projectile's
     Flight, **Speed**, **Time** and **Phase**. The others fit and keep their words.
-  - **Colour roles**: every colour select of the generated forms, a sprite's Role and a tone's colour show a 14 px swatch of
-    the chosen colour for the faction shown; "main" shows the effect's main colour; a colour the palette lacks shows an
-    empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2).
-  - A tone of a fire or a star: its colour and its scale, each a row, then Remove; Add a tone under the last. Remove and Add
-    a tone line up with the controls.
+  - **Colour roles**: every colour select of the generated forms (a star's tones too) and a sprite's Role show a 14 px
+    swatch of the chosen colour for the faction shown; "main" shows the effect's main colour; a colour the palette lacks
+    shows an empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2). A fire's
+    tones (flames, the bed) stay boxes where you type a colour's name, as before: they have no swatch.
+  - A value longer than its select's column ("fire.smoke.light") is cut short: the browser draws no ellipsis in a select.
+    The open list shows it whole.
+  - A star's tone: its colour and its scale, each a row, then Remove; Add a tone under the last. Remove and Add a tone line
+    up with the controls.
   - **Folds**: the chevron is the icons' chevron (turned down when open), the title 13 px semibold and cut with an ellipsis.
     The colour picker's sections keep their small chevron until the picker's phase.
   - The Phases hint starts with a capital letter now: "Layers can start with a phase or last until one ends."
