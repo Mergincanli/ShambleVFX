@@ -211,7 +211,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (296 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (297 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -272,7 +272,7 @@ tag's place on hover and on the selected row, their tooltips and keys, its menu 
 staying while it is open, and Esc closing only the menu; Move up, Move
 down, Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
 opens below it; a press of less than 4 px a click, a drag with its 2 px
-line in one undo step, and Esc cancelling it; the empty state; the hover highlight both ways with the timeline; a new
+line in one undo step, and Esc cancelling it (letting go after that is not a click); the empty state; the hover highlight both ways with the timeline; a new
 selection scrolled into view in both, nothing round them moving), the keys /, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while
 typing or with a menu open; inside the rename and search boxes Space, Delete, Backspace, ← and → only type, and Esc does only
 the nearest thing; Keyboard shortcuts listing them), Save as, Export and Import
@@ -914,8 +914,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     them.
   - **Drag to reorder.** A press becomes a drag once the pointer moves 4 px; less is a click, which selects the row. A drag
     does not select the row. While it lasts, the dragged row stays highlighted, in the list and on the timeline, and near
-    the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected. The whole
-    row is the handle: there is no grip icon (4.5 lists one; 6.2 does not put one on the row).
+    the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected; letting go
+    of the button after that is not a click, even over the row the drag started on. The whole row is the handle: there is no
+    grip icon (4.5 lists one; 6.2 does not put one on the row).
   - **The row's buttons** show on hover, on the selected row and while the keyboard focus is in the row. The keyboard
     reaches them on the selected row (Tab); on other rows the menu is a right-click or the context-menu key away. They act on
     their own row's layer, which need not be the selected one: Move up and Move down keep the selection; Delete in a row's

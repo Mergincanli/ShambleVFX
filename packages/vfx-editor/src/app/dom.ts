@@ -1008,8 +1008,9 @@ export interface ReorderView {
  * more becomes a drag (less stays a click, which goes on as a click); a 2 px line in --accent-ink shows where the row will
  * land (none where it would land in its own place), and near the list's top or bottom edge the list scrolls. Letting go
  * moves the row there (onDrop, once); Esc cancels the drag and nothing moves, and the Esc goes no further (the editor's Esc
- * would leave the layer). The list takes the pointer only once the press is a drag, so a click still lands on its row.
- * Rows are found again at each step by their keys: the list may be built again meanwhile.
+ * would leave the layer); letting go of the button after that is not a click on a row. The list takes the pointer only once
+ * the press is a drag, so a click still lands on its row. Rows are found again at each step by their keys: the list may be
+ * built again meanwhile.
  */
 export function reorderDrag(list: HTMLElement, o: {
   /** The row a press there may drag, or null (the row's buttons, a box). */
@@ -1056,12 +1057,18 @@ export function reorderDrag(list: HTMLElement, o: {
     };
     frame = requestAnimationFrame(step);
   };
+  /** Esc cancelled a drag with the button still down: the click that letting it go makes is not a click on a row. */
+  let cancelled = false;
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== 'Escape') return;
     e.preventDefault();
     e.stopPropagation();
+    cancelled = true;
+    // That click comes with the pointerup, before anything set up then runs; a new press starts afresh too.
+    window.addEventListener('pointerup', () => setTimeout(() => { cancelled = false; }), { capture: true, once: true });
     finish(false);
   };
+  list.addEventListener('click', (e) => { if (cancelled) { cancelled = false; e.stopPropagation(); } }, true);
   const finish = (drop: boolean) => {
     const d = drag;
     press = null;
@@ -1080,6 +1087,7 @@ export function reorderDrag(list: HTMLElement, o: {
     if (to !== from) o.onDrop(d.key, from, to);
   };
   list.addEventListener('pointerdown', (e) => {
+    cancelled = false;
     if (e.button !== 0 || !e.isPrimary || drag) return;
     const row = o.rowOf(e.target as Element);
     press = row ? { key: o.keyOf(row), x: e.clientX, y: e.clientY, id: e.pointerId } : null;

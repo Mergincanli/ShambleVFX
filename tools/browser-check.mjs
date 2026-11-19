@@ -3058,6 +3058,21 @@ if (webgpu) {
       JSON.stringify({ line, dropped: dropped.order, undo: dropped.undo, undone: dropUndone.order.join() === before.order.join() }));
     ok('Esc during a drag cancels it: the line goes, nothing moves, and the layer stays selected', !lineAfterEsc && JSON.stringify(cancelled.order) === JSON.stringify(before.order) && cancelled.sel === 'beam_core' && cancelled.undo === before.undo,
       JSON.stringify({ lineAfterEsc, sel: cancelled.sel, same: cancelled.order.join() === before.order.join() }));
+    // Esc during a drag, then the pointer back over the row the drag started on and let go there: that is not a click on the
+    // row (it would select it), and the next real click selects as usual.
+    const w1 = await box('emitter_white');
+    await lp.mouse.move(w1.x + 70, w1.y + 14);
+    await lp.mouse.down();
+    await lp.mouse.move(w1.x + 70, w1.y + 70, { steps: 8 });
+    await lp.keyboard.press('Escape');
+    await lp.mouse.move(w1.x + 70, w1.y + 14, { steps: 4 });
+    await lp.mouse.up();
+    const escRelease = await layersNow();
+    await layerRowOf('emitter_white').click();
+    const clickAfter = await layersNow();
+    ok('after Esc cancels a drag, letting go over the row it started on is not a click: the selected layer stays, and the next click selects as usual',
+      escRelease.sel === 'beam_core' && JSON.stringify(escRelease.order) === JSON.stringify(before.order) && escRelease.undo === before.undo && clickAfter.sel === 'emitter_white',
+      JSON.stringify({ escRelease: escRelease.sel, same: escRelease.order.join() === before.order.join(), clickAfter: clickAfter.sel }));
 
     // The keys: Ctrl+] and Ctrl+[ move the selected layer up and down the list, each one undo step; none of F2, Ctrl+D,
     // Ctrl+] and Ctrl+[ does anything while typing in a field (the search box) or with a menu open.
