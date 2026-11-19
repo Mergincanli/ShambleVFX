@@ -91,7 +91,8 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
       // A layer the preview's tier leaves out is shown faded.
       const off = l.type !== 'projectile' && !l.tiers.includes(app.previewTier());
       if (off) bar.title += ` · not drawn in the ${app.previewTier()} tier`;
-      rows.append(h('div', { class: `tl-row${l.id === sel ? ' sel' : ''}${off ? ' off' : ''}`, attrs: { 'data-layer': l.id } }, name, h('div', { class: 'tl-lane' }, bar)));
+      // The row under the mouse in the Layers list is highlighted here too.
+      rows.append(h('div', { class: `tl-row${l.id === sel ? ' sel' : ''}${off ? ' off' : ''}${l.id === app.hoveredLayer() ? ' hovered' : ''}`, attrs: { 'data-layer': l.id } }, name, h('div', { class: 'tl-lane' }, bar)));
     });
   };
 

@@ -646,6 +646,15 @@ export function menu(o: {
         const open = (isOpen() && below === button) || (shut?.button === button && now - shut.at < 100);
         pressedOpen = open ? { button, at: now } : null;
       }, true);
+      // As for the menu's own button: a key pressed here while the menu is open below it, before the focus went in, is the
+      // menu's.
+      button.addEventListener('keydown', (e) => {
+        if (!isOpen() || below !== button || e.key === 'Enter' || e.key === ' ' || MODIFIER_KEYS.has(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+        const from = first();
+        if (!from) return;
+        from.focus({ preventScroll: true });
+        onKey(e);
+      });
     }
     // Its second click: the press closed the menu already, so it stays closed.
     if (pressedOpen?.button === button && performance.now() - pressedOpen.at < 1500) { pressedOpen = null; return; }
@@ -981,6 +990,116 @@ export function renameBox(o: { value: string; label: string; maxLength: number; 
     document.addEventListener('pointerup', () => setTimeout(() => { document.removeEventListener('click', keep, true); keep(); }), { capture: true, once: true });
   });
   return { el: input, dispose: () => { done = true; } };
+}
+
+/** How far the pointer must move, in px, before a press on a row becomes a drag (less is a click). */
+export const DRAG_START_PX = 4;
+
+export interface ReorderView {
+  /** A row is being dragged now. */
+  dragging(): boolean;
+}
+
+/**
+ * Drag a list's rows to put them in another order (docs/ui-redesign.md 6.2). A press on a row that moves DRAG_START_PX or
+ * more becomes a drag (less stays a click, which goes on as a click); a 2 px line in --accent-ink shows where the row will
+ * land (none where it would land in its own place), and near the list's top or bottom edge the list scrolls. Letting go
+ * moves the row there (onDrop, once); Esc cancels the drag and nothing moves, and the Esc goes no further (the editor's Esc
+ * would leave the layer). The list takes the pointer only once the press is a drag, so a click still lands on its row.
+ * Rows are found again at each step by their keys: the list may be built again meanwhile.
+ */
+export function reorderDrag(list: HTMLElement, o: {
+  /** The row a press there may drag, or null (the row's buttons, a box). */
+  rowOf(target: Element): HTMLElement | null;
+  /** The rows, in the order shown. */
+  rows(): HTMLElement[];
+  keyOf(row: HTMLElement): string;
+  onStart?(key: string): void;
+  /** The row moved from one place to another, in the order shown (0 is the top). */
+  onDrop(key: string, from: number, to: number): void;
+  onEnd?(): void;
+}): ReorderView {
+  let press: { key: string; x: number; y: number; id: number } | null = null;
+  let drag: { key: string; id: number; gap: number } | null = null;
+  let pointerY = 0, frame = 0;
+  const line = h('div', { class: 'drop-line', attrs: { 'aria-hidden': 'true' } });
+  /** The gap the pointer is over: before row i (i from 0), or after the last row. */
+  const gapAt = (y: number) => {
+    const rows = o.rows();
+    for (let i = 0; i < rows.length; i++) { const r = rows[i]!.getBoundingClientRect(); if (y < r.top + r.height / 2) return i; }
+    return rows.length;
+  };
+  const showLine = () => {
+    if (!drag) return;
+    const rows = o.rows(), from = rows.findIndex((r) => o.keyOf(r) === drag!.key), g = drag.gap;
+    if (from < 0 || g === from || g === from + 1 || !rows.length) { line.remove(); return; }
+    const top = g < rows.length ? rows[g]!.offsetTop : rows[rows.length - 1]!.offsetTop + rows[rows.length - 1]!.offsetHeight;
+    line.style.top = `${top - 1}px`;
+    if (line.parentElement !== list) list.append(line);
+  };
+  /** Near the list's top or bottom edge, the list scrolls (and the landing place follows) while the pointer stays there. */
+  const scrollNearEdge = () => {
+    cancelAnimationFrame(frame);
+    const step = () => {
+      if (!drag) return;
+      const r = list.getBoundingClientRect(), edge = 24;
+      const v = pointerY < r.top + edge ? -6 : pointerY > r.bottom - edge ? 6 : 0;
+      const was = list.scrollTop;
+      if (v) list.scrollTop += v;
+      if (list.scrollTop === was) return;
+      drag.gap = gapAt(pointerY);
+      showLine();
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    finish(false);
+  };
+  const finish = (drop: boolean) => {
+    const d = drag;
+    press = null;
+    if (!d) return;
+    drag = null;
+    cancelAnimationFrame(frame);
+    window.removeEventListener('keydown', onKey, true);
+    line.remove();
+    list.classList.remove('reordering');
+    if (list.hasPointerCapture(d.id)) list.releasePointerCapture(d.id);
+    o.onEnd?.();
+    if (!drop) return;
+    const from = o.rows().findIndex((r) => o.keyOf(r) === d.key);
+    if (from < 0 || d.gap < 0) return;
+    const to = d.gap > from ? d.gap - 1 : d.gap;
+    if (to !== from) o.onDrop(d.key, from, to);
+  };
+  list.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || !e.isPrimary || drag) return;
+    const row = o.rowOf(e.target as Element);
+    press = row ? { key: o.keyOf(row), x: e.clientX, y: e.clientY, id: e.pointerId } : null;
+  });
+  list.addEventListener('pointermove', (e) => {
+    if (press && !drag && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_START_PX) {
+      drag = { key: press.key, id: press.id, gap: -1 };
+      press = null;
+      list.setPointerCapture(e.pointerId);
+      list.classList.add('reordering');
+      window.addEventListener('keydown', onKey, true);
+      o.onStart?.(drag.key);
+    }
+    if (!drag || e.pointerId !== drag.id) return;
+    pointerY = e.clientY;
+    drag.gap = gapAt(e.clientY);
+    showLine();
+    scrollNearEdge();
+  });
+  list.addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.id) finish(true); else press = null; });
+  list.addEventListener('pointercancel', () => finish(false));
+  list.addEventListener('lostpointercapture', () => { if (drag) finish(false); });
+  return { dragging: () => !!drag };
 }
 
 /** Scroll a list so that one of its rows shows, as little as needed (block: 'nearest'), and nothing round the list. */

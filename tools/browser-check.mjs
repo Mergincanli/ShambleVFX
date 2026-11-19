@@ -365,7 +365,9 @@ if (webgpu) {
   await p.evaluate(() => window.__vfx.app.pickEffect('board_shell'));
   await p.evaluate(() => window.__vfx.app.selectLayer('burst'));
   const before = (await p.evaluate(() => window.__vfx.app.effect().layers.length));
-  await p.selectOption('select.add-layer', 'shape:cloud');
+  await p.click('.layers-section .add-layer');
+  await p.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+  await menuRow(p, 'add-layer-menu', 'Cloud blast').click();
   await p.waitForTimeout(150);
   const added = await p.evaluate(() => { const a = window.__vfx.app; return { n: a.effect().layers.length, sel: a.layer()?.type, kind: a.layer()?.shape?.kind }; });
   ok('the add menu adds a shape layer and selects it', added.n === before + 1 && added.sel === 'shape' && added.kind === 'cloud', JSON.stringify(added));
@@ -1480,7 +1482,7 @@ if (webgpu) {
           'Whole screen', 'Game size', 'Close-up', 'Close-up on the muzzle', 'Close-up on the target', 'Made by an enemy', 'Made by your team', 'Made by you', 'Fade other layers'],
         Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
         Effects: ['Effects', 'Add an effect', 'New effect', 'From preset…', 'Search effects', 'Rename', 'Duplicate', 'Move to folder…', 'Delete effect', 'No folder', 'New folder…'],
-        Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
+        Layers: ['Layers', 'Add a layer', 'Sprite layer', 'Projectile layer', 'Shape layer', 'Shape: ring', 'Shape: bed', 'Burst layer', 'Word layer', 'Rename', 'Duplicate', 'Move up', 'Move down', 'Delete layer'] };
       const bars = [];
       for (const [section, labels] of Object.entries(BAR)) {
         const regions = [...document.querySelectorAll(`[data-help-section="${section}"]`)];
@@ -1640,20 +1642,29 @@ if (webgpu) {
     await drag('.split-right', -600, 0); const rMax = await sizes();
     await drag('.split-right', 600, 0); const rMin = await sizes();
     await drag('.split-effects', 0, 900); const eMax = await sizes();
-    // The Layers section is then 160 px tall: its list gives way, so its add menu and buttons stay inside the column.
-    const layersAtMax = await sp.evaluate(() => {
+    // The Layers section is then 160 px tall: its list gives way, so its header with the + stays inside the column, and at
+    // least one row shows, whose buttons show inside the column on hover.
+    const layersBox = () => sp.evaluate(() => {
       const left = document.querySelector('.left').getBoundingClientRect(), list = document.querySelector('.layers-list').getBoundingClientRect();
-      const parts = [document.querySelector('.layers-section .add-layer'), ...document.querySelectorAll('.layers-section .layer-tools button')].map((e) => e.getBoundingClientRect());
-      return { section: Math.round(document.querySelector('.layers-section').getBoundingClientRect().height), list: Math.round(list.height), lowest: Math.round(Math.max(...parts.map((r) => r.bottom))), column: Math.round(left.bottom), parts: parts.length };
+      const head = document.querySelector('.layers-section .card-head').getBoundingClientRect(), add = document.querySelector('.layers-section .add-layer').getBoundingClientRect();
+      const row = document.querySelector('.layers-list .layer-item'), rowBox = row.getBoundingClientRect();
+      const tools = [...row.querySelectorAll('.item-tools button')].filter((b) => b.getClientRects().length).map((b) => b.getBoundingClientRect());
+      return { section: Math.round(document.querySelector('.layers-section').getBoundingClientRect().height), list: Math.round(list.height), head: Math.round(head.bottom), add: Math.round(add.bottom),
+        addInside: add.left >= left.left && add.right <= left.right, column: Math.round(left.bottom), row: Math.round(rowBox.bottom), rowShown: rowBox.height >= 28 && rowBox.bottom <= list.bottom + 0.5,
+        tools: tools.length, toolsLowest: tools.length ? Math.round(Math.max(...tools.map((r) => r.bottom))) : null, toolsInside: tools.every((r) => r.right <= left.right && r.bottom <= left.bottom) };
     });
+    await sp.locator('.layers-list .layer-item').first().hover();
+    const layersAtMax = await layersBox();
+    await sp.mouse.move(900, 400);
     await drag('.split-effects', 0, -900); const eMin = await sizes();
     await drag('.split-timeline', 0, -900); const tMax = await sizes();
     await drag('.split-timeline', 0, 900); const tMin = await sizes();
     ok('the splitters stop at their limits: left 200 to 420 px, right 260 to 480 px, the effects 120 px to the column less 160 px, the timeline 140 px to 60 % of the centre',
       lMax.left === 420 && lMin.left === 200 && rMax.right === 480 && rMin.right === 260 && eMax.effects === 1016 - 160 && eMin.effects === 120 && tMax.timeline === 610 && tMin.timeline === 140,
       JSON.stringify({ left: [lMin.left, lMax.left], right: [rMin.right, rMax.right], effects: [eMin.effects, eMax.effects], timeline: [tMin.timeline, tMax.timeline] }));
-    ok('with the effects list at its largest, the Layers section (160 px) keeps its add menu and its buttons inside the column: its list gets shorter, one row at the least',
-      layersAtMax.section === 160 && layersAtMax.parts === 5 && layersAtMax.lowest <= layersAtMax.column && layersAtMax.list >= 28, JSON.stringify(layersAtMax));
+    ok('with the effects list at its largest, the Layers section (160 px) keeps its header with the + inside the column, and its list at least one row, whose Move up, Move down and More show inside the column on hover',
+      layersAtMax.section === 160 && layersAtMax.head <= layersAtMax.column && layersAtMax.add <= layersAtMax.column && layersAtMax.addInside && layersAtMax.list >= 28 && layersAtMax.rowShown
+        && layersAtMax.tools === 3 && layersAtMax.toolsLowest <= layersAtMax.column && layersAtMax.toolsInside, JSON.stringify(layersAtMax));
     // The arrow keys move a focused splitter 16 px (they do not step the timeline), Home and End go to its limits.
     await sp.locator('.split-left').focus();
     await sp.keyboard.press('ArrowRight');
@@ -2516,7 +2527,7 @@ if (webgpu) {
       const moreBox = await shotRow.locator('.more').boundingBox();
       await shotRow.locator('.more').click();
       await lp.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
-      await lp.waitForTimeout(100);
+      await lp.waitForFunction(() => document.activeElement?.closest('#effect-menu'), null, { timeout: 5000 }).catch(() => {});
       const byClick = await menuNow();
       const expanded = await shotRow.locator('.more').getAttribute('aria-expanded');
       await shotRow.locator('.more').click();
@@ -2700,6 +2711,7 @@ if (webgpu) {
       const whileTyping = await listNow();
       await lp.keyboard.press('Escape');
       await effectMenu(lp, 'Shot 2');
+      await lp.waitForFunction(() => document.activeElement?.closest('#effect-menu'), null, { timeout: 5000 }).catch(() => {});
       await lp.keyboard.press('F2');
       await lp.keyboard.press('Control+d');
       await lp.keyboard.press('/');
@@ -2749,6 +2761,291 @@ if (webgpu) {
       await g?.page.close();
       rmSync(fdir, { recursive: true, force: true });
     }
+  }
+
+  // -- the Layers list (docs/ui-redesign.md 6.2, 6.10, 6.11): the + menu that adds a layer (its groups, the 14 shapes with
+  // their plain names and the names in the file), the new layer above the selected one and selected; a row's buttons (Move
+  // up, Move down, More) in its tag's place on hover and on the selected row, and its menu by More and by a right-click;
+  // Rename, Duplicate, Move up, Move down and Delete, each one undo step; renaming in place; drag to reorder (the landing
+  // line, one undo step, Esc cancels); the empty state; the hover highlight both ways with the timeline; the selection
+  // scrolled into view in both; the keys F2, Ctrl+D, Ctrl+] and Ctrl+[, none while typing or with a menu open, and inside the
+  // rename box the editor's keys only type. On the demo project (an example: nothing is saved).
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const lp = g.page;
+    lp.on('dialog', (d) => d.accept());
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const info = await server.ssrLoadModule('/src/doc/layer-info.ts');
+    await lp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); a.selectLayer('emitter_glow'); await a.showAt(1000, 7); document.querySelector('.status')?.classList.remove('show'); });
+    /** The rows as shown (top of the list first), the selection, the undo step and where the focus is. */
+    const layersNow = () => lp.evaluate(() => {
+      const a = window.__vfx.app, f = document.activeElement;
+      return { order: a.effect().layers.map((l) => l.id).reverse(), sel: a.layer()?.id ?? null, n: a.effect().layers.length, undo: a.history.undoLabel ?? null,
+        rows: [...document.querySelectorAll('.layers-list .layer-item')].map((r) => r.dataset.layer), renaming: document.querySelector('.layers-list input.rename')?.value ?? null,
+        focus: f?.matches('input.rename') ? 'rename' : f?.matches('.effects-search input') ? 'search' : f?.closest?.('.menu') ? 'menu' : f?.className || f?.tagName,
+        time: a.debugState().mainTime, playing: a.debugState().playing, count: document.querySelector('.layers-section .list-count')?.textContent ?? null };
+    });
+    const layerRowOf = (id) => lp.locator(`.layers-list .layer-item[data-layer="${id}"]`);
+    const start = await layersNow();
+
+    // The + menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds (shape icon, plain name, the
+    // name in the file on the right), then Burst (pieces thrown out) and Word (a comic sound). The new layer goes above the
+    // selected one and is selected.
+    await lp.click('.layers-section .add-layer');
+    await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+    await lp.waitForFunction(() => document.activeElement?.closest('#add-layer-menu'), null, { timeout: 5000 }).catch(() => {});
+    const addMenu = await lp.evaluate(() => {
+      const m = document.getElementById('add-layer-menu');
+      const icon = (c) => (c.querySelector('.menu-icon svg')?.getAttribute('class') ?? '').replace('icon icon-', '');
+      return { parts: [...m.querySelectorAll(':scope > .menu-item, :scope > .menu-divider, :scope > .menu-group > .menu-heading, :scope > .menu-group > .menu-item')].map((c) => c.matches('.menu-divider') ? '—'
+        : c.matches('.menu-heading') ? `# ${c.textContent}` : `${icon(c)}: ${c.querySelector('.menu-label').textContent} (${c.querySelector('.menu-desc')?.textContent ?? ''})`), focus: document.activeElement?.querySelector?.('.menu-label')?.textContent ?? null };
+    });
+    await menuRow(lp, 'add-layer-menu', 'Halftone dots').click();
+    const added = await layersNow();
+    const addedLayer = await lp.evaluate(() => { const l = window.__vfx.app.layer(); return { type: l?.type, kind: l?.shape?.kind, name: l?.name }; });
+    await lp.keyboard.press('Control+z');
+    // Undo took the selected layer away: select the glow again.
+    await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
+    const shapeParts = info.SHAPE_KINDS.map((k) => `shape-${k}: ${info.SHAPE_TEXT[k].charAt(0).toUpperCase()}${info.SHAPE_TEXT[k].slice(1)} (${k})`);
+    ok('the Layers header\'s + opens the add menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds with their icons, plain names and the names in the file, then Burst and Word',
+      JSON.stringify(addMenu.parts) === JSON.stringify(['sprite: Sprite (an image)', 'projectile: Projectile (a path in flight)', '—', '# Shapes', ...shapeParts, '—', 'burst: Burst (pieces thrown out)', 'word: Word (a comic sound)'])
+        && addMenu.focus === 'Sprite', JSON.stringify(addMenu));
+    ok('a layer added from the menu goes above the selected one, and is selected', added.n === start.n + 1 && added.sel === 'dots' && added.order.indexOf('dots') === start.order.indexOf('emitter_glow')
+      && added.order.indexOf('emitter_glow') === start.order.indexOf('emitter_glow') + 1 && addedLayer.type === 'shape' && addedLayer.kind === 'dots' && added.undo === 'Add shape' && added.count === String(start.n + 1),
+      JSON.stringify({ added: { n: added.n, sel: added.sel, at: added.order.indexOf('dots') }, was: start.order.indexOf('emitter_glow'), addedLayer, undo: added.undo }));
+
+    // A row's buttons take its tag's place on hover and on the selected row (the tag stays in the page, hidden); its menu
+    // opens from More, and from a right-click; Move up and Move down move it by one place, each one undo step.
+    const rowState = (id) => lp.evaluate((id) => {
+      const r = document.querySelector(`.layers-list .layer-item[data-layer="${id}"]`), code = r.querySelector(':scope > code');
+      return { tools: [...r.querySelectorAll('.item-tools button')].filter((b) => b.getClientRects().length).map((b) => b.getAttribute('aria-label').split(':')[0]), tag: getComputedStyle(code).display, tagText: code.textContent,
+        span: r.querySelector(':scope > span')?.textContent, glyph: !!r.querySelector(':scope > svg, :scope > img'), h: Math.round(r.getBoundingClientRect().height) };
+    }, id);
+    const restRow = await rowState('beads');
+    const selRow = await rowState('emitter_glow');
+    await layerRowOf('beads').hover();
+    const hoverRow = await rowState('beads');
+    const tips = await lp.evaluate(() => {
+      const r = document.querySelector('.layers-list .layer-item[data-layer="beads"]');
+      return [...r.querySelectorAll('.item-tools button')].map((b) => window.__vfx.app.tipForChecks(b));
+    });
+    await layerRowOf('beads').locator('.item-tools button.more').click();
+    await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
+    const layerMenu = await lp.evaluate(() => [...document.getElementById('layer-menu').children].map((c) => c.matches('.menu-divider') ? '—' : `${c.querySelector('.menu-label').textContent}(${c.querySelector('.menu-key')?.textContent ?? ''})${c.disabled ? ' off' : ''}`));
+    await menuRow(lp, 'layer-menu', 'Move up').click();
+    const menuUp = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await layerRowOf('beads').hover();
+    await layerRowOf('beads').locator('.item-tools button', { hasText: '' }).first().click();
+    const buttonUp = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await layerRowOf('beads').hover();
+    await layerRowOf('beads').locator('.item-tools button').nth(1).click();
+    const buttonDown = await layersNow();
+    await lp.keyboard.press('Control+z');
+    const topRow = await lp.evaluate(() => { const r = document.querySelector('.layers-list .layer-item'); return [...r.querySelectorAll('.item-tools button')].map((b) => b.disabled); });
+    await layerRowOf('spot_star').scrollIntoViewIfNeeded();
+    const starBox = await layerRowOf('spot_star').boundingBox();
+    await lp.mouse.click(starBox.x + 50, starBox.y + 14, { button: 'right' });
+    await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
+    const rightAt = await lp.evaluate(() => { const r = document.getElementById('layer-menu').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; });
+    await lp.keyboard.press('Escape');
+    const beadsAt = start.order.indexOf('beads');
+    ok('a layer\'s row is its icon, its name and its tag, 28 px; on hover and on the selected row, Move up, Move down and More take the tag\'s place (the tag is hidden, still in the page)',
+      restRow.tools.length === 0 && restRow.tag !== 'none' && restRow.tagText === 'beads' && restRow.span === 'Beads' && restRow.glyph && restRow.h === 28
+        && selRow.tools.join() === 'Move up,Move down,More' && selRow.tag === 'none' && hoverRow.tools.join() === 'Move up,Move down,More' && hoverRow.tag === 'none' && hoverRow.tagText === 'beads',
+      JSON.stringify({ restRow, selRow, hoverRow }));
+    ok('the row\'s buttons are named in their tooltips with their help texts and keys: Move up (Ctrl+]), Move down (Ctrl+[), More',
+      tips[0]?.lines[0] === 'Move up' && tips[0]?.lines[1] === help.helpFor('Move up', { section: 'Layers' }) && tips[0]?.key === 'Ctrl+]'
+        && tips[1]?.lines[0] === 'Move down' && tips[1]?.key === 'Ctrl+[' && tips[2]?.lines[0] === 'More' && tips[2]?.lines[1] === help.helpFor('More', { section: 'Layers' }),
+      JSON.stringify(tips));
+    ok('the row\'s menu (More, or a right-click at the pointer): Rename (F2), Duplicate (Ctrl+D), Move up (Ctrl+]), Move down (Ctrl+[), Delete (Del); Move up there, and the row\'s Move up and Move down buttons, move it one place, each one undo step; at the top, Move up is off',
+      layerMenu.join('|') === 'Rename(F2)|Duplicate(Ctrl+D)|Move up(Ctrl+])|Move down(Ctrl+[)|—|Delete(Del)' && menuUp.order.indexOf('beads') === beadsAt - 1 && menuUp.undo === 'Move layer'
+        && buttonUp.order.indexOf('beads') === beadsAt - 1 && buttonDown.order.indexOf('beads') === beadsAt + 1 && buttonDown.undo === 'Move layer' && topRow[0] === true && topRow[1] === false
+        && rightAt[0] === Math.round(starBox.x + 50) && rightAt[1] === Math.round(starBox.y + 14), JSON.stringify({ layerMenu, menuUp: menuUp.order.indexOf('beads'), buttonUp: buttonUp.order.indexOf('beads'), buttonDown: buttonDown.order.indexOf('beads'), beadsAt, topRow, rightAt }));
+
+    // Duplicate (the menu, and Ctrl+D) puts a copy just above and selects it; Delete (the menu, and the Delete key) asks
+    // nothing, as before, and undo brings it back. Each is one undo step.
+    await layerRowOf('beads').hover();
+    await layerRowOf('beads').locator('.item-tools button.more').click();
+    await menuRow(lp, 'layer-menu', 'Duplicate').click();
+    const dup = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await lp.evaluate(() => window.__vfx.app.selectLayer('beads'));
+    await lp.keyboard.press('Control+d');
+    const dupKey = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await lp.evaluate(() => window.__vfx.app.selectLayer('beads'));
+    await layerRowOf('lock_ring').hover();
+    await layerRowOf('lock_ring').locator('.item-tools button.more').click();
+    await menuRow(lp, 'layer-menu', 'Delete').click();
+    const del = await layersNow();
+    await lp.keyboard.press('Control+z');
+    const delBack = await layersNow();
+    ok('Duplicate in a layer\'s menu, and Ctrl+D on the selected layer, put a copy just above it and select it; Delete in the menu deletes the layer (the selection stays), and undo brings it back',
+      dup.sel === 'beads_2' && dup.order.indexOf('beads_2') === dup.order.indexOf('beads') - 1 && dup.undo === 'Duplicate layer' && dupKey.sel === 'beads_2' && dupKey.n === start.n + 1
+        && !del.order.includes('lock_ring') && del.sel === 'beads' && del.undo === 'Delete layer' && delBack.order.includes('lock_ring') && delBack.n === start.n,
+      JSON.stringify({ dup: [dup.sel, dup.undo], dupKey: [dupKey.sel, dupKey.n], del: [del.sel, del.undo, del.order.includes('lock_ring')], delBack: delBack.n }));
+
+    // Renaming in place: a double-click on the name, F2 on the selected layer, the menu's Rename. Enter keeps the new name in
+    // one undo step, Esc keeps the old one; inside the box Space, Delete, Backspace, ← and → only type (no play, no deleted
+    // layer, no step), and its Esc leaves the layer selected.
+    await layerRowOf('spot_star').dblclick();
+    const dbl = await layersNow();
+    await lp.keyboard.type('Star');
+    await lp.keyboard.press('Enter');
+    const renamed = await lp.evaluate(() => ({ name: window.__vfx.app.effect().layers.find((l) => l.id === 'spot_star').name, undo: window.__vfx.app.history.undoLabel, focus: document.activeElement?.className }));
+    await lp.keyboard.press('Control+z');
+    await lp.keyboard.press('F2');
+    const f2 = await layersNow();
+    await lp.keyboard.press('End');
+    for (const k of ['Space', 'ArrowLeft', 'ArrowLeft', 'Delete', 'ArrowRight', 'Backspace']) await lp.keyboard.press(k);
+    const inBox = await layersNow();
+    await lp.keyboard.press('Escape');
+    const boxEsc = await layersNow();
+    const keptName = await lp.evaluate(() => window.__vfx.app.layer()?.name);
+    ok('a double-click on a layer\'s name renames it in place: Enter keeps the new name in one undo step; F2 renames the selected layer',
+      dbl.renaming === 'Hot spot star' && dbl.focus === 'rename' && dbl.sel === 'spot_star' && renamed.name === 'Star' && renamed.undo === 'Rename layer' && renamed.focus === 'item-main'
+        && f2.renaming === 'Hot spot star' && f2.focus === 'rename', JSON.stringify({ dbl: [dbl.renaming, dbl.focus, dbl.sel], renamed, f2: [f2.renaming, f2.focus] }));
+    ok('inside a layer\'s rename box Space, Delete, Backspace, ← and → only type (no play, no deleted layer, no step); Esc keeps the old name, and the layer stays selected',
+      inBox.renaming === 'Hot spot sta' && !inBox.playing && inBox.time === f2.time && inBox.n === start.n && inBox.sel === 'spot_star' && boxEsc.renaming === null && boxEsc.sel === 'spot_star' && keptName === 'Hot spot star',
+      JSON.stringify({ inBox: [inBox.renaming, inBox.playing, inBox.time, inBox.n, inBox.sel], boxEsc: [boxEsc.renaming, boxEsc.sel], keptName }));
+
+    // Drag to reorder: a press that moves less than 4 px is a click (it selects); a drag shows a 2 px --accent-ink line where
+    // the row will land and moves it there in one moveLayer, one undo step, however far; Esc cancels a drag, nothing moves,
+    // and the layer stays selected.
+    await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
+    const box = async (id) => { await layerRowOf(id).scrollIntoViewIfNeeded(); return layerRowOf(id).boundingBox(); };
+    const b1 = await box('beam_core');
+    await lp.mouse.move(b1.x + 70, b1.y + 14);
+    await lp.mouse.down();
+    await lp.mouse.move(b1.x + 72, b1.y + 15, { steps: 2 });
+    await lp.mouse.up();
+    const click = await layersNow();
+    const before = await layersNow();
+    const from = await box('emitter_hot');
+    const to = await box('spot_glow_wide');
+    await lp.mouse.move(from.x + 70, from.y + 14);
+    await lp.mouse.down();
+    await lp.mouse.move(from.x + 70, to.y + to.height - 4, { steps: 10 });
+    const line = await lp.evaluate(() => {
+      const l = document.querySelector('.layers-list .drop-line'), probe = document.createElement('span');
+      probe.style.color = 'var(--accent-ink)';
+      document.body.append(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      if (!l) return null;
+      const r = l.getBoundingClientRect(), next = document.querySelector('.layers-list .layer-item[data-layer="beads"]').getBoundingClientRect();
+      return { h: Math.round(r.height), colour: getComputedStyle(l).backgroundColor === accent, at: Math.round(r.top + r.height / 2) === Math.round(next.top), width: Math.round(r.width) };
+    });
+    await lp.mouse.up();
+    const dropped = await layersNow();
+    await lp.keyboard.press('Control+z');
+    const dropUndone = await layersNow();
+    const c1 = await box('emitter_white');
+    const c2 = await box('beads');
+    await lp.mouse.move(c1.x + 70, c1.y + 14);
+    await lp.mouse.down();
+    await lp.mouse.move(c1.x + 70, c2.y + 20, { steps: 8 });
+    await lp.keyboard.press('Escape');
+    const lineAfterEsc = await lp.evaluate(() => !!document.querySelector('.layers-list .drop-line'));
+    await lp.mouse.up();
+    const cancelled = await layersNow();
+    const want = [...before.order];
+    want.splice(want.indexOf('emitter_hot'), 1);
+    want.splice(want.indexOf('spot_glow_wide') + 1, 0, 'emitter_hot');
+    ok('a press on a layer\'s row that moves less than 4 px is a click: it selects the layer', click.sel === 'beam_core', JSON.stringify({ sel: click.sel }));
+    ok('dragging a layer\'s row shows a 2 px line in --accent-ink where it will land, and moves it there, five places, in one undo step',
+      !!line && line.h === 2 && line.colour && line.at && JSON.stringify(dropped.order) === JSON.stringify(want) && dropped.undo === 'Move layer' && JSON.stringify(dropUndone.order) === JSON.stringify(before.order),
+      JSON.stringify({ line, dropped: dropped.order, undo: dropped.undo, undone: dropUndone.order.join() === before.order.join() }));
+    ok('Esc during a drag cancels it: the line goes, nothing moves, and the layer stays selected', !lineAfterEsc && JSON.stringify(cancelled.order) === JSON.stringify(before.order) && cancelled.sel === 'beam_core' && cancelled.undo === before.undo,
+      JSON.stringify({ lineAfterEsc, sel: cancelled.sel, same: cancelled.order.join() === before.order.join() }));
+
+    // The keys: Ctrl+] and Ctrl+[ move the selected layer up and down the list, each one undo step; none of F2, Ctrl+D,
+    // Ctrl+] and Ctrl+[ does anything while typing in a field (the search box) or with a menu open.
+    await lp.evaluate(() => window.__vfx.app.selectLayer('beads'));
+    const k0 = await layersNow();
+    await lp.keyboard.press('Control+BracketRight');
+    const kUp = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await lp.keyboard.press('Control+BracketLeft');
+    const kDown = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await lp.keyboard.press('/');
+    for (const k of ['F2', 'Control+d', 'Control+BracketRight', 'Control+BracketLeft']) await lp.keyboard.press(k);
+    const kTyping = await layersNow();
+    await lp.keyboard.press('Escape');
+    await layerRowOf('beads').locator('.item-tools button.more').click();
+    await lp.waitForSelector('#layer-menu:popover-open', { timeout: 5000 });
+    await lp.waitForFunction(() => document.activeElement?.closest('#layer-menu'), null, { timeout: 5000 }).catch(() => {});
+    for (const k of ['F2', 'Control+d', 'Control+BracketRight', 'Control+BracketLeft']) await lp.keyboard.press(k);
+    const kMenu = await layersNow();
+    const menuOpen = await lp.evaluate(() => document.getElementById('layer-menu').matches(':popover-open'));
+    await lp.keyboard.press('Escape');
+    const at = k0.order.indexOf('beads');
+    ok('Ctrl+] and Ctrl+[ move the selected layer up and down the list, each one undo step', kUp.order.indexOf('beads') === at - 1 && kUp.undo === 'Move layer' && kDown.order.indexOf('beads') === at + 1 && kDown.sel === 'beads',
+      JSON.stringify({ at, up: kUp.order.indexOf('beads'), down: kDown.order.indexOf('beads') }));
+    ok('F2, Ctrl+D, Ctrl+] and Ctrl+[ do nothing while typing in a field or with a menu open', JSON.stringify(kTyping.order) === JSON.stringify(k0.order) && kTyping.renaming === null && kTyping.focus === 'search'
+      && JSON.stringify(kMenu.order) === JSON.stringify(k0.order) && kMenu.renaming === null && kMenu.focus === 'menu' && menuOpen, JSON.stringify({ kTyping: [kTyping.n, kTyping.focus], kMenu: [kMenu.n, kMenu.focus, menuOpen] }));
+
+    // Hovering a row highlights the same row on the timeline, and the other way round; a new selection scrolls into view in
+    // both, as little as needed, and nothing round the lists moves.
+    const lit = (sel) => lp.evaluate((sel) => { const r = document.querySelector(sel); const probe = document.createElement('span'); probe.style.backgroundColor = 'var(--bg-hover)'; document.body.append(probe); const want = getComputedStyle(probe).backgroundColor; probe.remove(); return { hovered: r.classList.contains('hovered'), bg: getComputedStyle(r).backgroundColor === want }; }, sel);
+    await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_white'));
+    // (After each hover, the 120 ms colour change has ended.)
+    await layerRowOf('beam_glow').hover();
+    await lp.waitForTimeout(250);
+    const listToTimeline = await lit('.timeline .tl-row[data-layer="beam_glow"]');
+    await lp.locator('.timeline .tl-row[data-layer="emitter_hot"] .tl-name').hover();
+    await lp.waitForTimeout(250);
+    const timelineToList = await lit('.layers-list .layer-item[data-layer="emitter_hot"]');
+    await lp.mouse.move(900, 300);
+    const afterLeave = await lp.evaluate(() => document.querySelectorAll('.layers-list .hovered, .timeline .hovered').length);
+    ok('hovering a layer\'s row highlights the same row on the timeline, and hovering a timeline row highlights it in the Layers list',
+      listToTimeline.hovered && listToTimeline.bg && timelineToList.hovered && timelineToList.bg && afterLeave === 0, JSON.stringify({ listToTimeline, timelineToList, afterLeave }));
+    await lp.locator('.split-effects').focus();
+    await lp.keyboard.press('End');
+    await lp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const inView = (listSel, rowSel) => lp.evaluate(([listSel, rowSel]) => { const l = document.querySelector(listSel).getBoundingClientRect(), r = document.querySelector(rowSel).getBoundingClientRect(); return r.top >= l.top - 0.5 && r.bottom <= l.bottom + 0.5; }, [listSel, rowSel]);
+    const lastBefore = await inView('.layers-list', '.layers-list .layer-item[data-layer="ground_glow_target"]');
+    await lp.locator('.timeline .tl-row[data-layer="ground_glow_target"] .tl-name').scrollIntoViewIfNeeded();
+    await lp.locator('.timeline .tl-row[data-layer="ground_glow_target"] .tl-name').click();
+    const listScrolled = await inView('.layers-list', '.layers-list .layer-item[data-layer="ground_glow_target"]');
+    await lp.evaluate(() => { document.querySelector('.timeline-slot').scrollTop = 0; });
+    const tlBefore = await inView('.timeline-slot', '.timeline .tl-row[data-layer="ground_glow_target"]');
+    await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_white'));
+    await layerRowOf('lock_ring').scrollIntoViewIfNeeded();
+    await layerRowOf('lock_ring').click();
+    const tlScrolled = await inView('.timeline-slot', '.timeline .tl-row[data-layer="lock_ring"]');
+    const still = await lp.evaluate(() => ({ left: document.querySelector('.left').scrollTop, app: document.querySelector('#app').scrollTop, doc: document.scrollingElement.scrollTop, effects: document.querySelector('.effects-section').scrollTop }));
+    ok('a new selection scrolls into view, as little as needed, in the Layers list (picked on the timeline) and on the timeline (picked in the list); nothing round the lists scrolls',
+      !lastBefore && listScrolled && !tlBefore && tlScrolled && still.left === 0 && still.app === 0 && still.doc === 0 && still.effects === 0, JSON.stringify({ lastBefore, listScrolled, tlBefore, tlScrolled, still }));
+    await lp.locator('.split-effects').dblclick();
+
+    // Empty: a new effect has no layers: "No layers yet." and an "Add a layer" button, which opens the add menu.
+    await addEffectMenu(lp, 'New effect');
+    const empty = await lp.evaluate(() => ({ text: document.querySelector('.layers-list .list-empty p')?.textContent ?? null, button: document.querySelector('.layers-list .list-empty button')?.textContent ?? null,
+      count: document.querySelector('.layers-section .list-count')?.textContent }));
+    await lp.locator('.layers-list .list-empty button').click();
+    await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+    await menuRow(lp, 'add-layer-menu', 'Sprite').click();
+    const fromEmpty = await layersNow();
+    await lp.keyboard.press('Control+z');
+    await lp.keyboard.press('Control+z');
+    ok('an effect with no layers says "No layers yet." with an "Add a layer" button, which opens the add menu (a sprite added from it is selected)',
+      empty.text === 'No layers yet.' && empty.button === 'Add a layer' && empty.count === '0' && fromEmpty.n === 1 && fromEmpty.sel === fromEmpty.order[0], JSON.stringify({ empty, fromEmpty: [fromEmpty.n, fromEmpty.sel] }));
+
+    // On hover the row's buttons take the tag's place, so a rider says what it rides in the row's own tooltip.
+    await lp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer(null); });
+    await lp.mouse.move(900, 300);
+    await lp.waitForTimeout(700);
+    const tracer = layerRowOf('tracer');
+    const tb = await tracer.boundingBox();
+    await lp.mouse.move(tb.x + 60, tb.y + 14);
+    const tipText = await lp.waitForFunction(() => (document.querySelector('.tooltip')?.matches(':popover-open') ? document.querySelector('.tooltip .tip-first > span')?.textContent : null), null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+    ok('a rider\'s row says what it rides in its own tooltip on hover ("Tracer: rides Bullet"), where its buttons take the tag\'s place', tipText === 'Tracer: rides Bullet', String(tipText));
+    ok('the Layers list page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await lp.close();
   }
 
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.

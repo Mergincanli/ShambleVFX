@@ -23,7 +23,7 @@ import {
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { History } from '../doc/history';
-import { SHAPE_KINDS, SHAPE_TEXT, ridingOn } from '../doc/layer-info';
+import { SHAPE_TEXT } from '../doc/layer-info';
 import { notDrawnNotes } from '../doc/not-drawn';
 import type { NotDrawnNote } from '../doc/not-drawn';
 import { newProjectFile } from '../io/project-file';
@@ -39,14 +39,14 @@ import { GradientPanel } from './gradients';
 import { costSummary } from './costcard';
 import { buildEffectsList } from './effects-list';
 import type { EffectsListView } from './effects-list';
-import { h, icon, iconButton, installTooltips, menu, segmented, tip, tipContent } from './dom';
+import { buildLayersList } from './layers-list';
+import type { LayersListView } from './layers-list';
+import { h, icon, iconButton, installTooltips, menu, scrollNearest, segmented, tip, tipContent } from './dom';
 import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
-import { NEW_THIS_ROUND } from './help';
 import { lookupHelp } from './helptips';
 import { buildInspector } from './inspector';
 import type { InspectorView } from './inspector';
 import { GridSizes } from './layout';
-import { layerGlyph } from './layer-icons';
 import type { LookState } from './look';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
@@ -58,7 +58,6 @@ const builtInPalette = paletteJson as Palette;
 const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
-const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const THEME_KEY = 'vfx-theme';
 /** Show hints, remembered: 'on' or 'off' (a browser that never chose shows them). */
 const HINTS_KEY = 'vfx-hints';
@@ -167,6 +166,8 @@ export class App implements AppApi {
   private lookStill: number | null = null;
   /** The Effects section of the left sidebar: header, search, folders and rows (effects-list.ts). */
   private effectsList!: EffectsListView;
+  /** The Layers section: header with the add menu, rows, their menu, drag to reorder (layers-list.ts). */
+  private layersList!: LayersListView;
   /**
    * What Duplicate gave each copy outside the effects (its scene, its own budgets), by the copy's id. Undo that takes a copy
    * away takes them away too (and keeps them here); redo that brings it back brings them back. A new effect that takes the
@@ -198,14 +199,30 @@ export class App implements AppApi {
   }
 
   selectLayer(id: string | null): void {
+    const changed = id !== this.selLayer;
     this.selLayer = id;
     this.renderLayers();
     this.inspector.refresh();
     this.timelineView.refresh();
+    // A new selection shows in the Layers list and on the timeline: each scrolled as little as needed to show its row.
+    if (changed && id) {
+      const row = this.els.layers.querySelector(`.layer-item[data-layer="${CSS.escape(id)}"]`);
+      if (row) scrollNearest(this.els.layers, row);
+      const slot = this.els.root.querySelector<HTMLElement>('.timeline-slot');
+      const tl = slot?.querySelector(`.tl-row[data-layer="${CSS.escape(id)}"]`);
+      if (slot && tl) scrollNearest(slot, tl);
+    }
   }
 
   hoverLayer(id: string | null): void {
+    if (this.hovered === id) return;
     this.hovered = id;
+    // The same row is highlighted in the Layers list and on the timeline.
+    for (const el of this.els.root.querySelectorAll<HTMLElement>('.layers-list .layer-item, .timeline .tl-row')) el.classList.toggle('hovered', !!id && el.dataset.layer === id);
+  }
+
+  hoveredLayer(): string | null {
+    return this.hovered;
   }
 
   imageNames(): string[] {
@@ -600,30 +617,22 @@ export class App implements AppApi {
     });
     const effects = this.effectsList.list;
     const effectsSection = this.effectsList.el;
-    const layers = h('div', { class: 'list layers-list' });
-    // The row under the mouse: the preview fades the other layers while it is there. Listened to on the list, which stays
-    // when its rows are made again (a row taken away while under the mouse never says it was left).
-    layers.addEventListener('pointermove', (e) => this.hoverLayer(((e.target as Element).closest?.('.layer-item') as HTMLElement | null)?.dataset.layer ?? null));
-    layers.addEventListener('pointerleave', () => this.hoverLayer(null));
-    const addMenu = h('select', { class: 'add-layer', attrs: { 'aria-label': 'Add a layer', title: 'Add a layer' } },
-      h('option', { attrs: { value: '' }, text: '＋ Add…' }),
-      h('option', { attrs: { value: 'sprite' }, text: 'Sprite (an image)' }),
-      h('option', { attrs: { value: 'projectile' }, text: 'Projectile (a path in flight)' }),
-      ...SHAPE_KINDS.map((k) => h('option', { attrs: { value: `shape:${k}` }, text: `Shape: ${SHAPE_TEXT[k]}` })),
-      h('option', { attrs: { value: 'burst' }, text: 'Burst (pieces thrown out)' }),
-      h('option', { attrs: { value: 'word' }, text: 'Word (a comic sound)' }));
-    addMenu.addEventListener('change', () => { const v = addMenu.value; addMenu.value = ''; if (v) this.addLayer(v); });
-    // The Layers title's tooltip starts with what its hint says (help.ts adds the rest).
-    const layersSection = h('section', { class: 'card grow layers-section', attrs: { 'data-help-section': 'Layers' } },
-      h('div', { class: 'card-head' }, h('h2', { text: 'Layers', attrs: { 'data-tip': 'Top of the list draws on top.' } }), h('span', { class: 'hint', text: 'top draws on top' })),
-      h('div', { class: 'layer-tools' },
-        addMenu),
-      layers,
-      h('div', { class: 'layer-tools' },
-        h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move up' }, on: { click: () => this.moveSelected(1) } }, icon('up')),
-        h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Move down' }, on: { click: () => this.moveSelected(-1) } }, icon('down')),
-        h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Duplicate' }, on: { click: () => this.duplicateSelected() } }, icon('copy')),
-        h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, on: { click: () => this.deleteSelected() } }, icon('trash'))));
+    this.layersList = buildLayersList({
+      effect: () => this.effect(),
+      selected: () => this.selLayer,
+      select: (id) => this.selectLayer(id),
+      tier: () => this.tier,
+      imageUrl: (n) => this.imageUrl(n),
+      add: (kind) => this.addLayer(kind),
+      move: (id, delta) => this.moveLayerBy(id, delta),
+      duplicate: (id) => this.duplicateLayerOf(id),
+      rename: (id, name) => this.renameLayer(id, name),
+      remove: (id) => this.deleteLayerOf(id),
+      hover: (id) => this.hoverLayer(id),
+      hovered: () => this.hovered,
+    });
+    const layers = this.layersList.list;
+    const layersSection = this.layersList.el;
     const left = h('aside', { class: 'left' }, effectsSection, layersSection);
 
     // ------------------------------------------------ the viewport toolbar (6.3): Fire, the chips, Fade other layers, View
@@ -1208,10 +1217,11 @@ export class App implements AppApi {
     this.selectLayer(layer.id);
   }
 
-  /** F2: rename the effect in place, when no layer is selected. True when something is renamed. */
+  /** F2: rename the selected layer in place, or the effect when no layer is selected. True when something is renamed. */
   private renameSelection(): boolean {
-    if (this.selLayer || !this.selEffect) return false;
-    this.effectsList.startRename(this.selEffect);
+    if (this.selLayer) this.layersList.startRename(this.selLayer);
+    else if (this.selEffect) this.effectsList.startRename(this.selEffect);
+    else return false;
     return true;
   }
 
@@ -1224,23 +1234,52 @@ export class App implements AppApi {
   }
 
   private moveSelected(delta: number): void {
-    if (this.selEffect && this.selLayer) this.history.apply('Move layer', moveLayer(this.history.doc, this.selEffect, this.selLayer, delta));
+    if (this.selLayer) this.moveLayerBy(this.selLayer, delta);
+  }
+
+  /**
+   * Move a layer by delta places in the file (+1: up the list, so it draws over more): a row's buttons and menu, Ctrl+] and
+   * Ctrl+[, and a drag in the list, which moves it any number of places. One undo step.
+   */
+  private moveLayerBy(id: string, delta: number): void {
+    if (!this.selEffect || !delta) return;
+    this.history.apply('Move layer', moveLayer(this.history.doc, this.selEffect, id, delta));
+    this.history.endGesture();
   }
 
   private duplicateSelected(): void {
-    if (!this.selEffect || !this.selLayer) return;
-    const r = duplicateLayer(this.history.doc, this.selEffect, this.selLayer);
+    if (this.selLayer) this.duplicateLayerOf(this.selLayer);
+  }
+
+  /** Duplicate a layer: the copy goes just above it, and is selected. */
+  private duplicateLayerOf(id: string): void {
+    if (!this.selEffect) return;
+    const r = duplicateLayer(this.history.doc, this.selEffect, id);
     this.history.apply('Duplicate layer', r.doc);
     if (r.id) this.selectLayer(r.id);
   }
 
   private deleteSelected(): void {
-    if (!this.selEffect || !this.selLayer) return;
+    if (this.selLayer) this.deleteLayerOf(this.selLayer);
+  }
+
+  /** Delete a layer. When it was the selected one, the layer that takes its place in the list is selected. */
+  private deleteLayerOf(id: string): void {
+    if (!this.selEffect) return;
     const fx = this.effect()!;
-    const i = fx.layers.findIndex((l) => l.id === this.selLayer);
-    this.history.apply('Delete layer', removeLayer(this.history.doc, this.selEffect, this.selLayer));
+    const i = fx.layers.findIndex((l) => l.id === id);
+    if (i < 0) return;
+    const wasSelected = id === this.selLayer;
+    this.history.apply('Delete layer', removeLayer(this.history.doc, this.selEffect, id));
     const after = this.effect()!.layers;
-    this.selectLayer(after[Math.min(i, after.length - 1)]?.id ?? null);
+    if (wasSelected) this.selectLayer(after[Math.min(i, after.length - 1)]?.id ?? null);
+  }
+
+  /** A new name for a layer, typed in its row: one undo step. */
+  private renameLayer(id: string, name: string): void {
+    if (!this.selEffect) return;
+    this.history.apply('Rename layer', setLayerValue(this.history.doc, this.selEffect, id, ['name'], name));
+    this.history.endGesture();
   }
 
   private deleteEffect(id: string): void {
@@ -1445,26 +1484,9 @@ export class App implements AppApi {
     this.effectsList?.render();
   }
 
+  /** The Layers section (layers-list.ts): the rows, the count, the empty state. */
   private renderLayers(): void {
-    const fx = this.effect();
-    const list = this.els.layers;
-    if (!fx) { list.replaceChildren(h('p', { class: 'empty', text: 'No effect.' })); return; }
-    // Shown top of the drawing order first.
-    list.replaceChildren(...[...fx.layers].reverse().map((l) => {
-      const hidden = l.type !== 'projectile' && !l.tiers.includes(this.tier);
-      // A layer that rides a projectile says so in its tag ("rides Bullet"); left out of the tier, the tag says that instead.
-      const rides = ridingOn(fx, l);
-      const tag = hidden ? `not in ${TIER_LABEL[this.tier]}` : rides ? `rides ${rides.name}` : layerTag(l);
-      const code = h('code', { class: rides && !hidden ? 'rides' : undefined, text: tag });
-      // "rides Bullet" says what that means in its own tooltip (help.ts).
-      if (rides && !hidden) tip(code, NEW_THIS_ROUND.ridesTag(rides.name));
-      return h('button', {
-        class: `item layer-item type-${l.type}${l.id === this.selLayer ? ' sel' : ''}${hidden ? ' off' : ''}`, attrs: { type: 'button', 'data-layer': l.id }, on: { click: () => this.selectLayer(l.id) },
-        // The full name, since a long one ends in an ellipsis in the row.
-        title: `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[this.tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`,
-      }, layerGlyph(l, (n) => this.imageUrl(n)), h('span', { text: l.name }), code);
-    }));
-    if (!fx.layers.length) list.append(h('p', { class: 'empty', text: 'No layers yet. Add a sprite or a projectile.' }));
+    this.layersList?.render();
   }
 
   /** Play or Pause: an icon button whose name and tooltip say which. */
@@ -1604,10 +1626,11 @@ export class App implements AppApi {
       // field, a select); a checkbox or a slider that keeps the focus after a click is not typing.
       const notTyping = !typing || (tag === 'INPUT' && ['checkbox', 'radio', 'range'].includes((e.target as HTMLInputElement).type));
       if (e.key === 'Escape' && notTyping && !mod && !this.els.dialog.open) { if (this.selLayer) { e.preventDefault(); this.inspector.backToEffect(); } return; }
-      // Ctrl+D duplicates the selected layer, or the effect (and never opens the browser's bookmark then). Not while typing.
-      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'd' && !typing && !this.els.dialog.open) {
-        if (this.duplicateSelection()) e.preventDefault();
-        return;
+      // Ctrl+D duplicates the selected layer, or the effect (and never opens the browser's bookmark then); Ctrl+] and Ctrl+[
+      // move the selected layer up and down the list. Not while typing.
+      if (mod && !e.shiftKey && !e.altKey && !typing && !this.els.dialog.open) {
+        if (e.key.toLowerCase() === 'd') { if (this.duplicateSelection()) e.preventDefault(); return; }
+        if (e.key === ']' || e.key === '[') { if (this.selLayer) { e.preventDefault(); this.moveSelected(e.key === ']' ? 1 : -1); } return; }
       }
       if (typing || mod || this.els.dialog.open) return;
       if (tag === 'BUTTON' && e.key === 'Enter') return;
@@ -1756,15 +1779,4 @@ function readEvents(v: unknown): Record<string, string[]> {
     }
   }
   return out;
-}
-
-/** A few words after a layer's name in the list: its image, its flight, its shape, its word. */
-function layerTag(l: Layer): string {
-  switch (l.type) {
-    case 'sprite': return l.image.replace(/\.png$/, '');
-    case 'projectile': return l.flight.mode === 'speed' ? `${l.flight.mps} m/s` : l.flight.mode === 'time' ? `${l.flight.ms} ms` : `${l.flight.phase}`;
-    case 'shape': return l.shape.kind;
-    case 'burst': return `${l.count} × ${l.look.kind}`;
-    case 'word': return l.words.map((w) => w.text).join(' / ');
-  }
 }

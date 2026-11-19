@@ -21,6 +21,8 @@ export interface AppApi {
   selectLayer(id: string | null): void;
   /** A layer's row is under the mouse (Layers list or timeline), or none is: the preview fades the others while it is. */
   hoverLayer(id: string | null): void;
+  /** The layer whose row is under the mouse, in the Layers list or on the timeline: both highlight it. */
+  hoveredLayer(): string | null;
   imageNames(): string[];
   imageUrl(name: string): string | undefined;
   editEffect(path: Path, value: unknown, opts?: EditOptions): void;

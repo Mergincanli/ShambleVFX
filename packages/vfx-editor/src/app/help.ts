@@ -769,12 +769,14 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
     text: 'This row\'s menu. A right-click on the row opens it too.',
     when: [
       { in: 'Effects', text: 'This effect\'s menu: Rename, Duplicate, Move to folder… and Delete. A right-click on the row opens it too.' },
+      { in: 'Layers', text: 'This layer\'s menu: Rename, Duplicate, Move up, Move down and Delete. A right-click on the row opens it too.' },
     ],
   },
   'Rename': {
     text: 'Rename it here in the list: Enter keeps the new name, Esc keeps the old one.',
     when: [
       { in: 'Effects', text: 'Rename the effect here in the list: Enter keeps the new name, Esc keeps the old one. It stays in its folder.' },
+      { in: 'Layers', text: 'Rename the layer here in the list: Enter keeps the new name, Esc keeps the old one. Only for you: the game never shows it.' },
     ],
   },
   'Move to folder…': 'Put the effect in a folder, in another one or in none. A folder is the part of the name before " / ".',
@@ -784,15 +786,15 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   // Its tooltip's first line, the title's own words, is "Top of the list draws on top." (App.ts).
   'Layers': 'The selected effect\'s layers. Click a layer to see its settings.',
   'Add a layer': 'Add a sprite (an image), a projectile (a path in flight), one of 14 shapes, a burst of pieces or a word. It goes above the selected layer.',
-  'Move up': 'Move the selected layer up the list, so it draws over more.',
-  'Move down': 'Move the selected layer down the list, so it draws under more.',
+  'Move up': 'Move this layer up the list, so it draws over more. A drag in the list moves a layer as far as you like.',
+  'Move down': 'Move this layer down the list, so it draws under more. A drag in the list moves a layer as far as you like.',
   'Duplicate': {
-    text: 'Make a copy of the selected layer, just above it.',
+    text: 'Make a copy of the layer, just above it, and select the copy.',
     when: [
       { in: 'Effects', text: 'Make a copy of the effect, named "… copy", with its scene and its own budgets but not its game events: one event plays one effect.' },
     ],
   },
-  'Delete layer': 'Delete the selected layer. Undo brings it back.',
+  'Delete layer': 'Delete this layer. Undo brings it back.',
 };
 
 /** Labels shown in other words for the same thing. */
@@ -834,6 +836,8 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   'Search effects': '/',
   'Rename': 'F2',
   'Duplicate': 'Ctrl+D',
+  'Move up': 'Ctrl+]',
+  'Move down': 'Ctrl+[',
 };
 
 /** The cost table's rows, for the budget boxes ("Budget: Draws, Low"). */
