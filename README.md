@@ -69,11 +69,16 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    over the preview.
 5. The timeline's header (**Play**, the steps, **Loop**, the **speed** buttons and the time) and the **timeline** work like a
    video player. Click the time ("89 / 299 ms") to type one: Enter goes there, paused, and Esc leaves it. The strip under
-   the ruler shows the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
+   the ruler shows the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second. On the timeline, press on the
+   ruler, the phase strip or an empty part of a lane to go to that moment, and drag to scrub; drag the playhead's head (on
+   the ruler) to move the time from where it is. Click a bar or a name to select its layer (the time stays); a drag that
+   starts on a bar scrubs. A bar's label sits inside the bar, or beside it when the bar is too short. The ruler and the
+   phase strip stay at the top while the rows scroll.
 6. The right panel shows what is selected. No layer: the effect's settings, under a header with a dot in its main colour,
    its name and "Effect" (its name, the four **big controls**, the three **phase** lengths and its colours). Click a
-   **layer** (in the Layers list or on the timeline) and the panel shows that layer's settings, under a header with the
-   effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the effect's settings.
+   **layer** (in the Layers list, or its name or its bar on the timeline) and the panel shows that layer's settings, under
+   a header with the effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the
+   effect's settings.
    They start with **Look**: a live picture of the layer alone, drawn by the game's code on the ground colour, framed on it
    and playing its own time in a loop at the speed the speed buttons set (a layer that rides a projectile flies along its
    path; a projectile shows the layers riding it). Fold it to put it away. A sprite still shows its image under Image. Each
@@ -211,7 +216,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (300 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (315 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -275,8 +280,18 @@ More and by a right-click, the buttons staying while it is open, and Esc closing
 Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
 opens below it; a press of less than 4 px a click, a drag with its 2 px line in one undo step, and Esc cancelling it
 (letting go after that is not a click); the empty state; the hover highlight both ways with the timeline; a new
-selection scrolled into view in both, nothing round them moving), the keys /, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while
-typing or with a menu open; inside the rename and search boxes Space, Delete, Backspace, ← and → only type, and Esc does only
+selection scrolled into view in both, nothing round them moving), the timeline (its sizes at 1920 and 2560: the names column
+176 and 200 px, the ruler 24, the phase strip 16, rows 24 and bars 16 px with 3 px corners; every bar's label whole in its
+lane, inside its bar when it fits, else beside it in the muted colour, the Rifle shot's Bullet and a short bar near the end
+of the span too, and after the splitters make the lanes narrower, then wider again; the phases' names inside when they fit,
+their times in their tooltips; the playhead's line through the ruler and the lanes, its 10 px head clear of the tick labels
+and dragging the time from where it is; no label hidden by the playhead, on the Hammer leech beam and the Rifle shot at
+20 ms; the ruler and the phase strip at the top while the rows scroll, and a selected row scrolled into view below them; a
+click on a bar, on a label beside its bar or on a name selecting and keeping the time, a drag from a bar and a press on the
+ruler, the phase strip or an empty part of a lane scrubbing; the selected row's tint across the name and the lane and its
+bar's outline, the hovered and selected lanes' colours in Day and Night, and a row left out of the tier at 35 %), the keys
+/, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while typing or with a menu open; inside the rename and search boxes Space,
+Delete, Backspace, ← and → only type, and Esc does only
 the nearest thing; Keyboard shortcuts listing them), Save as, Export and Import
 (`project.json` and `editor.json` version 2
 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
@@ -405,6 +420,9 @@ These write pictures to `out/` (kept out of git):
   row's menu (Rename, Duplicate, Move to folder…, Delete); the layers with an add menu, each row's buttons and menu,
   renaming in place and drag to reorder; the row under the mouse highlighted in the Layers list and on the timeline. Their
   parts (a search box, a box to rename in place, a menu one list shares, drag to reorder) are in `src/app/dom.ts`.
+- **The timeline** (UI phase 5, docs/ui-redesign.md 6.5): a names column in the Layers list's order, with its selection and
+  hover; the ruler and the phase strip, which stay at the top while the rows scroll; bars whose labels are never cut (inside
+  the bar, or beside it); a click on a bar selects its layer; a playhead whose head drags, drawn under every label.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -595,7 +613,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     layer's last tier) is the same box at 40 %; the browser's own box would turn pale grey.
   - The picker's two yellow buttons (Add colour, Use on the selected glow) are plain buttons now: only a dialog's main button
     is yellow, and the picker is a popover.
-  - The timeline keeps its row, ruler and bar heights until phase 5; only its colours, lines, corners and type change now.
+  - In phase 1 only the timeline's colours, lines, corners and type changed; phase 5 gave it 4.3's sizes (see "The
+    timeline").
   - A timeline bar's 1 px `--tl-bar-edge` is drawn just outside the bar, over the lane, so in Day it stands out from the
     lane (3:1) even on the white word bars. A Day bar looks 1 px longer at each end.
   - A layer's "not in Low" tag stays in `--bad`, as before, and its name on the timeline stays muted, except on the selected
@@ -742,8 +761,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     "Effect". No More menu until phase 6. The Effect section stays under it, as it was.
   - Typing a time in the readout comes now, with the header: Enter goes to the typed time, paused; a comma works as the
     decimal point; a time past the end stops at the end; Esc, or a click elsewhere, leaves it as it was.
-  - The ruler, the phase strip and the track rows keep their sizes (26, 16 and 26 px): at 1920 × 1080 with the default sizes
-    the tracks get 272 px, and 8 rows with the ruler and the phases take 250, so 4.3's sizes wait for phase 5.
+  - The ruler, the phase strip and the track rows kept their sizes (26, 16 and 26 px) until phase 5 gave them 4.3's (24, 16
+    and 24 px): at 1920 × 1080 with the default sizes the tracks get 272 px, which hold the ruler, the phases and 9 rows.
   - A click on Checks in the status bar shows the effect's settings at its Checks section (its title takes the focus), until
     phase 6's problems banner.
   - New project… in the main menu asks for the new project's name at once: the question the Projects dialog's New project…
@@ -790,8 +809,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     there). Where scrollbars take room, the right panel's runs beside the header too.
   - The splitters are 6 px strips laid over the zones' own 1 px lines (each placed in the grid on that line), not rows or
     columns of their own: the workspace keeps its three columns, and the left sidebar and the centre their rows.
-  - The rule for windows under 1400 px went (the grid has its own defaults now), so the timeline's names column is 180 px
-    at every width until phase 5 makes it 200 and 176 px.
+  - The rule for windows under 1400 px went (the grid has its own defaults now). Since phase 5 the timeline's names column is
+    200 px in a window 2200 px wide or more and 176 px below (`--tl-name`, set with the grid's other defaults).
   - Since phase 4 the Effects header holds the title, the count and a + menu (New effect, From preset…): it fits the
     narrowest sidebar (200 px) with room to spare.
 - **The toolbar and hints** (UI phase 3 of [docs/ui-redesign.md](docs/ui-redesign.md): the toolbar's order, the chips and
@@ -949,6 +968,51 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     inside its span, for the keyboard and screen readers, and a click anywhere on the row selects it.
   - **Trying 40 effects.** The throwaway project `projects/phase-4-forty` (44 effects in 12 folders, made and deleted again by
     a script) was used to try the list with many effects; its pictures are `out/ui/phase-4-forty-*.png`.
+- **The timeline** (UI phase 5 of [docs/ui-redesign.md](docs/ui-redesign.md): the sizes, the names column, the ruler, the
+  phase strip, the lanes, the bars and their labels, the selection, the tier, the mouse and the playhead are the brief's;
+  these choices are ours, not Mustafa's or the brief's):
+  - **A click on a bar** selects its layer and leaves the time as it is. A press that moves 4 px or more (as on a row of
+    the Layers list) scrubs instead, from where the pointer is then, and selects nothing. Before, any press on a bar
+    scrubbed: the time jumped there and nothing was selected. The Hammer leech beam's bars fill most of their lanes: to go
+    to a moment there, press on the ruler, the phase strip or an empty part of a lane, or drag. A press with another mouse
+    button scrubs, as before.
+  - **A bar's label** goes inside the bar when it fits there with 4 px on each side. Else it goes just right of the bar,
+    6 px from its edge; when it would come closer than 4 px to the lane's end (a short bar near the end of the span), it
+    goes left of the bar instead, 6 px from it. Beside the bar it is `--text-muted`. A bar is one to a row, so a label
+    never meets another bar, and with the editor's narrowest centre (640 px) one side always has room. Whether it fits is
+    measured on every refresh, when the timeline changes size (the splitters, the window) and when the fonts come in.
+  - A label beside its bar belongs to the bar: its tooltip is the bar's, a click on it selects the layer and a drag from it
+    scrubs. In `--text-muted` it is 6.9:1 on the lane in Night and 5.2:1 in Day; on a hovered row 5.8:1 and 4.7:1; on the
+    selected row 4.9:1 and 4.6:1.
+  - **Left out of the tier**: the bar and its label, inside or beside it, at 35 %, mixed with what is behind them rather
+    than made see-through (CSS opacity would take the label under the playhead's line). The outline of a selected bar left
+    out of the tier now stays whole; before, it faded with the bar. The name stays muted, and keeps `--text` on the
+    selected row (see "The editor's visual system").
+  - **The playhead and the labels**: every label (the ruler's, the phases' and the bars') is drawn over the playhead's line,
+    with a 1 px edge in the colour behind it (a 2 px stroke under its letters), so the line stops just short of the letters
+    and shows everywhere else: neither hides the other. For a label beside its bar on a hovered or the selected row, that
+    edge takes two new tokens per theme, `--tl-lane-hover` and `--tl-lane-selected`: the lane under `--bg-hover` and
+    under `--bg-selected`, as the browser draws them (the browser check holds them to it). That stroke needs a browser
+    that can draw it under the letters (`paint-order` on text: Chrome 123 or newer).
+  - **The playhead's head** is a 10 px shape pointing down, in the ruler's lower half, its point on the ruler's line. The
+    tick labels sit in the upper half, 3 px from the top, so the head never covers one, not even the 0 at 0 ms. It can be
+    grabbed 2 px round it and drags the time from where it is (a press on it does not jump); like a press on the ruler, it
+    pauses. The keyboard has ← and → and the time readout, so the head takes no focus. The line is two parts that meet:
+    one in the header, which stays at the top, and one over the rows.
+  - **The ruler and the phase strip stay at the top** while the rows scroll, with the playhead's head. A row scrolled into
+    view (a new selection) stops below them: the rows' scroll padding is 40 px, or 24 px when the effect has no phases (as
+    in Rifle shot (demo)), and `scrollNearest` reads it.
+  - **The names column**: the icon and the name, 12 px, spaced as in the Layers list (12 px from the left, 8 px between). A
+    long name ends in an ellipsis; its tooltip gives the full name and the same words as the Layers list's row ("not drawn
+    in the Low tier", "rides Bullet"). Before, only the bar had a tooltip. The column runs to the bottom of the timeline,
+    with its 1 px line.
+  - **The phase strip**: a phase's name that does not fit is hidden, not cut; its times stay in the tooltip.
+  - **Rows**: a 24 px row with its 1 px line leaves 23 px, so the 16 px bar sits 4 px from the top, with 3 px and the line
+    under it.
+  - The bar's tooltip names the tier as the Tier chip does ("not drawn in the Low tier"; it said "low").
+  - A press on the empty corner over the names column scrubs to 0, as before: it is the ruler's row.
+  - While firing, the playhead stays hidden, as before. A name on the timeline has no rename and no menu: the Layers list
+    has them.
 
 ## Claude skills
 

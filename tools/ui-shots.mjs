@@ -59,6 +59,10 @@ const STATES = [
   { name: 'hints-off', project: DEMO, effect: 'rifle_shot', ms: 20, query: 'hints=off' },
   // The Distance popover, in the tank shell's scene (you are in it: the distance moves the target).
   { name: 'distance-popover', project: DEMO, effect: 'board_shell', ms: 300, popover: true, act: (page) => openFrom(page, '.vbar .distance-chip', '#distance-popover') },
+  // The timeline (UI phase 5): the Hammer leech beam at 20 ms, where the playhead crosses the first digit of "3150 ms", the
+  // "w" of "wind-up" and the ruler's 0. The Lock ring, near the bottom, is selected: at 1920 x 1080 the rows scroll to it,
+  // under the ruler and the phase strip, which stay at the top. (rifle-effect shows the Bullet's label beside its bar.)
+  { name: 'timeline', project: DEMO, effect: 'board_beam', ms: 20, layer: 'lock_ring' },
 ];
 /** Click a button and wait for what it opens (a menu, a popover). */
 async function openFrom(page, button, what) {
