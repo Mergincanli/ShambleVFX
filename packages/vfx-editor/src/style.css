@@ -655,16 +655,20 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .tl-phase.fade { --tl-halo: var(--tl-fade); background: var(--tl-fade); }
 /* A row (24 px, its 1 px line included): the layer's icon and name, then its lane. Hovered (here or in the Layers list) and
    selected as in the Layers list: the tint across the name and the lane. --tl-row-bg is the lane's colour under it, the
-   edge round a label beside its bar (and inside a bar left out of the tier): a registered colour, so it fades with the
-   row's own 120 ms colour change, and the edge stays the colour of the row while a hover comes or goes. */
-@property --tl-row-bg { syntax: '<color>'; inherits: true; initial-value: transparent; }
+   edge round a label beside its bar (and inside a bar left out of the tier). While a hover comes or goes the row's colour
+   fades in 120 ms: --tl-hover-in (a registered number, 0 to 1) fades with it and mixes the lane's two colours, so the edge
+   stays the colour of the row. A theme change switches them at once, as it does the lane. */
+@property --tl-hover-in { syntax: '<number>'; inherits: true; initial-value: 0; }
 .tl-row {
-  --tl-row-bg: var(--tl-lane); position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line);
-  transition: background-color var(--t-colour), border-color var(--t-colour), color var(--t-colour), --tl-row-bg var(--t-colour);
+  --tl-hover-in: 0; --tl-row-bg: color-mix(in srgb, var(--tl-lane-hover) calc(var(--tl-hover-in) * 100%), var(--tl-lane));
+  position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line);
+  transition: background-color var(--t-colour), border-color var(--t-colour), color var(--t-colour), --tl-hover-in var(--t-colour);
 }
-.tl-row:not(.sel):hover, .tl-row.hovered:not(.sel) { --tl-row-bg: var(--tl-lane-hover); }
+.tl-row:not(.sel):hover, .tl-row.hovered:not(.sel) { --tl-hover-in: 1; }
 .tl-row:not(.sel):hover { background: var(--bg-hover); }
-.tl-row.sel { --tl-row-bg: var(--tl-lane-selected); background: var(--bg-selected); }
+/* The selected row's tint switches at once on a theme change, as the lane and the edge do. (A row is selected only when
+   the rows are built again, so no other change of it fades.) */
+.tl-row.sel { --tl-row-bg: var(--tl-lane-selected); background: var(--bg-selected); transition: border-color var(--t-colour), color var(--t-colour); }
 .tl-row.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent-ink); }
 .tl-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 8px 0 var(--pad-panel); border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; overflow: hidden; white-space: nowrap; cursor: pointer; }
 .tl-name[aria-pressed="true"] { font-weight: 500; }

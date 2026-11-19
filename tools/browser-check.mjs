@@ -14,9 +14,9 @@
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
 //    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
 //    bars, the phases' names, the playhead and its head, the ruler staying at the top, clicks and scrubs, the selected, hovered
-//    and left-out rows, the edge round a label while a hover fades), Save as into projects/, Export and Import, and the
-//    palette profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
-//    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
+//    and left-out rows, the edge round a label while a hover fades or the theme changes), Save as into projects/, Export
+//    and Import, and the palette profiles Import adds (everything made is deleted again after). Palette profiles go to a
+//    temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
@@ -3255,7 +3255,7 @@ if (webgpu) {
   // playhead (its line through the ruler and the lanes, its head, which drags) and no label hidden by it; the ruler and the
   // phase strip at the top while the rows scroll, and a selected row scrolled into view below them; scrubbing, and a click
   // on a bar selecting; the selected row, the hovered one and a row left out of the tier; the edge round a label while a
-  // hover fades. On a page of its own: the splitters' sizes are remembered.
+  // hover fades or the theme changes. On a page of its own: the splitters' sizes are remembered.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
     const tp = g.page;
@@ -3643,25 +3643,29 @@ if (webgpu) {
     ok('a bar left out of the tier is at 35 % (its fill 0.35 of its colour over the lane, its label at 35 % too) and its name muted; selected, its name keeps --text and its outline is drawn at full strength',
       offLook.off && offLook.name && offLook.label && diff(offPx, offWant) <= 2 && offSel.name && diff(offSelPx, offSel.accent) <= 1, JSON.stringify({ offLook, offPx, offWant, offSel, offSelPx }));
 
-    // The edge round a label (its 1 px stroke in the colour behind it) fades with its row's 120 ms colour change. Caught
-    // 20 ms into a hover coming and into one going, in Day and Night, round the Bullet's label beside its bar and round the
-    // label inside a bar left out of the tier (the Molotov's Flames in Low), the edge is the colour drawn round it. For the
-    // picture the letters are made see-through and the bar's step marks taken off, so only the edge is drawn: it must not
-    // stand out from what is round it. (The hover is the Layers list's, so the transition starts in the same call.)
-    const edgeInFade = async (effect, ms, id, coming) => {
-      await showTl(effect, ms);
-      await tp.evaluate(([id, coming]) => window.__vfx.app.hoverLayer(coming ? null : id), [id, coming]);
+    // The edge round a label (its 1 px stroke in the colour behind it) stays the colour round it while the row's colour
+    // changes: caught 20 ms into a hover coming and into one going (the row fades in 120 ms; so does the edge), in Day and
+    // Night, and 20 ms into a theme change (the lane switches at once; so does the edge), round the Bullet's label beside its
+    // bar (also on the selected row, for the theme change) and round the label inside a bar left out of the tier (the
+    // Molotov's Flames in Low). For the picture the letters are made see-through and the bar's step marks taken off, so
+    // only the edge is drawn: it must not stand out from what is round it. (The hover is the Layers list's and the theme
+    // toggle is clicked in the page, so the change starts in the same call that catches it.)
+    const edgeCaught = async (effect, ms, id, how, layer = null) => {
+      await showTl(effect, ms, layer);
+      await tp.evaluate(([id, how]) => window.__vfx.app.hoverLayer(how === 'out' ? id : null), [id, how]);
       await tp.waitForTimeout(250);
-      const caught = await tp.evaluate(([id, coming]) => {
-        window.__vfx.app.hoverLayer(coming ? id : null);
+      const caught = await tp.evaluate(([id, how]) => {
+        if (how === 'theme') document.querySelector('.topbar .theme-toggle').click();
+        else window.__vfx.app.hoverLayer(how === 'in' ? id : null);
         const row = document.querySelector(`.timeline .tl-row[data-layer="${id}"]`), bar = row.querySelector('.tl-bar'), label = bar.querySelector('.tl-label');
         const anims = row.getAnimations();
         for (const a of anims) { a.pause(); a.currentTime = 20; }
         label.style.color = 'transparent';
         bar.style.backgroundImage = 'none';
         const l = label.getBoundingClientRect();
-        return { props: anims.map((a) => a.transitionProperty ?? '?'), hovered: row.classList.contains('hovered'), fit: bar.dataset.fit, off: row.classList.contains('off'), box: [l.left, l.top, l.width, l.height] };
-      }, [id, coming]);
+        return { theme: document.documentElement.dataset.theme, props: anims.map((a) => a.transitionProperty ?? '?'), hovered: row.classList.contains('hovered'), sel: row.classList.contains('sel'),
+          fit: bar.dataset.fit, off: row.classList.contains('off'), box: [l.left, l.top, l.width, l.height] };
+      }, [id, how]);
       await frames();
       const [lx, ly, lw, lh] = caught.box;
       const png = PNG.sync.read(await tp.screenshot({ clip: { x: Math.floor(lx) - 2, y: Math.ceil(ly), width: Math.ceil(lw) + 4, height: Math.floor(lh) } }));
@@ -3678,23 +3682,32 @@ if (webgpu) {
       const bg = [...counts.entries()].sort((p, q) => q[1] - p[1])[0][0].split(',').map(Number);
       let most = 0;
       for (let i = 0; i < png.data.length; i += 4) for (let k = 0; k < 3; k++) most = Math.max(most, Math.abs(png.data[i + k] - bg[k]));
-      return { id, coming, props: caught.props, hovered: caught.hovered, fit: caught.fit, off: caught.off, most };
+      return { id, how, theme: caught.theme, props: caught.props, hovered: caught.hovered, sel: caught.sel, fit: caught.fit, off: caught.off, most };
     };
     const fades = [];
     for (const theme of ['day', 'night']) {
       if (theme === 'night') await tp.locator('.topbar .theme-toggle').click();
       await tp.mouse.move(900, 300);
-      for (const coming of [true, false]) fades.push({ theme, ...(await edgeInFade('rifle_shot', 200, 'bullet', coming)) });
+      for (const how of ['in', 'out']) fades.push(await edgeCaught('rifle_shot', 200, 'bullet', how));
       await tp.evaluate(() => window.__vfx.app.setTierForChecks('low'));
-      for (const coming of [true, false]) fades.push({ theme, ...(await edgeInFade('board_molotov', 1200, 'flames', coming)) });
+      for (const how of ['in', 'out']) fades.push(await edgeCaught('board_molotov', 1200, 'flames', how));
       await tp.evaluate(() => window.__vfx.app.setTierForChecks('high'));
     }
     await tp.locator('.topbar .theme-toggle').click();
     await tp.mouse.move(900, 300);
-    ok('the edge round a label fades with its row\'s colour: 20 ms into a hover coming or going, in Day and Night, round the Bullet\'s label beside its bar and the label inside a bar left out of the tier, the edge is the colour round it',
-      fades.length === 8 && fades.every((f) => f.props.includes('background-color') && f.hovered === f.coming && f.most <= 3) && fades.filter((f) => f.id === 'bullet').every((f) => f.fit === 'right' && !f.off)
-        && fades.filter((f) => f.id === 'flames').every((f) => f.fit === 'inside' && f.off),
-      JSON.stringify(fades));
+    // Theme changes, each case Day to Night and back to Day.
+    const switches = [];
+    for (const [effect, ms, id, layer, tier] of [['rifle_shot', 200, 'bullet', null, 'high'], ['rifle_shot', 200, 'bullet', 'bullet', 'high'], ['board_molotov', 1200, 'flames', null, 'low']]) {
+      await tp.evaluate((tier) => window.__vfx.app.setTierForChecks(tier), tier);
+      for (let k = 0; k < 2; k++) switches.push(await edgeCaught(effect, ms, id, 'theme', layer));
+    }
+    await tp.evaluate(() => window.__vfx.app.setTierForChecks('high'));
+    const fadesRight = fades.length === 8 && fades.every((f) => f.props.includes('background-color') && f.hovered === (f.how === 'in') && f.most <= 3)
+      && fades.filter((f) => f.id === 'bullet').every((f) => f.fit === 'right' && !f.off) && fades.filter((f) => f.id === 'flames').every((f) => f.fit === 'inside' && f.off);
+    const switchesRight = switches.length === 6 && switches.every((f) => f.props.length > 0 && f.most <= 3) && switches.map((f) => f.theme).join() === 'dark,light,dark,light,dark,light'
+      && switches[2].sel && switches[3].sel && switches[4].off && switches[4].fit === 'inside';
+    ok('the edge round a label stays the colour round it while its row\'s colour changes: 20 ms into a hover coming or going (in Day and Night) and into a theme change, round the Bullet\'s label beside its bar (also selected) and the label inside a bar left out of the tier',
+      fadesRight && switchesRight, JSON.stringify({ fades, switches }));
 
     // Neither hides the other: at 20 ms on the Hammer leech beam the playhead crosses the first digit of "3150 ms", the "w"
     // of "wind-up" and the ruler's 0; at 20 ms on the Rifle shot it crosses the Bullet's label beside its bar. Each label's

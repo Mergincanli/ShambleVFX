@@ -291,7 +291,7 @@ selected row scrolled into view below them; a
 click on a bar, on a label beside its bar or on a name selecting and keeping the time, a drag from a bar and a press on the
 ruler, the phase strip or an empty part of a lane scrubbing; the selected row's tint across the name and the lane and its
 bar's outline, the hovered and selected lanes' colours in Day and Night, a row left out of the tier at 35 %, and the edge
-round a label keeping the row's colour while a hover fades in or out), the keys
+round a label keeping the colour round it while a hover fades in or out and when the theme changes), the keys
 /, F2, Ctrl+D, Ctrl+] and Ctrl+[ (and none while typing or with a menu open; inside the rename and search boxes Space,
 Delete, Backspace, ← and → only type, and Esc does only
 the nearest thing; Keyboard shortcuts listing them), Save as, Export and Import
@@ -995,11 +995,12 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     with a 1 px edge in the colour behind it (a 2 px stroke under its letters), so the line stops just short of the letters
     and shows everywhere else: neither hides the other. For a label beside its bar on a hovered or the selected row, that
     edge takes two new tokens per theme, `--tl-lane-hover` and `--tl-lane-selected`: the lane under `--bg-hover` and
-    under `--bg-selected`, as the browser draws them (the browser check holds them to it). The colour under a row is a
-    registered colour (`--tl-row-bg`), so the edge fades with the row's own 120 ms colour change and stays the colour of
-    the row while a hover comes or goes. The stroke goes under the letters with `paint-order`: the browser check's
-    Chromium draws it so on text, and checks that no letter changes under the playhead (a browser that drew it over the
-    letters would make them thinner).
+    under `--bg-selected`, as the browser draws them (the browser check holds them to it). While a hover comes or goes,
+    the row's colour fades in 120 ms and so does that edge: a registered number (`--tl-hover-in`) mixes the lane's two
+    colours. A theme change switches the lane, the edge and the selected row's tint at once (the selected row's tint
+    faded in 120 ms before, and the edge round its label did not follow). The stroke goes under the letters with
+    `paint-order`: the browser check's Chromium draws it so on text, and checks that no letter changes under the playhead
+    (a browser that drew it over the letters would make them thinner).
   - **The playhead's head** is a 10 px shape pointing down, in the ruler's lower half, its point on the ruler's line. The
     tick labels sit in the upper half, 3 px from the top, so the head never covers one, not even the 0 at 0 ms. It can be
     grabbed 2 px either side of it and 4 px above it, and drags the time from where it is (a press on it does not jump);
