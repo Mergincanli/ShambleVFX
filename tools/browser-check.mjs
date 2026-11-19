@@ -2885,6 +2885,29 @@ if (webgpu) {
       && added.order.indexOf('emitter_glow') === start.order.indexOf('emitter_glow') + 1 && addedLayer.type === 'shape' && addedLayer.kind === 'dots' && added.undo === 'Add shape' && added.count === String(start.n + 1),
       JSON.stringify({ added: { n: added.n, sel: added.sel, at: added.order.indexOf('dots') }, was: start.order.indexOf('emitter_glow'), addedLayer, undo: added.undo }));
 
+    // A menu taller than the window (here the add menu, in a window 480 px tall; Move to folder… in a project with many
+    // folders) stays inside the window and scrolls, and the row that takes the focus is scrolled into view (End, Home).
+    await lp.setViewportSize({ width: 1920, height: 480 });
+    await lp.click('.layers-section .add-layer');
+    await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+    await lp.waitForFunction(() => document.activeElement?.closest('#add-layer-menu'), null, { timeout: 5000 }).catch(() => {});
+    /** The open add menu against the window, and its row with the focus against the menu. */
+    const tallMenu = () => lp.evaluate(() => {
+      const m = document.getElementById('add-layer-menu'), r = m.getBoundingClientRect(), f = document.activeElement, fr = f.getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), win: innerHeight, scrolls: m.scrollHeight > m.clientHeight + 1,
+        focus: f.closest('#add-layer-menu') ? f.querySelector('.menu-label')?.textContent ?? null : null, shown: fr.top >= r.top - 1 && fr.bottom <= r.bottom + 1 };
+    });
+    const tallStart = await tallMenu();
+    await lp.keyboard.press('End');
+    const tallEnd = await tallMenu();
+    await lp.keyboard.press('Home');
+    const tallHome = await tallMenu();
+    await lp.keyboard.press('Escape');
+    await lp.setViewportSize({ width: 1920, height: 1080 });
+    ok('a menu taller than the window (the add menu, in a window 480 px tall) stays inside it and scrolls, and the row that takes the focus is scrolled into view (End, Home)',
+      tallStart.top >= 0 && tallStart.bottom <= tallStart.win && tallStart.scrolls && tallEnd.focus === 'Word' && tallEnd.shown && tallHome.focus === 'Sprite' && tallHome.shown,
+      JSON.stringify({ tallStart, tallEnd, tallHome }));
+
     // A row's buttons take its tag's place on hover and on the selected row (the tag stays in the page, hidden); its menu
     // opens from More, and from a right-click; Move up and Move down move it by one place, each one undo step.
     const rowState = (id) => lp.evaluate((id) => {

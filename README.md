@@ -211,7 +211,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (297 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (298 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -253,7 +253,8 @@ chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Ent
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
 a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
 keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box showing what the chip shows,
-the keys working from 14 m as before; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
+the keys working from 14 m as before; a right-click menu staying inside the window, and a menu taller than the window
+scrolling inside it, with the row that takes the focus in view; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
 and showing the hints and the drag hint over the preview, remembered after a reload; `?hints=off` and `?hints=on` for their
 page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), the effects list (on a
@@ -911,7 +912,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Move to folder…** lists every folder in use, nested ones by their path ("Vehicles / Tank"), A to Z, with a dot at the
     effect's own. New folder… asks for a name with the question dialog (default "New folder"); a " / " in it makes a folder
     inside a folder. It opens where the effect's menu was. Folder names are names people give: no help text is looked up for
-    them.
+    them. With so many folders that the menu is taller than the window (more than 34 at 1920 × 1080), it stays 4 px inside the
+    window and scrolls, and the row that takes the focus scrolls into view. Every menu does so.
   - **Drag to reorder.** A press becomes a drag once the pointer moves 4 px; less is a click, which selects the row. A drag
     does not select the row. While it lasts, the dragged row stays highlighted, in the list and on the timeline, and near
     the list's top or bottom edge the list scrolls. Esc cancels it: nothing moves, and the layer stays selected; letting go

@@ -741,6 +741,12 @@ export function menu(o: {
     if (handled) { e.preventDefault(); e.stopPropagation(); }
   };
   el.addEventListener('keydown', onKey);
+  // A menu taller than the window scrolls (style.css), and every move of the focus above prevents scrolling: the row that
+  // takes the focus is scrolled into view, as little as needed.
+  el.addEventListener('focusin', (e) => {
+    const row = (e.target as Element).closest?.('.menu-item');
+    if (row && el.scrollHeight > el.clientHeight) scrollNearest(el, row);
+  });
   // The row under the pointer takes the focus, so the keys carry on from where the mouse is.
   el.addEventListener('pointermove', (e) => {
     const b = (e.target as Element).closest?.('.menu-item') as HTMLButtonElement | null;

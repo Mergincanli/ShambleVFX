@@ -784,9 +784,10 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .statusbar .icon-only { width: var(--h-status-item); }
 
 /* ---------------------------------------------------------------- menus (6.10): the main menu, the chips' menus, right-click */
-/* On body, in the top layer: --bg-menu, an edge and the raised shadow, 8 px corners, 4 px padding, rows 28 px. */
+/* On body, in the top layer: --bg-menu, an edge and the raised shadow, 8 px corners, 4 px padding, rows 28 px. A menu taller
+   than the window (Move to folder… in a project with many folders) stays 4 px inside it, as it is placed, and scrolls. */
 .menu {
-  position: fixed; inset: auto; min-width: var(--w-menu-min); margin: 0; padding: 4px; overflow: visible;
+  position: fixed; inset: auto; min-width: var(--w-menu-min); max-height: calc(100vh - 8px); margin: 0; padding: 4px; overflow: hidden auto;
   border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-menu); color: var(--text); box-shadow: var(--shadow-raised);
 }
 /* A row: its dot (in a set of choices), a 16 px icon, the label, then on the right a muted description or shortcut. */
