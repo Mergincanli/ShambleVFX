@@ -116,6 +116,8 @@ const ICONS = {
   lock: [{ d: 'M7 10.5h10a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 17 20H7a1.5 1.5 0 0 1-1.5-1.5V12A1.5 1.5 0 0 1 7 10.5z' }, { d: 'M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5M12 14.3v2.2' }],
   warning: [{ d: 'M10.3 4.4L3 17.3a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.4a2 2 0 0 0-3.4 0z' }, { d: 'M12 9.6v4.2M12 17v.1' }],
   question: [{ circle: [12, 12, 8.5] }, { d: 'M9.5 9.7a2.6 2.6 0 0 1 5 .8c0 1.8-2.5 2.2-2.5 3.8M12 16.9v.1' }],
+  // UI phase 3: Show hints, a light bulb.
+  hint: [{ d: 'M9.4 15.6A6.2 6.2 0 1 1 14.6 15.6c-.5.4-.8 1-.8 1.6v.4h-3.6v-.4c0-.6-.3-1.2-.8-1.6z' }, { d: 'M10.2 20.6h3.6' }],
   'faction-soviets': [{ d: star(12, 12.8, 9.5, 0.42), cls: 'insignia' }],
   'faction-allies': [{ d: chevron(12, 12, 19), cls: 'insignia' }],
   'faction-empire': [{ d: flower(12, 12, 9.6, 0.27), cls: 'insignia' }],

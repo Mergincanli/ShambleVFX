@@ -730,15 +730,25 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Resize the effects list': 'Shares the left sidebar between the effects and the layers. The height is remembered; with the focus on it, the arrow keys move it 16 px.',
   'Resize the timeline': 'Shares the middle between the preview and the timeline (the timeline takes at most 60 %). The height is remembered; the arrow keys move it 16 px.',
 
-  // ------------------------------------------------------------ the bar above the preview
-  'Fire': 'Fire the effect from the stand-in to the target, as the game does: each press is a new play, and several can overlap.',
+  // ------------------------------------------------------------ the bar above the preview (the viewport toolbar)
+  // Fire's own tooltip line is "Fire from the stand-in to the target, as the game does" (toolbar.ts); this follows it.
+  'Fire': 'Each press is a new play, and several can overlap.',
   'Scene': 'The set-up the effect plays in: who fires, from where to where, and what stands round. Each effect remembers its scene.',
   'Faction that fired': 'The faction that made the effect: Soviets, Allies or Empire. Team and glow colours follow it.',
   'Made by': 'Who made the effect, seen from you: an enemy (solid ink edges), your team (thin broken edges) or you (your own sound words show too).',
-  'Distance from you': 'How far you are from the event, in metres. Comic words shrink with it, each by its own curve; in a scene with you in it, it moves the target.',
+  'Distance from you': 'How far you are from the event, in metres. Comic words shrink with it, each by its own curve; in a scene with you in it, it moves the target. Drag the chip sideways to change it (Shift: ten times as fast), or click it to type a number.',
   'Tier': 'The quality tier the preview draws: Low, Medium or High. Layers not in it are left out, and fade in the Layers list and on the timeline; timings stay the same.',
   'View': 'How much of the game screen the preview shows: the whole screen, game size (100 %: a 1.8 m soldier is about 150 px), or a close-up.',
   'Close-up on': 'What the close-up centres on: the muzzle or the target.',
+  // The rows of the chips' menus (their own names, so they never meet a label of the right panel: "Target" is one there).
+  'Whole screen': 'The whole game screen, fitted into the preview.',
+  'Game size': 'The game screen at 100 %, as a player sees it: a 1.8 m soldier is about 150 px. It centres on the middle between the muzzle and the target.',
+  'Close-up': 'The game screen at 200 %, centred on the muzzle or the target (Close-up on, below).',
+  'Close-up on the muzzle': 'The close-up centres on the muzzle, where the effect starts.',
+  'Close-up on the target': 'The close-up centres on the target, where the effect lands.',
+  'Made by an enemy': 'The effect as an enemy\'s: edges set to auto or enemy are solid ink lines.',
+  'Made by your team': 'The effect as your team\'s: edges set to auto are thin broken lines; edges set to enemy are not drawn.',
+  'Made by you': 'The effect as your own: edges as for your team, and a word seen only by the shooter (a gun\'s sound word) shows.',
 
   // ------------------------------------------------------------ the transport (Speed and Time have their variants above)
   'Step back': 'Go one step back (1/12 s) and pause.',
@@ -764,6 +774,8 @@ const ALIASES: Readonly<Record<string, string>> = {
   'Pause': 'Play',
   '＋ Add…': 'Add a layer',
   'Measure again': 'Measure',
+  // The Distance popover's number box: the same setting as its slider.
+  'Distance from you, in metres': 'Distance from you',
 };
 
 /**

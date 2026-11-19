@@ -37,9 +37,9 @@ import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { costSummary } from './costcard';
-import { h, icon, installTooltips, menu, segmented, selectField, tip, tipContent } from './dom';
+import { h, icon, iconButton, installTooltips, menu, segmented, tip, tipContent } from './dom';
 import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
-import { NEW_THIS_ROUND, helpFor } from './help';
+import { NEW_THIS_ROUND } from './help';
 import { lookupHelp } from './helptips';
 import { buildInspector } from './inspector';
 import type { InspectorView } from './inspector';
@@ -48,6 +48,8 @@ import { layerGlyph } from './layer-icons';
 import type { LookState } from './look';
 import { buildTimeline } from './timeline';
 import type { TimelineView } from './timeline';
+import { buildToolbar } from './toolbar';
+import type { ToolbarView } from './toolbar';
 
 /** The built-in palette: a project without its own palette.json uses it (the examples do). */
 const builtInPalette = paletteJson as Palette;
@@ -93,7 +95,7 @@ export class App implements AppApi {
   private els!: {
     root: HTMLElement; projectName: HTMLElement; project: HTMLButtonElement; lock: HTMLElement; save: HTMLButtonElement; undo: HTMLButtonElement; redo: HTMLButtonElement;
     night: HTMLButtonElement; effects: HTMLElement; layers: HTMLElement; viewport: HTMLElement; play: HTMLButtonElement; time: HTMLElement;
-    timeNow: HTMLButtonElement; timeInput: HTMLInputElement; timeLen: HTMLElement; timeStep: HTMLElement; timeFiring: HTMLElement; scale: HTMLElement;
+    timeNow: HTMLButtonElement; timeInput: HTMLInputElement; timeLen: HTMLElement; timeStep: HTMLElement; timeFiring: HTMLElement;
     status: HTMLElement; dialog: HTMLDialogElement;
     sbChecks: HTMLButtonElement; sbTris: HTMLElement; sbDraws: HTMLElement; sbCost: HTMLButtonElement; sbHint: HTMLElement; sbRenderer: HTMLElement;
   };
@@ -106,12 +108,8 @@ export class App implements AppApi {
   private drawing = false;
   /** Start-up is done: the project is open and the frames run. */
   private booted = false;
-  private factionCtl!: ReturnType<typeof segmented<FactionId>>;
-  private viewCtl!: ReturnType<typeof segmented<ViewMode>>;
-  private closeCtl!: ReturnType<typeof segmented<'origin' | 'target'>>;
-  private sceneCtl!: ReturnType<typeof selectField>;
-  private relationCtl!: ReturnType<typeof segmented<Relation>>;
-  private distanceBox!: { el: HTMLElement; set(v: number): void };
+  /** The bar over the preview (toolbar.ts): Fire, the chips, Fade other layers and View. */
+  private toolbar!: ToolbarView;
   /** The preview scene each effect was last shown in (kept in project.json, under "preview"). */
   private previewScenes: Record<string, string> = {};
   /**
@@ -131,7 +129,6 @@ export class App implements AppApi {
   private refusal: string | null = null;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
-  private tierCtl!: ReturnType<typeof segmented<TierName>>;
   /** The quality tier the preview draws. */
   private tier: TierName = 'high';
   /** The game events each effect answers (project.json "events"). Deleted effects keep theirs here, so undo brings them back. */
@@ -276,7 +273,7 @@ export class App implements AppApi {
     if (f === this.faction) return;
     this.faction = f;
     this.preview.setFaction(f);
-    this.factionCtl.set(f);
+    this.toolbar.setFaction(f);
     this.inspector.refresh();
     this.picker?.refresh();
   }
@@ -433,10 +430,16 @@ export class App implements AppApi {
     (card?.querySelector('h2') as HTMLElement | null)?.focus({ preventScroll: true });
   }
 
+  /** Show the preview in a view (Whole screen, Game size, Close-up): the View chip's menu, and the 1, 2 and 3 keys. */
+  private setView(v: ViewMode): void {
+    this.preview.setView(v);
+    this.toolbar.setView(v);
+  }
+
   private setTier(t: TierName): void {
     this.tier = t;
     this.preview.vfx.tier = t;
-    this.tierCtl.set(t);
+    this.toolbar.setTier(t);
     this.renderLayers();
     this.timelineView.refresh();
   }
@@ -455,11 +458,11 @@ export class App implements AppApi {
     this.preview = await Preview.create({
       container: this.els.viewport, palette: this.palette, backend: params.get('backend') === 'webgl' ? 'webgl' : 'auto', offscreen: params.get('offscreen') === '1',
     });
-    this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); this.distanceBox.set(this.preview.viewerDistanceM); };
-    this.distanceBox.set(this.preview.viewerDistanceM);
-    // The scale it shows the game screen at, next to the View buttons: now, and whenever the view or its size changes it.
-    this.preview.onScale = (k) => this.renderScale(k);
-    this.renderScale(this.preview.scale);
+    this.preview.onTargetMoved = () => { this.timelineView.refresh(); this.inspector.refresh(); this.toolbar.setDistance(this.preview.viewerDistanceM); };
+    this.toolbar.setDistance(this.preview.viewerDistanceM);
+    // The scale it shows the game screen at, in the View chip: now, and whenever the view or its size changes it.
+    this.preview.onScale = (k) => this.toolbar.setScale(k);
+    this.toolbar.setScale(this.preview.scale);
     // ?frame=1 shows only the game screen at its real size: for screenshots of what a player sees.
     if (params.get('frame') === '1') { document.body.classList.add('frame-only'); this.preview.setView('frame'); }
     // The renderer, at the right end of the status bar, with the tooltip the badge in the top bar had.
@@ -522,18 +525,18 @@ export class App implements AppApi {
     const project = h('button', { class: 'project-btn', attrs: { type: 'button', 'data-help-label': 'Project' }, on: { click: () => void this.projectsDialog() } }, projectName);
     const save = h('button', { class: 'tb save', attrs: { type: 'button' }, on: { click: () => void this.save() } }, h('span', { class: 'save-icon' }, icon('save')), h('span', { class: 'save-label', text: 'Save' }));
     // An icon toggle: the sun shows in Day, the moon in Night (the stylesheet picks one by aria-pressed).
-    const night = h('button', { class: 'tb icon-only theme-toggle', attrs: { type: 'button', 'aria-label': 'Night mode', 'aria-pressed': String(document.documentElement.dataset.theme === 'dark') },
-      on: { click: () => this.setTheme(document.documentElement.dataset.theme !== 'dark') } }, icon('sun'), icon('moon'));
-    const undo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Undo' }, on: { click: () => this.history.undo() } }, icon('undo'));
-    const redo = h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Redo' }, on: { click: () => this.history.redo() } }, icon('redo'));
+    const night = iconButton({ icon: ['sun', 'moon'], label: 'Night mode', className: 'tb theme-toggle', pressed: document.documentElement.dataset.theme === 'dark',
+      onClick: () => this.setTheme(document.documentElement.dataset.theme !== 'dark') });
+    const undo = iconButton({ icon: 'undo', label: 'Undo', className: 'tb', onClick: () => this.history.undo() });
+    const redo = iconButton({ icon: 'redo', label: 'Redo', className: 'tb', onClick: () => this.history.redo() });
     const status = h('div', { class: 'status', attrs: { role: 'status', 'aria-live': 'polite' } });
     const dialog = h('dialog', { class: 'dlg' });
     const top = h('header', { class: 'topbar', attrs: { 'data-help-section': 'Top bar' } },
       logo, h('div', { class: 'project' }, project),
       h('div', { class: 'tools' }, undo, redo, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), night, h('span', { class: 'tb-sep', attrs: { 'aria-hidden': 'true' } }), save,
         h('button', { class: 'tb export', attrs: { type: 'button' }, on: { click: () => void this.exportDialog() } }, icon('export'), h('span', { text: 'Export…' }))));
-    // The main menu: what left the top bar (Projects…, Save as…, Keys) and the rest of a project's commands. A first, simple
-    // version (phase 3 finishes the menus); appended to document.body, so nothing clips it.
+    // The main menu: what left the top bar (Projects…, Save as…, Keys) and the rest of a project's commands. A menu of
+    // dom.ts, appended to document.body, so nothing clips it.
     menu({ opener: logo, id: 'main-menu', label: 'Main menu', helpSection: 'Main menu', items: [
       { label: 'Projects…', icon: 'projects', action: () => void this.projectsDialog() },
       { label: 'New project…', icon: 'plus', action: () => void this.newProject() },
@@ -575,39 +578,30 @@ export class App implements AppApi {
         h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Delete layer' }, on: { click: () => this.deleteSelected() } }, icon('trash'))));
     const left = h('aside', { class: 'left' }, effectsSection, layersSection);
 
-    // ------------------------------------------------ the viewport toolbar (today's controls; phase 3 makes them chips)
-    this.factionCtl = segmented<FactionId>({ label: 'Faction that fired', value: this.faction,
-      options: FACTION_IDS.map((f) => ({ value: f, label: builtInPalette.factions[f].name, icon: `faction-${f}` as const, style: `--team:${builtInPalette.factions[f].roles.team!.hex}` })),
-      onChange: (f) => this.setFaction(f), small: true });
-    this.viewCtl = segmented<ViewMode>({ label: 'View', options: [{ value: 'whole', label: 'Whole screen', icon: 'view-whole' }, { value: 'game', label: 'Game size', icon: 'view-game' }, { value: 'close', label: 'Close-up', icon: 'view-close' }],
-      value: 'whole', onChange: (v) => { this.preview.setView(v); this.viewCtl.set(v); }, small: true });
-    this.closeCtl = segmented<'origin' | 'target'>({ label: 'Close-up on', options: [{ value: 'origin', label: 'Muzzle', icon: 'muzzle' }, { value: 'target', label: 'Target', icon: 'target' }], value: 'target',
-      onChange: (v) => { this.preview.setCloseOn(v); this.closeCtl.set(v); }, small: true });
-    this.sceneCtl = selectField({ label: 'Scene', options: SCENES.map((x) => ({ value: x.id, label: x.name })), value: SCENES[0]!.id,
-      onChange: (id) => this.chooseScene(id) });
-    this.relationCtl = segmented<Relation>({ label: 'Made by', small: true, value: 'enemy',
-      options: [{ value: 'enemy', label: 'Enemy', icon: 'enemy', title: 'An enemy made it: comic outlines in ink' }, { value: 'team', label: 'Your team', icon: 'team', title: 'Your team made it: thin broken outlines' },
-        { value: 'self', label: 'You', icon: 'self', title: 'You made it: your own words show' }],
-      onChange: (r) => { this.preview.setRelation(r); this.relationCtl.set(r); } });
-    this.distanceBox = distanceControl((m) => { this.preview.setDistance(m); this.timelineView.refresh(); });
-    this.tierCtl = segmented<TierName>({ label: 'Tier', small: true, value: 'high',
-      options: TIER_NAMES.map((t) => ({ value: t, label: TIER_LABEL[t], icon: `tier-${t}` as const })),
-      onChange: (t) => this.setTier(t) });
-    const fire = h('button', { class: 'fire', attrs: { type: 'button' }, on: { click: () => this.fire() } }, icon('fire'), 'Fire');
+    // ------------------------------------------------ the viewport toolbar (6.3): Fire, the chips, Fade other layers, View
+    this.toolbar = buildToolbar({
+      factions: builtInPalette.factions,
+      state: { scene: SCENES[0]!.id, faction: this.faction, relation: 'enemy', distance: 4, tier: this.tier, view: 'whole', closeOn: 'target', fade: this.fadeOn },
+      act: {
+        fire: () => this.fire(),
+        scene: (id) => this.chooseScene(id),
+        faction: (f) => this.setFaction(f),
+        relation: (r) => { this.preview.setRelation(r); this.toolbar.setRelation(r); },
+        distance: (m) => { this.preview.setDistance(m); this.timelineView.refresh(); },
+        tier: (t) => this.setTier(t),
+        view: (v) => this.setView(v),
+        closeOn: (c) => { this.preview.setCloseOn(c); this.toolbar.setCloseOn(c); },
+        fade: (on) => this.setFade(on),
+      },
+    });
     // Fade other layers: an icon toggle, on until switched off. Its tooltip: its name and the help text (help.ts).
-    this.fadeBtn = h('button', {
-      class: 'tb icon-only fade-toggle', attrs: { type: 'button', 'aria-label': 'Fade other layers', 'aria-pressed': String(this.fadeOn) },
-      on: { click: () => this.setFade(!this.fadeOn) },
-    }, icon('gradient'));
-    // The scale the preview shows the game screen at, right after the View buttons, until phase 3's View chip shows it.
-    const scale = h('span', { class: 'scale-text' });
+    this.fadeBtn = this.toolbar.fadeButton;
     const viewport = h('div', { class: 'viewport' });
-    const vbar = h('div', { class: 'vbar', attrs: { 'data-help-section': 'Preview bar' } },
-      fire, this.sceneCtl.el, this.factionCtl.el, this.relationCtl.el, this.distanceBox.el, this.tierCtl.el, this.viewCtl.el, scale, this.closeCtl.el, this.fadeBtn);
+    const vbar = this.toolbar.el;
     const hint = h('div', { class: 'vhint', text: DRAG_HINT });
 
     // ------------------------------------------------ the timeline's header: the transport (6.5)
-    const play = h('button', { class: 'play icon-only', attrs: { type: 'button', 'aria-label': 'Play' }, on: { click: () => this.togglePlay() } }, icon('play'));
+    const play = iconButton({ icon: 'play', label: 'Play', className: 'play', onClick: () => this.togglePlay() });
     this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
     this.speedCtl = segmented<number>({ label: 'Speed', options: SPEEDS.map((s) => ({ value: s, label: s === 1 ? '1×' : s === 0.5 ? '½×' : s === 0.25 ? '¼×' : '⅒×' })), value: 1,
       onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true });
@@ -625,9 +619,9 @@ export class App implements AppApi {
     const timeFiring = h('span', { class: 'time-firing' });
     const time = h('span', { class: 'time', attrs: { 'data-help-label': 'Time' } }, timeNow, timeInput, timeLen, timeStep, timeFiring);
     const transport = h('div', { class: 'transport', attrs: { 'data-help-section': 'Transport' } },
-      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step back' }, on: { click: () => this.step(-1) } }, icon('step-back')),
+      iconButton({ icon: 'step-back', label: 'Step back', className: 'tb', onClick: () => this.step(-1) }),
       play,
-      h('button', { class: 'tb icon-only', attrs: { type: 'button', 'aria-label': 'Step forward' }, on: { click: () => this.step(1) } }, icon('step-fwd')),
+      iconButton({ icon: 'step-fwd', label: 'Step forward', className: 'tb', onClick: () => this.step(1) }),
       this.loopBtn, this.speedCtl.el, time);
     const timelinePane = h('section', { class: 'timeline-pane', attrs: { 'aria-label': 'Timeline' } }, transport, h('div', { class: 'timeline-slot' }));
     // The status bar shows the drag hint while the pointer is over the preview (data-status-hint).
@@ -642,7 +636,8 @@ export class App implements AppApi {
     const sbCost = h('button', { class: 'sb-item sb-cost', attrs: { type: 'button', 'data-help-label': 'Cost' }, on: { click: () => this.showCostCard() } });
     const sbHint = h('span', { class: 'sb-hint' });
     const sbRenderer = h('span', { class: 'sb-renderer', attrs: { 'data-help-label': 'Renderer' } });
-    const sbKeys = h('button', { class: 'sb-item icon-only sb-keys', attrs: { type: 'button', 'aria-label': 'Keyboard shortcuts', 'data-help-label': 'Keyboard shortcuts' }, on: { click: () => this.keysDialog() } }, icon('question'));
+    const sbKeys = iconButton({ icon: 'question', label: 'Keyboard shortcuts', className: 'sb-item sb-keys', onClick: () => this.keysDialog() });
+    sbKeys.setAttribute('data-help-label', 'Keyboard shortcuts');
     const statusbar = h('footer', { class: 'statusbar', attrs: { 'data-help-section': 'Status bar' } },
       h('div', { class: 'sb-left' }, sbChecks, sbStats, sbCost), sbHint, h('div', { class: 'sb-right' }, sbRenderer, sbKeys));
 
@@ -658,7 +653,7 @@ export class App implements AppApi {
     document.addEventListener('pointerover', (e) => this.setStatusHint(((e.target as Element).closest?.('[data-status-hint]') as HTMLElement | null)?.dataset.statusHint ?? ''));
     document.addEventListener('pointerout', (e) => { if (e.relatedTarget === null) this.setStatusHint(''); });
     this.els = {
-      root, projectName, project, lock, save, undo, redo, night, effects, layers, viewport, play, time, timeNow, timeInput, timeLen, timeStep, timeFiring, scale, status, dialog,
+      root, projectName, project, lock, save, undo, redo, night, effects, layers, viewport, play, time, timeNow, timeInput, timeLen, timeStep, timeFiring, status, dialog,
       sbChecks, sbTris, sbDraws, sbCost, sbHint, sbRenderer,
     };
   }
@@ -731,8 +726,8 @@ export class App implements AppApi {
     this.mainTime = 0;
     // Show the first effect in the scene it remembers.
     const scene = this.sceneOf(this.selEffect);
-    if (this.preview && this.preview.scene.id !== scene) { this.preview.setScene(scene); this.distanceBox?.set(this.preview.viewerDistanceM); }
-    this.sceneCtl?.set(scene);
+    if (this.preview && this.preview.scene.id !== scene) { this.preview.setScene(scene); this.toolbar?.setDistance(this.preview.viewerDistanceM); }
+    this.toolbar?.setScene(scene);
     this.renderAll();
     const opened = insteadOf ? `${insteadOf} Opened ${contents.name} instead` : `Opened ${contents.name}`;
     this.say(bad.length ? `${opened}, with problems: ${bad.join(' | ')}` : `${opened}${contents.writable ? '' : ' (an example: use "Save as" to keep changes)'}.`, bad.length > 0 || !!insteadOf);
@@ -760,13 +755,13 @@ export class App implements AppApi {
   /** Show the chosen scene, and remember it for the effect shown. */
   private chooseScene(id: string): void {
     if (!this.preview.setScene(id)) return;
-    this.sceneCtl.set(id);
+    this.toolbar.setScene(id);
     if (this.selEffect && this.previewScenes[this.selEffect] !== id) {
       this.previewScenes[this.selEffect] = id;
       this.metaDirty = true;
       this.renderTopbar();
     }
-    this.distanceBox.set(this.preview.viewerDistanceM);
+    this.toolbar.setDistance(this.preview.viewerDistanceM);
     this.timelineView.refresh();
     this.inspector.refresh();
   }
@@ -1066,9 +1061,9 @@ export class App implements AppApi {
     const scene = this.sceneOf(id);
     if (this.preview && this.preview.scene.id !== scene) {
       this.preview.setScene(scene);
-      this.distanceBox.set(this.preview.viewerDistanceM);
+      this.toolbar.setDistance(this.preview.viewerDistanceM);
     }
-    this.sceneCtl?.set(scene);
+    this.toolbar?.setScene(scene);
     this.renderAll();
   }
 
@@ -1418,14 +1413,6 @@ export class App implements AppApi {
     this.renderTime(len);
   }
 
-  /** The scale next to the View buttons ("59 %"), and its tooltip. */
-  private renderScale(k: number): void {
-    const pct = `${Math.round(k * 100)} %`;
-    if (this.els.scale.textContent === pct) return;
-    this.els.scale.textContent = pct;
-    tip(this.els.scale, `The preview shows the game screen at ${pct} of its size.`);
-  }
-
   /**
    * The status bar: the checks (the same list as the Checks section), this frame's triangles and draw calls, and the cost
    * card's state in a few words. Only what changed is written.
@@ -1484,9 +1471,11 @@ export class App implements AppApi {
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) this.history.redo(); else this.history.undo(); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.history.redo(); return; }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void this.save(); return; }
-      // Undo, redo and save (above) work everywhere. Other keys pressed in the colour picker are the picker's (its wheel
-      // takes the arrows): never the editor's shortcuts. Escape puts the picker away from anywhere.
-      if (e.defaultPrevented || (e.target as HTMLElement).closest?.('.cpick, .menu')) return;
+      // Undo, redo and save (above) work everywhere. Other keys pressed in the colour picker, a menu or the Distance popover
+      // are theirs (the picker's wheel takes the arrows, a menu's type-ahead the letters): never the editor's shortcuts. While
+      // a menu or the popover is open, the editor's keys wait (F, L, 1 2 3, ← →, Space). Escape puts the picker away from
+      // anywhere else.
+      if (e.defaultPrevented || (e.target as HTMLElement).closest?.('.cpick, .menu, .popover') || this.toolbar.popupOpen()) return;
       if (e.key === 'Escape' && this.picker.isOpen && !this.els.dialog.open) { this.picker.close(); return; }
       // Escape with nothing open leaves the layer: the effect's settings show again. Not while typing (a text or number
       // field, a select); a checkbox or a slider that keeps the focus after a click is not typing.
@@ -1504,7 +1493,7 @@ export class App implements AppApi {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); this.step(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); this.step(1); }
       else if (e.key === 'l' || e.key === 'L') this.setLoop(!this.loop);
-      else if (e.key === '1' || e.key === '2' || e.key === '3') { const v = (['whole', 'game', 'close'] as const)[+e.key - 1]!; this.preview.setView(v); this.viewCtl.set(v); }
+      else if (e.key === '1' || e.key === '2' || e.key === '3') this.setView((['whole', 'game', 'close'] as const)[+e.key - 1]!);
       else if (e.key === 'Delete' || e.key === 'Backspace') this.deleteSelected();
       else if (e.key === '?') { e.preventDefault(); this.keysDialog(); }
     });
@@ -1560,9 +1549,9 @@ export class App implements AppApi {
     if (!effectById(this.history.doc, o.effect)) return false;
     this.selectEffect(o.effect);
     if (o.scene) this.chooseScene(o.scene);
-    if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.factionCtl.set(o.faction); }
-    if (o.relation) { this.preview.setRelation(o.relation); this.relationCtl.set(o.relation); }
-    if (o.distance !== undefined) { this.preview.setDistance(o.distance); this.distanceBox.set(this.preview.viewerDistanceM); }
+    if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.toolbar.setFaction(o.faction); }
+    if (o.relation) { this.preview.setRelation(o.relation); this.toolbar.setRelation(o.relation); }
+    if (o.distance !== undefined) { this.preview.setDistance(o.distance); this.toolbar.setDistance(this.preview.viewerDistanceM); }
     if (o.tier) this.setTier(o.tier);
     this.metaDirty = false;
     this.renderTopbar();
@@ -1647,17 +1636,4 @@ function layerTag(l: Layer): string {
     case 'burst': return `${l.count} × ${l.look.kind}`;
     case 'word': return l.words.map((w) => w.text).join(' / ');
   }
-}
-
-/** A small distance control for the viewport bar: a range and the number in metres. */
-function distanceControl(onInput: (m: number) => void): { el: HTMLElement; set(v: number): void } {
-  const range = h('input', { attrs: { type: 'range', min: '0', max: '14', step: '0.1', 'aria-label': 'Distance from you' } });
-  const val = h('span', { class: 'dist-val' });
-  const set = (v: number) => { range.value = String(v); val.textContent = `${v.toFixed(1)} m`; };
-  range.addEventListener('input', () => { set(+range.value); onInput(+range.value); });
-  set(4);
-  // The slider's tooltip is its label's: each word shrinks by its own curve, so no one curve is named here.
-  const el = h('div', { class: 'row dist', title: helpFor('Distance from you') ?? '' },
-    h('div', { class: 'lab' }, h('span', { text: 'Distance from you' })), range, val);
-  return { el, set };
 }

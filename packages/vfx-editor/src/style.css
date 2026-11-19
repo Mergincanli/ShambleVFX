@@ -30,6 +30,8 @@
   --w-app-min: 1280px;
   --w-centre-min: 640px;
   --w-menu-min: 224px;
+  --w-popover: 248px;       /* the Distance popover */
+  --w-chip-value: 200px;    /* the Scene chip's value: a longer name ends in an ellipsis */
   --dot: 10px;              /* an effect's main-colour dot */
   --h-section: 32px;
   --h-row: 28px;
@@ -238,13 +240,13 @@ button, input, select, summary, .item, .tl-row { transition: background-color va
 .icon-only { width: var(--h-control); padding: 0; justify-content: center; background: transparent; color: var(--text-muted); }
 .icon-only:hover:not(:disabled) { border-color: transparent; background: var(--bg-hover); color: var(--text); }
 button:disabled { opacity: 0.4; cursor: default; }
-/* Toggles (Loop, Night mode, Fade other layers, Exact values): off is a ghost button; on is the field colour with the icon in
-   --accent-ink. */
+/* Toggles (Loop, the icon toggles: Show hints, Night mode, Fade other layers; Exact values): off is a ghost button; on is the
+   field colour with the icon in --accent-ink. */
 .transport .tb[aria-pressed] { background: transparent; }
 .transport .tb[aria-pressed]:hover:not(:disabled) { border-color: transparent; background: var(--bg-hover); }
-.transport .tb[aria-pressed="true"], .theme-toggle[aria-pressed="true"], .fade-toggle[aria-pressed="true"], .cp-hexrow .mini[aria-pressed="true"] { background: var(--bg-field); color: var(--text); }
-.transport .tb[aria-pressed="true"]:hover:not(:disabled), .theme-toggle[aria-pressed="true"]:hover:not(:disabled), .fade-toggle[aria-pressed="true"]:hover:not(:disabled), .cp-hexrow .mini[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
-.transport .tb[aria-pressed="true"] .icon, .theme-toggle[aria-pressed="true"] .icon, .fade-toggle[aria-pressed="true"] .icon, .cp-hexrow .mini[aria-pressed="true"] .icon { color: var(--accent-ink); }
+.transport .tb[aria-pressed="true"], .icon-only[aria-pressed="true"], .cp-hexrow .mini[aria-pressed="true"] { background: var(--bg-field); color: var(--text); }
+.transport .tb[aria-pressed="true"]:hover:not(:disabled), .icon-only[aria-pressed="true"]:hover:not(:disabled), .cp-hexrow .mini[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); }
+.transport .tb[aria-pressed="true"] .icon, .icon-only[aria-pressed="true"] .icon, .cp-hexrow .mini[aria-pressed="true"] .icon { color: var(--accent-ink); }
 /* Night mode shows the sun in Day and the moon in Night. */
 .theme-toggle[aria-pressed="true"] .icon-sun, .theme-toggle[aria-pressed="false"] .icon-moon { display: none; }
 
@@ -459,19 +461,35 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .layer-item.sel.off code { color: var(--text); }
 
 /* ---------------------------------------------------------------- centre: toolbar, preview, timeline */
-/* The toolbar is 36 px, or taller while today's controls need a second row (phase 3 makes them chips). */
+/* The toolbar is 36 px; taller only in a window too narrow for its one row, where it wraps. */
 .centre { grid-area: 1 / 2; display: grid; grid-template-rows: minmax(var(--h-toolbar), auto) minmax(0, 1fr) var(--timeline-h); min-width: 0; min-height: 0; background: var(--bg-app); }
 .centre > .vbar { grid-area: 1 / 1; }
 .centre > .viewport-wrap { grid-area: 2 / 1; }
 .centre > .timeline-pane { grid-area: 3 / 1; }
-.vbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; min-height: var(--h-toolbar); padding: 4px var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
-.vbar .row, .transport .row { margin: 0; flex-direction: row; align-items: center; gap: 8px; }
-.vbar .field.wide { margin: 0; flex-direction: row; align-items: center; gap: 8px; }
-.vbar .field.wide select { max-width: 220px; }
-.vbar .row.dist input[type="range"] { width: 110px; }
-.vbar .dist-val { min-width: 44px; }
-/* The scale the preview shows the game screen at, right after the View buttons. */
-.vbar .scale-text { margin-left: -8px; color: var(--text-muted); white-space: nowrap; }
+/* The viewport toolbar (6.3): one 36 px row, its 1 px line under it: Fire, the chips, then on the right Fade other layers and
+   View. A window too narrow for it wraps it onto a second row, the controls in the same order. */
+.vbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: var(--h-toolbar); padding: 3px var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
+.vbar .fade-toggle { margin-left: auto; }
+/* Chips: 24 px on the field colour, an icon, the value and a chevron; no edge at rest, a 1 px --line-strong edge on hover.
+   With its menu open, the icon and the chevron are --accent-ink (4.6). */
+.chip-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; height: var(--h-control); padding: 0 4px 0 6px;
+  border: 1px solid transparent; border-radius: var(--r-control); background: var(--bg-field); color: var(--text); white-space: nowrap;
+}
+.chip-btn:hover { border-color: var(--line-strong); }
+.chip-icon { display: inline-flex; flex: none; color: var(--text-muted); }
+.chip-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.scene-chip .chip-value { max-width: var(--w-chip-value); }
+.chip-chev { color: var(--text-muted); }
+.chip-btn[aria-expanded="true"] .chip-icon, .chip-btn[aria-expanded="true"] .chip-chev { color: var(--accent-ink); }
+/* The scale the preview shows the game screen at, muted, in the View chip. */
+.chip-btn .scale-text { color: var(--text-muted); }
+/* Distance: drag the chip sideways to change it. */
+.distance-chip { cursor: ew-resize; }
+/* A faction's marking filled with its team colour (a colour from the palette, the one exception to the tokens), its
+   outline in the text colour; and the team colour's dot in the faction menu. */
+.team-filled .insignia { fill: var(--team); stroke: var(--text); }
+.team-dot { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--team); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 /* The preview fills its area edge to edge. No yellow over it (the browser check counts the flash's orange in it). */
 .viewport-wrap { position: relative; min-height: 0; background: var(--ground); overflow: hidden; }
 .viewport { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
@@ -690,24 +708,53 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .sb-renderer { padding: 0 4px; }
 .statusbar .icon-only { width: var(--h-status-item); }
 
-/* ---------------------------------------------------------------- menus (6.10): the main menu now */
+/* ---------------------------------------------------------------- menus (6.10): the main menu, the chips' menus, right-click */
 /* On body, in the top layer: --bg-menu, an edge and the raised shadow, 8 px corners, 4 px padding, rows 28 px. */
 .menu {
   position: fixed; inset: auto; min-width: var(--w-menu-min); margin: 0; padding: 4px; overflow: visible;
   border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-menu); color: var(--text); box-shadow: var(--shadow-raised);
 }
+/* A row: its dot (in a set of choices), a 16 px icon, the label, then on the right a muted description or shortcut. */
 .menu-item {
-  display: grid; grid-template-columns: var(--icon) minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; height: var(--h-row); padding: 0 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%; height: var(--h-row); padding: 0 8px;
   border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); text-align: left; white-space: nowrap;
 }
 .menu-item:hover:not(:disabled), .menu-item:focus-visible { background: var(--bg-hover); }
 .menu-item:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
-.menu-icon { display: inline-flex; color: var(--text-muted); }
+.menu-icon { display: inline-flex; flex: none; width: var(--icon); color: var(--text-muted); }
+.menu-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.menu-right { display: inline-flex; align-items: center; flex: none; margin-left: 16px; color: var(--text-muted); font-size: var(--fs-small); }
 /* A setting that is on shows its check in --accent-ink, as an active toggle; off, the row keeps the check's room. */
-.menu-item[aria-checked="true"] .menu-icon { color: var(--accent-ink); }
-.menu-item[aria-checked="false"] .menu-icon .icon { visibility: hidden; }
-.menu .menu-key { padding: 0; background: transparent; color: var(--text-muted); font-size: var(--fs-small); }
+.menu-item[role="menuitemcheckbox"][aria-checked="true"] .menu-icon { color: var(--accent-ink); }
+.menu-item[role="menuitemcheckbox"][aria-checked="false"] .menu-icon .icon { visibility: hidden; }
+/* The chosen one of a set: a dot in --accent-ink before it (the others keep the dot's room). */
+.menu-mark { flex: none; width: 6px; height: 6px; border-radius: 50%; }
+.menu-item[role="menuitemradio"][aria-checked="true"] .menu-mark { background: var(--accent-ink); }
+.menu .menu-key { flex: none; margin-left: 16px; padding: 0; background: transparent; color: var(--text-muted); font-size: var(--fs-small); }
 .menu-divider { height: 1px; margin: 4px 0; background: var(--line); }
+/* The header naming the setting, and a heading over a group of rows: muted, semibold, not rows. */
+.menu-title, .menu-heading { display: flex; align-items: center; height: var(--h-control); padding: 0 8px; color: var(--text-muted); font-size: var(--fs-body); font-weight: 600; white-space: nowrap; }
+/* A muted line under the rows, under a 1 px line. */
+.menu-foot { max-width: var(--w-menu-min); margin: 4px -4px -4px; padding: 6px 12px 8px; border-top: 1px solid var(--line); color: var(--text-muted); font-size: var(--fs-small); line-height: var(--lh-body); white-space: normal; }
+
+/* ---------------------------------------------------------------- the Distance popover, and numbers you drag or type */
+/* A popover from a chip: on body, its own background, an edge and the raised shadow, 8 px corners. */
+.popover {
+  position: fixed; inset: auto; width: var(--w-popover); margin: 0; padding: 4px 12px 12px; overflow: visible;
+  border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); color: var(--text); box-shadow: var(--shadow-raised);
+}
+.pop-title { display: flex; align-items: center; height: var(--h-row); font-weight: 600; }
+.pop-row { display: flex; align-items: center; gap: 8px; }
+.pop-row input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.popover .hint { margin-top: 6px; }
+/* A number you drag or type: the field colour, no edge at rest; the value on the right, the unit inside it, muted. Its prefix
+   and its handles (a label, the Distance chip) are dragged sideways. */
+.scrub { display: inline-flex; align-items: center; gap: 4px; flex: none; height: var(--h-control); padding: 0 6px; border: 1px solid transparent; border-radius: var(--r-control); background: var(--bg-field); }
+.scrub:hover { border-color: var(--line-strong); }
+.scrub:has(input:focus-visible) { border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus-ring); }
+.scrub input.num, .scrub input.num:hover, .scrub input.num:focus-visible { width: 40px; height: calc(var(--h-control) - 2px); padding: 0; border: 0; background: transparent; box-shadow: none; outline: none; text-align: right; }
+.scrub-prefix { color: var(--text-muted); }
+.scrub-handle { cursor: ew-resize; user-select: none; }
 
 /* ---------------------------------------------------------------- tooltips */
 /* One tooltip for the page (src/app/dom.ts): dark in both themes, 12 px, at most 280 px wide, with an optional shortcut in
@@ -823,20 +870,20 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .gr-ramprow input.num { width: 100%; }
 
 /* ?frame=1: only the game screen, at its real size (screenshots). Nothing of the editor round it: no bars, no splitters, no
-   menu, no scale. */
+   menus or popovers, no scale. */
 .frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
 .frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .timeline-pane, .frame-only .statusbar,
-.frame-only .splitter, .frame-only .menu, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
+.frame-only .splitter, .frame-only .menu, .frame-only .popover, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
 .frame-only .tooltip { display: none !important; }
 .frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
 .frame-only .centre { grid-area: 1 / 1; grid-template-rows: minmax(0, 1fr); }
 .frame-only .centre > .viewport-wrap { grid-area: 1 / 1; }
 .frame-only .frame-guide { outline: 0; box-shadow: none; }
 
-/* The colour picker, menus, dialogs and the tooltip fade in over 100 ms with a 2 px move. Nothing else moves. */
-.cpick:popover-open, .menu:popover-open, .dlg[open], .tooltip:popover-open { transition: opacity 100ms ease-out, transform 100ms ease-out; }
+/* The colour picker, menus, popovers, dialogs and the tooltip fade in over 100 ms with a 2 px move. Nothing else moves. */
+.cpick:popover-open, .menu:popover-open, .popover:popover-open, .dlg[open], .tooltip:popover-open { transition: opacity 100ms ease-out, transform 100ms ease-out; }
 @starting-style {
-  .cpick:popover-open, .menu:popover-open, .dlg[open], .tooltip:popover-open { opacity: 0; transform: translateY(2px); }
+  .cpick:popover-open, .menu:popover-open, .popover:popover-open, .dlg[open], .tooltip:popover-open { opacity: 0; transform: translateY(2px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

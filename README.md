@@ -45,19 +45,26 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    **Comic hits**: ten hit effects in four sets.
 2. Press **Fire** (or the F key) to play the effect from the stand-in to the target, or **Play**, in the timeline's header, to
    loop it on the timeline.
-3. The bar above the preview:
+3. The bar above the preview: **Fire**, then chips that show the current value. Click a chip (or press Enter on it) for a
+   menu of the choices: the arrow keys move in it, a letter jumps to the choice that starts with it, Enter chooses, Esc
+   closes it. Rest the pointer on a chip for its name and what it does.
    - **Scene**: who fires and what stands around. Each board effect opens in the board's own set-up; each effect remembers
      its scene (in `project.json`).
-   - **Faction that fired**: Soviets, Allies or Empire. Team and glow colours follow it.
+   - **Faction that fired**: Soviets, Allies or Empire; the chip shows the faction's marking in its team colour. Team and
+     glow colours follow it.
    - **Made by**: an **enemy**, **your team** or **you**. An enemy's effects get solid ink edges; your team's get thin
      broken ones; a gun's sound word shows only to the one who fired.
-   - **Distance from you**: comic words shrink with it, each by its own curve (a new word: full size to 2 m, 60 % from 5 to
-     8 m, gone at 11 m). In the tank shell's scene it moves the landing point away from you.
-   - **View**: whole screen, game size, or a close-up on the muzzle or the target. The scale after the view buttons ("56 %")
-     is how large the preview shows the game screen; the 1920 × 1080 frame is outlined, and the scene outside it dimmed.
-   - **Fade other layers**, the striped square after the view buttons: on at first. While a layer is selected, or its row is
-     under the mouse in the Layers list or on the timeline, the other layers fade in the preview, so you see which part of
-     the effect it is; a projectile keeps the layers riding it. Off, the preview shows the game's look. It is remembered.
+   - **Distance from you** ("4.0 m"): drag the chip sideways to change it (0.1 m for every 4 px, 1 m with Shift), or click
+     it for a slider and a box to type in ("0,5" works as well as "0.5"). Comic words shrink with it, each by its own curve
+     (a new word: full size to 2 m, 60 % from 5 to 8 m, gone at 11 m). In the tank shell's scene it moves the landing point
+     away from you.
+   - **Tier**: see 8.
+   - **View**, on the right: whole screen, game size or a close-up (the keys 1, 2 and 3 too), and in the same menu what the
+     close-up centres on, the muzzle or the target. The chip also shows the scale ("59 %"): how large the preview shows the
+     game screen; the 1920 × 1080 frame is outlined, and the scene outside it dimmed.
+   - **Fade other layers**, the striped square left of View: on at first. While a layer is selected, or its row is under
+     the mouse in the Layers list or on the timeline, the other layers fade in the preview, so you see which part of the
+     effect it is; a projectile keeps the layers riding it. Off, the preview shows the game's look. It is remembered.
 4. **Drag the ground** to move the target. **Shift + drag** moves the stand-in. The status bar says so while the pointer is
    over the preview.
 5. The timeline's header (**Play**, the steps, **Loop**, the **speed** buttons and the time) and the **timeline** work like a
@@ -79,8 +86,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape by its kind (a ring, a
    smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a projectile; a sprite shows
    its own image (the first frame of a flipbook).
-8. **Tier** (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the list and on
-   the timeline. A layer's **Shows in** boxes set its tiers.
+8. The **Tier** chip (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the
+   list and on the timeline. A layer's **Shows in** boxes set its tiers.
 9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
 10. **Cost** (lower in the right panel; the triangles and the cost in the status bar jump there): press **Measure** for
@@ -102,9 +109,11 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 15. **Tooltips**: rest the pointer for half a second on a label in the right panel (such as **Place**, **Shape: ring** or
     **Width**), a section's title, or a button or setting in the bars: a short tooltip says what it does and how to use it,
     in plain words, for the layer shown (a ring's Width is its line's thickness). Buttons show their shortcut, and Undo and
-    Redo name the step. **Tab** to a button shows its tooltip at once; **Esc**, a click or scrolling hides it.
+    Redo name the step. **Tab** to a button, a box or a list shows its tooltip at once (a box shows its label's, above it);
+    **Esc**, a click or scrolling hides it.
 16. **The main menu**: click the logo (SHAMBLE VFX) for Projects…, New project…, Save, Save as…, Export…, Import an export…,
-    Night mode and Keyboard shortcuts. The arrow keys move in it, Enter chooses, Esc closes it.
+    Night mode and Keyboard shortcuts. The arrow keys move in it, a letter jumps to the row that starts with it, Enter
+    chooses, Esc closes it.
 17. **The status bar**, at the bottom: the checks ("All good", or how many problems: click to see them under Checks), this
     frame's triangles and draw calls, and the cost against the budgets (click either for Cost); in the middle, the hint for
     what is under the pointer; on the right, the renderer and **?** for the keyboard shortcuts.
@@ -176,7 +185,7 @@ remembered); the runtime's loader and its version guard; the screen-area count a
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (229 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (241 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -207,16 +216,22 @@ the sizes remembered after a reload, a double-click putting the default back, th
 size while one is dragged, the Look following; the status bar: the checks and a click
 to them, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
 main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
-closing it, every row; the ? key, not while typing; the scale after the View buttons; typing a time in the timeline's
+closing it, every row; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
 header, and the time's focus ring clear of the text after it; `?frame=1` showing nothing of the editor round the game
-screen), Save as, Export and Import (`project.json` and `editor.json` version 2
+screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920 and 2560 px with its widest values, and
+two rows at 1280; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
+chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
+waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
+a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
+keys and a typed "0,5"; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
+box or a select, and none after a click into a box), Save as, Export and Import (`project.json` and `editor.json` version 2
 with the budgets), the palette profile Import keeps (in a temporary palettes folder: the real `palettes/` is not touched), Save as and Export keeping its name, a project
 whose `project.json` is version 1 (it opens, with its scenes, and nothing is written) and one of a newer version (not
 opened, and the editor says why, also when it is the project the editor starts with); the test page on both backends
 (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in
 its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a
 new colour, and the focus back on the swatch that opened it when it closes, also in a layer's list that hides the main
-colour), a ready-made gradient on a glow, night mode, the faction markings, and Save as, Export and Import carrying
+colour), a ready-made gradient on a glow, night mode, the faction markings in the Faction chip's menu, and Save as, Export and Import carrying
 the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
 software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
@@ -309,7 +324,7 @@ These write pictures to `out/` (kept out of git):
 - **The editor's look** ([docs/ui-redesign.md](docs/ui-redesign.md), section 4): two themes, Day and Night, from one set
   of colour tokens; one typeface in sentence case; icons drawn in code for every button. Most buttons keep their words next
   to the icon; those with only an icon, such as Undo, Redo, Night mode, Delete layer and Delete effect, give their names in
-  their tooltips. The faction buttons show each faction's marking from sheet 16. Every kind of layer has its own icon: the 14
+  their tooltips. The Faction chip shows each faction's marking from sheet 16. Every kind of layer has its own icon: the 14
   shapes, the nine looks of a burst's pieces, the word, the projectile and the sprite.
 - **Tooltips that explain** (docs/ui-redesign.md 6.9): one tooltip for the whole editor, dark in both themes. Every label
   and section title of the right panel, for the effect and every layer type, and the controls of the bars and lists explain
@@ -327,6 +342,10 @@ These write pictures to `out/` (kept out of git):
   frame outlined and the scene outside it dimmed) over the timeline, whose header holds the transport; the right panel with
   a header for the effect or the layer; a status bar. Four splitters resize the zones, within limits, and remember the sizes;
   each zone has default sizes for windows 2200 px wide or more and for narrower ones.
+- **The viewport toolbar** (UI phase 3, docs/ui-redesign.md 6.3): one row over the preview, Fire and chips that show the
+  value (Scene, Faction that fired, Made by, Distance from you, Tier, and View with the scale), each opening a small menu
+  that works by mouse and by keyboard; Distance is dragged sideways or typed. The parts it is made of (icon buttons, menus,
+  also at a right-click, chips and numbers you drag or type) are in `src/app/dom.ts`, ready for the next phases.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
@@ -571,7 +590,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     a scrub that starts on a row's lane is not a hover, so the selection counts while you drag. Fade other layers off
     stops both. Effects still playing from an earlier Fire of another effect fade as a whole. The game
     screen alone (`?frame=1`) never fades.
-  - The toggle sits after the view buttons, with the icon of the colour picker's Gradients (a striped square). The icons
+  - The toggle sits in the toolbar just left of the View chip (see "The toolbar and hints"), with the icon of the colour
+    picker's Gradients (a striped square). The icons
     round drew one icon per kind of layer, and each of those means a kind of layer, so none was taken for the toggle; it
     keeps the striped square until it gets an icon of its own. It has no key. Its tooltip is its name and the help text
     for "Fade other layers" (`help.ts`).
@@ -619,11 +639,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     one. Only the editor's own words are looked up, never names people give (an effect called "Fire" does not get Fire's
     text), and not in the colour picker or dialogs, whose titles show as they are.
   - Where a help text says what a title said, the title went (Save, Export…, Fire, Play, Loop, New, From preset…,
-    Night mode, the tier buttons, Move up and the other layer buttons, Measure, the cost rows' names, Show all, Fade other
-    layers, the Look's title). The Look's help text took in what its title added (the preview's faction and made-by; a
-    rider flying along its path, a projectile showing its riders). The other titles stay and show first (rows' full
-    names, the faction and made-by choices, the renderer, the picker's buttons…). The text inputs,
-    number boxes and selects get no tooltip of their own: their label explains them.
+    Night mode, the tier buttons (now the Tier menu's rows), Move up and the other layer buttons, Measure, the cost rows'
+    names, Show all, Fade other layers, the Look's title). The Look's help text took in what its title added (the
+    preview's faction and made-by; a rider flying along its path, a projectile showing its riders). The other titles stay
+    and show first (rows' full names, the renderer, the picker's buttons…). A text box, a number box, a select and a slider
+    have no tooltip on hover (their label has it); with the keyboard focus they show their label's (below).
   - What draws a layer ("Drawn in code, no image", "Image: …", "An invisible path…") and the "rides Bullet" tag in the
     Layers list explain themselves in their tooltips, with the texts `help.ts` has for those lines. A rider's row in its
     projectile's panel keeps its own tooltip ("Select Tracer core"), and a Layers row keeps the full name and what it
@@ -631,10 +651,13 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Hover: 500 ms; 150 ms when another tooltip is open or closed less than 0.6 s ago. A press, a scroll or Esc hides it
     until the pointer moves on: what comes up under a pointer that has not moved (the row built again after a click, the
     label scrolled under it) stays quiet, so a click never leaves a tooltip on screen.
-  - Keyboard: it shows at once only when Tab or Shift+Tab brings the focus to an element with its own tooltip (a button, a
-    section's title, a checkbox's label), not when the editor moves the focus (to the panel's title after Esc or a rider),
-    and not on a text box, a number box or a select (it would cover the next rows while you type). While it shows it
-    describes the focused control for screen readers (aria-describedby); it never changes a control's name.
+  - Keyboard: it shows at once when a key that moves the focus brings it to an element with a tooltip: Tab or Shift+Tab,
+    or an arrow key, Home or End in a menu. A button, a section's title and a checkbox show their own; a text box, a number
+    box, a select and a slider show their label's, above the box (below when there is no room above), so the rows under
+    it stay in sight while you type. Not when a click or the editor moves the focus (to the panel's title after Esc or a
+    rider), and not for a second move just after the key: one key, one move. A press always counts as the pointer's: a
+    text box matches `:focus-visible` after a click too, so that is not what decides. While it shows it describes the
+    focused control for screen readers (aria-describedby); it never changes a control's name.
   - Esc hides the tooltip and still does what Esc did (closes the picker, leaves the layer): the brief keeps every key as it
     was.
   - It is a popover in the browser's top layer, so it shows over the colour picker and dialogs; below what it is for, above
@@ -647,8 +670,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   Mustafa's or the brief's):
   - Show hints waits for phase 3 (its switch, its row in the main menu, `?hints=`), although 6.1 lists it in the top bar: no
     button that does nothing.
-  - Until phase 3's View chip, the scale is muted text right after the View buttons ("56 %"), with the tooltip "The preview
-    shows the game screen at 56 % of its size." It follows the view and the preview's size.
+  - The scale is muted text in the View chip, after the view's name ("59 %"). It keeps its own tooltip there, "The preview
+    shows the game screen at 59 % of its size.", and follows the view and the preview's size.
   - The ? key opens Keyboard shortcuts now, since the main menu names it; not while typing in a field, nor in the colour
     picker or a menu. The Keys dialog is called Keyboard shortcuts, as the menu names it, and lists ? and the arrow keys on a
     splitter.
@@ -669,8 +692,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     nothing is within or over). "2 over budget" counts the measured numbers over the budgets that count, as the card colours
     its cells (out of date numbers are not compared); its tooltip names them. A click on it does what a click on the
     triangles does: the effect's settings at Cost.
-  - The toolbar keeps today's controls and needs two rows at 1920 and at 2560 px: its row is 36 px at least and grows. Phase 3's
-    chips bring it to one row.
+  - The toolbar is one 36 px row at 1920 and at 2560 px since phase 3's chips; a narrower window wraps it (see "The toolbar
+    and hints").
   - Splitters: at rest only the zone's own 1 px line shows; on hover a `--line-strong` line (hover is not focus, so not
     yellow); with the keyboard focus or while dragged, `--focus`. A press that does not move remembers nothing. Home and End
     take a focused splitter to its limits. Sizes are remembered in whole px. When the window is too narrow for both
@@ -707,6 +730,49 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     at every width until phase 5 makes it 200 and 176 px.
   - The Effects header's New and From preset… fit the 248 px sidebar with nothing to spare; in a narrower one (it can be
     dragged to 200 px) their words end in an ellipsis rather than being cut off, until phase 4's + menu takes their place.
+- **The toolbar and hints** (UI phase 3 of [docs/ui-redesign.md](docs/ui-redesign.md): the toolbar's order, the chips and
+  their menus, the parts in `src/app/dom.ts`, Show hints and the one-line hints are the brief's; these choices are ours, not
+  Mustafa's or the brief's):
+  - **Fade other layers** sits in the toolbar as an icon toggle just left of the View chip: the brief came before it, and
+    6.3 does not place it. Its icon and what it does are as before.
+  - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars it stays one row down
+    to a window 1469 px wide, with its widest values shown (the longest scene name, Your team, 14.0 m, Medium, Close-up at
+    200 %). In a narrower window it wraps onto a second row (65 px): nothing is cut, and the controls keep their order.
+  - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
+    the browser check tries it; phase 4 gives the lists' rows their menus. While the button is still down (Linux and macOS
+    ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when
+    the pointer is not over it. Near the window's edges it turns left or up, so it stays inside the window.
+  - **`scrubNumber`** (a number you drag sideways or type) is used by Distance only for now: its popover's number box, and
+    its title, which drags the number too. Phase 6 brings it to the right panel's numbers.
+  - Menus: a dot in `--accent-ink` marks the chosen one of a set (a menuitemradio); a check marks a setting that is on (a
+    menuitemcheckbox, as Night mode's was). The header naming the setting, and a heading over a group of rows ("Close-up
+    on"), are 12 px, semibold and muted. A menu opens with the focus on its chosen row, else on its first. Letters typed
+    less than 0.7 s apart spell a word for type-ahead; one letter pressed again goes on to the next row that starts with
+    it. The menu takes the focus as soon as it shows, and a key pressed on the chip before that is the menu's.
+  - Keys: Enter on a chip whose menu is open closes it again (the chip toggles its menu); Space on a chip plays or pauses,
+    as on every button. **1, 2 and 3 in the View menu** choose that view and close the menu, as clicking the row would:
+    the rows show those keys. In the other menus the editor's keys wait: F, L, 1, 2, 3, ← → and Space do nothing while a
+    menu or the Distance popover is open (a letter goes to type-ahead). In the main menu ? and the letters do what they did,
+    apart from type-ahead.
+  - **Distance**: dragging the chip and typing a number both stay within the slider's 0 to 14 m (dragging the target in the
+    tank shell's scene can still take it further, as before). A press that moves less than 3 px is a click. The popover
+    opens with the focus on the slider, whose keys do what they did on the old slider: ← and → (and ↑ ↓) step 0.1 m,
+    PageUp and PageDown 1.4 m, Home and End go to 0 and 14 m. Tab goes on to the number box; Tab from there, or Shift+Tab
+    from the slider, closes the popover and gives the focus back to the chip, as Esc does. Enter in the box sets the number
+    and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m with Shift).
+  - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
+    your team's: `core/draw.ts`), so its row says "broken edges, your own words show" (the brief: "your own words show").
+    Each Tier row says "draws only the layers in this tier", as the brief does (a projectile has no tiers; the layers riding
+    it follow theirs). The Scene menu's footer, "Each effect remembers its scene.", holds while the editor runs, and in
+    project.json once the project is saved.
+  - The Faction chip's marking is filled with the team colour of the built-in palette, as the faction buttons were.
+  - Fire's tooltip is the brief's line, "Fire from the stand-in to the target, as the game does", with F; the help text under
+    it adds "Each press is a new play, and several can overlap."
+  - The rows of the chips' menus have help texts of their own (Whole screen, Game size, Close-up; the close-up on the muzzle
+    or the target; made by an enemy, your team or you). They are looked up under names that never meet a label of the right
+    panel ("Target" is one there); scene and faction names get none.
+  - The scale keeps its own tooltip inside the View chip; the rest of the chip has View's.
+  - The chips' menus and the Distance popover hide with the rest of the editor under `?frame=1`.
 
 ## Claude skills
 

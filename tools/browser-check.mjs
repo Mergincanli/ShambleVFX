@@ -82,6 +82,13 @@ async function open(url, ready) {
   return { page, errors, loadedMs, readyMs: Date.now() - t0 };
 }
 
+/** Choose a row in a chip's menu with the mouse: click the chip, then the row with that label. */
+async function chooseInMenu(page, chipSelector, label) {
+  await page.click(chipSelector);
+  const id = await page.locator(chipSelector).getAttribute('aria-controls');
+  await page.locator(`#${id} .menu-item`, { has: page.locator('.menu-label', { hasText: new RegExp(`^${label.replace(/[()]/g, '\\$&')}$`) }) }).click();
+}
+
 let webgpu = true;
 for (const backend of ['webgpu', 'webgl']) {
   const q = backend === 'webgl' ? '&backend=webgl' : '';
@@ -177,15 +184,19 @@ for (const backend of ['webgpu', 'webgl']) {
     ok(`[${label}] game screen ${name} draws the scene`, g > 5000, `${g} ground samples`);
   }
   // Only the game screen: the preview is the whole window, and none of the editor's parts shows round it, the new ones
-  // included (the status bar, the splitters, the main menu even when opened, the scale next to the View buttons).
+  // included (the status bar, the splitters, the toolbar's chips, every menu and popover even when opened, one at a time,
+  // the scale in the View chip).
   const frameOnly = await fr.page.evaluate(() => {
-    document.querySelector('.menu')?.showPopover();
-    const shown = (s) => [...document.querySelectorAll(s)].some((e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0);
+    const visible = (e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
+    const shown = (s) => [...document.querySelectorAll(s)].some(visible);
+    const popups = [...document.querySelectorAll('.menu, .popover')];
+    const popupShown = popups.filter((m) => { m.showPopover(); const v = visible(m); m.hidePopover(); return v; }).map((m) => m.id);
     const v = document.querySelector('.viewport').getBoundingClientRect();
-    return { viewport: [v.x, v.y, v.width, v.height].join(), shown: ['.topbar', '.statusbar', '.splitter', '.menu', '.scale-text', '.vbar', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
+    return { viewport: [v.x, v.y, v.width, v.height].join(), popups: popups.length, popupShown,
+      shown: ['.topbar', '.statusbar', '.splitter', '.menu', '.popover', '.scale-text', '.vbar', '.chip-btn', '.fire', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
   });
-  ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, status bar, splitter, menu or scale round it`,
-    frameOnly.viewport === '0,0,1920,1080' && frameOnly.shown.length === 0, JSON.stringify(frameOnly));
+  ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, chip, status bar, splitter, menu, popover or scale round it`,
+    frameOnly.viewport === '0,0,1920,1080' && frameOnly.shown.length === 0 && frameOnly.popups >= 7 && frameOnly.popupShown.length === 0, JSON.stringify(frameOnly));
   await fr.page.close();
 }
 
@@ -404,9 +415,9 @@ if (webgpu) {
   const afterFire = await st();
   ok('→ while a fired effect plays steps from the start', Number.isFinite(afterFire.mainTime) && near(afterFire.mainTime, stepMs, 0.01) && !afterFire.playing, `${afterFire.mainTime} ms`);
 
-  // -- dragging the target keeps it under the cursor, in every view
+  // -- dragging the target keeps it under the cursor, in every view (chosen in the View chip's menu)
   for (const view of ['Whole screen', 'Game size', 'Close-up']) {
-    await p.click(`.vbar >> text=${view}`);
+    await chooseInMenu(p, '.vbar .view-chip', view);
     await p.waitForTimeout(100);
     const where = () => p.evaluate(() => { const pv = window.__vfx.app.previewForChecks; const r = document.querySelector('.viewport').getBoundingClientRect(); const [x, y] = pv.toCanvas(pv.target); return [r.x + x, r.y + y]; });
     const [tx, ty] = await where();
@@ -418,7 +429,7 @@ if (webgpu) {
     await p.mouse.up();
     ok(`[${view}] dragging the target keeps it under the cursor`, near(nx, gx, 3) && near(ny, gy, 3), `cursor ${gx.toFixed(0)},${gy.toFixed(0)}; target ${nx.toFixed(0)},${ny.toFixed(0)}`);
   }
-  await p.click('.vbar >> text=Whole screen');
+  await chooseInMenu(p, '.vbar .view-chip', 'Whole screen');
 
   // -- quality tiers: the preview draws only the chosen tier; layers it leaves out fade in the list
   const tierInfo = await p.evaluate(async () => {
@@ -1053,8 +1064,13 @@ if (webgpu) {
   const day = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor }));
   ok('Night mode turns the panels dark (#1E1E1E) and is remembered; it turns off again (#E2DED6)', night.theme === 'dark' && night.bg === 'rgb(30, 30, 30)' && night.pressed === 'true' && night.stored === 'dark'
     && day.theme === 'light' && day.bg === 'rgb(226, 222, 214)', JSON.stringify({ night, day }));
-  const insignia = await p.evaluate(() => [...document.querySelectorAll('.vbar [aria-label="Faction that fired"] button')].map((b) => `${b.querySelector('svg')?.getAttribute('class')}|${b.textContent}`));
-  ok('the faction buttons show each faction\'s marking and its name', insignia.join() === 'icon icon-faction-soviets|Soviets,icon icon-faction-allies|Allies,icon icon-faction-empire|Empire', insignia.join(', '));
+  const insignia = await p.evaluate(() => ({
+    rows: [...document.querySelectorAll('#faction-menu .menu-item')].map((b) => `${b.querySelector('.menu-icon svg')?.getAttribute('class')}|${b.querySelector('.menu-label').textContent}|${b.querySelector('.team-dot') ? 'dot' : 'no dot'}`),
+    chip: (() => { const c = document.querySelector('.vbar .faction-chip'), svg = c.querySelector('.chip-icon svg'); return `${svg?.getAttribute('class')}|${c.querySelector('.chip-value').textContent}|${getComputedStyle(svg.querySelector('.insignia')).fill}`; })(),
+    want: (() => { const a = window.__vfx.app, f = a.faction, p = document.createElement('span'); p.style.color = a.palette.factions[f].roles.team.hex; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return `icon icon-faction-${f} team-filled|${a.palette.factions[f].name}|${c}`; })(),
+  }));
+  ok('the Faction chip\'s menu shows each faction\'s marking, its name and its team colour\'s dot; the chip shows the chosen faction\'s marking, filled with its team colour, and its name',
+    insignia.rows.join() === 'icon icon-faction-soviets|Soviets|dot,icon icon-faction-allies|Allies|dot,icon icon-faction-empire|Empire|dot' && insignia.chip === insignia.want, JSON.stringify(insignia));
 
   // -- the preview is drawn once per screen frame: one frame loop, even after the check drew frames itself (showAt). Each
   // extra loop would draw the whole scene again in every frame (in this software-drawing browser, that is what made a
@@ -1403,17 +1419,19 @@ if (webgpu) {
         }
       }
       // The top bar (Projects… and Keys moved into the main menu, with Save as…), the main menu (on body, closed), the
-      // timeline's header (Transport) and the status bar.
+      // viewport toolbar with its chips' menus and the Distance popover (on body, closed), the timeline's header (Transport)
+      // and the status bar.
       const BAR = { 'Top bar': ['Main menu', 'Project', 'Undo', 'Redo', 'Night mode', 'Save as…', 'Export…'],
         'Main menu': ['Projects…', 'New project…', 'Save', 'Save as…', 'Export…', 'Import an export…', 'Night mode', 'Keyboard shortcuts'],
-        'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on'],
+        'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on',
+          'Whole screen', 'Game size', 'Close-up', 'Close-up on the muzzle', 'Close-up on the target', 'Made by an enemy', 'Made by your team', 'Made by you', 'Fade other layers'],
         Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
         Effects: ['Effects', 'New', 'From preset…'], Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
       const bars = [];
       for (const [section, labels] of Object.entries(BAR)) {
-        const region = document.querySelector(`[data-help-section="${section}"]`);
+        const regions = [...document.querySelectorAll(`[data-help-section="${section}"]`)];
         for (const label of labels) {
-          const el = [...region.querySelectorAll('button, .lab > span, .flab, select, [data-help-label], h2')].find((x) => !x.closest('.effects-list, .layers-list') && (x.getAttribute('aria-label') === label || x.getAttribute('data-help-label') === label || x.textContent.replace(/\s+/g, ' ').trim() === label));
+          const el = regions.flatMap((region) => [...region.querySelectorAll('button, .lab > span, .flab, select, [data-help-label], h2')]).find((x) => !x.closest('.effects-list, .layers-list') && (x.getAttribute('aria-label') === label || x.getAttribute('data-help-label') === label || x.textContent.replace(/\s+/g, ' ').trim() === label));
           if (!el || !a.helpForChecks(el)) bars.push(`${section}: ${label}${el ? '' : ' (not found)'}`);
         }
       }
@@ -1658,7 +1676,7 @@ if (webgpu) {
     // The main menu: opens below the logo with the focus on its first row; the arrows, Home and End move; Esc closes it and
     // gives the focus back to the logo; a second click closes it, and so does a click outside it.
     const menuState = () => sp.evaluate(() => {
-      const m = document.querySelector('.menu'), logo = document.querySelector('.topbar .logo'), r = m.getBoundingClientRect(), l = logo.getBoundingClientRect();
+      const m = document.querySelector('#main-menu'), logo = document.querySelector('.topbar .logo'), r = m.getBoundingClientRect(), l = logo.getBoundingClientRect();
       return { open: m.matches(':popover-open'), role: m.getAttribute('role'), parent: m.parentElement === document.body, expanded: logo.getAttribute('aria-expanded'), focus: document.activeElement?.dataset.helpLabel ?? document.activeElement?.className ?? null,
         rows: [...m.querySelectorAll('.menu-item, .menu-divider')].map((x) => x.matches('.menu-divider') ? '—' : `${x.getAttribute('role')}:${x.querySelector('.menu-label').textContent}${x.querySelector('.menu-key') ? `(${x.querySelector('.menu-key').textContent})` : ''}${x.hasAttribute('aria-checked') ? `=${x.getAttribute('aria-checked')}` : ''}`),
         below: Math.round(r.top - l.bottom), left: Math.round(r.left - l.left), inside: r.right <= innerWidth && r.bottom <= innerHeight, rowH: Math.round(m.querySelector('.menu-item').getBoundingClientRect().height) };
@@ -1739,7 +1757,7 @@ if (webgpu) {
     await chooseRow('Night mode');
     const nightOn = await sp.evaluate(() => ({ theme: document.documentElement.dataset.theme, pressed: document.querySelector('.theme-toggle').getAttribute('aria-pressed'), stored: localStorage.getItem('vfx-theme') }));
     await sp.locator('.topbar .logo').click();
-    const checkedRow = await sp.evaluate(() => document.querySelector('.menu .menu-item[role="menuitemcheckbox"]').getAttribute('aria-checked'));
+    const checkedRow = await sp.evaluate(() => [...document.querySelectorAll('#main-menu .menu-item[role="menuitemcheckbox"]')].find((b) => b.querySelector('.menu-label').textContent === 'Night mode').getAttribute('aria-checked'));
     await sp.getByRole('menuitemcheckbox', { name: 'Night mode', exact: true }).click();
     const nightOff = await sp.evaluate(() => document.documentElement.dataset.theme);
     ok('the main menu\'s rows work: Keyboard shortcuts, Projects… and Import an export… (Projects, at its exports) open their dialogs, New project… and Save as… ask for a name, Save on an example asks for a copy, Export… asks about unsaved changes, Night mode is a check',
@@ -1811,27 +1829,331 @@ if (webgpu) {
     ok('the time\'s focus ring, from the keyboard, ends before the slash of " / … ms", and the text keeps its spacing',
       ring.focus === 'time-now' && ring.visible && ring.ringRight <= ring.slash && ring.gap <= ring.space + 1.5, JSON.stringify(ring));
 
-    // The scale, right after the View buttons: muted, with its tooltip; it follows the view and the preview's size.
+    // The scale, in the View chip after the view's name: muted, with its tooltip; it follows the view and the preview's size.
     const scaleNow = () => sp.evaluate(() => {
-      const s = document.querySelector('.vbar .scale-text');
-      return { text: s?.textContent, after: s?.previousElementSibling?.querySelector('[aria-label="View"]') ? 'View' : s?.previousElementSibling?.textContent, tip: s ? window.__vfx.app.tipForChecks(s)?.lines[0] : null,
-        want: `${Math.round(window.__vfx.app.previewForChecks.scale * 100)} %`, colour: s ? getComputedStyle(s).color : null };
+      const s = document.querySelector('.vbar .view-chip .scale-text');
+      return { text: s?.textContent, in: s?.closest('.chip-btn')?.getAttribute('data-help-label') ?? null, after: s?.previousElementSibling?.textContent ?? null, tip: s ? window.__vfx.app.tipForChecks(s)?.lines[0] : null,
+        want: `${Math.round(window.__vfx.app.previewForChecks.scale * 100)} %`, colour: s ? getComputedStyle(s).color : null, others: document.querySelectorAll('.scale-text').length };
     });
     const s1 = await scaleNow();
     await drag('.split-timeline', 0, -120);
     await frames();
     const s2 = await scaleNow();
     await sp.locator('.split-timeline').dblclick();
-    await sp.click('.vbar >> text=Game size');
+    await chooseInMenu(sp, '.vbar .view-chip', 'Game size');
     const s3 = await scaleNow();
-    await sp.click('.vbar >> text=Close-up');
+    await chooseInMenu(sp, '.vbar .view-chip', 'Close-up');
     const s4 = await scaleNow();
-    await sp.click('.vbar >> text=Whole screen');
-    ok('the scale shows right after the View buttons ("56 %", muted, with its tooltip), and follows the preview\'s size and the view (Game size 100 %, Close-up 200 %)',
-      s1.after === 'View' && s1.text === s1.want && s1.tip === `The preview shows the game screen at ${s1.text} of its size.` && s1.colour === sb1.muted && s2.text === s2.want && s2.text !== s1.text
-        && s3.text === '100 %' && s4.text === '200 %' && !(await sp.locator('.scale-label').count()), JSON.stringify({ s1, s2: s2.text, s3: s3.text, s4: s4.text }));
+    await chooseInMenu(sp, '.vbar .view-chip', 'Whole screen');
+    ok('the scale shows in the View chip, after the view\'s name ("59 %", muted, with its tooltip), and follows the preview\'s size and the view (Game size 100 %, Close-up 200 %)',
+      s1.in === 'View' && s1.after === 'Whole screen' && s1.others === 1 && s1.text === s1.want && s1.tip === `The preview shows the game screen at ${s1.text} of its size.` && s1.colour === sb1.muted
+        && s2.text === s2.want && s2.text !== s1.text && s3.text === '100 %' && s3.after === 'Game size' && s4.text === '200 %' && s4.after === 'Close-up' && !(await sp.locator('.scale-label').count()),
+      JSON.stringify({ s1, s2: s2.text, s3: [s3.text, s3.after], s4: [s4.text, s4.after] }));
     ok('the shell page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await sp.close();
+  }
+
+  // -- the viewport toolbar (docs/ui-redesign.md 6.3, 6.10, 6.9): one 36 px row at 1920 and 2560 with the default sizes and
+  // its widest values; Fire's and each chip's tooltip; each chip's menu by mouse and by keyboard (below the chip, the focus on
+  // the chosen row; the arrows, Home and End, type-ahead, Enter choosing what the old control chose, Esc giving the focus
+  // back); the editor's keys waiting while a menu is open (L in the Tier menu goes to Low, and Loop stays); the View menu's
+  // 1, 2 and 3; F firing from a closed chip; Distance: its drag (0.1 m per 4 px, Shift ten times that), its popover (the
+  // slider's arrow keys as before, a typed "0,5"); a menu opened at a point staying inside the window; tooltips at once on
+  // keyboard focus, a number box and a select too, and none after a click into a number box.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const tp = g.page;
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const frames = () => tp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const state = () => tp.evaluate(() => {
+      const a = window.__vfx.app, pv = a.previewForChecks, d = a.debugState();
+      return { scene: pv.scene.id, faction: a.faction, previewFaction: pv.faction, relation: pv.relation, tier: a.previewTier(), drawTier: pv.vfx.tier, view: pv.view, closeOn: pv.closeOn,
+        distance: +pv.viewerDistanceM.toFixed(2), time: d.mainTime, playing: d.playing, fired: d.playingCount, loop: document.querySelector('.transport .tb[aria-pressed]').getAttribute('aria-pressed') };
+    });
+    const chipText = (sel) => tp.locator(`.vbar ${sel} .chip-value`).textContent();
+    /** A chip's menu (or popover) as it is now, and where the focus is. */
+    const menuOf = (chipSel) => tp.evaluate((sel) => {
+      const c = document.querySelector(`.vbar ${sel}`), m = document.getElementById(c.getAttribute('aria-controls'));
+      const r = m.getBoundingClientRect(), cr = c.getBoundingClientRect(), f = document.activeElement;
+      return { open: m.matches(':popover-open'), expanded: c.getAttribute('aria-expanded'), haspopup: c.getAttribute('aria-haspopup'), role: m.getAttribute('role'), parent: m.parentElement === document.body,
+        below: Math.round(r.top - cr.bottom), aligned: Math.round(r.left) === Math.round(cr.left) || Math.round(r.right) === Math.round(cr.right), inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+        title: m.querySelector('.menu-title, .pop-title')?.textContent ?? null, foot: m.querySelector('.menu-foot')?.textContent ?? null,
+        focus: f?.closest?.('.menu') === m ? f.querySelector('.menu-label').textContent : f === c ? 'the chip' : f?.getAttribute('aria-label') ?? f?.tagName ?? null,
+        chosen: [...m.querySelectorAll('.menu-item[aria-checked="true"]')].map((b) => b.querySelector('.menu-label').textContent), rowH: Math.round(m.querySelector('.menu-item')?.getBoundingClientRect().height ?? 0) };
+    }, chipSel);
+    const press = async (...keys) => { for (const k of keys) await tp.keyboard.press(k); };
+    const focusChip = (sel) => tp.locator(`.vbar ${sel}`).focus();
+    await tp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; await a.setupForChecks({ effect: 'rifle_shot', scene: 'board-beam', relation: 'team', distance: 14, tier: 'medium' }); await a.showAt(100, 7); document.querySelector('.status')?.classList.remove('show'); });
+    await tp.locator('.vbar .fire').focus();
+    await press('3');
+
+    // One row, 36 px, with the widest values: the longest scene name, Your team, 14.0 m, Medium, Close-up at 200 %. In a
+    // window too narrow for it (1280 px), a second row, the controls in the same order, nothing outside the bar.
+    const oneRow = () => tp.evaluate(() => {
+      const b = document.querySelector('.vbar'), r = b.getBoundingClientRect(), kids = [...b.children].map((c) => c.getBoundingClientRect());
+      return { h: Math.round(r.height), rows: new Set(kids.map((k) => Math.round(k.top + k.height / 2))).size, inside: kids.every((k) => k.left >= r.left - 0.5 && k.right <= r.right + 0.5 && k.bottom <= r.bottom + 0.5),
+        order: [...b.children].map((c) => c.getAttribute('data-help-label') ?? c.getAttribute('aria-label') ?? c.textContent.trim()).join(), values: [...b.querySelectorAll('.chip-value')].map((v) => v.textContent).join(' | ') };
+    });
+    const row1920 = await oneRow();
+    await tp.setViewportSize({ width: 2560, height: 1440 });
+    await frames();
+    const row2560 = await oneRow();
+    await tp.setViewportSize({ width: 1280, height: 800 });
+    await frames();
+    const row1280 = await oneRow();
+    await tp.setViewportSize({ width: 1920, height: 1080 });
+    await frames();
+    const ORDER = 'Fire,Scene,Faction that fired,Made by,Distance from you,Tier,Fade other layers,View';
+    ok('the toolbar is one 36 px row at 1920 x 1080 and at 2560 x 1440 with the default sizes and its widest values: Fire, Scene, Faction that fired, Made by, Distance from you, Tier, then Fade other layers and View; at 1280 px it wraps onto a second row, in the same order',
+      row1920.h === 36 && row1920.rows === 1 && row1920.inside && row1920.order === ORDER && row1920.values === 'Board: beam between tanks | Soviets | Your team | 14.0 m | Medium | Close-up'
+        && row2560.h === 36 && row2560.rows === 1 && row2560.inside && row1280.rows === 2 && row1280.inside && row1280.order === ORDER, JSON.stringify({ row1920, row2560, row1280 }));
+
+    // Fire's tooltip, as the brief words it, with F; each chip's: its old label, then that label's help text.
+    const tips = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      const out = { fire: a.tipForChecks(document.querySelector('.vbar .fire')) };
+      for (const c of document.querySelectorAll('.vbar .chip-btn')) out[c.getAttribute('data-help-label')] = a.tipForChecks(c);
+      return out;
+    });
+    const chipTipsOk = ['Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'View'].every((l) => tips[l]?.lines[0] === l && tips[l]?.lines[1] === help.helpFor(l, { section: 'Preview bar' }));
+    ok('Fire\'s tooltip is "Fire from the stand-in to the target, as the game does" with F; each chip\'s tooltip is its old label and that label\'s help text (View with 1, 2, 3)',
+      tips.fire?.lines[0] === 'Fire from the stand-in to the target, as the game does' && tips.fire?.key === 'F' && chipTipsOk && tips.View?.key === '1, 2, 3', JSON.stringify(tips));
+
+    // Each chip's menu by mouse: below the chip, on body, the header naming the setting, the focus on the chosen row; a row
+    // chosen does what the old control did, and the chip shows it.
+    await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'rifle_shot', scene: 'street', faction: 'soviets', relation: 'enemy', distance: 4, tier: 'high' }); });
+    await tp.locator('.vbar .fire').focus();
+    await press('1');
+    const mouse = {};
+    for (const [sel, row] of [['.scene-chip', 'Board: fire pit'], ['.faction-chip', 'Allies'], ['.relation-chip', 'Your team'], ['.tier-chip', 'Medium'], ['.view-chip', 'Game size']]) {
+      await tp.click(`.vbar ${sel}`);
+      await tp.waitForFunction((s) => document.activeElement?.closest('.menu') && document.querySelector(`.vbar ${s}`).getAttribute('aria-expanded') === 'true', sel, { timeout: 5000 }).catch(() => {});
+      const opened = await menuOf(sel);
+      await tp.locator(`#${await tp.locator(`.vbar ${sel}`).getAttribute('aria-controls')} .menu-item`, { has: tp.locator('.menu-label', { hasText: new RegExp(`^${row}$`) }) }).click();
+      mouse[sel] = { opened, after: await menuOf(sel), value: await chipText(sel), state: await state() };
+    }
+    await chooseInMenu(tp, '.vbar .view-chip', 'Muzzle');
+    const muzzle = await state();
+    // The scene is remembered for the effect: another effect, then back.
+    const remembered = await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('shell_flight'); const other = a.previewForChecks.scene.id; a.pickEffect('rifle_shot'); return { other, back: a.previewForChecks.scene.id, chip: document.querySelector('.vbar .scene-chip .chip-value').textContent }; });
+    const wantOpened = (m, title, chosen) => m.open && m.expanded === 'true' && m.haspopup === 'menu' && m.role === 'menu' && m.parent && m.below >= 0 && m.below <= 8 && m.aligned && m.inside && m.title === title && m.focus === chosen && m.rowH === 28;
+    ok('each chip\'s menu opens by mouse below its chip (on body, with a header naming the setting, the focus on the chosen row), and a row chosen does what the old control did: the scene (remembered for the effect), the faction, made by, the tier, the view and the close-up\'s centre; the chip shows it',
+      wantOpened(mouse['.scene-chip'].opened, 'Scene', 'Street (stand-in and wall)') && mouse['.scene-chip'].opened.foot === 'Each effect remembers its scene.' && mouse['.scene-chip'].state.scene === 'board-molotov' && mouse['.scene-chip'].value === 'Board: fire pit'
+        && remembered.back === 'board-molotov' && remembered.chip === 'Board: fire pit'
+        && wantOpened(mouse['.faction-chip'].opened, 'Faction that fired', 'Soviets') && mouse['.faction-chip'].state.faction === 'allies' && mouse['.faction-chip'].state.previewFaction === 'allies' && mouse['.faction-chip'].value === 'Allies'
+        && wantOpened(mouse['.relation-chip'].opened, 'Made by', 'Enemy') && mouse['.relation-chip'].state.relation === 'team' && mouse['.relation-chip'].value === 'Your team'
+        && wantOpened(mouse['.tier-chip'].opened, 'Tier', 'High') && mouse['.tier-chip'].state.tier === 'medium' && mouse['.tier-chip'].state.drawTier === 'medium' && mouse['.tier-chip'].value === 'Medium'
+        && wantOpened(mouse['.view-chip'].opened, 'View', 'Whole screen') && mouse['.view-chip'].opened.chosen.join() === 'Whole screen,Target' && mouse['.view-chip'].state.view === 'game' && mouse['.view-chip'].value === 'Game size'
+        && muzzle.closeOn === 'origin' && Object.values(mouse).every((m) => !m.after.open && m.after.expanded === 'false'),
+      JSON.stringify({ ...mouse, muzzle: muzzle.closeOn, remembered }));
+
+    // By keyboard: Enter opens (the focus on the chosen row), ↑ ↓ go round, Home and End, a letter goes to the next row
+    // starting with it (letters typed quickly spell a word), Enter chooses and gives the focus back to the chip; Esc closes
+    // and gives the focus back, choosing nothing.
+    const kb = {};
+    // After the keys, the page's timers run once (a menu takes the focus on one, as soon as it shows).
+    const step = async (name, keys) => { await press(...keys); await tp.evaluate(() => new Promise((r) => setTimeout(r, 30))); kb[name] = await menuOf(name.split(':')[0]); };
+    await focusChip('.scene-chip');
+    await step('.scene-chip:enter', ['Enter']);
+    await step('.scene-chip:down', ['ArrowDown']);
+    await step('.scene-chip:end', ['End']);
+    await step('.scene-chip:home', ['Home']);
+    await step('.scene-chip:up', ['ArrowUp']);
+    await step('.scene-chip:h', ['h']);
+    // A pause, so the next letters start a new word.
+    await tp.waitForTimeout(800);
+    await step('.scene-chip:tan', ['b', 'o', 'a', 'r', 'd']);
+    await step('.scene-chip:chose', ['Enter']);
+    const sceneKb = await state();
+    await focusChip('.faction-chip');
+    await step('.faction-chip:enter', ['Enter']);
+    await step('.faction-chip:e', ['e']);
+    await step('.faction-chip:esc', ['Escape']);
+    const factionEsc = await state();
+    await step('.faction-chip:again', ['Enter']);
+    await step('.faction-chip:s', ['s']);
+    await step('.faction-chip:chose', ['Enter']);
+    const factionKb = await state();
+    await focusChip('.relation-chip');
+    await step('.relation-chip:enter', ['Enter']);
+    await step('.relation-chip:y', ['y']);
+    await step('.relation-chip:chose', ['Enter']);
+    const relationKb = await state();
+    // L in the Tier menu goes to Low, and Loop does not toggle; ← does not step the timeline, and F does not fire.
+    const before = await state();
+    await focusChip('.tier-chip');
+    await step('.tier-chip:enter', ['Enter']);
+    await step('.tier-chip:L', ['L']);
+    await step('.tier-chip:left', ['ArrowLeft', 'f', '1']);
+    const whileOpen = await state();
+    await step('.tier-chip:chose', ['Enter']);
+    const tierKb = await state();
+    ok('each chip\'s menu works by keyboard: Enter opens it with the focus on the chosen row, ↑ and ↓ go round, Home and End go to the ends, a letter goes to the next row starting with it (quick letters spell a word), Enter chooses and gives the focus back to the chip, Esc closes it and chooses nothing',
+      kb['.scene-chip:enter'].open && kb['.scene-chip:enter'].focus === 'Board: fire pit' && kb['.scene-chip:down'].focus === 'Board: beam between tanks' && kb['.scene-chip:end'].focus === 'Hit on the ground'
+        && kb['.scene-chip:home'].focus === 'Street (stand-in and wall)' && kb['.scene-chip:up'].focus === 'Hit on the ground' && kb['.scene-chip:h'].focus === 'Hit on a soldier'
+        && kb['.scene-chip:tan'].focus === 'Board: rifle at a wall' && !kb['.scene-chip:chose'].open && kb['.scene-chip:chose'].focus === 'the chip' && sceneKb.scene === 'board-muzzle'
+        && kb['.faction-chip:enter'].focus === 'Allies' && kb['.faction-chip:e'].focus === 'Empire' && !kb['.faction-chip:esc'].open && kb['.faction-chip:esc'].focus === 'the chip' && factionEsc.faction === 'allies'
+        && kb['.faction-chip:again'].focus === 'Allies' && kb['.faction-chip:s'].focus === 'Soviets' && factionKb.faction === 'soviets' && kb['.faction-chip:chose'].focus === 'the chip'
+        && kb['.relation-chip:enter'].focus === 'Your team' && kb['.relation-chip:y'].focus === 'You' && relationKb.relation === 'self'
+        && tierKb.tier === 'low' && tierKb.drawTier === 'low' && !kb['.tier-chip:chose'].open,
+      JSON.stringify({ kb: Object.fromEntries(Object.entries(kb).map(([k, v]) => [k, `${v.open ? 'open' : 'closed'}:${v.focus}`])), scene: sceneKb.scene, factionEsc: factionEsc.faction, faction: factionKb.faction, relation: relationKb.relation, tier: tierKb.tier }));
+    ok('while a menu is open the editor\'s keys wait: L in the Tier menu goes to Low and Loop stays on; ← does not step the timeline, F does not fire and 1 does not change the view',
+      kb['.tier-chip:L'].focus === 'Low' && kb['.tier-chip:left'].open && kb['.tier-chip:left'].focus === 'Low' && whileOpen.loop === before.loop && whileOpen.loop === 'true' && whileOpen.time === before.time
+        && whileOpen.fired === before.fired && whileOpen.view === before.view && whileOpen.tier === before.tier, JSON.stringify({ before, whileOpen, focus: kb['.tier-chip:left'].focus }));
+
+    // The View menu: 1, 2 and 3 choose their view and close it (its rows show those keys); its Close-up on rows. With the
+    // menu closed, the keys 1, 2 and 3 work as before, and the chip follows. F still fires from a closed chip; Space on a
+    // chip plays or pauses, as on every button, and opens nothing.
+    await focusChip('.view-chip');
+    await step('.view-chip:enter', ['Enter']);
+    await step('.view-chip:3', ['3']);
+    const view3 = await state();
+    await step('.view-chip:again', ['Enter']);
+    await step('.view-chip:end', ['End']);
+    await step('.view-chip:target', ['Enter']);
+    const target = await state();
+    await press('1');
+    const key1 = { ...(await state()), chip: await chipText('.view-chip') };
+    await press('2');
+    const key2 = { ...(await state()), chip: await chipText('.view-chip') };
+    await press('1');
+    const firedBefore = (await state()).fired;
+    await press('f');
+    await tp.waitForTimeout(100);
+    const firedAfter = await state();
+    await tp.evaluate(async () => { await window.__vfx.app.showAt(100, 7); });
+    await focusChip('.tier-chip');
+    await press(' ');
+    const spaced = { ...(await state()), menu: (await menuOf('.tier-chip')).open };
+    await focusChip('.tier-chip');
+    await press(' ');
+    const spacedBack = await state();
+    ok('the View menu: 1, 2 and 3 choose their view and close it (its rows show them); Close-up on: Muzzle or Target; with it closed, the keys 1, 2 and 3 work as before and the chip follows; F still fires from a closed chip; Space on a chip plays or pauses and opens nothing',
+      kb['.view-chip:enter'].focus === 'Game size' && !kb['.view-chip:3'].open && kb['.view-chip:3'].focus === 'the chip' && view3.view === 'close' && kb['.view-chip:again'].focus === 'Close-up'
+        && kb['.view-chip:end'].focus === 'Target' && target.closeOn === 'target' && key1.view === 'whole' && key1.chip === 'Whole screen' && key2.view === 'game' && key2.chip === 'Game size'
+        && firedAfter.fired === firedBefore + 1 && spaced.playing && !spaced.menu && !spacedBack.playing,
+      JSON.stringify({ view3: view3.view, closeOn: target.closeOn, key1: [key1.view, key1.chip], key2: [key2.view, key2.chip], fired: [firedBefore, firedAfter.fired], spaced: [spaced.playing, spaced.menu], spacedBack: spacedBack.playing }));
+
+    // Distance: drag the chip sideways, 0.1 m for every 4 px, ten times that with Shift, within 0 to 14 m; a drag opens no
+    // popover. A click opens it below the chip with the focus on the slider: ← and → step 0.1 m as the slider did, and the
+    // timeline does not step; a typed "0,5" or "2.5" in its number box sets the distance; Esc gives the focus back.
+    await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'rifle_shot', scene: 'street', distance: 4 }); await a.showAt(100, 7); });
+    const chipBox = await tp.locator('.vbar .distance-chip').boundingBox();
+    const dragChip = async (dx, shift = false) => {
+      const x = chipBox.x + chipBox.width / 2, y = chipBox.y + chipBox.height / 2;
+      await tp.mouse.move(x, y);
+      if (shift) await tp.keyboard.down('Shift');
+      await tp.mouse.down();
+      await tp.mouse.move(x + dx, y, { steps: 10 });
+      await tp.mouse.up();
+      if (shift) await tp.keyboard.up('Shift');
+      return { distance: (await state()).distance, chip: await chipText('.distance-chip'), popover: (await menuOf('.distance-chip')).open };
+    };
+    const d40 = await dragChip(40);
+    const dShift = await dragChip(8, true);
+    const dLow = await dragChip(-400);
+    const dHigh = await dragChip(80, true);
+    await tp.evaluate(() => { const a = window.__vfx.app; a.previewForChecks.setDistance(4); a.toolbar.setDistance(4); });
+    await tp.click('.vbar .distance-chip');
+    await tp.waitForFunction(() => document.activeElement?.closest('.popover'), null, { timeout: 5000 }).catch(() => {});
+    const popOpen = await menuOf('.distance-chip');
+    const t0 = (await state()).time;
+    await press('ArrowRight', 'ArrowRight', 'ArrowLeft');
+    const arrows = { ...(await state()), chip: await chipText('.distance-chip') };
+    await press('Tab');
+    const numberFocus = await tp.evaluate(() => ({ focus: document.activeElement?.getAttribute('aria-label'), tip: document.querySelector('.tooltip')?.matches(':popover-open') ? document.querySelector('.tooltip .tip-first > span')?.textContent : null }));
+    await tp.keyboard.type('0,5');
+    await press('Enter');
+    const comma = { ...(await state()), chip: await chipText('.distance-chip'), slider: await tp.locator('.distance-pop input[type="range"]').inputValue() };
+    await tp.locator('.distance-pop input.num').fill('2.5');
+    await press('Enter');
+    const dot = { ...(await state()), chip: await chipText('.distance-chip') };
+    await press('Escape');
+    const popClosed = await menuOf('.distance-chip');
+    ok('Distance: dragging the chip sideways changes it, 0.1 m for every 4 px and ten times that with Shift, within 0 to 14 m, and opens no popover',
+      d40.distance === 5 && d40.chip === '5.0 m' && !d40.popover && dShift.distance === 7 && dShift.chip === '7.0 m' && dLow.distance === 0 && dLow.chip === '0.0 m' && dHigh.distance === 14 && dHigh.chip === '14.0 m' && !dHigh.popover,
+      JSON.stringify({ d40, dShift, dLow, dHigh }));
+    ok('Distance: a click opens its popover below the chip, the focus on the slider; ← and → step 0.1 m as the slider did (the timeline does not step); its number box takes "0,5" and "2.5"; Esc closes it and gives the focus back to the chip',
+      popOpen.open && popOpen.role === 'dialog' && popOpen.haspopup === 'dialog' && popOpen.expanded === 'true' && popOpen.below >= 0 && popOpen.below <= 8 && popOpen.title === 'Distance from you' && popOpen.focus === 'Distance from you'
+        && arrows.distance === 4.1 && arrows.chip === '4.1 m' && arrows.time === t0 && numberFocus.focus === 'Distance from you, in metres' && numberFocus.tip === help.helpFor('Distance from you', { section: 'Preview bar' })
+        && comma.distance === 0.5 && comma.chip === '0.5 m' && comma.slider === '0.5' && dot.distance === 2.5 && dot.chip === '2.5 m' && !popClosed.open && popClosed.focus === 'the chip' && popClosed.expanded === 'false',
+      JSON.stringify({ popOpen, arrows: [arrows.distance, arrows.chip, arrows.time, t0], numberFocus, comma: [comma.distance, comma.chip, comma.slider], dot: [dot.distance, dot.chip], popClosed }));
+
+    // A menu opened at a point (a right-click; phase 4 gives the lists' rows theirs): near the window's corner it turns left
+    // and up, so it stays inside the window, open after the button is let go, the focus on its first row; Esc closes it.
+    await tp.evaluate(async () => {
+      const dom = await import('/src/app/dom.ts');
+      const target = document.createElement('div');
+      target.className = 'check-right-click';
+      Object.assign(target.style, { position: 'fixed', right: '0', bottom: '0', width: '420px', height: '300px', zIndex: '50' });
+      document.body.append(target);
+      window.__rightClick = null;
+      const view = dom.menu({ id: 'check-right-click-menu', label: 'Check', items: [{ label: 'First row', action: () => { window.__rightClick = 'first'; } }, { label: 'Second row', action: () => { window.__rightClick = 'second'; } }, 'divider', { label: 'Third row', action: () => { window.__rightClick = 'third'; } }] });
+      dom.contextMenu(target, view);
+    });
+    const atPoint = () => tp.evaluate(() => { const m = document.getElementById('check-right-click-menu'), r = m.getBoundingClientRect(); return { open: m.matches(':popover-open'), left: Math.round(r.left), top: Math.round(r.top), right: Math.round(r.right), bottom: Math.round(r.bottom), w: innerWidth, h: innerHeight, focus: document.activeElement?.closest('.menu') === m ? document.activeElement.querySelector('.menu-label').textContent : null, chosen: window.__rightClick }; });
+    await tp.mouse.click(1916, 1076, { button: 'right' });
+    await tp.waitForTimeout(150);
+    const corner = await atPoint();
+    await press('End', 'Enter');
+    const cornerChosen = await atPoint();
+    await tp.mouse.click(1560, 800, { button: 'right' });
+    await tp.waitForTimeout(150);
+    const middle = await atPoint();
+    await press('Escape');
+    const escaped = await atPoint();
+    await tp.evaluate(() => { document.querySelector('.check-right-click')?.remove(); document.getElementById('check-right-click-menu')?.remove(); });
+    ok('a menu opened at a point (right-click) stays inside the window: near the corner it turns left and up, it stays open after the button is let go, with the focus on its first row; elsewhere its corner is at the pointer; Enter chooses, Esc closes',
+      corner.open && corner.focus === 'First row' && corner.right <= corner.w && corner.bottom <= corner.h && corner.left >= 0 && corner.top >= 0 && corner.right >= 1910 && corner.bottom >= 1070
+        && !cornerChosen.open && cornerChosen.chosen === 'third' && middle.open && middle.left === 1560 && middle.top === 800 && middle.focus === 'First row' && !escaped.open,
+      JSON.stringify({ corner, cornerChosen: [cornerChosen.open, cornerChosen.chosen], middle, escaped: escaped.open }));
+
+    // Tooltips at once on keyboard focus, for a number box and a select too (the tooltip of their label, above the box), and
+    // none when a click puts the focus in a number box, even just after a Tab.
+    await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('board_shell'); a.selectLayer('ring'); });
+    const rest = await tp.locator('.viewport').boundingBox();
+    await tp.mouse.move(rest.x + rest.width / 2, rest.y + rest.height / 2);
+    const ringFold = tp.locator('.inspector details', { has: tp.locator(':scope > summary', { hasText: /^Shape: ring$/ }) });
+    const placeFold = tp.locator('.inspector details', { has: tp.locator(':scope > summary', { hasText: /^Place$/ }) });
+    const widthBox = ringFold.locator('label.field', { has: tp.locator('.flab', { hasText: /^Width$/ }) }).locator('input').first();
+    const facesBox = placeFold.locator('label.field', { has: tp.locator('.flab', { hasText: /^Faces$/ }) }).locator('select');
+    const tabOnto = async (loc) => {
+      await loc.scrollIntoViewIfNeeded();
+      await frames();
+      // What comes before it takes the focus by code (no tooltip for that), then Tab.
+      await loc.evaluate((el) => { const all = [...document.querySelectorAll('input, select, button, summary, [tabindex="0"]')].filter((x) => x.getClientRects().length && !x.disabled && x.tabIndex >= 0); all[all.indexOf(el) - 1].focus(); });
+      await tp.waitForTimeout(50);
+      const quiet = await tp.evaluate(() => !!document.querySelector('.tooltip')?.matches(':popover-open'));
+      await tp.evaluate(() => { window.__focusTip = { tabAt: null, openAt: null }; document.addEventListener('keydown', (e) => { if (e.key === 'Tab' && window.__focusTip.tabAt === null) window.__focusTip.tabAt = performance.now(); }, { capture: true, once: true }); const id = setInterval(() => { if (window.__focusTip.tabAt !== null && document.querySelector('.tooltip')?.matches(':popover-open')) { window.__focusTip.openAt = performance.now(); clearInterval(id); } }, 4); setTimeout(() => clearInterval(id), 3000); });
+      await press('Tab');
+      await tp.waitForFunction(() => window.__focusTip.openAt !== null, null, { timeout: 3000 }).catch(() => {});
+      return tp.evaluate((q) => {
+        const t = document.querySelector('.tooltip'), f = document.activeElement, r = t?.getBoundingClientRect(), fr = f.getBoundingClientRect();
+        return { quiet: !q, open: !!t?.matches(':popover-open'), after: window.__focusTip.openAt === null ? null : Math.round(window.__focusTip.openAt - window.__focusTip.tabAt), focus: f.getAttribute('aria-label'),
+          lines: t ? [...t.querySelectorAll(':scope > .tip-first > span, :scope > p')].map((x) => x.textContent) : [], above: !!r && r.bottom <= fr.top, desc: f.getAttribute('aria-describedby') };
+      }, quiet);
+    };
+    const tabWidth = await tabOnto(widthBox);
+    const tabFaces = await tabOnto(facesBox);
+    const wantWidth = help.helpFor('Width', { section: ['Shape: ring'], layer: 'shape', kind: 'ring' });
+    const wantFaces = help.helpFor('Faces', { section: ['Place'], layer: 'shape', kind: 'ring' });
+    ok('a tooltip shows at once when Tab brings the focus to a number box or a select: its label\'s help text, above the box, describing it',
+      tabWidth.quiet && tabWidth.open && tabWidth.after !== null && tabWidth.after < 150 && tabWidth.focus === 'Width' && tabWidth.lines.join(' | ') === wantWidth && tabWidth.above && tabWidth.desc === 'vfx-tooltip'
+        && tabFaces.quiet && tabFaces.open && tabFaces.after < 150 && tabFaces.focus === 'Faces' && tabFaces.lines.join(' | ') === wantFaces && tabFaces.above,
+      JSON.stringify({ tabWidth, tabFaces }));
+    await press('Tab');
+    await widthBox.scrollIntoViewIfNeeded();
+    const box = await widthBox.boundingBox();
+    await tp.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await tp.waitForTimeout(150);
+    const atClick = await tp.evaluate(() => ({ open: !!document.querySelector('.tooltip')?.matches(':popover-open'), focus: document.activeElement?.getAttribute('aria-label') }));
+    await tp.waitForTimeout(700);
+    const afterClick = await tp.evaluate(() => ({ open: !!document.querySelector('.tooltip')?.matches(':popover-open'), focus: document.activeElement?.getAttribute('aria-label') }));
+    ok('a click into a number box shows no tooltip, also just after a Tab (a text box matches :focus-visible after a click too)',
+      atClick.focus === 'Width' && !atClick.open && !afterClick.open && afterClick.focus === 'Width', JSON.stringify({ atClick, afterClick }));
+    await tp.keyboard.press('Escape');
+    ok('the toolbar page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await tp.close();
   }
 
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.

@@ -2,8 +2,9 @@ import { icon } from './icons';
 import type { IconName } from './icons';
 
 /**
- * A few small DOM helpers and the editor's controls: sliders with a number box, segmented buttons,
- * number and text fields, selects and folding sections. Plain DOM, no framework.
+ * A few small DOM helpers and the editor's controls: sliders with a number box, segmented buttons, number and text fields,
+ * selects and folding sections; the tooltip; icon buttons, menus (also at a point, for a right-click), chips, and numbers
+ * you drag or type. Plain DOM and the Popover API, no framework.
  */
 
 type Child = Node | string | number | null | undefined | false;
@@ -133,9 +134,11 @@ export function fold(title: string, children: Child[], openByDefault = false, ac
 
 /**
  * One tooltip for the whole page. It shows after TIP_DELAY_MS of hover (TIP_QUICK_MS when another tooltip was just
- * open), and at once when Tab moves the keyboard focus onto an element that has one. It hides when the pointer leaves,
- * on a press, on scroll and on Esc, and then stays away until the pointer moves on (a row built again under a still
- * pointer stays quiet). Esc is not taken from the editor: it still does what it did (closes the picker, leaves the layer).
+ * open), and at once when the keyboard moves the focus onto an element that has one (Tab, Shift+Tab, or an arrow key in a
+ * menu or a group): a button, a section's title, a checkbox, and a text box, number box, select or slider, which get the
+ * tooltip of their label. Focus that a click or the editor moves shows none. It hides when the pointer leaves, on a press,
+ * on scroll and on Esc, and then stays away until the pointer moves on (a row built again under a still pointer stays
+ * quiet). Esc is not taken from the editor: it still does what it did (closes the picker, leaves the layer).
  *
  * What it says for an element:
  *   - its own words: data-tip. Every title turns into data-tip the first time the pointer or the focus comes to it (or as
@@ -144,7 +147,7 @@ export function fold(title: string, children: Child[], openByDefault = false, ac
  *     named by its aria-label;
  *   - the help text for its label where it is shown, from the lookup given to installTooltips (src/app/helptips.ts),
  *     asked for each time it shows, so a label that changes or comes later gets its text;
- *   - its full text first, when it is cut short with an ellipsis;
+ *   - its full text first, when it is cut short with an ellipsis (or a chip's value is);
  *   - a shortcut (data-tip-key, or the lookup's) in a muted kbd.
  * The element is a manual popover appended to document.body: it draws over the colour picker and dialogs too, and never
  * takes the pointer. Nothing here changes an element's name for screen readers; a tooltip shown for the keyboard focus
@@ -154,8 +157,13 @@ export const TIP_DELAY_MS = 500;
 export const TIP_QUICK_MS = 150;
 /** "Another tooltip was just open": one is open, or one closed less than this long ago. */
 const TIP_QUICK_WINDOW_MS = 600;
-/** Focus counts as the keyboard's when Tab was pressed less than this long before. */
-const TAB_WINDOW_MS = 1000;
+/** Focus counts as the keyboard's when a key that moves the focus was pressed less than this long before. */
+const KEY_FOCUS_MS = 1000;
+/** The keys that move the focus: Tab and Shift+Tab, and the arrows, Home and End in a menu or a group of radio buttons. */
+const FOCUS_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph']);
+/** Where the keyboard types: a tooltip for these goes above them, so it never covers the rows under them. */
+const TYPING = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]), select, textarea';
 const TIP_ID = 'vfx-tooltip';
 
 /** What the help lookup gives for an element: the help text for its label, and its shortcut. */
@@ -177,12 +185,14 @@ let hovered: Element | null = null;
 let shown: Element | null = null;
 let pressed: Element | null = null;
 let shownByFocus = false;
-/** The focused element that the shown tooltip describes. */
+/** The focused element that the shown tooltip describes, and the one it shows for (the same, unless that one has a description of its own). */
 let described: Element | null = null;
+let focusedFor: Element | null = null;
 let timer = 0;
 let watch = 0;
 let hiddenAt = -Infinity;
-let tabAt = -Infinity;
+/** When a key that moves the focus was pressed. A pointer press, or any other key, ends it: the next focus is not the keyboard's. */
+let focusKeyAt = -Infinity;
 /** Where the pointer is, and where it was when a press, a scroll or Esc hid the tooltip: until it moves from there, none shows. */
 let pointerX = NaN, pointerY = NaN, stillX = NaN, stillY = NaN;
 const holdStill = () => { stillX = pointerX; stillY = pointerY; };
@@ -196,7 +206,7 @@ export function tip(el: Element, text: string | null, key?: string): void {
   if (text) el.setAttribute('data-tip', text); else el.removeAttribute('data-tip');
   if (key) el.setAttribute('data-tip-key', key); else el.removeAttribute('data-tip-key');
   el.removeAttribute('data-tip-key-from-title');
-  if (el === shown) showTip(el, shownByFocus);
+  if (el === shown) showTip(el, shownByFocus, focusedFor ?? undefined);
 }
 
 /** Turn an element's title into its tooltip's own words, so the browser never shows its own tooltip as well. */
@@ -231,11 +241,19 @@ function tipAt(target: Element | null): Element | null {
   return null;
 }
 
-/** The focused element's own tooltip: its own, or for a checkbox, its label's. Never a neighbour's. */
+/**
+ * The focused element's own tooltip: its own; for a checkbox, its label's; for a text box, a number box, a select or a
+ * slider in a field or a row, its label's (the words the pointer gets on the label). Never a neighbour's.
+ */
 function tipOfFocus(el: Element): Element | null {
   if (hasTip(el)) return el;
-  const check = el.matches('input') ? el.closest('label.check') : null;
-  return check && hasTip(check) ? check : null;
+  if (!el.matches('input, select, textarea')) return null;
+  const check = el.closest('label.check');
+  if (check) return hasTip(check) ? check : null;
+  const field = el.closest('label.field, .field');
+  const row = el.closest('.row');
+  const label = field?.querySelector(':scope > .flab') ?? row?.querySelector(':scope > .lab > label, :scope > .lab > span:first-child:not(.hint):not(.val)');
+  return label && hasTip(label) ? label : null;
 }
 
 const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
@@ -247,8 +265,10 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   const help = helpOf(el);
   const lines: string[] = [];
   const he = el as HTMLElement;
-  // Cut short with an ellipsis: the whole text first.
-  const full = he.scrollWidth > he.clientWidth + 1 && getComputedStyle(he).textOverflow === 'ellipsis' ? flat(he.textContent) : '';
+  // Cut short with an ellipsis (the element, or a chip's value): the whole text first.
+  const cut = (x: HTMLElement | null) => !!x && x.scrollWidth > x.clientWidth + 1 && getComputedStyle(x).textOverflow === 'ellipsis';
+  const value = he.querySelector<HTMLElement>(':scope > .chip-value');
+  const full = cut(he) ? flat(he.textContent) : cut(value) ? flat(value!.textContent) : '';
   if (full && !own.includes(full)) lines.push(full);
   if (own) lines.push(own);
   if (help?.text && flat(help.text) !== own) lines.push(help.text);
@@ -277,10 +297,13 @@ function showTip(anchor: Element, byFocus: boolean, focused?: Element): void {
   // Shown again each time, so it is on top of a picker or a dialog opened since.
   if (isOpen(el)) el.hidePopover();
   el.showPopover();
-  placeTip(el, anchor);
+  // A box the keyboard types in: above it, so the rows under it stay in sight while you type.
+  if (byFocus && focused?.matches(TYPING)) placeTip(el, focused, true);
+  else placeTip(el, anchor);
   if (described && described !== focused) unlinkTip();
   shown = anchor;
   shownByFocus = byFocus;
+  focusedFor = byFocus ? focused ?? anchor : null;
   if (byFocus && focused && !focused.hasAttribute('aria-describedby')) { focused.setAttribute('aria-describedby', TIP_ID); described = focused; }
   clearInterval(watch);
   // What it was for went away (the panel was built again): so does the tooltip.
@@ -288,10 +311,10 @@ function showTip(anchor: Element, byFocus: boolean, focused?: Element): void {
 }
 
 /**
- * Below what it is for, or above when there is no room below; always inside the window. A row of a menu (inside
- * [data-tip-beside]) gets it beside the menu instead, level with the row, so it never covers the rows under it.
+ * Below what it is for, or above when there is no room below (above first: `above`); always inside the window. A row of a
+ * menu (inside [data-tip-beside]) gets it beside the menu instead, level with the row, so it never covers the rows under it.
  */
-function placeTip(el: HTMLElement, anchor: Element): void {
+function placeTip(el: HTMLElement, anchor: Element, above = false): void {
   const r = anchor.getBoundingClientRect();
   const t = el.getBoundingClientRect();
   const m = 8, gap = 6;
@@ -305,7 +328,8 @@ function placeTip(el: HTMLElement, anchor: Element): void {
     return;
   }
   let top = r.bottom + gap;
-  if (top + t.height > window.innerHeight - m && r.top - gap - t.height >= m) top = r.top - gap - t.height;
+  if (above && r.top - gap - t.height >= m) top = r.top - gap - t.height;
+  else if (top + t.height > window.innerHeight - m && r.top - gap - t.height >= m) top = r.top - gap - t.height;
   top = Math.max(m, Math.min(top, window.innerHeight - m - t.height));
   const left = Math.max(m, Math.min(r.left, window.innerWidth - m - t.width));
   el.style.left = `${Math.round(left)}px`;
@@ -325,6 +349,7 @@ function hideTip(): void {
   if (shown) hiddenAt = performance.now();
   shown = null;
   shownByFocus = false;
+  focusedFor = null;
   unlinkTip();
 }
 
@@ -369,21 +394,26 @@ export function installTooltips(lookup: TipHelpLookup): void {
     pointerY = e.clientY;
     holdStill();
     pressed = hovered ?? tipAt(e.target as Element);
+    // A press moves the focus as the pointer's, never the keyboard's (a text box matches :focus-visible after a click too).
+    focusKeyAt = -Infinity;
     hideTip();
   }, true);
   document.addEventListener('focusin', (e) => {
     const target = e.target as Element;
     takeTitles(target);
-    // Only for the keyboard: Tab moved the focus here. Not when a click or the editor moved it.
-    if (performance.now() - tabAt > TAB_WINDOW_MS || !target.matches(':focus-visible')) return;
+    // Only for the keyboard: a key that moves the focus moved it here. Not when a click or the editor moved it (also not
+    // the editor moving it just after: one key, one move).
+    if (performance.now() - focusKeyAt > KEY_FOCUS_MS) return;
+    focusKeyAt = -Infinity;
     const a = tipOfFocus(target);
     if (a) { clearTimeout(timer); timer = 0; showTip(a, true, target); }
   }, true);
   document.addEventListener('focusout', (e) => {
-    if (shown && shownByFocus && (e.target === described || shown.contains(e.target as Node))) hideTip();
+    if (shown && shownByFocus && (e.target === focusedFor || shown.contains(e.target as Node))) hideTip();
   }, true);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') tabAt = performance.now();
+    if (FOCUS_KEYS.has(e.key)) focusKeyAt = performance.now();
+    else if (!MODIFIER_KEYS.has(e.key)) focusKeyAt = -Infinity;
     // Esc hides it, and is not taken: the editor still gets it.
     if (e.key === 'Escape' && (shown || timer)) { holdStill(); pressed = hovered; hideTip(); }
   }, true);
@@ -397,131 +427,436 @@ export function installTooltips(lookup: TipHelpLookup): void {
       if (!el.hasAttribute('title')) continue;
       if (el === hovered || el === shown || el.hasAttribute('data-tip') || el.hasAttribute('data-tip-key')) {
         takeTitle(el);
-        if (el === shown) showTip(el, shownByFocus, described ?? undefined);
+        if (el === shown) showTip(el, shownByFocus, focusedFor ?? undefined);
       }
     }
   }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['title'] });
 }
 
+// ---------------------------------------------------------------- icon buttons (docs/ui-redesign.md 4.3, 4.5, 4.6)
+
+/**
+ * A 24 x 24 button with a 16 px icon and no words. Its name (aria-label) is the first line of its tooltip; its shortcut
+ * goes into the tooltip's kbd (`key`, or the one help.ts has for its name). A toggle (`pressed` given) says on or off with
+ * aria-pressed and looks on as 4.6 says: the field colour, the icon in --accent-ink. `className` holds its other classes
+ * (tb, theme-toggle…); more than one icon is for a toggle that shows one of them (the stylesheet picks it).
+ */
+export function iconButton(o: { icon: IconName | IconName[]; label: string; className?: string; pressed?: boolean; key?: string; onClick(e: Event): void }): HTMLButtonElement {
+  const icons = Array.isArray(o.icon) ? o.icon : [o.icon];
+  return h('button', {
+    class: o.className ? `${o.className} icon-only` : 'icon-only',
+    attrs: { type: 'button', 'aria-label': o.label, ...(o.pressed !== undefined ? { 'aria-pressed': String(o.pressed) } : {}), ...(o.key ? { 'data-tip-key': o.key } : {}) },
+    on: { click: o.onClick },
+  }, ...icons.map((n) => icon(n)));
+}
+
+// ---------------------------------------------------------------- placing what drops from a button
+
+const EDGE = 4;
+const DROP_GAP = 4;
+
+/** The size an element has when it shows, measured while it is hidden (a closed popover lays out for a moment, unseen). */
+function sizeOf(el: HTMLElement): { w: number; h: number } {
+  if (el.matches(':popover-open')) return { w: el.offsetWidth, h: el.offsetHeight };
+  el.style.display = 'block';
+  el.style.visibility = 'hidden';
+  const s = { w: el.offsetWidth, h: el.offsetHeight };
+  el.style.removeProperty('display');
+  el.style.removeProperty('visibility');
+  return s;
+}
+
+/**
+ * Put a menu or a popover below the button that opens it, their left edges lined up; their right edges lined up when it
+ * would go past the window's right edge; above the button when there is no room below; always inside the window.
+ */
+export function placeBelow(el: HTMLElement, opener: Element): void {
+  const r = opener.getBoundingClientRect(), { w, h: hh } = sizeOf(el);
+  let top = r.bottom + DROP_GAP;
+  if (top + hh > window.innerHeight - EDGE && r.top - DROP_GAP - hh >= EDGE) top = r.top - DROP_GAP - hh;
+  let left = r.left;
+  if (left + w > window.innerWidth - EDGE) left = r.right - w;
+  el.style.left = `${Math.round(Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - w)))}px`;
+  el.style.top = `${Math.round(Math.max(EDGE, Math.min(top, window.innerHeight - EDGE - hh)))}px`;
+}
+
+/** Put a menu at a point (a right-click): its corner on the point, turned left or up where it would leave the window. */
+function placeAt(el: HTMLElement, x: number, y: number): void {
+  const { w, h: hh } = sizeOf(el);
+  const left = x + w > window.innerWidth - EDGE ? x - w : x;
+  const top = y + hh > window.innerHeight - EDGE ? y - hh : y;
+  el.style.left = `${Math.round(Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - w)))}px`;
+  el.style.top = `${Math.round(Math.max(EDGE, Math.min(top, window.innerHeight - EDGE - hh)))}px`;
+}
+
 // ---------------------------------------------------------------- menus (docs/ui-redesign.md 6.10)
 
-/** A row of a menu: a command, or a setting that is on or off (checked). A shortcut shows muted on the right. */
+/** A row of a menu: a command, a setting that is on or off, or one of a set of choices. */
 export interface MenuItem {
   label: string;
-  icon?: IconName;
+  /** A 16 px icon from icons.ts, or an element of its own (a faction's marking). */
+  icon?: IconName | (() => Element);
+  /** Muted on the right: what the choice changes, or an element of its own (a team colour's dot). */
+  description?: string | (() => Element);
   /** The key as the row shows it ("Ctrl+S"), and as aria-keyshortcuts says it ("Control+S"). */
   shortcut?: string;
   ariaKeys?: string;
-  /** A setting that is on or off: the row is a menuitemcheckbox with a check while it is on. */
+  /** A setting that is on or off: a menuitemcheckbox, with a check in place of its icon while it is on. */
   checked?: () => boolean;
+  /** One of a set of choices: a menuitemradio, with a dot before the chosen one. */
+  chosen?: () => boolean;
   disabled?: () => boolean;
+  /** The name help.ts knows the row by, when it is not its label. */
+  helpLabel?: string;
   action(): void;
 }
-export type MenuEntry = MenuItem | 'divider';
+/** A 1 px line between rows; or a heading over the rows after it (up to the next line or heading), which make a group. */
+export type MenuEntry = MenuItem | 'divider' | { heading: string; helpLabel?: string };
 
 export interface MenuView {
   el: HTMLElement;
   isOpen(): boolean;
-  /** Close it; with returnFocus, the keyboard focus goes back to the button that opens it. */
+  /** Open it below its button (or, with none, where it was last opened at a point). */
+  open(): void;
+  /** Open it at a point, such as where the pointer was right-clicked, inside the window; the focus goes back on Esc. */
+  openAt(x: number, y: number): void;
+  /** Close it; with returnFocus, the keyboard focus goes back to the button that opens it (or to where it was). */
   close(returnFocus?: boolean): void;
 }
 
+/** How long typed letters count as one word for type-ahead. */
+const TYPE_AHEAD_MS = 700;
+
 /**
- * A menu that drops from a button: the main menu now; phase 3 grows it for the chips, + and More. It is a popover (auto),
- * appended to document.body, so no bar clips it; the button is its declared invoker, so a second click closes it and a click
- * outside it closes it too. It opens below the button, inside the window, with the focus on its first row.
- * Keys: ↑ and ↓ move between the rows, Home and End go to the first and last, Enter and Space choose, Esc and Tab close it
- * and give the focus back to the button. Keys pressed in it are its own (the editor's shortcuts skip a .menu).
- * Each row has data-help-label (its words without the shortcut), so its tooltip, beside the menu, gives its help text.
+ * A menu: the main menu, a chip's choices and, from a point, a right-click menu (openAt, or contextMenu below). It is a
+ * popover (auto), appended to document.body, so no bar clips it; its button is the declared invoker, so a second click
+ * closes it and a click outside it closes it too. It opens below the button (placeBelow), with the focus on its chosen row
+ * or else its first.
+ * Rows: a 16 px icon, the label, and on the right a muted description or shortcut. A check marks a setting that is on, a
+ * dot the chosen one of a set; 1 px lines and headings divide them. An optional header over the rows names the setting;
+ * an optional footer line under them says more.
+ * Keys: ↑ and ↓ move between the rows (round from the last to the first), Home and End go to the ends, Enter and Space
+ * choose, a letter goes to the next row whose label starts with it (letters typed quickly spell a word), Esc and Tab close
+ * it and give the focus back. With rowKeys, a row whose shortcut is one key (View's 1, 2 and 3) is chosen by that key. Keys
+ * pressed in it are its own (the editor's shortcuts skip a .menu, and wait while one is open).
+ * Each row has data-help-label (its words without the shortcut, or helpLabel), so its tooltip, beside the menu, gives its
+ * help text; the header and the headings have one too.
  */
-export function menu(o: { opener: HTMLButtonElement; id: string; label: string; items: MenuEntry[]; helpSection?: string }): MenuView {
+export function menu(o: {
+  id: string; label: string; items: MenuEntry[];
+  /** The button that opens it. Without one, it opens at a point (openAt). */
+  opener?: HTMLButtonElement;
+  /** A header over the rows, naming the setting. */
+  title?: string;
+  /** A muted line under the rows. */
+  footer?: string;
+  helpSection?: string;
+  rowKeys?: boolean;
+}): MenuView {
   const el = h('div', { class: 'menu', attrs: { id: o.id, popover: 'auto', role: 'menu', 'aria-label': o.label, 'data-tip-beside': '', ...(o.helpSection ? { 'data-help-section': o.helpSection } : {}) } });
+  const items = o.items.filter((e): e is MenuItem => typeof e === 'object' && 'action' in e);
+  const marks = items.some((i) => !!i.chosen);
+  const icons = items.some((i) => !!i.icon || !!i.checked);
+  if (marks) el.classList.add('has-marks');
+  // The header names the setting for the eye; the menu's own name (aria-label) says it to a screen reader.
+  if (o.title) el.append(h('div', { class: 'menu-title', attrs: { 'aria-hidden': 'true', 'data-help-label': o.title }, text: o.title }));
   const rows: { item: MenuItem; btn: HTMLButtonElement }[] = [];
+  let group: HTMLElement = el;
+  let headings = 0;
   for (const entry of o.items) {
-    if (entry === 'divider') { el.append(h('div', { class: 'menu-divider', attrs: { role: 'separator' } })); continue; }
+    if (entry === 'divider') { el.append(h('div', { class: 'menu-divider', attrs: { role: 'separator' } })); group = el; continue; }
+    if ('heading' in entry) {
+      const id = `${o.id}-heading-${++headings}`;
+      group = h('div', { class: 'menu-group', attrs: { role: 'group', 'aria-labelledby': id } },
+        h('div', { class: 'menu-heading', attrs: { id, 'data-help-label': entry.helpLabel ?? entry.heading }, text: entry.heading }));
+      el.append(group);
+      continue;
+    }
     const item = entry;
+    const role = item.checked ? 'menuitemcheckbox' : item.chosen ? 'menuitemradio' : 'menuitem';
+    const glyph = item.checked ? icon('check') : typeof item.icon === 'function' ? item.icon() : item.icon ? icon(item.icon) : null;
+    const desc = typeof item.description === 'function' ? item.description() : item.description ? h('span', { class: 'menu-desc', text: item.description }) : null;
     const btn = h('button', {
       class: 'menu-item',
-      attrs: { type: 'button', role: item.checked ? 'menuitemcheckbox' : 'menuitem', tabindex: '-1', 'data-help-label': item.label, ...(item.ariaKeys ? { 'aria-keyshortcuts': item.ariaKeys } : {}) },
+      attrs: { type: 'button', role, tabindex: '-1', 'data-help-label': item.helpLabel ?? item.label, ...(item.ariaKeys ? { 'aria-keyshortcuts': item.ariaKeys } : {}) },
       on: { click: () => { close(true); item.action(); } },
-    }, h('span', { class: 'menu-icon' }, item.checked ? icon('check') : item.icon ? icon(item.icon) : null), h('span', { class: 'menu-label', text: item.label }),
+    },
+    marks ? h('span', { class: 'menu-mark', attrs: { 'aria-hidden': 'true' } }) : null,
+    icons ? h('span', { class: 'menu-icon' }, glyph) : null,
+    h('span', { class: 'menu-label', text: item.label }),
+    desc ? h('span', { class: 'menu-right' }, desc) : null,
     item.shortcut ? h('kbd', { class: 'menu-key', attrs: { 'aria-hidden': 'true' }, text: item.shortcut }) : null);
     rows.push({ item, btn });
-    el.append(btn);
+    group.append(btn);
+  }
+  if (o.footer) {
+    el.append(h('div', { class: 'menu-foot', attrs: { id: `${o.id}-foot` }, text: o.footer }));
+    el.setAttribute('aria-describedby', `${o.id}-foot`);
   }
   const enabled = () => rows.map((r) => r.btn).filter((b) => !b.disabled);
   const states = () => {
     for (const { item, btn } of rows) {
       btn.disabled = item.disabled?.() ?? false;
       if (item.checked) btn.setAttribute('aria-checked', String(item.checked()));
+      if (item.chosen) btn.setAttribute('aria-checked', String(item.chosen()));
     }
   };
+  /** The row the focus starts on: the chosen one of a set, or the first. */
+  const first = () => { const list = enabled(); return list.find((b) => b.getAttribute('role') === 'menuitemradio' && b.getAttribute('aria-checked') === 'true') ?? list[0]; };
   const isOpen = () => el.matches(':popover-open');
-  // The focus goes back to the button before the menu hides. Hidden with the focus still in it, the browser gives the focus
-  // back itself, in the middle of hiding, where no popover can open: the tooltip that Tab shows at once threw there.
+  /** Where it was opened at a point (and where the focus was then), or null when its button opened it. */
+  let at: { x: number; y: number; back: HTMLElement | null } | null = null;
+  /** The letters typed for type-ahead, and when the last came: a word while they come quickly, from the menu's opening. */
+  let typed = '', typedAt = -Infinity;
+  const back = () => (at ? at.back : o.opener ?? null);
+  // The focus goes back before the menu hides. Hidden with the focus still in it, the browser gives the focus back itself,
+  // in the middle of hiding, where no popover can open: the tooltip that Tab shows at once threw there.
   const close = (returnFocus = false) => {
-    if (returnFocus) o.opener.focus();
+    const to = back();
+    if (returnFocus && to?.isConnected) to.focus({ preventScroll: true });
     if (isOpen()) el.hidePopover();
   };
-  /**
-   * Below the button, their left edges lined up; moved in to stay inside the window, or above when there is no room below.
-   * Before it shows, its size is not known yet: it goes below the button, and is moved in, if need be, once it shows.
-   */
-  const place = (measured: boolean) => {
-    const r = o.opener.getBoundingClientRect(), m = 4, gap = 4;
-    const w = measured ? el.offsetWidth : 0, hh = measured ? el.offsetHeight : 0;
-    let top = r.bottom + gap;
-    if (top + hh > window.innerHeight - m && r.top - gap - hh >= m) top = r.top - gap - hh;
-    el.style.left = `${Math.round(Math.max(m, Math.min(r.left, window.innerWidth - m - w)))}px`;
-    el.style.top = `${Math.round(Math.max(m, Math.min(top, window.innerHeight - m - hh)))}px`;
+  const open = () => { if (!isOpen()) el.showPopover(); };
+  const openAt = (x: number, y: number) => {
+    if (isOpen()) el.hidePopover();
+    at = { x, y, back: document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null };
+    el.showPopover();
   };
-  o.opener.setAttribute('aria-haspopup', 'menu');
-  o.opener.setAttribute('aria-expanded', 'false');
-  o.opener.setAttribute('aria-controls', o.id);
-  o.opener.popoverTargetElement = el;
-  // beforetoggle comes at once (toggle comes later, as a task): the button says open or closed as soon as it is.
+  if (o.opener) {
+    o.opener.setAttribute('aria-haspopup', 'menu');
+    o.opener.setAttribute('aria-expanded', 'false');
+    o.opener.setAttribute('aria-controls', o.id);
+    o.opener.popoverTargetElement = el;
+  }
+  // beforetoggle comes at once (toggle comes later, as a task): the button says open or closed as soon as it is, and the
+  // menu is in its place before it is first drawn.
+  /** The focus into the menu, once it shows (not again if it is in already: a key may have moved it on). */
+  const focusIn = () => { if (isOpen() && !el.contains(document.activeElement)) first()?.focus({ preventScroll: true }); };
   el.addEventListener('beforetoggle', (e) => {
-    const open = (e as ToggleEvent).newState === 'open';
-    o.opener.setAttribute('aria-expanded', String(open));
-    if (open) { states(); place(false); }
+    const opening = (e as ToggleEvent).newState === 'open';
+    o.opener?.setAttribute('aria-expanded', String(opening && !at));
+    typed = '';
+    if (!opening) return;
+    states();
+    if (at) placeAt(el, at.x, at.y);
+    else if (o.opener) placeBelow(el, o.opener);
+    // It shows once this event is over; the toggle event comes only with the next frame.
+    setTimeout(focusIn);
   });
   el.addEventListener('toggle', (e) => {
-    const open = (e as ToggleEvent).newState === 'open';
-    if (open) { place(true); enabled()[0]?.focus({ preventScroll: true }); }
-    // Closed with the focus still in it (it went away under the focus): the button takes it back.
-    else if (el.contains(document.activeElement)) o.opener.focus();
+    if ((e as ToggleEvent).newState === 'open') focusIn();
+    else {
+      // Closed with the focus still in it (it went away under the focus): the button takes it back.
+      if (el.contains(document.activeElement)) back()?.focus({ preventScroll: true });
+      at = null;
+    }
   });
-  // An arrow pressed on the button while its menu is open, before the focus went into the menu, goes into it.
-  o.opener.addEventListener('keydown', (e) => {
-    if (!isOpen()) return;
-    const list = enabled();
-    const to = e.key === 'ArrowDown' || e.key === 'Home' ? list[0] : e.key === 'ArrowUp' || e.key === 'End' ? list[list.length - 1] : undefined;
-    if (!to) return;
-    e.preventDefault();
-    e.stopPropagation();
-    to.focus({ preventScroll: true });
+  // A key pressed on the button while its menu is open, before the focus went into the menu, is the menu's: from its
+  // chosen (or first) row. Enter and Space stay the button's (Enter closes the menu again, Space plays or pauses).
+  o.opener?.addEventListener('keydown', (e) => {
+    if (!isOpen() || e.key === 'Enter' || e.key === ' ' || MODIFIER_KEYS.has(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const from = first();
+    if (!from) return;
+    from.focus({ preventScroll: true });
+    onKey(e);
   });
-  el.addEventListener('keydown', (e) => {
+  const labelOf = (b: HTMLButtonElement) => (b.querySelector('.menu-label')?.textContent ?? '').toLowerCase();
+  const onKey = (e: KeyboardEvent) => {
     const list = enabled();
-    const at = list.indexOf(document.activeElement as HTMLButtonElement);
-    const go = (i: number) => { const n = list.length; if (n) list[((i % n) + n) % n]!.focus({ preventScroll: true }); };
+    const now = list.indexOf(document.activeElement as HTMLButtonElement);
+    // A move by the keys starts the type-ahead's word afresh.
+    const go = (i: number) => { typed = ''; const n = list.length; if (n) list[((i % n) + n) % n]!.focus({ preventScroll: true }); };
     let handled = true;
-    if (e.key === 'ArrowDown') go(at + 1);
-    else if (e.key === 'ArrowUp') go(at < 0 ? -1 : at - 1);
+    if (e.key === 'ArrowDown') go(now + 1);
+    else if (e.key === 'ArrowUp') go(now < 0 ? -1 : now - 1);
     else if (e.key === 'Home') go(0);
     else if (e.key === 'End') go(-1);
     else if (e.key === 'Escape' || e.key === 'Tab') close(true);
-    else if (e.key === 'Enter' || e.key === ' ') { if (at >= 0) list[at]!.click(); }
-    else handled = false;
+    else if (e.key === 'Enter' || e.key === ' ') { if (now >= 0) list[now]!.click(); }
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const keyed = o.rowKeys ? rows.find((r) => r.item.shortcut === e.key && !r.btn.disabled) : undefined;
+      if (keyed) keyed.btn.click();
+      else {
+        // Type-ahead: the next row whose label starts with the letter (pressed again: the one after); letters typed
+        // quickly spell the start of a label.
+        const t = performance.now();
+        typed = t - typedAt > TYPE_AHEAD_MS ? e.key.toLowerCase() : typed + e.key.toLowerCase();
+        typedAt = t;
+        const one = [...typed].every((c) => c === typed[0]);
+        const n = list.length;
+        for (let k = one ? 1 : 0; k <= n; k++) {
+          const b = list[(((one ? now : Math.max(now, 0)) + k) % n + n) % n];
+          if (b && labelOf(b).startsWith(one ? typed[0]! : typed)) { b.focus({ preventScroll: true }); break; }
+        }
+      }
+    } else handled = false;
     if (handled) { e.preventDefault(); e.stopPropagation(); }
-  });
+  };
+  el.addEventListener('keydown', onKey);
   // The row under the pointer takes the focus, so the keys carry on from where the mouse is.
   el.addEventListener('pointermove', (e) => {
     const b = (e.target as Element).closest?.('.menu-item') as HTMLButtonElement | null;
     if (b && !b.disabled && document.activeElement !== b) b.focus({ preventScroll: true });
   });
   document.body.append(el);
-  return { el, isOpen, close };
+  return { el, isOpen, open, openAt, close };
+}
+
+/**
+ * A right-click on `target` (or its context-menu key) opens the menu at the pointer, inside the window. Phase 4 of the
+ * redesign gives the rows of the lists theirs.
+ */
+export function contextMenu(target: HTMLElement, view: MenuView): void {
+  target.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    // From the keyboard there is no pointer: at the element's lower left corner.
+    if (e.clientX === 0 && e.clientY === 0) { const r = target.getBoundingClientRect(); view.openAt(r.left + 8, r.bottom); return; }
+    const x = e.clientX, y = e.clientY;
+    // The button still down (Linux and macOS ask for the menu on the press): open it once the button is let go. Opened on the
+    // press, the browser closes it again at once when the pointer is not over it (it is, moved in near a corner).
+    if (e.buttons & 2) document.addEventListener('pointerup', () => setTimeout(() => view.openAt(x, y)), { capture: true, once: true });
+    else view.openAt(x, y);
+  });
+}
+
+// ---------------------------------------------------------------- chips (docs/ui-redesign.md 6.3)
+
+export interface ChipView {
+  el: HTMLButtonElement;
+  /** Show another value (and icon). */
+  set(value: string, glyph?: IconName | Element): void;
+}
+
+/**
+ * A chip: a 24 px button on the field colour with an icon, the current value and a chevron. It opens a menu or a small
+ * popover (the caller declares it: menu() sets aria-haspopup and aria-expanded). Its tooltip is the setting's name (the
+ * label) and that name's help text; a value cut short shows whole first. Its name for screen readers is "label: value".
+ * `extra` sits between the value and the chevron (the View chip's scale).
+ */
+export function chip(o: { label: string; icon: IconName | Element; value: string; className?: string; extra?: HTMLElement }): ChipView {
+  const glyphBox = h('span', { class: 'chip-icon' });
+  const value = h('span', { class: 'chip-value' });
+  const chev = icon('chevron-down');
+  chev.classList.add('chip-chev');
+  const el = h('button', { class: o.className ? `chip-btn ${o.className}` : 'chip-btn', attrs: { type: 'button', 'data-tip': o.label, 'data-help-label': o.label } },
+    glyphBox, value, o.extra ?? null, chev);
+  const set = (v: string, glyph?: IconName | Element) => {
+    if (value.textContent !== v) value.textContent = v;
+    el.setAttribute('aria-label', `${o.label}: ${v}`);
+    if (glyph !== undefined) glyphBox.replaceChildren(typeof glyph === 'string' ? icon(glyph) : glyph);
+  };
+  set(o.value, o.icon);
+  return { el, set };
+}
+
+// ---------------------------------------------------------------- numbers you drag or type (docs/ui-redesign.md 6.6, 8)
+
+/** A number as typed: a decimal point or a comma ("0.5", "0,5"); null when it is not a number. */
+export function parseDecimal(text: string): number | null {
+  const s = text.trim().replace(/\s+/g, '');
+  if (!/^[-+]?(\d+([.,]\d*)?|[.,]\d+)$/.test(s)) return null;
+  const v = Number(s.replace(',', '.'));
+  return Number.isFinite(v) ? v : null;
+}
+
+/** How far a drag goes: px moved (each px with Shift held counts 10 times) in steps of `step` per `pxPerStep`. */
+export function dragSteps(px: number, pxPerStep: number): number {
+  return Math.trunc(px / pxPerStep);
+}
+
+/** A value kept within its limits and rounded to its decimals (no 4.300000000000001). */
+export function fitValue(v: number, o: { min?: number; max?: number; digits: number }): number {
+  const lo = o.min ?? -Infinity, hi = o.max ?? Infinity;
+  const k = 10 ** o.digits;
+  return Math.min(hi, Math.max(lo, Math.round(v * k) / k));
+}
+
+/**
+ * Drag sideways to change a number: `step` for every `pxPerStep` px the pointer moves, ten times that while Shift is held.
+ * A press that does not move is a click, and is left alone (its click goes on); after a drag, the click that follows
+ * does nothing. onInput follows the drag; onCommit comes when it ends.
+ */
+export function scrubDrag(handle: HTMLElement, o: {
+  step: number; pxPerStep?: number; get(): number; set(v: number): void; onCommit?(): void;
+}): void {
+  const per = o.pxPerStep ?? 4;
+  let from: { x: number; value: number; units: number; last: number; id: number; moved: boolean } | null = null;
+  let dragged = false;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    from = { x: e.clientX, value: o.get(), units: 0, last: e.clientX, id: e.pointerId, moved: false };
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!from || e.pointerId !== from.id) return;
+    from.units += (e.clientX - from.last) * (e.shiftKey ? 10 : 1);
+    from.last = e.clientX;
+    if (!from.moved && Math.abs(e.clientX - from.x) < 3) return;
+    if (!from.moved) { from.moved = true; handle.classList.add('scrubbing'); }
+    o.set(from.value + dragSteps(from.units, per) * o.step);
+  });
+  const end = (e: PointerEvent) => {
+    if (!from || e.pointerId !== from.id) return;
+    const moved = from.moved;
+    from = null;
+    handle.classList.remove('scrubbing');
+    if (moved) { dragged = true; o.onCommit?.(); }
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  // The click after a drag: not a click (it would open the chip's popover).
+  handle.addEventListener('click', (e) => { if (dragged) { dragged = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+}
+
+/**
+ * A number field you drag or type: drag its prefix (or the handles given) sideways to change the number, or type it; a
+ * typed comma works as the decimal point ("0,5" or "0.5"). The value sits right, the unit inside the field as a muted
+ * suffix. ↑ and ↓ step it (Shift: ten steps). Enter or leaving the box sets what was typed; Esc puts the number back.
+ * onInput comes with each change; onCommit when a drag or typing ends. The input keeps the num class.
+ */
+export function scrubNumber(o: {
+  label: string; value: number; step: number; digits: number; min?: number; max?: number; unit?: string; prefix?: string;
+  pxPerStep?: number; onInput(v: number): void; onCommit?(): void;
+}): Control<number> & { input: HTMLInputElement; dragFrom(handle: HTMLElement): void } {
+  let value = o.value;
+  const input = h('input', { class: 'num scrub-input', attrs: { type: 'text', inputmode: 'decimal', spellcheck: 'false', autocomplete: 'off', 'aria-label': o.label } });
+  const show = () => { if (document.activeElement !== input) input.value = value.toFixed(o.digits); };
+  const change = (v: number) => {
+    const next = fitValue(v, o);
+    if (next === value) return;
+    value = next;
+    show();
+    o.onInput(value);
+  };
+  const prefix = o.prefix ? h('span', { class: 'scrub-prefix', attrs: { 'aria-hidden': 'true' }, text: o.prefix }) : null;
+  const el = h('span', { class: 'scrub' }, prefix, input, o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null);
+  const dragFrom = (handle: HTMLElement) => {
+    handle.classList.add('scrub-handle');
+    scrubDrag(handle, { step: o.step, pxPerStep: o.pxPerStep, get: () => value, set: change, onCommit: () => o.onCommit?.() });
+  };
+  if (prefix) dragFrom(prefix);
+  const typedValue = () => {
+    const v = parseDecimal(input.value);
+    if (v === null) { input.value = value.toFixed(o.digits); return; }
+    change(v);
+    input.value = value.toFixed(o.digits);
+    o.onCommit?.();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); typedValue(); input.select(); }
+    else if (e.key === 'Escape' && input.value !== value.toFixed(o.digits)) { e.preventDefault(); e.stopPropagation(); input.value = value.toFixed(o.digits); input.select(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      change((parseDecimal(input.value) ?? value) + (e.key === 'ArrowUp' ? 1 : -1) * o.step * (e.shiftKey ? 10 : 1));
+      input.value = value.toFixed(o.digits);
+      input.select();
+    }
+  });
+  input.addEventListener('change', typedValue);
+  input.addEventListener('focus', () => input.select());
+  const set = (v: number) => { value = fitValue(v, o); show(); };
+  show();
+  return { el, set, input, dragFrom };
 }
 
 // ---------------------------------------------------------------- splitters (docs/ui-redesign.md 5.2)
