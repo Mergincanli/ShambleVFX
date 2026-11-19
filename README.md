@@ -225,7 +225,7 @@ to them, the triangles and draw calls, the cost's states, the renderer, the hint
 main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
 closing it, every row; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
 header, and the time's focus ring clear of the text after it; `?frame=1` showing nothing of the editor round the game
-screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920 and 2560 px with its widest values, and
+screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920 and 2560 px with long values, and
 two rows at 1280, with Fade other layers and View side by side; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
 chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
@@ -751,10 +751,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   Mustafa's or the brief's):
   - **Fade other layers** sits in the toolbar as an icon toggle just left of the View chip: the brief came before it, and
     6.3 does not place it. Its icon and what it does are as before.
-  - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars it stays one row down
-    to a window 1469 px wide, with its widest values shown (the longest scene name, Your team, 14.0 m, Medium, Close-up at
-    200 %). In a narrower window it wraps onto a second row (65 px): nothing is cut, the controls keep their order, and Fade
-    other layers and View wrap together, side by side.
+  - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars and its longest
+    values (the longest scene name, Your team, 14.0 m, Medium) it stays one row down to a window 1486 px wide in Whole
+    screen, 1476 px in Game size and 1469 px in Close-up. In a narrower window it wraps onto a second row (65 px): nothing
+    is cut, the controls keep their order, and Fade other layers and View wrap together, side by side.
   - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
     the browser check tries it; phase 4 gives the lists' rows their menus. While the button is still down (Linux and macOS
     ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when

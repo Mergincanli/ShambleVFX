@@ -1966,7 +1966,8 @@ if (webgpu) {
     await tp.locator('.vbar .fire').focus();
     await press('3');
 
-    // One row, 36 px, with the widest values: the longest scene name, Your team, 14.0 m, Medium, Close-up at 200 %. In a
+    // One row, 36 px, with long values: the longest scene name, Your team, 14.0 m, Medium, Close-up at 200 % (Whole screen
+    // is 17 px wider and fits by far at these sizes; README gives the narrowest one-row window for each view). In a
     // window too narrow for it (1280 px), a second row, the controls in the same order, nothing outside the bar.
     const oneRow = () => tp.evaluate(() => {
       // The controls: the bar's own, then Fade other layers and View from the group that keeps them side by side.
@@ -1987,7 +1988,7 @@ if (webgpu) {
     await tp.setViewportSize({ width: 1920, height: 1080 });
     await frames();
     const ORDER = 'Fire,Scene,Faction that fired,Made by,Distance from you,Tier,Fade other layers,View';
-    ok('the toolbar is one 36 px row at 1920 x 1080 and at 2560 x 1440 with the default sizes and its widest values: Fire, Scene, Faction that fired, Made by, Distance from you, Tier, then Fade other layers and View; at 1280 px it wraps onto a second row, in the same order, with Fade other layers and View side by side',
+    ok('the toolbar is one 36 px row at 1920 x 1080 and at 2560 x 1440 with the default sizes and long values: Fire, Scene, Faction that fired, Made by, Distance from you, Tier, then Fade other layers and View; at 1280 px it wraps onto a second row, in the same order, with Fade other layers and View side by side',
       row1920.h === 36 && row1920.rows === 1 && row1920.inside && row1920.order === ORDER && row1920.values === 'Board: beam between tanks | Soviets | Your team | 14.0 m | Medium | Close-up'
         && row2560.h === 36 && row2560.rows === 1 && row2560.inside && row1280.rows === 2 && row1280.inside && row1280.order === ORDER && row1280.together, JSON.stringify({ row1920, row2560, row1280 }));
 
