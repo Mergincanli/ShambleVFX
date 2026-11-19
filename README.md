@@ -226,7 +226,7 @@ main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no
 closing it, every row; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
 header, and the time's focus ring clear of the text after it; `?frame=1` showing nothing of the editor round the game
 screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920 and 2560 px with its widest values, and
-two rows at 1280; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
+two rows at 1280, with Fade other layers and View side by side; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
 chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
 a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
@@ -373,9 +373,12 @@ with the new UI; today only an import names it).
 These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is wrong.
 
 - **What the big controls change** (all in one place: `vfx-runtime/src/core/controls.ts`):
-  - Size scales sprites and offsets.
-  - Intensity scales flashes, hits and landings, and the stretch of streaks. It never makes anything see-through.
-  - Duration stretches the effect's own times, not flight time and not the step rate.
+  - Size scales every sprite, shape, word and piece, and every offset. Not the points the game gives (origin, target), and
+    not speeds.
+  - Intensity scales flashes, hits and landings, the stretch of streaks, and how many pieces a burst throws. It never makes
+    anything see-through.
+  - Duration stretches the effect's own times: start delays, lengths, the three phases and fixed flight times (a flight for
+    a time or for a phase). Not a flight by speed (that comes from distance), and not the step rate.
   - Colour picks the main role.
   - On a flipbook, duration holds each frame for whole steps (2× holds each frame two steps), so the comic step rate stays 12 a second. Below 1.5× it does not change a flipbook, and it never makes one shorter.
 - **Depth pull.** A layer standing up is pulled towards the camera by as much as it reaches below its anchor, plus 0.4 m,
@@ -750,7 +753,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     6.3 does not place it. Its icon and what it does are as before.
   - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars it stays one row down
     to a window 1469 px wide, with its widest values shown (the longest scene name, Your team, 14.0 m, Medium, Close-up at
-    200 %). In a narrower window it wraps onto a second row (65 px): nothing is cut, and the controls keep their order.
+    200 %). In a narrower window it wraps onto a second row (65 px): nothing is cut, the controls keep their order, and Fade
+    other layers and View wrap together, side by side.
   - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
     the browser check tries it; phase 4 gives the lists' rows their menus. While the button is still down (Linux and macOS
     ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when
@@ -777,7 +781,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     work from 14 m, as before: ↓ goes to 13.9 m, and ↑ or Enter in the untouched box change nothing. Typing 14 or more
     changes nothing either (the box shows the distance again), and a drag on the chip goes to 14 m at once, either way.
   - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
-    your team's: `core/draw.ts`), so its row says "broken edges, your own words show" (the brief: "your own words show").
+    your team's: `core/draw.ts`), so its row says "thin broken edges, your own words show", the same words as Your team's row (the brief: "your own words
+    show").
     Each Tier row says "draws only the layers in this tier", as the brief does (a projectile has no tiers; the layers riding
     it follow theirs). The Scene menu's footer, "Each effect remembers its scene.", holds while the editor runs, and in
     project.json once the project is saved.

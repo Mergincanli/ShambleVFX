@@ -61,7 +61,7 @@ const RELATIONS: { value: Relation; label: string; icon: IconName; changes: stri
   // an enemy's effect and broken lines for your team's and yours; a word seen only by the shooter shows when you made it.
   { value: 'enemy', label: 'Enemy', icon: 'enemy', changes: 'solid ink edges', help: 'Made by an enemy' },
   { value: 'team', label: 'Your team', icon: 'team', changes: 'thin broken edges', help: 'Made by your team' },
-  { value: 'self', label: 'You', icon: 'self', changes: 'broken edges, your own words show', help: 'Made by you' },
+  { value: 'self', label: 'You', icon: 'self', changes: 'thin broken edges, your own words show', help: 'Made by you' },
 ];
 const VIEWS: { value: Exclude<ViewMode, 'frame'>; label: string; icon: IconName; key: string }[] = [
   { value: 'whole', label: 'Whole screen', icon: 'view-whole', key: '1' },
@@ -167,8 +167,10 @@ export function buildToolbar(o: { factions: Palette['factions']; state: ToolbarS
     ...CLOSE_ON.map((x) => ({ label: x.label, icon: x.icon, helpLabel: x.help, chosen: () => s.closeOn === x.value, action: () => act.closeOn(x.value) })),
   ] });
 
+  // Fade other layers and View stay side by side: in a window too narrow for one row they wrap together.
+  const end = h('div', { class: 'vbar-end' }, fadeButton, viewChip.el);
   const el = h('div', { class: 'vbar', attrs: { 'data-help-section': section } },
-    fire, sceneChip.el, factionChip.el, relationChip.el, distanceChip.el, tierChip.el, fadeButton, viewChip.el);
+    fire, sceneChip.el, factionChip.el, relationChip.el, distanceChip.el, tierChip.el, end);
 
   const showDistance = (m: number) => {
     s.distance = m;

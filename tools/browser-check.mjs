@@ -1969,9 +1969,13 @@ if (webgpu) {
     // One row, 36 px, with the widest values: the longest scene name, Your team, 14.0 m, Medium, Close-up at 200 %. In a
     // window too narrow for it (1280 px), a second row, the controls in the same order, nothing outside the bar.
     const oneRow = () => tp.evaluate(() => {
-      const b = document.querySelector('.vbar'), r = b.getBoundingClientRect(), kids = [...b.children].map((c) => c.getBoundingClientRect());
-      return { h: Math.round(r.height), rows: new Set(kids.map((k) => Math.round(k.top + k.height / 2))).size, inside: kids.every((k) => k.left >= r.left - 0.5 && k.right <= r.right + 0.5 && k.bottom <= r.bottom + 0.5),
-        order: [...b.children].map((c) => c.getAttribute('data-help-label') ?? c.getAttribute('aria-label') ?? c.textContent.trim()).join(), values: [...b.querySelectorAll('.chip-value')].map((v) => v.textContent).join(' | ') };
+      // The controls: the bar's own, then Fade other layers and View from the group that keeps them side by side.
+      const b = document.querySelector('.vbar'), r = b.getBoundingClientRect(), items = [...b.children].flatMap((c) => c.matches('.vbar-end') ? [...c.children] : [c]);
+      const kids = items.map((c) => c.getBoundingClientRect()), mid = (k) => Math.round(k.top + k.height / 2);
+      const [fade, view] = ['.fade-toggle', '.view-chip'].map((q) => b.querySelector(`.vbar-end > ${q}`)?.getBoundingClientRect());
+      return { h: Math.round(r.height), rows: new Set(kids.map(mid)).size, inside: kids.every((k) => k.left >= r.left - 0.5 && k.right <= r.right + 0.5 && k.bottom <= r.bottom + 0.5),
+        together: !!fade && !!view && mid(fade) === mid(view) && view.left > fade.right,
+        order: items.map((c) => c.getAttribute('data-help-label') ?? c.getAttribute('aria-label') ?? c.textContent.trim()).join(), values: [...b.querySelectorAll('.chip-value')].map((v) => v.textContent).join(' | ') };
     });
     const row1920 = await oneRow();
     await tp.setViewportSize({ width: 2560, height: 1440 });
@@ -1983,9 +1987,9 @@ if (webgpu) {
     await tp.setViewportSize({ width: 1920, height: 1080 });
     await frames();
     const ORDER = 'Fire,Scene,Faction that fired,Made by,Distance from you,Tier,Fade other layers,View';
-    ok('the toolbar is one 36 px row at 1920 x 1080 and at 2560 x 1440 with the default sizes and its widest values: Fire, Scene, Faction that fired, Made by, Distance from you, Tier, then Fade other layers and View; at 1280 px it wraps onto a second row, in the same order',
+    ok('the toolbar is one 36 px row at 1920 x 1080 and at 2560 x 1440 with the default sizes and its widest values: Fire, Scene, Faction that fired, Made by, Distance from you, Tier, then Fade other layers and View; at 1280 px it wraps onto a second row, in the same order, with Fade other layers and View side by side',
       row1920.h === 36 && row1920.rows === 1 && row1920.inside && row1920.order === ORDER && row1920.values === 'Board: beam between tanks | Soviets | Your team | 14.0 m | Medium | Close-up'
-        && row2560.h === 36 && row2560.rows === 1 && row2560.inside && row1280.rows === 2 && row1280.inside && row1280.order === ORDER, JSON.stringify({ row1920, row2560, row1280 }));
+        && row2560.h === 36 && row2560.rows === 1 && row2560.inside && row1280.rows === 2 && row1280.inside && row1280.order === ORDER && row1280.together, JSON.stringify({ row1920, row2560, row1280 }));
 
     // Fire's tooltip, as the brief words it, with F; each chip's: its old label, then that label's help text.
     const tips = await tp.evaluate(() => {
