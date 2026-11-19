@@ -92,6 +92,10 @@ undoes.
 A colour you change becomes **yours** (`"from": "mustafa"` in `palette.json`). Every change can be undone; a whole drag is one
 undo step. Unsaved colours count as unsaved changes.
 
+A setting that picks a colour in a layer's settings (a shape's **Colour**, a sprite's **Role**, a tone, a light or rim
+colour) lists the palette's colours by name, with a swatch of the chosen one at its left for the faction shown. The swatch
+follows the faction and every change you make in the picker.
+
 ## Gradients
 
 In the picker, **Gradients**:

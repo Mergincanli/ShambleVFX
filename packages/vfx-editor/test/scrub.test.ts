@@ -1,7 +1,9 @@
-// Numbers you drag or type (src/app/dom.ts): a typed comma works as the decimal point, a drag goes in whole steps, and a value
-// stays within its limits, rounded to its decimals.
+// Numbers you drag or type (src/app/dom.ts): a typed comma works as the decimal point, a drag goes in whole steps, a value
+// stays within its limits, rounded to its decimals, and shows with them (or only those it needs). The right panel's rows of
+// two or three numbers (src/app/specform.ts): each box's prefix and full name.
 import { describe, expect, it } from 'vitest';
-import { dragSteps, fitValue, parseDecimal } from '../src/app/dom';
+import { dragSteps, fitValue, formatNumber, parseDecimal } from '../src/app/dom';
+import { groupParts } from '../src/app/specform';
 
 describe('a typed number', () => {
   it('takes a decimal point or a comma', () => {
@@ -38,5 +40,35 @@ describe('a value', () => {
     expect(fitValue(20, distance)).toBe(14);
     expect(fitValue(2.46, distance)).toBe(2.5);
     expect(fitValue(7.25, { digits: 0 })).toBe(7);
+  });
+});
+
+describe('a number as a box shows it', () => {
+  it('has its decimals, or with trim only those it needs, and never "-0"', () => {
+    expect(formatNumber(1, 2)).toBe('1.00');
+    expect(formatNumber(1.2, 2)).toBe('1.20');
+    expect(formatNumber(4, 1)).toBe('4.0');
+    expect(formatNumber(0.5, 3, true)).toBe('0.5');
+    expect(formatNumber(350, 3, true)).toBe('350');
+    expect(formatNumber(0.12345, 3, true)).toBe('0.123');
+    expect(formatNumber(100, 3, true)).toBe('100');
+    expect(formatNumber(99.6, 0)).toBe('100');
+    expect(formatNumber(-0.0001, 3, true)).toBe('0');
+    expect(formatNumber(-0.0001, 2)).toBe('0.00');
+    expect(formatNumber(-1440, 0)).toBe('-1440');
+  });
+});
+
+describe('the boxes of two or three numbers on one row', () => {
+  it('show a short prefix and have a full name; the row drops the words in brackets that the prefixes say', () => {
+    expect(groupParts('burst', 'lifeMs', 'Life', 2)).toEqual({ shown: 'Life', boxes: [{ prefix: 'Min', name: 'Life, min' }, { prefix: 'Max', name: 'Life, max' }] });
+    expect(groupParts('glow', 'grow', 'Size over life (start, peak, end)', 2)).toEqual({ shown: 'Size over life', boxes: [{ prefix: 'Start', name: 'Size over life, start' }, { prefix: 'End', name: 'Size over life, end' }] });
+    expect(groupParts('smoke', 'grow', 'Size over life (start, peak, end)', 3).boxes.map((b) => b.prefix)).toEqual(['S', 'P', 'E']);
+    expect(groupParts('flames', 'widthM', 'Width (start, end)', 2).boxes.map((b) => b.name)).toEqual(['Width, min', 'Width, max']);
+    expect(groupParts('band', 'widthM', 'Width (start, end)', 2).boxes.map((b) => b.name)).toEqual(['Width, start', 'Width, end']);
+    expect(groupParts('band', 'offset', 'offset', 3)).toEqual({ shown: 'offset', boxes: [{ prefix: 'R', name: 'Right' }, { prefix: 'U', name: 'Up' }, { prefix: 'F', name: 'Forward' }] });
+  });
+  it('keep the names the settings inventory gave a pair it does not know', () => {
+    expect(groupParts('anim', 'steps', 'Steps', 2)).toEqual({ shown: 'Steps', boxes: [{ prefix: '1', name: 'Steps' }, { prefix: '2', name: 'Steps (2)' }] });
   });
 });

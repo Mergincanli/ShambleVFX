@@ -176,15 +176,24 @@ function readInventory() {
   window.__vfxManual = true;
   const inspector = document.querySelector('.inspector');
   // How today's panel is made (src/app/inspector.ts, specform.ts, dom.ts, costcard.ts): sections are the cards and the
-  // folds; a setting is named by a slider's label, a row's name (segmented buttons, the palette, Phases, Shows in), a
-  // field's label (numbers, text, selects) or a checkbox's label. Inputs with no label (the cost budgets) go by their
-  // aria-label. Every control must end up named, or the inventory stops: nothing is left out without notice.
+  // folds; a setting is named by its property row's label (.flab: sliders, numbers, text, selects, segmented buttons),
+  // a heading row's name (the palette, Phases, Shows in) or a checkbox's label. A row of two or three numbers (a group,
+  // .prop-group) is named by its label, and each of its boxes by its full name (its aria-label: "Right", "Pivot x",
+  // "Life, min"), since a box shows only a short prefix ("R", "X", "Min"): a shorter label never hides a setting. Inputs
+  // with no label (the cost budgets) go by their aria-label. Every control must end up named, or the inventory stops:
+  // nothing is left out without notice.
   const SECTION = 'section.card, details';
   const LABEL = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check';
   const CONTROL = 'input, select, textarea, .seggroup, .swatches';
   const CONTAINER = 'label.field, .field, label.check, .row';
+  const GROUP = '.prop-group';
   const text = (el) => (el ? el.textContent : '').replace(/\s+/g, ' ').trim();
-  const titleOf = (sec) => text(sec.matches('details') ? sec.querySelector(':scope > summary') : sec.querySelector(':scope > h2, :scope > .card-head > h2'));
+  // A fold's title: its .fold-title (the summary may hold more than the title), or the summary's words.
+  const titleOf = (sec) => {
+    if (!sec.matches('details')) return text(sec.querySelector(':scope > h2, :scope > .card-head > h2'));
+    const s = sec.querySelector(':scope > summary');
+    return text(s?.querySelector(':scope > .fold-title') ?? s);
+  };
 
   const read = (scope) => {
     const inScope = (el, sel) => { const c = el.closest(sel); return c && scope.contains(c) ? c : null; };
@@ -220,7 +229,8 @@ function readInventory() {
       if (el.matches(LABEL)) name = nameOf(el);
       else {
         const box = inScope(el, CONTAINER);
-        if (box && (box.matches(LABEL) || box.querySelector(LABEL))) continue; // named by its label, recorded above
+        // Named by its label, recorded above; a box of a group goes by its own full name.
+        if (box && !(el.matches('input') && box.matches(GROUP)) && (box.matches(LABEL) || box.querySelector(LABEL))) continue;
         name = (el.getAttribute('aria-label') ?? '').trim();
       }
       if (!name) throw new Error(`a setting with no name: ${el.outerHTML.slice(0, 160)}`);
@@ -258,7 +268,8 @@ const ABOUT = 'The settings inventory of the editor\'s right panel (the inspecto
   + 'then the Cost and Checks cards, which are the same for every layer, so they are listed once, in the effect\'s view). '
   + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
   + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
-  + 'The second and third box of a generated pair or group of three are named after the first, with (2) and (3). '
+  + 'A row of two or three numbers (since UI phase 6) lists its label, then each box by its full name, the name a screen reader says (the box itself shows a short prefix): "Offset", "Right", "Up", "Forward"; "Life", "Life, min", "Life, max". '
+  + 'Before UI phase 6, the second and third box of a generated pair or group of three were named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '
   + 'Buttons (actions such as Measure or Add PNG images, and a projectile\'s riders) are not listed. Effects are in id order; layers in the order of the effect file.';
 

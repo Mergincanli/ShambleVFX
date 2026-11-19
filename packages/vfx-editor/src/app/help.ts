@@ -205,6 +205,14 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
       { layer: 'projectile', text: 'Moves this end of the path forward, towards the target, in metres: 0.8 starts a flight a little in front of the muzzle.' },
     ],
   },
+  // UI phase 6: the rows that hold two or three numbers, each box with a short letter or word.
+  'Offset': {
+    text: 'Moves the layer from the point it sits on, in metres: R to the right, U up, F forward (towards the target). Drag a letter sideways, or type.',
+    when: [
+      { in: 'Path', text: 'Moves this end of the path from its point, in metres: R to the right, U up, F forward (towards the target). Drag a letter sideways, or type.' },
+      { layer: 'projectile', text: 'Moves this end of the path from its point, in metres: R to the right, U up, F forward (towards the target). Drag a letter sideways, or type.' },
+    ],
+  },
   'input': 'Which point this end is on: origin (the muzzle) or target.',
   'offset': 'Moves this end from its point, in metres: right, up, and forward (towards the target).',
   'Faces': {
@@ -218,6 +226,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Mixes': 'How it mixes with what is under it: Normal paints over it, Adds light is for glows. Lightens or Darkens the ground is for light and stains, and needs Faces: Flat on the ground.',
   'Nudge right': 'Shifts the drawing in its own plane, in metres: right on the screen when it faces the camera, along the path when it faces along it.',
   'Nudge up': 'Shifts the drawing up in its own plane, in metres: up the screen when it faces the camera, away from you when it lies flat on the ground.',
+  'Nudge': 'Shifts the drawing in its own plane, in metres: R to the right, U up (on the screen when it faces the camera, away from you when it lies flat on the ground).',
   'Lift off the ground': 'For a layer flat on the ground: how high above the ground it lies, in metres, such as 1 for a ring round a tank\'s middle.',
 
   // ------------------------------------------------------------ time (every layer)
@@ -314,6 +323,8 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Pivot x': 'Which point of the image sits on its place, across: 0 is the left edge, 0.5 the middle, 1 the right. Or click the thumbnail.',
   'Pivot y': 'Which point of the image sits on its place, down: 0 is the top edge, 0.5 the middle, 1 the bottom. Or click the thumbnail.',
   'Flipbook (a grid of frames)': 'The image is a grid of frames, read left to right and top to bottom, one frame per step. Set its columns, rows and frames.',
+  'Pivot': 'Which point of the image sits on its place: X across (0 is the left edge, 0.5 the middle, 1 the right), Y down (0 is the top edge, 1 the bottom). Or click the thumbnail.',
+  'Grid': 'The flipbook\'s grid of frames: Cols across, Rows down, and how many Frames it plays (at most columns × rows).',
   'Columns': 'How many frames across the image\'s grid.',
   'Rows': 'How many frames down the image\'s grid.',
   'Frames': 'How many frames the flipbook plays: at most columns × rows, so the last cells can stay empty.',

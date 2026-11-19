@@ -9,7 +9,8 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
-//    the selection), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
+//    the selection; its rows: numbers you drag or type, groups of numbers, shortened segments, the colour roles' swatches,
+//    Tab through every number box), the layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
 //    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
@@ -635,6 +636,207 @@ if (webgpu) {
   ok('layers that ride a projectile have a "rides <projectile>" tag in the Layers list, in Plex Sans; the others keep their tags',
     tags['Tracer'] === 'rides Bullet (IBM Plex Sans)' && tags['Tracer core'] === 'rides Bullet (IBM Plex Sans)' && tags['Muzzle flash'] === 'muzzle_flash (IBM Plex Mono)' && tags['Bullet'] === '800 m/s (IBM Plex Sans)',
     JSON.stringify(tags));
+
+  // -- the right panel's rows (docs/ui-redesign.md 6.6, UI phase 6). A property row is a grid: the label on the left (its
+  // column at least 84 px, at most 38 % of the row), the control on the right; rows 28 px with 4 px between them. Numbers
+  // use scrubNumber: drag the label or a prefix sideways, or type ("0,5" works too); one drag is one undo step, Enter one,
+  // Esc none, ↑ one a press. Two or three numbers share a row, each box with a short prefix and its full name as its name
+  // and tooltip. A segment whose words do not fit is shortened, its full words in its tooltip. A colour role's select has a
+  // swatch of the role's colour, for the faction shown. On a page of its own.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const rp = g.page;
+    rp.on('dialog', (d) => d.accept());
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const undoNow = () => rp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null, dirty: h.dirty }; });
+    const layerNow = (path) => rp.evaluate((path) => path.reduce((v, k) => v?.[k], window.__vfx.app.layer()), path);
+    const select = (fx, layer) => rp.evaluate(({ fx, layer }) => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect(fx); a.selectLayer(layer); }, { fx, layer });
+    /** Drag an element sideways by dx px, in steps, with the real mouse. */
+    const dragBy = async (loc, dx) => {
+      await loc.scrollIntoViewIfNeeded();
+      const b = await loc.boundingBox();
+      const x = b.x + Math.min(10, b.width / 2), y = b.y + b.height / 2;
+      await rp.mouse.move(x, y);
+      await rp.mouse.down();
+      for (let k = 1; k <= 10; k++) await rp.mouse.move(x + (dx * k) / 10, y);
+      await rp.mouse.up();
+    };
+    const row = (section, label) => rp.locator('.inspector details', { has: rp.locator(':scope > summary', { hasText: exactly(section) }) })
+      .locator('.prop', { has: rp.locator(':scope > .flab', { hasText: exactly(label) }) }).first();
+
+    // The grid: the Size and place section of the Muzzle flash.
+    await select('rifle_shot', 'flash');
+    const grid = await rp.evaluate(() => {
+      const fold = [...document.querySelectorAll('.inspector details')].find((d) => d.querySelector(':scope > summary').textContent === 'Size and place');
+      const rows = [...fold.querySelectorAll(':scope > .foldbody > .prop')];
+      const box = (e) => e.getBoundingClientRect();
+      const w = rows[0], h = rows[1];
+      const cols = getComputedStyle(w).gridTemplateColumns.split(' ').map(parseFloat);
+      const lab = w.querySelector(':scope > .flab');
+      return { labels: rows.map((r) => r.querySelector(':scope > .flab')?.textContent), rowH: rows.map((r) => Math.round(box(r).height)), gap: Math.round(box(h).top - box(w).bottom),
+        labelCol: cols[0], want: Math.max(84, 0.38 * box(w).width), labelFont: getComputedStyle(lab).fontSize, labelColour: getComputedStyle(lab).color,
+        muted: (() => { const s = document.createElement('span'); s.style.color = 'var(--text-muted)'; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; })(),
+        ellipsis: getComputedStyle(lab).textOverflow, controlLeft: Math.round(box(w.querySelector('.slide-ctl')).left - box(w).left) };
+    });
+    ok('a property row is a grid: the label (12 px, --text-muted, an ellipsis when too long) in a column of at least 84 px and at most 38 % of the row, the control in the rest; rows 28 px, 4 px apart',
+      grid.labels.slice(0, 2).join() === 'Width,Height' && grid.rowH.every((x) => x === 28) && grid.gap === 4 && Math.abs(grid.labelCol - grid.want) < 0.5 && grid.labelFont === '12px'
+        && grid.labelColour === grid.muted && grid.ellipsis === 'ellipsis' && Math.abs(grid.controlLeft - grid.labelCol - 8) <= 1, JSON.stringify(grid));
+
+    // A number: drag the label (one undo step), type "0,45" (one), Esc (none), ↑ (one a press).
+    const w0 = await layerNow(['sizeM', 0]);
+    const u0 = await undoNow();
+    await dragBy(row('Size and place', 'Width').locator('.flab'), 40);
+    const w1 = await layerNow(['sizeM', 0]);
+    const u1 = await undoNow();
+    await rp.keyboard.press('Control+z');
+    const w2 = await layerNow(['sizeM', 0]);
+    const pivotY = rp.locator('.inspector input.num[aria-label="Pivot y"]');
+    await pivotY.fill('0,45');
+    await pivotY.press('Enter');
+    const typed = { value: await layerNow(['pivot', 1]), shown: await pivotY.inputValue(), u: await undoNow() };
+    await pivotY.fill('0,9');
+    await pivotY.press('Escape');
+    const esc = { value: await layerNow(['pivot', 1]), shown: await pivotY.inputValue(), u: await undoNow(), layer: await rp.evaluate(() => window.__vfx.app.layer()?.id ?? null) };
+    // Undo pressed in the box: the box shows the number undone at once, and leaving it with Tab writes nothing back.
+    await rp.keyboard.press('Control+z');
+    const undoneInBox = { value: await layerNow(['pivot', 1]), shown: await pivotY.inputValue(), u: await undoNow() };
+    await rp.keyboard.press('Tab');
+    const leftBox = { value: await layerNow(['pivot', 1]), u: await undoNow() };
+    const delayBox = rp.locator('.inspector input.num[aria-label="Delay"]');
+    await delayBox.focus();
+    const d0 = await layerNow(['start', 'ms']);
+    const ud = await undoNow();
+    await rp.keyboard.press('ArrowUp');
+    await rp.keyboard.press('ArrowUp');
+    const arrows = { ms: await layerNow(['start', 'ms']), u: await undoNow() };
+    await rp.keyboard.press('Control+z');
+    await rp.keyboard.press('Control+z');
+    const d1 = await layerNow(['start', 'ms']);
+    ok('a number box is dragged by its label (10 steps for 40 px: one undo step), typed with a comma ("0,45", Enter: one undo step), put back by Esc (no step, the layer stays selected), stepped by ↑ (one step a press); an undo pressed in the box shows there at once, and leaving the box writes nothing back',
+      w0 === 1.2 && w1 === 1.3 && u1.n === u0.n + 1 && u1.label === 'Width' && w2 === 1.2 && typed.value === 0.45 && typed.shown === '0.45' && typed.u.n === u0.n + 1
+        && esc.value === 0.45 && esc.shown === '0.45' && esc.u.n === typed.u.n && esc.layer === 'flash' && arrows.ms === d0 + 20 && arrows.u.n === ud.n + 2 && d1 === d0
+        && undoneInBox.value === 0.5 && undoneInBox.shown === '0.5' && undoneInBox.u.n === u0.n && leftBox.value === 0.5 && leftBox.u.n === u0.n,
+      JSON.stringify({ w: [w0, w1, w2], drag: u1, typed, esc, undoneInBox, leftBox, arrows, delay: [d0, d1] }));
+
+    // Groups: each box's prefix, its full name (aria-label) and its tooltip (the full name, then the help text).
+    const groupOf = (label) => rp.evaluate((label) => {
+      const a = window.__vfx.app;
+      const g = [...document.querySelectorAll('.inspector .prop-group')].find((x) => x.querySelector(':scope > .flab')?.textContent === label);
+      if (!g) return null;
+      return { boxes: [...g.querySelectorAll('.scrub')].map((s) => ({ prefix: s.querySelector('.scrub-prefix')?.textContent, name: s.querySelector('input').getAttribute('aria-label'),
+        tip: a.tipForChecks(s)?.lines ?? null })), unit: g.querySelector('.prop-boxes > .unit')?.textContent ?? null, oneRow: Math.round(g.getBoundingClientRect().height) === 28 };
+    }, label);
+    const pivot = await groupOf('Pivot'), gridBoxes = await groupOf('Grid');
+    await select('rifle_shot', 'hit');
+    const offset = await groupOf('Offset');
+    await select('board_beam', 'emitter_glow');
+    const nudge = await groupOf('Nudge');
+    await select('board_shell', 'debris');
+    const life = await groupOf('Life');
+    await select('board_molotov', 'smoke');
+    const grow = await groupOf('Size over life');
+    const want = (g, list) => !!g && g.oneRow && g.boxes.map((b) => `${b.prefix}=${b.name}`).join() === list && g.boxes.every((b) => b.tip?.[0] === b.name);
+    ok('two or three numbers share a row: each box shows a short prefix (R U F, X Y, Cols Rows Frames, Min Max, S P E) and has its full name as its name and its tooltip; the unit shows once, after the last box',
+      want(offset, 'R=Right,U=Up,F=Forward') && offset.unit === 'm' && want(pivot, 'X=Pivot x,Y=Pivot y') && pivot.unit === null
+        && want(gridBoxes, 'Cols=Columns,Rows=Rows,Frames=Frames') && want(nudge, 'R=Nudge right,U=Nudge up') && nudge.unit === 'm'
+        && want(life, 'Min=Life, min,Max=Life, max') && life.unit === 'ms' && want(grow, 'S=Size over life, start,P=Size over life, peak,E=Size over life, end'),
+      JSON.stringify({ offset, pivot, gridBoxes, nudge, life, grow }));
+    ok('a box\'s tooltip gives the help text for its full name (Right, in Size and place) or for its row (Life, a range of a burst\'s pieces)',
+      offset.boxes[0].tip?.[1] === help.helpFor('Right', { section: ['Size and place'], layer: 'sprite' }) && life.boxes[1].tip?.[1] === help.helpFor('Life', { section: ['Pieces'], layer: 'burst' })
+        && grow.boxes[1].tip?.[1] === help.helpFor('Size over life (start, peak, end)', { section: ['Shape: smoke'], kind: 'smoke' }),
+      JSON.stringify([offset.boxes[0].tip, life.boxes[1].tip, grow.boxes[1].tip]));
+
+    // A drag on a group's prefix: the nudge of a layer that has none. Its first step adds the nudge, which builds the panel
+    // again under the pointer; the drag goes on, and it is one undo step.
+    await select('board_beam', 'emitter_glow');
+    const un = await undoNow();
+    const before = await rp.evaluate(() => document.querySelector('.inspector section.card.layer'));
+    await dragBy(row('Place', 'Nudge').locator('.scrub-prefix').first(), 40);
+    const nudged = { shift: await layerNow(['shiftM']), u: await undoNow(), rebuilt: await rp.evaluate((old) => old !== document.querySelector('.inspector section.card.layer'), before) };
+    await rp.keyboard.press('Control+z');
+    const nudgeBack = await layerNow(['shiftM']);
+    ok('a drag on a prefix changes its number (the first nudge of a layer builds the panel again under the pointer): the drag goes on to its end, and it is one undo step',
+      JSON.stringify(nudged.shift) === '[0.5,0]' && nudged.u.n === un.n + 1 && nudged.u.label === 'Nudge' && nudged.rebuilt && nudgeBack === undefined, JSON.stringify({ nudged, nudgeBack }));
+
+    // Shortened segments: their full words in their tooltips and as their names.
+    await select('rifle_shot', 'flash');
+    const segs = await rp.evaluate(() => {
+      const a = window.__vfx.app;
+      const groupOf = (label) => [...document.querySelectorAll('.inspector .prop.seg-row')].find((r) => r.querySelector(':scope > .flab')?.textContent === label);
+      const read = (label) => [...(groupOf(label)?.querySelectorAll('.seg') ?? [])].map((b) => ({ text: b.textContent, name: b.getAttribute('aria-label'), tip: a.tipForChecks(b)?.lines[0] ?? null, height: Math.round(groupOf(label).querySelector('.seggroup').getBoundingClientRect().height) }));
+      const out = { colour: read('Colour'), faces: read('Faces') };
+      a.pickEffect('rifle_shot'); a.selectLayer('bullet');
+      out.flight = read('Flight');
+      return out;
+    });
+    const segLine = (list) => list.map((s) => `${s.text}=${s.tip}`).join(' | ');
+    ok('a segment whose words do not fit on one line in the 296 px panel is shortened, its full words in its tooltip and as its name: Keep, Multiply; Camera, Path; Speed, Time, Phase',
+      segLine(segs.colour) === 'Keep=Keep the image\'s colours | Multiply=Multiply by a colour role' && segs.colour.every((s) => s.name === s.tip)
+        && segLine(segs.faces) === 'Camera=The camera | Path=Along the path: the image\'s x axis lies along the motion, or along the shot'
+        && segLine(segs.flight) === 'Speed=By speed | Time=Fixed time | Phase=One phase' && [...segs.colour, ...segs.faces, ...segs.flight].every((s) => s.height === 24),
+      JSON.stringify(segs));
+
+    // A colour role's select: a 14 px swatch of the role's colour for the faction shown, at its left edge; it follows a
+    // faction change and a colour changed in the picker. Role names are Plex Mono.
+    await select('board_beam', 'emitter_glow');
+    const swatch = () => rp.evaluate(() => {
+      const a = window.__vfx.app;
+      const sel = [...document.querySelectorAll('.inspector .role-select select')].find((s) => s.getAttribute('aria-label') === 'Colour' && s.closest('details')?.querySelector(':scope > summary').textContent === 'Shape: glow');
+      const sw = sel.parentElement.querySelector('.role-swatch');
+      const rgb = (hex) => `rgb(${[1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)).join(', ')})`;
+      const r = sw.getBoundingClientRect(), s = sel.getBoundingClientRect();
+      return { role: sel.value, colour: getComputedStyle(sw).backgroundColor, want: rgb(a.palette.factions[a.faction]?.roles[sel.value]?.hex ?? a.palette.roles[sel.value].hex),
+        size: `${Math.round(r.width)}x${Math.round(r.height)}`, left: Math.round(r.left - s.left), font: getComputedStyle(sel).fontFamily.split(',')[0].replace(/"/g, '') };
+    });
+    const sw0 = await swatch();
+    await rp.evaluate(() => window.__vfx.app.setFaction('allies'));
+    const sw1 = await swatch();
+    await rp.evaluate(() => { const a = window.__vfx.app; a.setColour(a.layer().shape.role, '#00FF00'); a.commit(); });
+    const sw2 = await swatch();
+    await rp.keyboard.press('Control+z');
+    await rp.evaluate(() => window.__vfx.app.setFaction('soviets'));
+    const sw3 = await swatch();
+    ok('a colour role\'s select has a 14 px swatch of the role\'s colour (for the faction shown) at its left edge, in Plex Mono; the swatch follows a faction change and a colour changed in the picker',
+      sw0.role === 'glow' && sw0.colour === sw0.want && sw0.size === '14x14' && sw0.left <= 8 && sw0.font === 'IBM Plex Mono' && sw1.colour === sw1.want && sw1.colour !== sw0.colour
+        && sw2.colour === 'rgb(0, 255, 0)' && sw3.colour === sw0.colour, JSON.stringify([sw0, sw1, sw2, sw3]));
+
+    // Tab through every number box of every view (the effect's and each layer's) of both examples: each takes the focus,
+    // and nothing changes (no undo step, nothing unsaved). Every segmented control there fits on one line at 1920.
+    const sweepTab = async () => {
+      const views = await rp.evaluate(() => { const a = window.__vfx.app; const v = []; for (const id of a.debugState().effects) { a.pickEffect(id); v.push([id, null], ...a.effect().layers.map((l) => [id, l.id])); } return v; });
+      let boxes = 0, focused = 0, wrapped = [];
+      for (const [fx, layer] of views) {
+        const n = await rp.evaluate(({ fx, layer }) => {
+          const a = window.__vfx.app;
+          a.pickEffect(fx); a.selectLayer(layer);
+          for (const d of document.querySelectorAll('.inspector details:not([open])')) d.open = true;
+          window.__tabbed = new Set();
+          document.querySelector('.inspector').addEventListener('focusin', (e) => { if (e.target.matches('input.num')) window.__tabbed.add(e.target); });
+          document.querySelector('.inspector .insp-title').focus();
+          const tabbable = [...document.querySelectorAll('.inspector :is(input, select, button, summary, [tabindex="0"])')].filter((x) => x.getClientRects().length && !x.disabled && x.tabIndex >= 0);
+          window.__wrapped = [...document.querySelectorAll('.inspector .prop > .seggroup')].filter((s) => s.getClientRects().length && s.getBoundingClientRect().height > 25).map((s) => `${fx}/${layer}: ${s.getAttribute('aria-label')}`);
+          return { boxes: [...document.querySelectorAll('.inspector input.num')].filter((x) => x.getClientRects().length).length, tabbable: tabbable.length };
+        }, { fx, layer });
+        for (let k = 0; k < n.tabbable; k++) await rp.keyboard.press('Tab');
+        const got = await rp.evaluate(() => ({ n: window.__tabbed.size, wrapped: window.__wrapped }));
+        boxes += n.boxes; focused += got.n; wrapped.push(...got.wrapped);
+      }
+      return { views: views.length, boxes, focused, wrapped };
+    };
+    const tab0 = await undoNow();
+    const demoTab = await sweepTab();
+    const tab1 = await undoNow();
+    await rp.evaluate(async () => { window.confirm = () => true; await window.__vfx.app.openProject('examples/hits-collection'); });
+    const hitsTab = await sweepTab();
+    const tab2 = await rp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, dirty: h.dirty, name: document.querySelector('.project-name')?.textContent }; });
+    ok('Tab through every number box of every layer and effect of both examples: each takes the focus, and no undo step appears and nothing is marked unsaved',
+      demoTab.boxes > 500 && demoTab.focused === demoTab.boxes && hitsTab.boxes > 500 && hitsTab.focused === hitsTab.boxes && tab1.n === tab0.n && !tab1.dirty && tab2.n === 0 && !tab2.dirty && !tab2.name.includes('•'),
+      JSON.stringify({ demo: demoTab.views + ' views, ' + demoTab.focused + '/' + demoTab.boxes, hits: hitsTab.views + ' views, ' + hitsTab.focused + '/' + hitsTab.boxes, tab0, tab1, tab2 }));
+    ok('every segmented control in the right panel fits on one line at 1920 x 1080 (every layer of both examples)', demoTab.wrapped.length === 0 && hitsTab.wrapped.length === 0,
+      [...demoTab.wrapped, ...hitsTab.wrapped].slice(0, 4).join(', ') || 'none wraps');
+    ok('the rows page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await rp.close();
+  }
 
   // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
   // header and a projectile's riders. A sprite whose image is loaded shows that image (its first frame) instead.
@@ -1470,7 +1672,9 @@ if (webgpu) {
     // has a help text (as tools/ui-shots.mjs reads the panel: field labels, checkboxes, folds' and cards' titles, cost rows).
     const sweep = await tp.evaluate(async () => {
       const a = window.__vfx.app;
-      const LABELS = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check, details > summary, section.card > h2, .card-head > h2, table.cost th';
+      // Since UI phase 6 a box of a group of numbers (a prefix "R", "Min") has a tooltip of its own: its full name and the help
+      // text for it, or for its row.
+      const LABELS = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check, details > summary, section.card > h2, .card-head > h2, table.cost th, .prop-group .scrub';
       const misses = new Set(), seen = new Set(), long = new Set();
       let checked = 0, hints = 0;
       const look = (where) => {
@@ -1534,8 +1738,8 @@ if (webgpu) {
       const words = (el) => tipOf(el)?.lines.join(' ') ?? '';
       a.pickEffect('board_beam');
       const out = {
-        events: words(find('.inspector .flab', 'Game events it answers')), size: words(find('.inspector .lab > label', 'Size')),
-        intensity: words(find('.inspector .lab > label', 'Intensity')), duration: words(find('.inspector .lab > label', 'Duration')),
+        events: words(find('.inspector .flab', 'Game events it answers')), size: words(find('.inspector .flab', 'Size')),
+        intensity: words(find('.inspector .flab', 'Intensity')), duration: words(find('.inspector .flab', 'Duration')),
         cost: words(find('.inspector .costcard h2', 'Cost')), checks: words(document.querySelector('.inspector .checks h2')),
         layers: tipOf(find('.layers-section h2', 'Layers'))?.lines ?? null,
         colour: words(find('.inspector .colour-row .lab > span', 'Colour')),

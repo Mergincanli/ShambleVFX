@@ -79,6 +79,11 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    **layer** (in the Layers list, or its name or its bar on the timeline) and the panel shows that layer's settings, under
    a header with the effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the
    effect's settings.
+   Each setting is a row: its name on the left, its control on the right. **Drag a number's name sideways** to change it
+   (a step for every 4 px, ten with Shift), or click the number and type it ("0,5" works as well as "0.5"); ↑ and ↓ step
+   it, and Esc puts back what you typed. Two or three numbers share a row, each with a short word or letter inside ("R",
+   "U", "F" for right, up and forward; "Min" and "Max"): drag it to change that number, and rest the pointer on a box for
+   its full name. A colour setting shows a swatch of its colour, for the faction shown.
    They start with **Look**: a live picture of the layer alone, drawn by the game's code on the ground colour, framed on it
    and playing its own time in a loop at the speed the speed buttons set (a layer that rides a projectile flies along its
    path; a projectile shows the layers riding it). Fold it to put it away. A sprite still shows its image under Image. Each
@@ -171,7 +176,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (560): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (563): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -208,15 +213,16 @@ export whose palette.json has such a part, loading a profile keeping what the ef
 drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
 on, within budget, how many numbers over, compared with the budgets that count); the window's grid (the sidebars within
 their limits, both giving way so the centre keeps 640 px, the effects list's and the timeline's limits, the sizes
-remembered); numbers typed with a decimal point or a comma, a drag in whole steps and a value kept within its limits
-(the Distance popover's number box); the runtime's loader and its version guard; the screen-area count and the cost
+remembered); numbers typed with a decimal point or a comma, a drag in whole steps, a value kept within its limits and
+shown with its decimals or only those it needs (the Distance popover's and the right panel's number boxes), and the
+prefixes and full names of a right-panel row of two or three numbers; the runtime's loader and its version guard; the screen-area count and the cost
 measurement.
 
 ```bash
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (318 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (328 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -224,7 +230,13 @@ Esc, leads back to the effect's settings, but Esc not while typing; what draws e
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
 motion; the hint about clicking a colour only when there is one to click; one icon per kind of layer in the Layers list,
 on the timeline and in the header, a ring showing the ring, a sprite its own image (a long thin one, such as a tracer, as
-a slice from its middle) or, when the image is missing, the image icon, and an image burst's tag in Plex Sans), Fade
+a slice from its middle) or, when the image is missing, the image icon, and an image burst's tag in Plex Sans; its rows:
+a grid of label and control, 28 px rows 4 px apart; a number dragged by its name (one undo step), typed with a comma
+("0,45", Enter: one step), put back by Esc (none) and stepped by ↑ (one a press); an undo pressed in a box showing there at
+once, with nothing written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
+one unit; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
+words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
+examples changing nothing; every segmented choice on one line at 1920), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
@@ -829,8 +841,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the browser check tries it; since phase 4 the lists' rows have their menus there. While the button is still down (Linux and macOS
     ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when
     the pointer is not over it. Near the window's edges it turns left or up, so it stays inside the window.
-  - **`scrubNumber`** (a number you drag sideways or type) is used by Distance only for now: its popover's number box, and
-    its title, which drags the number too. Phase 6 brings it to the right panel's numbers.
+  - **`scrubNumber`** (a number you drag sideways or type) is used by Distance (its popover's number box, and its title,
+    which drags the number too) and, since phase 6, by every number box of the right panel (see "The inspector").
   - Menus: a dot in `--accent-ink` marks the chosen one of a set (a menuitemradio); a check marks a setting that is on (a
     menuitemcheckbox, as Night mode's was). The header naming the setting, and a heading over a group of rows ("Close-up
     on"), are 12 px, semibold and muted. A menu opens with the focus on its chosen row, else on its first. Letters typed
@@ -1025,6 +1037,55 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - A press on the empty corner over the names column scrubs to 0, as before: it is the ruler's row.
   - While firing, the playhead stays hidden, as before. A name on the timeline has no rename and no menu: the Layers list
     has them.
+- **The inspector** (UI phase 6 of [docs/ui-redesign.md](docs/ui-redesign.md): the property rows, numbers you drag or type,
+  rows of two or three numbers with prefixes, sliders, segmented choices, the colour roles' swatches and the folds are the
+  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first one's:
+  - **Rows**: 28 px, with 4 px between them, as the brief's words say (a row 32 px from the next). The label column is at
+    least 84 px and at most 38 % of the row, so 103 px at 1920 and 112 px at 2560. Every control fills its column, number
+    boxes too, so the numbers, right-aligned, line up at the panel's right edge. A checkbox's words sit in the label column
+    and its box in the control column, as the brief draws "Flipbook [on]". A hint under a row spans both columns.
+  - **Rows that keep their old shape until the next slices**: Shows in, the three Phases (each name over its box) and the
+    effect's colour list. The next slices rebuild them (tier chips, the Phases bar, the Colour section).
+  - **Numbers**: a slider's box shows all its decimals ("1.00 ×", "40 m/s"); every other box shows at most 3 decimals and no
+    zeros at the end, as the boxes always did ("0.5", "350 ms"). A number typed or dragged is rounded to those decimals:
+    before, a typed 0.12345 was kept whole while the box showed 0.123. A number in the file with more decimals than its box
+    shows is kept as it is until you change it: Tab through the box, or Enter on what it shows, changes nothing.
+  - Each box keeps the step and the limits it had. A slider's box still takes any number typed, as before (the file may go
+    past the slider's ends: Size up to 20, Speed up to 10000 m/s); a drag on the slider's name stays within the slider's
+    ends, as the slider does. A drag is a step for every 4 px, ten with Shift, as Distance's; a press that does not move is
+    a click on the name, which puts the focus in the box. Each press of ↑ or ↓ is one undo step, as before.
+  - An undo (or anything else) that changes a number while its box has the focus shows in the box at once, unless you are
+    typing in it; leaving the box then writes nothing back. Before, the box kept the old number until you left it.
+  - A change that adds or takes away a part of the layer (the first nudge adds one) builds the panel again; a drag goes on
+    through that to its end, and stays one undo step.
+  - A slider's box is 56 px, and 72 px for Speed and Spin, whose numbers and units are longer ("1200 m/s", "-1440 °/s").
+  - Number boxes are spin buttons for screen readers, as the old boxes were: their number and limits are said with them.
+  - **Two or three numbers on a row**: the prefixes are R, U, F (an offset: right, up, forward); X, Y (the pivot); Cols,
+    Rows, Frames (a flipbook's grid); R, U (a nudge); Min, Max (a range picked between two numbers: a piece's life, speed,
+    start radius, size and spin, a word's tilt, a flame's height, width and steps per sway, the lines' inner radius, length
+    and width); Start, End (a glow's size over life, a beam's width); Tail, Head (a streak's width); S, P, E (smoke's size
+    over life: start, peak, end); R, F (smoke's drift); W, H (a burst's start area: half width, half height); and 1, 2 for a
+    pair the list does not know (two steps of a scale). A box's full name is its name for screen readers and the first line
+    of its tooltip ("Right", "Pivot x", "Life, min"); the help text under it is the row's (or the full name's).
+  - Their unit shows once, after the last box ("[R 0] [U 1.2] [F 0] m"): three boxes with a unit each do not fit in the
+    296 px panel. A typed number with three decimals and a minus (-0.125) in a row of three can still be cut by a pixel or
+    two at 1920.
+  - New row labels: **Offset**, **Pivot**, **Grid** and **Nudge**, each with a help text. A generated row leaves out the words
+    in brackets that its prefixes now say: "Size over life (start, peak, end)" shows "Size over life", as do "Drift (right,
+    forward)", "Start area (half width, half height)" and "Width (start, end)"; their help texts stay keyed by the full
+    words. So a glow's "Size over life" no longer says "peak" over its two boxes, and its stray "…" is gone.
+  - **Shortened choices** (the words did not fit on one line in the 296 px panel; the full words are the tooltip and the
+    name a screen reader says): a sprite's Colour, **Keep** and **Multiply** (the brief's words; the tooltip says "Multiply
+    by a colour role", where the button said "Multiply by a role"); a sprite's Faces, **Camera** and **Path**; a projectile's
+    Flight, **Speed**, **Time** and **Phase**. The others fit and keep their words.
+  - **Colour roles**: every colour select of the generated forms, a sprite's Role and a tone's colour show a 14 px swatch of
+    the chosen colour for the faction shown; "main" shows the effect's main colour; a colour the palette lacks shows an
+    empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2).
+  - A tone of a fire or a star: its colour and its scale, each a row, then Remove; Add a tone under the last. Remove and Add
+    a tone line up with the controls.
+  - **Folds**: the chevron is the icons' chevron (turned down when open), the title 13 px semibold and cut with an ellipsis.
+    The colour picker's sections keep their small chevron until the picker's phase.
+  - The Phases hint starts with a capital letter now: "Layers can start with a phase or last until one ends."
 
 ## Claude skills
 

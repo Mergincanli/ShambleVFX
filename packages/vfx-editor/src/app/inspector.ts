@@ -12,11 +12,12 @@ import type { AppApi } from './api';
 import { colourList } from './colourlist';
 import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
-import { checkField, fold, h, numberField, segmented, selectField, slider, textField, tip } from './dom';
+import type { SegmentOption } from './dom';
+import { checkField, fold, h, numberBox, numberField, numberGroup, segmented, selectField, slider, textField, tip } from './dom';
 import { NEW_THIS_ROUND } from './help';
 import { layerGlyph, layerGlyphKey } from './layer-icons';
 import { LookView } from './look';
-import { specForm, structureOf } from './specform';
+import { roleHex, specForm, structureOf } from './specform';
 
 interface Refresher { refresh(): void }
 
@@ -26,6 +27,12 @@ function keyOf(fxId: string | undefined, layer: Layer | undefined): string {
 }
 
 const PHASE_LABEL: Record<PhaseName, string> = { windup: 'Wind-up', peak: 'Peak', fade: 'Fade' };
+
+/** A sprite's Faces: the camera, or along the path (what that means is in its tooltip). */
+const FACES_SPRITE: SegmentOption<string>[] = [
+  { value: 'camera', label: 'The camera', short: 'Camera' },
+  { value: 'path', label: 'Along the path', short: 'Path', title: 'The image\'s x axis lies along the motion, or along the shot' },
+];
 
 export interface InspectorView {
   el: HTMLElement;
@@ -146,7 +153,7 @@ function bigControls(app: AppApi, parts: Refresher[], colours: ColourListView): 
     onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
   const ph = () => app.effect()!.phases;
   const phase = (key: 'windupMs' | 'peakMs' | 'fadeMs', label: string) => numberField({ label, value: ph()[key], step: 10, min: 0, unit: 'ms',
-    onChange: (v) => { app.editEffect(['phases', key], Math.max(0, Math.round(v)), { label: `${label} length` }); app.commit(); } });
+    onInput: (v) => app.editEffect(['phases', key], Math.max(0, Math.round(v)), { mergeKey: key, label: `${label} length` }), onCommit: () => app.commit() });
   const windup = phase('windupMs', 'Wind-up'), peak = phase('peakMs', 'Peak'), fadeF = phase('fadeMs', 'Fade');
   parts.push({ refresh: () => {
     name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration);
@@ -156,7 +163,7 @@ function bigControls(app: AppApi, parts: Refresher[], colours: ColourListView): 
   // Its title takes the focus when you come back from a layer with the keyboard (see rebuild).
   return h('section', { class: 'card bigcontrols' },
     h('h2', { text: 'Effect', attrs: { tabindex: '-1' } }), name.el, events, size.el, intensity.el, duration.el,
-    h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'layers can start with a phase or last until one ends' })),
+    h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'Layers can start with a phase or last until one ends.' })),
       h('div', { class: 'fieldrow' }, windup.el, peak.el, fadeF.el)),
     // The effect's colours: its main colour (marked) and every layer's. Show all shows the whole palette.
     h('div', { class: 'row colour-row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), colours.toggle), colours.note, colours.el, colours.hint));
@@ -235,7 +242,8 @@ function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
   };
   draw();
   parts.push({ refresh: draw });
-  return h('div', { class: 'field wide events' },
+  // A property row: the label, the box; its problems and its hint under them, across the row.
+  return h('div', { class: 'field prop events' },
     h('span', { class: 'flab', text: 'Game events it answers' }), box, problems,
     // The game "starts" an effect by its names, as the tooltip (help.ts) and README say: one name for one thing.
     h('span', { class: 'hint', text: 'Names the game starts this effect by, separated by commas.' }));
@@ -320,21 +328,28 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
     app.editLayer(['pivot'], [Math.round(u * 100) / 100, Math.round(v * 100) / 100], { label: 'Pivot' });
     app.commit();
   });
-  const pivotU = numberField({ label: 'Pivot x', value: S().pivot[0], step: 0.01, min: 0, max: 1, onChange: (v) => { app.editLayer(['pivot', 0], clamp01(v), { label: 'Pivot' }); app.commit(); } });
-  const pivotV = numberField({ label: 'Pivot y', value: S().pivot[1], step: 0.01, min: 0, max: 1, onChange: (v) => { app.editLayer(['pivot', 1], clamp01(v), { label: 'Pivot' }); app.commit(); } });
+  // The pivot and the flipbook's grid: groups of numbers on one row, each box with a short prefix (its full name is its
+  // tooltip). A drag on a prefix is one undo step (merged by key until the commit).
+  const commit = () => app.commit();
+  const pivotU = numberBox({ label: 'Pivot x', prefix: 'X', value: S().pivot[0], step: 0.01, min: 0, max: 1,
+    onInput: (v) => app.editLayer(['pivot', 0], clamp01(v), { mergeKey: 'pivot0', label: 'Pivot' }), onCommit: commit });
+  const pivotV = numberBox({ label: 'Pivot y', prefix: 'Y', value: S().pivot[1], step: 0.01, min: 0, max: 1,
+    onInput: (v) => app.editLayer(['pivot', 1], clamp01(v), { mergeKey: 'pivot1', label: 'Pivot' }), onCommit: commit });
   const flip = checkField({ label: 'Flipbook (a grid of frames)', value: !!S().flipbook, onChange: (v) => { app.editLayer(['flipbook'], v ? { cols: 2, rows: 2, frames: 4, loop: false } : undefined, { label: 'Flipbook' }); app.commit(); } });
-  const cols = numberField({ label: 'Columns', value: S().flipbook?.cols ?? 1, step: 1, min: 1, max: 64, onChange: (v) => fb('cols', v) });
-  const rows = numberField({ label: 'Rows', value: S().flipbook?.rows ?? 1, step: 1, min: 1, max: 64, onChange: (v) => fb('rows', v) });
-  const frames = numberField({ label: 'Frames', value: S().flipbook?.frames ?? 1, step: 1, min: 1, onChange: (v) => fb('frames', v) });
+  const cols = numberBox({ label: 'Columns', prefix: 'Cols', value: S().flipbook?.cols ?? 1, step: 1, min: 1, max: 64, onInput: (v) => fb('cols', v), onCommit: commit });
+  const rows = numberBox({ label: 'Rows', prefix: 'Rows', value: S().flipbook?.rows ?? 1, step: 1, min: 1, max: 64, onInput: (v) => fb('rows', v), onCommit: commit });
+  const frames = numberBox({ label: 'Frames', prefix: 'Frames', value: S().flipbook?.frames ?? 1, step: 1, min: 1, onInput: (v) => fb('frames', v), onCommit: commit });
   const loop = checkField({ label: 'Loop the frames', value: S().flipbook?.loop ?? false, onChange: (v) => { app.editLayer(['flipbook', 'loop'], v, { label: 'Loop frames' }); app.commit(); } });
   const fb = (k: 'cols' | 'rows' | 'frames', v: number) => {
     const f = S().flipbook; if (!f) return;
     const next = { ...f, [k]: Math.max(1, Math.round(v)) };
     if (k !== 'frames') next.frames = Math.min(next.frames, next.cols * next.rows) || next.cols * next.rows;
     next.frames = Math.min(next.frames, next.cols * next.rows);
-    app.editLayer(['flipbook'], next, { label: 'Flipbook grid' }); app.commit();
+    // A number that rounds to the grid as it is (2.4 columns) changes nothing: no undo step, nothing unsaved.
+    if (next.cols === f.cols && next.rows === f.rows && next.frames === f.frames) return;
+    app.editLayer(['flipbook'], next, { mergeKey: `flipbook-${k}`, label: 'Flipbook grid' });
   };
-  const fbBox = h('div', { class: 'fieldrow' }, cols.el, rows.el, frames.el);
+  const fbBox = numberGroup({ label: 'Grid', boxes: [cols, rows, frames] });
   const drawThumb = () => {
     const s = S();
     img.src = app.imageUrl(s.image) ?? '';
@@ -351,8 +366,7 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
   // Size and facing.
   const w = slider({ label: 'Width', min: 0.05, max: 12, step: 0.01, value: S().sizeM[0], unit: 'm', onInput: (v) => app.editLayer(['sizeM', 0], v, { mergeKey: 'w', label: 'Width' }), onCommit: () => app.commit() });
   const hh = slider({ label: 'Height', min: 0.05, max: 12, step: 0.01, value: S().sizeM[1], unit: 'm', onInput: (v) => app.editLayer(['sizeM', 1], v, { mergeKey: 'h', label: 'Height' }), onCommit: () => app.commit() });
-  const facing = segmented({ label: 'Faces', options: [{ value: 'camera', label: 'The camera' }, { value: 'path', label: 'Along the path', title: 'The image\'s x axis lies along the motion, or along the shot' }],
-    value: S().facing, onChange: (v) => { app.editLayer(['facing'], v, { label: 'Facing' }); app.commit(); } });
+  const facing = segmented({ label: 'Faces', options: FACES_SPRITE, value: S().facing, onChange: (v) => { app.editLayer(['facing'], v, { label: 'Facing' }); app.commit(); } });
 
   // Where it sits.
   const anchorOptions = () => [
@@ -369,13 +383,14 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
     if (kind === 'input' && next.durationMs === undefined && !(next.flipbook && !next.flipbook.loop)) next = { ...next, durationMs: 250 };
     app.replaceLayer(next, 'Sits on'); app.commit();
   } });
-  const offset = offsetFields(app, () => (isInputAnchor(S().at) ? (S().at as InputAnchor).offset : null), (o) => app.editLayer(['at', 'offset'], o, { label: 'Offset' }));
+  const offset = offsetFields(app, 'offset', () => (isInputAnchor(S().at) ? (S().at as InputAnchor).offset : null), (o, mergeKey) => app.editLayer(['at', 'offset'], o, { mergeKey, label: 'Offset' }));
 
-  // Colour.
+  // Colour. The two choices' words do not fit on one line in the 296 px panel: "Keep" and "Multiply", the full words in
+  // their tooltips (docs/ui-redesign.md 6.6).
   const roleOpts = () => [{ value: MAIN_ROLE, label: 'main (the effect\'s colour)' }, ...roleNames(app.palette).map((r) => ({ value: r, label: r }))];
-  const tintMode = segmented({ label: 'Colour', options: [{ value: 'keep', label: 'Keep the image\'s colours' }, { value: 'multiply', label: 'Multiply by a role' }],
+  const tintMode = segmented({ label: 'Colour', options: [{ value: 'keep', label: 'Keep the image\'s colours', short: 'Keep' }, { value: 'multiply', label: 'Multiply by a colour role', short: 'Multiply' }],
     value: S().tint.mode, onChange: (v) => { app.editLayer(['tint'], v === 'keep' ? { mode: 'keep' } : { mode: 'multiply', role: MAIN_ROLE }, { label: 'Colour' }); app.commit(); } });
-  const role = selectField({ label: 'Role', options: roleOpts(), value: S().tint.mode === 'multiply' ? (S().tint as { role: string }).role : MAIN_ROLE,
+  const role = selectField({ label: 'Role', options: roleOpts(), value: S().tint.mode === 'multiply' ? (S().tint as { role: string }).role : MAIN_ROLE, swatch: roleHex(app),
     onChange: (v) => { app.editLayer(['tint', 'role'], v, { label: 'Colour role' }); app.commit(); } });
 
   parts.push({ refresh: () => {
@@ -391,7 +406,7 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
   role.el.hidden = S().tint.mode !== 'multiply';
 
   return [
-    fold('Image', [image.el, thumb, h('div', { class: 'fieldrow' }, pivotU.el, pivotV.el), flip.el, fbBox, loop.el,
+    fold('Image', [image.el, thumb, numberGroup({ label: 'Pivot', boxes: [pivotU, pivotV] }), flip.el, fbBox, loop.el,
       h('div', { class: 'row' }, h('button', { class: 'plain', attrs: { type: 'button' }, text: 'Add PNG images to the project…', on: { click: () => app.importImages() } }))], true),
     fold('Size and place', [w.el, hh.el, facing.el, anchor.el, offset.el], true),
     // One Colour section: how the image is tinted, then the colours that gives the sprite.
@@ -404,13 +419,13 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
   const endSel = (key: 'from' | 'to', label: string) => {
     const sel = segmented({ label, options: [{ value: 'origin', label: 'Origin (muzzle)' }, { value: 'target', label: 'Target' }], value: P()[key].input,
       onChange: (v) => { app.editLayer([key, 'input'], v, { label }); app.commit(); }, small: true });
-    const off = offsetFields(app, () => P()[key].offset, (o) => app.editLayer([key, 'offset'], o, { label: `${label} offset` }));
+    const off = offsetFields(app, `${key}-offset`, () => P()[key].offset, (o, mergeKey) => app.editLayer([key, 'offset'], o, { mergeKey, label: `${label} offset` }));
     parts.push({ refresh: () => { sel.set(P()[key].input); off.refresh(); } });
     return [sel.el, off.el];
   };
   const fl = () => P().flight;
   const flightMode = segmented({ label: 'Flight', small: true, value: fl().mode,
-    options: [{ value: 'speed', label: 'By speed' }, { value: 'time', label: 'Fixed time' }, { value: 'phase', label: 'One phase' }],
+    options: [{ value: 'speed', label: 'By speed', short: 'Speed' }, { value: 'time', label: 'Fixed time', short: 'Time' }, { value: 'phase', label: 'One phase', short: 'Phase' }],
     onChange: (v) => {
       const next = v === 'speed' ? { mode: 'speed', mps: 40 } : v === 'time' ? { mode: 'time', ms: 500 } : { mode: 'phase', phase: 'windup' };
       app.editLayer(['flight'], next, { label: 'Flight' }); app.commit();
@@ -419,7 +434,7 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
     hint: 'Flight time = distance ÷ speed. A rifle at real speed lands within one 1/12 s step.',
     onInput: (v) => app.editLayer(['flight', 'mps'], v, { mergeKey: 'speed', label: 'Speed' }), onCommit: () => app.commit() });
   const flightMs = numberField({ label: 'Flight time', value: fl().mode === 'time' ? (fl() as { ms: number }).ms : 500, step: 10, min: 1, unit: 'ms',
-    onChange: (v) => { app.editLayer(['flight', 'ms'], Math.max(1, v), { label: 'Flight time' }); app.commit(); } });
+    onInput: (v) => app.editLayer(['flight', 'ms'], Math.max(1, v), { mergeKey: 'flight-ms', label: 'Flight time' }), onCommit: () => app.commit() });
   const flightPhase = selectField({ label: 'Flies during', options: PHASE_NAMES.map((n) => ({ value: n, label: PHASE_LABEL[n] })),
     value: fl().mode === 'phase' ? (fl() as { phase: PhaseName }).phase : 'windup',
     onChange: (v) => { app.editLayer(['flight', 'phase'], v, { label: 'Flies during' }); app.commit(); } });
@@ -464,7 +479,7 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
   const mode = segmented({ label: 'Moves', options: [{ value: 'steps', label: 'In steps' }, { value: 'smooth', label: 'Smoothly' }], value: L().timing.mode,
     onChange: (v) => { app.editLayer(['timing'], v === 'steps' ? { mode: 'steps', perSecond: 12 } : { mode: 'smooth' }, { label: 'Moves' }); app.commit(); } });
   const rate = numberField({ label: 'Steps a second', value: L().timing.mode === 'steps' ? (L().timing as { perSecond: number }).perSecond : 12, step: 1, min: 1, max: 60,
-    onChange: (v) => { app.editLayer(['timing', 'perSecond'], Math.max(1, Math.min(60, Math.round(v))), { label: 'Steps a second' }); app.commit(); } });
+    onInput: (v) => app.editLayer(['timing', 'perSecond'], Math.max(1, Math.min(60, Math.round(v))), { mergeKey: 'per-second', label: 'Steps a second' }), onCommit: () => app.commit() });
   // Starts: with the effect, with a phase, or when a projectile lands. The delay is kept when the choice changes.
   const startOptions = () => [
     { value: 'effect', label: 'With the effect' },
@@ -478,7 +493,8 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
     const next = k === 'land' ? { arrivalOf: id!, ms } : k === 'phase' ? { phase: id as PhaseName, ms } : { ms };
     app.editLayer(['start'], next, { label: 'Starts' }); app.commit();
   } });
-  const delay = numberField({ label: 'Delay', value: L().start.ms, step: 10, min: 0, unit: 'ms', onChange: (v) => { app.editLayer(['start', 'ms'], Math.max(0, v), { label: 'Delay' }); app.commit(); } });
+  const delay = numberField({ label: 'Delay', value: L().start.ms, step: 10, min: 0, unit: 'ms',
+    onInput: (v) => app.editLayer(['start', 'ms'], Math.max(0, v), { mergeKey: 'delay', label: 'Delay' }), onCommit: () => app.commit() });
   // Lasts: automatically, a fixed time, or until a phase ends (visible layers; a projectile lasts its flight).
   const lastOptions = [{ value: 'auto', label: 'Automatically' }, { value: 'fixed', label: 'A fixed time' },
     ...PHASE_NAMES.map((n) => ({ value: `until:${n}`, label: `Until the ${PHASE_LABEL[n].toLowerCase()} ends` }))];
@@ -493,7 +509,7 @@ function timeFields(app: AppApi, parts: Refresher[]): HTMLElement {
     app.replaceLayer(next, 'Lasts'); app.commit();
   } });
   const dur = numberField({ label: 'Length', value: (L() as SpriteLayer).durationMs ?? 0, step: 10, min: 1, unit: 'ms',
-    onChange: (v) => { app.editLayer(['durationMs'], Math.max(1, v), { label: 'Length' }); app.commit(); } });
+    onInput: (v) => app.editLayer(['durationMs'], Math.max(1, v), { mergeKey: 'length', label: 'Length' }), onCommit: () => app.commit() });
   const span = h('p', { class: 'readout' });
   const show = () => {
     const l = L();
@@ -529,36 +545,43 @@ function placeFields(app: AppApi, parts: Refresher[]): HTMLElement {
     const l = V();
     app.editLayer(['at'], kind === 'input' ? { input: id, offset: isInputAnchor(l.at) ? l.at.offset : [0, 0, 0] } : { layer: id }, { label: 'Sits on' }); app.commit();
   } });
-  const offset = offsetFields(app, () => (isInputAnchor(V().at) ? (V().at as InputAnchor).offset : null), (o) => app.editLayer(['at', 'offset'], o, { label: 'Offset' }));
+  const offset = offsetFields(app, 'offset', () => (isInputAnchor(V().at) ? (V().at as InputAnchor).offset : null), (o, mergeKey) => app.editLayer(['at', 'offset'], o, { mergeKey, label: 'Offset' }));
   const facing = selectField({ label: 'Faces', value: V().facing, options: [{ value: 'camera', label: 'The camera' }, { value: 'path', label: 'Along the path' },
     { value: 'ground', label: 'Flat on the ground' }, { value: 'upright', label: 'Upright (true heights)' }],
     onChange: (v) => { app.editLayer(['facing'], v, { label: 'Faces' }); app.commit(); } });
   const blend = selectField({ label: 'Mixes', value: V().blend, options: [{ value: 'normal', label: 'Normal' }, { value: 'add', label: 'Adds light' },
     { value: 'screen', label: 'Lightens the ground (screen)' }, { value: 'multiply', label: 'Darkens the ground (multiply)' }],
     onChange: (v) => { app.editLayer(['blend'], v, { label: 'Mixes' }); app.commit(); } });
-  const sx = numberField({ label: 'Nudge right', value: V().shiftM?.[0] ?? 0, step: 0.05, unit: 'm', onChange: (v) => { app.editLayer(['shiftM'], [v, V().shiftM?.[1] ?? 0], { label: 'Nudge' }); app.commit(); } });
-  const sy = numberField({ label: 'Nudge up', value: V().shiftM?.[1] ?? 0, step: 0.05, unit: 'm', onChange: (v) => { app.editLayer(['shiftM'], [V().shiftM?.[0] ?? 0, v], { label: 'Nudge' }); app.commit(); } });
+  // The nudge: right and up on one row ("R", "U"). Its first change adds shiftM, which builds the panel again: the drag goes on
+  // (scrubDrag follows the pointer on the window) and stays one undo step.
+  const sx = numberBox({ label: 'Nudge right', prefix: 'R', value: V().shiftM?.[0] ?? 0, step: 0.05,
+    onInput: (v) => app.editLayer(['shiftM'], [v, V().shiftM?.[1] ?? 0], { mergeKey: 'nudge-right', label: 'Nudge' }), onCommit: () => app.commit() });
+  const sy = numberBox({ label: 'Nudge up', prefix: 'U', value: V().shiftM?.[1] ?? 0, step: 0.05,
+    onInput: (v) => app.editLayer(['shiftM'], [V().shiftM?.[0] ?? 0, v], { mergeKey: 'nudge-up', label: 'Nudge' }), onCommit: () => app.commit() });
   const lift = numberField({ label: 'Lift off the ground', value: V().liftM ?? 0, step: 0.05, min: 0, unit: 'm',
-    onChange: (v) => { app.editLayer(['liftM'], v > 0 ? v : undefined, { label: 'Lift' }); app.commit(); } });
+    onInput: (v) => app.editLayer(['liftM'], v > 0 ? v : undefined, { mergeKey: 'lift', label: 'Lift' }), onCommit: () => app.commit() });
   parts.push({ refresh: () => {
     const l = V();
     anchor.setOptions(anchorOptions()); anchor.set(anchorValue()); offset.refresh(); facing.set(l.facing); blend.set(l.blend);
     sx.set(l.shiftM?.[0] ?? 0); sy.set(l.shiftM?.[1] ?? 0); lift.set(l.liftM ?? 0); lift.el.hidden = l.facing !== 'ground';
   } });
   lift.el.hidden = V().facing !== 'ground';
-  return fold('Place', [anchor.el, offset.el, facing.el, blend.el, h('div', { class: 'fieldrow' }, sx.el, sy.el), lift.el], true);
+  return fold('Place', [anchor.el, offset.el, facing.el, blend.el, numberGroup({ label: 'Nudge', boxes: [sx, sy], unit: 'm' }), lift.el], true);
 }
 
 /** Fields every visible layer has, edited elsewhere (Place, Time), so the generated form leaves them out. */
 const COMMON_KEYS = ['id', 'name', 'type', 'start', 'timing', 'tiers', 'at', 'facing', 'blend', 'durationMs', 'untilPhaseEnd', 'scale', 'alpha', 'shiftM', 'liftM', 'seed', 'perPlay'];
 const ALL_BUT_SEED = (l: Layer) => Object.keys(l).filter((k) => k !== 'seed' && k !== 'perPlay');
 
-function offsetFields(app: AppApi, get: () => Vec3 | null, set: (o: Vec3) => void): { el: HTMLElement; refresh(): void } {
-  const axis = (i: 0 | 1 | 2, label: string) => numberField({ label, value: get()?.[i] ?? 0, step: 0.05, unit: 'm', onChange: (v) => {
-    const o = [...(get() ?? [0, 0, 0])] as Vec3; o[i] = v; set(o); app.commit();
-  } });
-  const x = axis(0, 'Right'), y = axis(1, 'Up'), z = axis(2, 'Forward');
-  const el = h('div', { class: 'fieldrow', title: 'Offset in metres: right, up, and forward (towards the target)' }, x.el, y.el, z.el);
+/**
+ * An offset: right, up and forward (towards the target) on one row, "R", "U" and "F" in the boxes, their full names (Right,
+ * Up, Forward) in the tooltips. `key` keeps each box's drag one undo step.
+ */
+function offsetFields(app: AppApi, key: string, get: () => Vec3 | null, set: (o: Vec3, mergeKey: string) => void): { el: HTMLElement; refresh(): void } {
+  const axis = (i: 0 | 1 | 2, label: string, prefix: string) => numberBox({ label, prefix, value: get()?.[i] ?? 0, step: 0.05,
+    onInput: (v) => { const o = [...(get() ?? [0, 0, 0])] as Vec3; o[i] = v; set(o, `${key}-${i}`); }, onCommit: () => app.commit() });
+  const x = axis(0, 'Right', 'R'), y = axis(1, 'Up', 'U'), z = axis(2, 'Forward', 'F');
+  const el = numberGroup({ label: 'Offset', boxes: [x, y, z], unit: 'm' });
   const refresh = () => { const o = get(); el.hidden = !o; if (o) { x.set(o[0]); y.set(o[1]); z.set(o[2]); } };
   refresh();
   return { el, refresh };

@@ -30,100 +30,208 @@ export interface Control<T> {
   set(v: T): void;
 }
 
-const fmt = (v: number, digits: number) => (Number.isInteger(v) && digits === 0 ? String(v) : v.toFixed(digits).replace(/\.?0+$/, '') || '0');
+// ---------------------------------------------------------------- the right panel's rows (docs/ui-redesign.md 6.6)
+//
+// A property row is a grid: the label on the left (12 px, muted, an ellipsis when it is too long, the whole label in its
+// tooltip), the control on the right. The classes stay what the help texts, the settings inventory (tools/ui-shots.mjs)
+// and the browser check read: label.field (or div.field) with its label in .flab, label.check for a checkbox; .prop marks
+// the row. A hint under a row spans both columns.
 
-/** A slider with its number. onInput fires while dragging; onCommit when the drag or typing ends. */
+/**
+ * A number as a box shows it: `digits` decimals; with `trim`, at most that many and no zeros at the end ("0.5", "350"),
+ * as the panel's number boxes always showed them. Never "-0".
+ */
+export function formatNumber(v: number, digits: number, trim = false): string {
+  const s = v.toFixed(digits);
+  const t = trim && s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
+  return /^-0(\.0*)?$/.test(t) ? t.slice(1) : t;
+}
+
+/** A row's label. `help`: the name help.ts knows it by, when the label shows other words. */
+function rowLabel(text: string, help?: string): HTMLSpanElement {
+  return h('span', { class: 'flab', text, attrs: help ? { 'data-help-label': help } : {} });
+}
+
+/** What a number box needs. */
+export interface NumberOptions {
+  /** The full name: the row's label, and the box's name for screen readers. */
+  label: string;
+  value: number;
+  /** One press of ↑ or ↓, and one step of a drag (4 px; Shift: ten steps). */
+  step?: number;
+  /** The decimals kept: a typed or dragged number is rounded to them. Shown without the zeros at the end, unless `fixed`. */
+  digits?: number;
+  fixed?: boolean;
+  min?: number;
+  max?: number;
+  unit?: string;
+  /** The label the row shows, when it is shorter than the full name. */
+  shown?: string;
+  /** The name help.ts knows it by, when it is not the label. */
+  help?: string;
+  /** Each change: a step of a drag, a key, a typed number. */
+  onInput(v: number): void;
+  /** A drag, a key press or a typed number ends: the end of one undo step. */
+  onCommit?(): void;
+}
+
+/**
+ * A number in a row: drag its label sideways, or type it (scrubNumber). The input keeps the num class. Each box keeps the
+ * step, the decimals (3 unless given, shown without the zeros at the end) and the limits it had.
+ */
+export function numberField(o: NumberOptions): Control<number> & { input: HTMLInputElement } {
+  const s = scrubNumber({ label: o.label, value: o.value, step: o.step ?? 0.01, digits: o.digits ?? 3, trim: !o.fixed, min: o.min, max: o.max, unit: o.unit,
+    onInput: o.onInput, onCommit: o.onCommit });
+  const lab = rowLabel(o.shown ?? o.label, o.help);
+  s.dragFrom(lab);
+  return { el: h('label', { class: 'field prop' }, lab, s.el), set: s.set, input: s.input };
+}
+
+export interface NumberBox {
+  el: HTMLElement;
+  input: HTMLInputElement;
+  set(v: number): void;
+}
+
+/**
+ * One box of a group of numbers (numberGroup): a short muted prefix inside it ("R", "X", "Cols"), dragged sideways like a
+ * label. Its full name is its name for screen readers and its tooltip, followed by the help text for `help` (or for the
+ * full name). Its unit is the group's.
+ */
+export function numberBox(o: Omit<NumberOptions, 'unit' | 'shown'> & { prefix: string }): NumberBox {
+  const s = scrubNumber({ label: o.label, value: o.value, step: o.step ?? 0.01, digits: o.digits ?? 3, trim: !o.fixed, min: o.min, max: o.max,
+    prefix: o.prefix, onInput: o.onInput, onCommit: o.onCommit });
+  s.el.setAttribute('data-tip', o.label);
+  s.el.setAttribute('data-help-label', o.help ?? o.label);
+  return { el: s.el, input: s.input, set: s.set };
+}
+
+/**
+ * Two or three numbers on one row (offset, pivot, a flipbook's grid, a nudge, a range), under one label. Their unit shows
+ * once, muted, after the last box: three boxes with a unit each do not fit in the 296 px panel.
+ */
+export function numberGroup(o: { label: string; help?: string; boxes: NumberBox[]; unit?: string }): HTMLElement {
+  return h('div', { class: 'field prop prop-group', attrs: { role: 'group', 'aria-label': o.label } }, rowLabel(o.label, o.help),
+    h('span', { class: 'prop-boxes' }, ...o.boxes.map((b) => b.el), o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null));
+}
+
+/**
+ * A slider and its number on one row: a 2 px track and a 12 px thumb, then the number box (56 px, wider for a long
+ * number and unit). onInput fires while dragging; onCommit when the drag or typing ends. Typing keeps no limits, as
+ * before (a value past the slider's ends is the file's to have); dragging the label stays within the slider's ends, as
+ * the slider does. The classes row, big and input.num stay.
+ */
 export function slider(o: {
   label: string; min: number; max: number; step: number; value: number; unit?: string; digits?: number; hint?: string; big?: boolean;
-  onInput(v: number): void; onCommit?(): void;
+  help?: string; onInput(v: number): void; onCommit?(): void;
 }): Control<number> {
   const digits = o.digits ?? 2;
   const range = h('input', { attrs: { type: 'range', min: String(o.min), max: String(o.max), step: String(o.step), 'aria-label': o.label } });
-  const box = h('input', { class: 'num', attrs: { type: 'number', step: String(o.step), 'aria-label': `${o.label} value` } });
-  const set = (v: number) => {
-    range.value = String(v);
-    if (document.activeElement !== box) box.value = fmt(v, digits);
-  };
-  range.addEventListener('input', () => { box.value = fmt(+range.value, digits); o.onInput(+range.value); });
+  const num = scrubNumber({ label: `${o.label} value`, value: o.value, step: o.step, digits, unit: o.unit, dragMin: o.min, dragMax: o.max,
+    onInput: (v) => { range.value = String(v); o.onInput(v); }, onCommit: o.onCommit });
+  // A long number and unit ("1200 m/s", "-1440 °/s") gets the wider box.
+  if (Math.max(formatNumber(o.min, digits).length, formatNumber(o.max, digits).length) + (o.unit?.length ?? 0) > 6) num.el.classList.add('wide');
+  const set = (v: number) => { range.value = String(v); num.set(v); };
+  range.addEventListener('input', () => { num.set(+range.value); o.onInput(+range.value); });
   range.addEventListener('change', () => o.onCommit?.());
-  box.addEventListener('change', () => {
-    if (box.value.trim() === '') return;
-    const v = Number(box.value);
-    if (Number.isFinite(v)) { o.onInput(v); o.onCommit?.(); }
-  });
+  const lab = rowLabel(o.label, o.help);
+  num.dragFrom(lab);
   set(o.value);
-  const el = h('div', { class: o.big ? 'row big' : 'row' },
-    h('div', { class: 'lab' }, h('label', { text: o.label }), h('span', { class: 'val' }, box, o.unit ? h('span', { class: 'unit', text: o.unit }) : null)),
-    range,
+  const el = h('div', { class: o.big ? 'row field prop slide big' : 'row field prop slide' },
+    lab, h('span', { class: 'slide-ctl' }, range, num.el),
     o.hint ? h('p', { class: 'hint', text: o.hint }) : null);
   return { el, set };
 }
 
-/** A row of buttons, one pressed. */
+/**
+ * A segment of a segmented control. `short`: the words it shows when its own do not fit on one line in the 296 px panel;
+ * its full words are then its tooltip and its name (aria-label, and data-help-label for its help text). `title` says
+ * more in the tooltip.
+ */
+export interface SegmentOption<T> { value: T; label: string; short?: string; title?: string; icon?: IconName; style?: string }
+
+/** A row of buttons, one pressed. With a label, a property row. */
 export function segmented<T extends string | number>(o: {
-  label?: string; options: { value: T; label: string; title?: string; icon?: IconName; style?: string }[]; value: T; onChange(v: T): void; small?: boolean;
+  label?: string; help?: string; options: SegmentOption<T>[]; value: T; onChange(v: T): void; small?: boolean;
 }): Control<T> {
-  const buttons = o.options.map((opt) =>
-    h('button', { class: opt.icon ? 'seg with-icon' : 'seg', title: opt.title, style: opt.style, attrs: { type: 'button', 'aria-pressed': 'false' }, on: { click: () => o.onChange(opt.value) } },
-      opt.icon ? icon(opt.icon) : null, h('span', { text: opt.label })));
+  const buttons = o.options.map((opt) => {
+    const tipText = opt.short ? (opt.title ? `${opt.label}: ${opt.title.charAt(0).toLowerCase()}${opt.title.slice(1)}` : opt.label) : opt.title;
+    return h('button', {
+      class: opt.icon ? 'seg with-icon' : 'seg', title: tipText, style: opt.style,
+      attrs: { type: 'button', 'aria-pressed': 'false', ...(opt.short ? { 'aria-label': opt.label, 'data-help-label': opt.label } : {}) },
+      on: { click: () => o.onChange(opt.value) },
+    }, opt.icon ? icon(opt.icon) : null, h('span', { text: opt.short ?? opt.label }));
+  });
   const set = (v: T) => buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(o.options[i]!.value === v)));
   set(o.value);
   const group = h('div', { class: o.small ? 'seggroup small' : 'seggroup', attrs: { role: 'group', 'aria-label': o.label ?? '' } }, ...buttons);
-  const el = o.label ? h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: o.label })), group) : group;
+  const el = o.label ? h('div', { class: 'field prop seg-row' }, rowLabel(o.label, o.help), group) : group;
   return { el, set };
 }
 
-export function numberField(o: { label: string; value: number; step?: number; min?: number; max?: number; unit?: string; onChange(v: number): void }): Control<number> {
-  const box = h('input', { class: 'num', attrs: { type: 'number', step: String(o.step ?? 0.01), 'aria-label': o.label } });
-  if (o.min !== undefined) box.min = String(o.min);
-  if (o.max !== undefined) box.max = String(o.max);
-  // An emptied box changes nothing (Number('') would be 0).
-  box.addEventListener('change', () => { if (box.value.trim() === '') return; const v = Number(box.value); if (Number.isFinite(v)) o.onChange(v); });
-  const set = (v: number) => { if (document.activeElement !== box) box.value = fmt(v, 3); };
-  set(o.value);
-  const el = h('label', { class: 'field' }, h('span', { class: 'flab', text: o.label }), box, o.unit ? h('span', { class: 'unit', text: o.unit }) : null);
-  return { el, set };
-}
-
-export function textField(o: { label: string; value: string; onChange(v: string): void }): Control<string> {
+export function textField(o: { label: string; value: string; help?: string; onChange(v: string): void }): Control<string> & { input: HTMLInputElement } {
   const box = h('input', { class: 'text', attrs: { type: 'text', 'aria-label': o.label, maxlength: '80' } });
   box.addEventListener('change', () => o.onChange(box.value));
   const set = (v: string) => { if (document.activeElement !== box) box.value = v; };
   set(o.value);
-  return { el: h('label', { class: 'field wide' }, h('span', { class: 'flab', text: o.label }), box), set };
+  return { el: h('label', { class: 'field prop' }, rowLabel(o.label, o.help), box), set, input: box };
 }
 
-export function selectField(o: { label: string; options: { value: string; label: string }[]; value: string; onChange(v: string): void }): Control<string> & { setOptions(opts: { value: string; label: string }[]): void } {
+export type SelectView = Control<string> & { setOptions(opts: { value: string; label: string }[]): void; select: HTMLSelectElement };
+
+/**
+ * A select in a row. A colour role's select (`swatch` gives the hex of a role, for the faction shown) keeps its select,
+ * with a 14 px swatch of the chosen role's colour at its left edge, painted again by set() (the inspector calls it on
+ * every refresh: a faction change, a colour changed in the picker). Role names are typed into files: Plex Mono.
+ */
+export function selectField(o: {
+  label: string; options: { value: string; label: string }[]; value: string; help?: string; swatch?: (role: string) => string | null | undefined;
+  onChange(v: string): void;
+}): SelectView {
   const sel = h('select', { attrs: { 'aria-label': o.label } });
+  const chip = o.swatch ? h('span', { class: 'role-swatch', attrs: { 'aria-hidden': 'true' } }) : null;
+  /** The swatch in the chosen role's colour, or the look of a missing colour. */
+  const paint = () => {
+    if (!chip) return;
+    const hex = (sel.value && o.swatch!(sel.value)) || '';
+    if (chip.dataset.hex !== hex) { chip.dataset.hex = hex; chip.style.background = hex; chip.classList.toggle('none', !hex); }
+  };
   const setOptions = (opts: { value: string; label: string }[]) => {
     const keep = sel.value;
     sel.replaceChildren(...opts.map((x) => h('option', { attrs: { value: x.value }, text: x.label })));
     sel.value = keep;
+    paint();
   };
   setOptions(o.options);
-  sel.addEventListener('change', () => o.onChange(sel.value));
-  const set = (v: string) => { sel.value = v; };
+  sel.addEventListener('change', () => { paint(); o.onChange(sel.value); });
+  const set = (v: string) => { sel.value = v; paint(); };
   set(o.value);
-  return { el: h('label', { class: 'field wide' }, h('span', { class: 'flab', text: o.label }), sel), set, setOptions };
+  const control = chip ? h('span', { class: 'role-select' }, chip, sel) : sel;
+  return { el: h('label', { class: 'field prop' }, rowLabel(o.label, o.help), control), set, setOptions, select: sel };
 }
 
+/** A checkbox in a row: its label on the left, the 14 px box on the right (checked in --accent-ink). */
 export function checkField(o: { label: string; value: boolean; onChange(v: boolean): void }): Control<boolean> {
   const box = h('input', { attrs: { type: 'checkbox' } });
   box.addEventListener('change', () => o.onChange(box.checked));
   const set = (v: boolean) => { box.checked = v; };
   set(o.value);
-  return { el: h('label', { class: 'check' }, box, h('span', { text: o.label })), set };
+  return { el: h('label', { class: 'check prop' }, box, h('span', { class: 'check-text', text: o.label })), set };
 }
 
 /**
- * A folding section. Its open/closed state is remembered per title. `actions` sit on the right of its header row, outside
- * the summary (a control inside a summary would fold the section too), and show while it is open.
+ * A folding section (<details>): a chevron, its title (.fold-title, 13 px semibold), and its actions on the right. Its
+ * open or closed state is remembered per title. `actions` sit on the right of its header row, outside the summary (a
+ * control inside a summary would fold the section too), and show while it is open. The summary holds only the chevron
+ * and the title, so its text is the title (the help texts and the settings inventory read it).
  */
 export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = []): HTMLDetailsElement {
   const key = `vfx-fold:${title}`;
   let open = openByDefault;
   try { const s = localStorage.getItem(key); if (s !== null) open = s === '1'; } catch { /* storage may be blocked */ }
-  const d = h('details', { class: actions.length ? 'fold has-actions' : 'fold' }, h('summary', { text: title }),
+  const chev = icon('chevron-right');
+  chev.classList.add('fold-chev');
+  const d = h('details', { class: actions.length ? 'fold has-actions' : 'fold' }, h('summary', {}, chev, h('span', { class: 'fold-title', text: title })),
     actions.length ? h('div', { class: 'fold-actions' }, ...actions) : null, h('div', { class: 'foldbody' }, ...children));
   d.open = open;
   d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ } });
@@ -250,6 +358,9 @@ function tipOfFocus(el: Element): Element | null {
   if (!el.matches('input, select, textarea')) return null;
   const check = el.closest('label.check');
   if (check) return hasTip(check) ? check : null;
+  // A box of a group of numbers: its own tooltip (its full name), not the row's.
+  const box = el.closest('.prop-group .scrub');
+  if (box) return hasTip(box) ? box : null;
   const field = el.closest('label.field, .field');
   const row = el.closest('.row');
   const label = field?.querySelector(':scope > .flab') ?? row?.querySelector(':scope > .lab > label, :scope > .lab > span:first-child:not(.hint):not(.val)');
@@ -267,7 +378,8 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   const he = el as HTMLElement;
   // Cut short with an ellipsis (the element, or a chip's value): the whole text first.
   const cut = (x: HTMLElement | null) => !!x && x.scrollWidth > x.clientWidth + 1 && getComputedStyle(x).textOverflow === 'ellipsis';
-  const value = he.querySelector<HTMLElement>(':scope > .chip-value');
+  // A chip's value, and a checkbox row's words, can be cut short inside the element the tooltip is for.
+  const value = he.querySelector<HTMLElement>(':scope > .chip-value, :scope > .check-text');
   const full = cut(he) ? flat(he.textContent) : cut(value) ? flat(value!.textContent) : '';
   if (full && !own.includes(full)) lines.push(full);
   if (own) lines.push(own);
@@ -835,6 +947,9 @@ export function fitValue(v: number, o: { min?: number; max?: number; digits: num
  * Drag sideways to change a number: `step` for every `pxPerStep` px the pointer moves, ten times that while Shift is held.
  * A press that does not move is a click, and is left alone (its click goes on); after a drag, the click that follows
  * does nothing. onInput follows the drag; onCommit comes when it ends.
+ * The drag follows the pointer on the window, so it goes on when its handle goes away under it: a change that adds or
+ * takes away a part of the layer builds the right panel again (a first nudge adds shiftM), and the drag still ends with
+ * its commit. While it lasts, the page shows the drag's cursor (the class scrubbing on the root).
  */
 export function scrubDrag(handle: HTMLElement, o: {
   step: number; pxPerStep?: number; get(): number; set(v: number): void; onCommit?(): void;
@@ -842,29 +957,35 @@ export function scrubDrag(handle: HTMLElement, o: {
   const per = o.pxPerStep ?? 4;
   let from: { x: number; value: number; units: number; last: number; id: number; moved: boolean } | null = null;
   let dragged = false;
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    from = { x: e.clientX, value: o.get(), units: 0, last: e.clientX, id: e.pointerId, moved: false };
-    handle.setPointerCapture(e.pointerId);
-  });
-  handle.addEventListener('pointermove', (e) => {
+  const move = (e: PointerEvent) => {
     if (!from || e.pointerId !== from.id) return;
     from.units += (e.clientX - from.last) * (e.shiftKey ? 10 : 1);
     from.last = e.clientX;
     if (!from.moved && Math.abs(e.clientX - from.x) < 3) return;
-    if (!from.moved) { from.moved = true; handle.classList.add('scrubbing'); }
+    if (!from.moved) { from.moved = true; handle.classList.add('scrubbing'); document.documentElement.classList.add('scrubbing'); }
     o.set(from.value + dragSteps(from.units, per) * o.step);
-  });
+  };
   const end = (e: PointerEvent) => {
     if (!from || e.pointerId !== from.id) return;
     const moved = from.moved;
     from = null;
+    window.removeEventListener('pointermove', move, true);
+    window.removeEventListener('pointerup', end, true);
+    window.removeEventListener('pointercancel', end, true);
     handle.classList.remove('scrubbing');
+    document.documentElement.classList.remove('scrubbing');
     if (moved) { dragged = true; o.onCommit?.(); }
   };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-  // The click after a drag: not a click (it would open the chip's popover).
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    dragged = false;
+    from = { x: e.clientX, value: o.get(), units: 0, last: e.clientX, id: e.pointerId, moved: false };
+    handle.setPointerCapture(e.pointerId);
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', end, true);
+    window.addEventListener('pointercancel', end, true);
+  });
+  // The click after a drag: not a click (it would open the chip's popover, or focus a label's box).
   handle.addEventListener('click', (e) => { if (dragged) { dragged = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 }
 
@@ -872,52 +993,74 @@ export function scrubDrag(handle: HTMLElement, o: {
  * A number field you drag or type: drag its prefix (or the handles given) sideways to change the number, or type it; a
  * typed comma works as the decimal point ("0,5" or "0.5"). The value sits right, the unit inside the field as a muted
  * suffix. ↑ and ↓ step it (Shift: ten steps). Enter or leaving the box sets what was typed; Esc puts the number back.
- * onInput comes with each change; onCommit when a drag or typing ends. The input keeps the num class.
+ * onInput comes with each change; onCommit when a drag, a press of ↑ or ↓, or typing ends. The input keeps the num class.
+ * `digits` decimals are shown and kept (a typed or dragged number is rounded to them); with `trim`, the zeros at the end are
+ * left out. A drag stays within dragMin and dragMax as well as min and max (a slider's ends). Nothing is told when the
+ * number does not change: Tab through the box, or Enter on what it shows, changes nothing, so a value in the file with
+ * more decimals than the box shows is kept as it is.
  * A number set from outside past a limit (the target dragged further than the Distance slider goes) shows as it is, so the
  * box says what the chip says; the keys, a drag and typing still start from the number within the limits, as before.
  */
 export function scrubNumber(o: {
-  label: string; value: number; step: number; digits: number; min?: number; max?: number; unit?: string; prefix?: string;
-  pxPerStep?: number; onInput(v: number): void; onCommit?(): void;
+  label: string; value: number; step: number; digits: number; trim?: boolean; min?: number; max?: number; dragMin?: number; dragMax?: number;
+  unit?: string; prefix?: string; pxPerStep?: number; onInput(v: number): void; onCommit?(): void;
 }): Control<number> & { input: HTMLInputElement; dragFrom(handle: HTMLElement): void } {
   /** The number within the limits, which the keys, a drag and typing start from. */
-  let value = o.value;
+  let value = fitValue(o.value, o);
   /** The number the box shows: the value, or what was set from outside past a limit. */
-  let shown = o.value;
-  const input = h('input', { class: 'num scrub-input', attrs: { type: 'text', inputmode: 'decimal', spellcheck: 'false', autocomplete: 'off', 'aria-label': o.label } });
-  const text = () => shown.toFixed(o.digits);
-  const show = () => { if (document.activeElement !== input) input.value = text(); };
-  const change = (v: number) => {
-    const next = fitValue(v, o);
+  let shown = fitValue(o.value, { digits: o.digits });
+  // A spin button for screen readers, as the number boxes were: ↑ and ↓ step it; its number and limits are said with it.
+  const input = h('input', { class: 'num scrub-input', attrs: { type: 'text', role: 'spinbutton', inputmode: 'decimal', spellcheck: 'false', autocomplete: 'off', 'aria-label': o.label,
+    ...(o.min !== undefined ? { 'aria-valuemin': String(o.min) } : {}), ...(o.max !== undefined ? { 'aria-valuemax': String(o.max) } : {}) } });
+  const text = () => formatNumber(shown, o.digits, o.trim);
+  /** What code last wrote in the box. While the box still holds it, nothing was typed since. */
+  let written = '';
+  const write = () => {
+    const all = document.activeElement === input && input.selectionStart === 0 && input.selectionEnd === input.value.length && input.value !== '';
+    input.value = written = text();
+    input.setAttribute('aria-valuenow', String(shown));
+    if (all) input.select();
+  };
+  /**
+   * The number shown again: always while the box does not have the focus, and while it has it as long as nothing was typed
+   * in it. So an undo pressed in the box shows at once, and leaving the box afterwards writes nothing back.
+   */
+  const show = () => { if (document.activeElement !== input || input.value === written) write(); };
+  const change = (v: number, limits: { min?: number; max?: number } = o) => {
+    const next = fitValue(v, { min: limits.min, max: limits.max, digits: o.digits });
     if (next === value) return;
     value = shown = next;
     show();
     o.onInput(value);
   };
-  /** The number typed; while the box still holds the number it shows, the number within the limits. */
-  const typed = () => (input.value === text() ? value : parseDecimal(input.value));
+  /** A drag also stays within dragMin and dragMax (inside min and max, which always count). */
+  const dragLimits = { min: Math.max(o.dragMin ?? -Infinity, o.min ?? -Infinity), max: Math.min(o.dragMax ?? Infinity, o.max ?? Infinity) };
+  /** The number typed; while the box still holds the number it shows (nothing typed), the number within the limits. */
+  const typed = () => (input.value === written || input.value === text() ? value : parseDecimal(input.value));
   const prefix = o.prefix ? h('span', { class: 'scrub-prefix', attrs: { 'aria-hidden': 'true' }, text: o.prefix }) : null;
   const el = h('span', { class: 'scrub' }, prefix, input, o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null);
   const dragFrom = (handle: HTMLElement) => {
     handle.classList.add('scrub-handle');
-    scrubDrag(handle, { step: o.step, pxPerStep: o.pxPerStep, get: () => value, set: change, onCommit: () => o.onCommit?.() });
+    scrubDrag(handle, { step: o.step, pxPerStep: o.pxPerStep, get: () => value, set: (v) => change(v, dragLimits), onCommit: () => o.onCommit?.() });
   };
   if (prefix) dragFrom(prefix);
   const typedValue = () => {
     const v = typed();
-    if (v === null) { input.value = text(); return; }
+    if (v === null) { write(); return; }
     change(v);
-    input.value = text();
+    write();
     o.onCommit?.();
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); typedValue(); input.select(); }
-    else if (e.key === 'Escape' && input.value !== text()) { e.preventDefault(); e.stopPropagation(); input.value = text(); input.select(); }
+    else if (e.key === 'Escape' && input.value !== written) { e.preventDefault(); e.stopPropagation(); write(); input.select(); }
     else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       change((typed() ?? value) + (e.key === 'ArrowUp' ? 1 : -1) * o.step * (e.shiftKey ? 10 : 1));
-      input.value = text();
+      write();
       input.select();
+      // Each press is one step to undo, as a number box's arrow keys were.
+      o.onCommit?.();
     }
   });
   input.addEventListener('change', typedValue);

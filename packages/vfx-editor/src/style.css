@@ -47,6 +47,10 @@
   --r-popover: 8px;  /* popovers, dialogs, the message */
   --t-colour: 120ms ease-out;
   --fold-actions-w: 96px; /* room on a section's header row for its actions (Show all) */
+  --prop-label: minmax(84px, 38%); /* a property row's label column (6.6); the control takes the rest */
+  --prop-gap: 4px;        /* between two property rows (each 28 px) */
+  --w-slider-num: 56px;   /* a slider's number box */
+  --w-slider-num-wide: 72px; /* the same, for a number and unit as long as "-1440 °/s" */
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
@@ -325,17 +329,21 @@ input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 1px var(
   display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; user-select: none; color: var(--text);
 }
 summary::-webkit-details-marker { display: none; }
-/* The chevron: points right when closed, down when open. */
-.fold > summary::before, .cp-section > summary::before, .gr-editor > summary::before, .gr-ramp > summary::before {
+/* The colour picker's chevron: points right when closed, down when open. */
+.cp-section > summary::before, .gr-editor > summary::before, .gr-ramp > summary::before {
   content: ''; flex: none; width: 6px; height: 6px; margin: 0 4px 0 2px;
   border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); transform: rotate(-45deg);
 }
 details[open] > summary::before { transform: translateY(-2px) rotate(45deg); }
 /* Inside a scrolling panel the ring goes inside the row, so nothing clips it. */
 summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
-/* A section of the panel: a 1 px line above its header, edge to edge. */
+/* A section of the panel (6.6): a 1 px line above its 32 px header; a chevron (icons.ts, muted, turned down when open),
+   the title (13 px semibold, cut with an ellipsis), its actions on the right. */
 .fold { margin: 0 calc(-1 * var(--pad-panel)); padding: 0 var(--pad-panel); border-top: 1px solid var(--line); }
-.fold > summary { min-height: var(--h-section); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
+.fold > summary { gap: 4px; min-height: var(--h-section); margin-left: -4px; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
+.fold-chev { color: var(--text-muted); }
+.fold[open] > summary > .fold-chev { transform: rotate(90deg); }
+.fold-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .foldbody { padding-bottom: 12px; }
 /* A fold inside a fold (the picker's gradient editor and ramp too): lighter, no line, no box. */
 .fold .fold { margin: 0; padding: 0; border-top: 0; }
@@ -721,19 +729,56 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .tl-knob::before { content: ''; position: absolute; left: 2px; bottom: 0; width: var(--w-head); height: var(--w-head); background: var(--accent-ink); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
 
 /* ---------------------------------------------------------------- inspector */
+/* Rows that are not property rows: Shows in and Phases (a heading over their boxes), the effect's colours. */
 .row { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 .lab { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text-muted); }
 .lab .hint { text-align: right; }
-.val { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
 .unit { color: var(--text-muted); }
 .field { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-.field.wide { flex-direction: column; align-items: stretch; gap: 4px; }
 .flab { color: var(--text-muted); }
-/* Two or three numbers on one row; the boxes line up even when one label takes two lines. */
+/* Phases' three numbers, each under its name. */
 .fieldrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
-.fieldrow .field { flex-direction: column; align-items: stretch; gap: 4px; }
-.fieldrow input.num { width: 100%; }
+.fieldrow > .prop { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-height: 0; margin: 0; }
 .check { display: flex; align-items: center; gap: 8px; min-height: var(--h-control); margin: 4px 0; cursor: pointer; }
+
+/* A property row (6.6): a grid, the label in the left column (at least 84 px, at most 38 % of the row), the control in the
+   rest; 28 px rows with 4 px between them. The label is 12 px --text-muted, cut with an ellipsis when it is too long (its
+   tooltip then gives it whole). A hint under a row spans both columns. Every control fills its column, so the numbers,
+   right-aligned in their boxes, line up at the panel's right edge. */
+.prop {
+  display: grid; grid-template-columns: var(--prop-label) minmax(0, 1fr); column-gap: 8px; align-items: center;
+  min-height: var(--h-row); margin: var(--prop-gap) 0;
+}
+.prop > .flab, .check.prop > .check-text { min-width: 0; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prop > .hint { grid-column: 1 / -1; }
+.prop > input.text, .prop > select, .prop > .role-select, .prop > .scrub, .prop > .slide-ctl, .prop > .prop-boxes { min-width: 0; width: 100%; }
+/* A number: drag its label (or its prefix) sideways, or type it. The box fills its column; the value sits right. */
+.prop .scrub { display: flex; padding: 0 6px; }
+.prop .scrub input.num, .prop .scrub input.num:hover, .prop .scrub input.num:focus-visible { flex: 1 1 0; width: 0; min-width: 2ch; }
+.prop .scrub .unit, .prop .scrub-prefix { flex: none; }
+/* Two or three numbers on one row: each box with its short muted prefix inside, the boxes sharing the column, their unit
+   once after the last box. Tighter than a single box, so three numbers fit at 1920 (296 px panel). */
+.prop-boxes { display: flex; align-items: center; gap: 2px; }
+.prop-boxes > .scrub { flex: 1 1 auto; min-width: 0; gap: 2px; padding: 0 3px; }
+.prop-boxes > .unit { flex: none; margin-left: 2px; }
+/* A slider: a 2 px track and a 12 px thumb, then its number in a 56 px box (72 px for a long number and unit). */
+.slide-ctl { display: flex; align-items: center; gap: 8px; }
+.slide-ctl input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.prop .slide-ctl .scrub { flex: none; width: var(--w-slider-num); }
+.prop .slide-ctl .scrub.wide { width: var(--w-slider-num-wide); }
+/* A segmented control fills its column; its segments share it by their words. */
+.prop > .seggroup { display: flex; min-width: 0; }
+.prop > .seggroup > .seg { flex: 1 1 auto; min-width: 0; }
+/* A colour role: its select, with a 14 px swatch of the role's colour (for the faction shown) at its left edge. Role names
+   are typed into files: Plex Mono. A role the palette lacks: an empty swatch with a --bad edge. */
+.role-select { position: relative; display: flex; align-items: center; }
+.role-select select { padding-left: 26px; font-family: var(--mono); }
+.role-swatch { position: absolute; left: 6px; top: 50%; width: var(--check); height: var(--check); margin-top: calc(var(--check) / -2); border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); pointer-events: none; }
+.role-swatch.none { background: transparent; box-shadow: inset 0 0 0 1px var(--bad); }
+/* A checkbox in a row: its words on the left, the 14 px box on the right. */
+.check.prop { display: grid; gap: 0 8px; margin: var(--prop-gap) 0; }
+.check.prop > .check-text { grid-column: 1; grid-row: 1; }
+.check.prop > input { grid-column: 2; grid-row: 1; justify-self: start; }
 .row.tiers { margin: 8px 0 4px; }
 .tier-boxes { display: flex; gap: 16px; }
 .tier-boxes .check { margin: 0; }
@@ -778,12 +823,17 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .events input.text { font-family: var(--mono); }
 /* Image names are typed into files, so they are mono (4.2), in the select as in the Layers list. */
 select[aria-label="Image"] { font-family: var(--mono); }
-.events .problems { margin: 4px 0 0; color: var(--bad); }
+.events .problems { grid-column: 1 / -1; margin: 0 0 0 16px; color: var(--bad); }
 .events .problems:empty { display: none; }
 .inspector .optional { margin: 4px 0; padding-left: 8px; border-left: 1px solid var(--line); }
-.inspector .sub { display: flex; flex-direction: column; gap: 4px; }
-.inspector .tone-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-bottom: 4px; }
-.gradient-field .hint { margin-top: 4px; }
+/* A part's own choice (Breaks up over) and the setting under it: rows like the others. */
+.inspector .sub { display: block; }
+/* A tone: its colour and its scale, each a row; Remove under them, as Add a tone under the last. A button under a row
+   lines up with the controls (the label column is at least 84 px, at most 38 %, and 8 px of gap). */
+.inspector .tone-row { margin-bottom: 4px; }
+.prop-actions { display: flex; gap: 4px; margin: 0 0 4px calc(max(84px, 38%) + 8px); }
+.prop-actions > .mini { margin-left: -6px; }
+.gradient-field .hint { margin-top: 0; }
 
 /* The cost card. */
 .costcard .cost-status { margin: 0 0 8px; }
@@ -905,6 +955,8 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .scrub input.num, .scrub input.num:hover, .scrub input.num:focus-visible { width: 40px; height: calc(var(--h-control) - 2px); padding: 0; border: 0; background: transparent; box-shadow: none; outline: none; text-align: right; }
 .scrub-prefix { color: var(--text-muted); }
 .scrub-handle { cursor: ew-resize; user-select: none; }
+/* While a number is dragged, the drag's cursor shows wherever the pointer goes, and nothing is selected. */
+:root.scrubbing, :root.scrubbing * { cursor: ew-resize !important; user-select: none; }
 
 /* ---------------------------------------------------------------- tooltips */
 /* One tooltip for the page (src/app/dom.ts): dark in both themes, 12 px, at most 280 px wide, with an optional shortcut in

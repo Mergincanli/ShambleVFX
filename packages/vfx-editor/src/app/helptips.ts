@@ -27,10 +27,16 @@ const ELSEWHERE = '.cpick, .dlg';
 
 const words = (el: Element | null | undefined) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
 const titleWords = (el: Element) => (el.getAttribute('data-tip') ?? el.getAttribute('title') ?? '').replace(/\s+\([^()]*\)$/, '').trim();
+/** A section's title: a fold's .fold-title (its summary may hold more), or the title's own words. */
+export const titleText = (el: Element | null | undefined) => words(el?.querySelector(':scope > .fold-title') ?? el);
 
 /** The label (or labels to try, in order) an element is known by, and whether it is a section's title. */
 function labelOf(el: Element): { labels: string[]; title: boolean } | null {
-  if (el.matches(SECTION_TITLE)) return { labels: [words(el)], title: true };
+  if (el.matches(SECTION_TITLE)) return { labels: [titleText(el)], title: true };
+  // The name help.ts knows it by, when the words shown are shorter (a prefix "R", a segment "Keep", a shortened label).
+  // An empty one says it has none (a folder's name in a menu).
+  const named = el.getAttribute('data-help-label');
+  if (named !== null) return named ? { labels: [named], title: false } : null;
   // A checkbox: the name a screen reader says (its aria-label: "Shows in Low"), or the words next to it.
   if (el.matches('label.check')) return { labels: [el.querySelector('input')?.getAttribute('aria-label') ?? '', words(el.querySelector(':scope > span'))], title: false };
   if (el.matches(FIELD_LABEL)) {
@@ -46,8 +52,7 @@ function labelOf(el: Element): { labels: string[]; title: boolean } | null {
   if (el.matches(BUTTON)) return { labels: [el.getAttribute('aria-label') ?? '', titleWords(el), words(el)], title: false };
   // A control with no label of its own next to it (the add menu): its aria-label.
   if (el.matches('select, input') && !el.closest('label.field, .field, .row, label.check')) return { labels: [el.getAttribute('aria-label') ?? ''], title: false };
-  const named = el.getAttribute('data-help-label');
-  return named ? { labels: [named], title: false } : null;
+  return null;
 }
 
 /** Where an element is shown, as help.ts wants it. */
@@ -60,7 +65,7 @@ function whereOf(el: Element, title: boolean): HelpWhere {
   // The folding sections round it, from the outside in; for a section's own title, the ones round its section.
   const path: string[] = [];
   const from = title ? (el.matches('summary') ? el.parentElement?.parentElement : null) : el;
-  for (let d = from?.closest('details'); d && (!panel || panel.contains(d)); d = d.parentElement?.closest('details')) path.unshift(words(d.querySelector(':scope > summary')));
+  for (let d = from?.closest('details'); d && (!panel || panel.contains(d)); d = d.parentElement?.closest('details')) path.unshift(titleText(d.querySelector(':scope > summary')));
   // A field in no fold: its card's title.
   if (!title && !path.length) {
     const card = words(el.closest('section.card')?.querySelector(':scope > h2, :scope > .card-head > h2'));

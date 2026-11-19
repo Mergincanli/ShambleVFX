@@ -3,12 +3,12 @@
  * (a number with its unit, a colour role, a choice, a pair of numbers, a list of tones, a curve, a list of words), and
  * folds optional parts behind an on/off switch. Field names carry their units (radiusM, widthPx, growMs, tiltDeg).
  */
-import { PHASE_NAMES, roleNames } from '@shamble/vfx-format';
+import { MAIN_ROLE, PHASE_NAMES, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { SoundWord } from '@shamble/vfx-format';
 import type { AppApi } from './api';
 import { wordsFromText } from '../doc/edits';
 import type { Path } from '../doc/edits';
-import { checkField, fold, h, numberField, selectField, textField } from './dom';
+import { checkField, fold, h, numberBox, numberField, numberGroup, selectField, textField } from './dom';
 
 interface Refresher { refresh(): void }
 
@@ -85,6 +85,41 @@ function stepOf(key: string): number {
 
 const isRoleKey = (key: string, parent: string) => key === 'role' || key.endsWith('Role') || key === 'separation' || parent === 'colours';
 
+/** A colour role's hex for the faction shown, for a role select's swatch; "main" is the effect's main colour. */
+export function roleHex(app: AppApi): (role: string) => string | undefined {
+  return (role) => resolveRole(app.palette, role === MAIN_ROLE ? app.effect()?.controls.colour ?? role : role, app.faction);
+}
+
+/**
+ * The boxes of a pair or a group of three numbers on one row: each box's short prefix, and the word its full name ends
+ * with ("Life, min", "Width, start"; the label without its words in brackets, a comma and the word). Keyed by field name,
+ * or by "kind:field" where the meaning changes with the kind. A range is picked between its two numbers. A pair or three
+ * not listed gets "1", "2", "3" and the names the settings inventory always gave them ("Steps", "Steps (2)").
+ */
+const RANGE: readonly (readonly [string, string])[] = [['Min', 'min'], ['Max', 'max']];
+const PARTS: Readonly<Record<string, readonly (readonly [string, string])[]>> = {
+  lifeMs: RANGE, speedMps: RANGE, startRadiusM: RANGE, tiltDeg: RANGE, tallM: RANGE, cycleSteps: RANGE,
+  'burst:sizeM': RANGE, 'burst:spinDegPerS': RANGE, 'flames:widthM': RANGE, 'lines:innerM': RANGE, 'lines:lengthM': RANGE, 'lines:widthPx': RANGE,
+  'glow:grow': [['Start', 'start'], ['End', 'end']], 'smoke:grow': [['S', 'start'], ['P', 'peak'], ['E', 'end']],
+  'trail:widthPx': [['Tail', 'tail'], ['Head', 'head']], 'band:widthM': [['Start', 'start'], ['End', 'end']],
+  driftM: [['R', 'right'], ['F', 'forward']], areaM: [['W', 'half width'], ['H', 'half height']],
+};
+/** An end's offset (a band's or a bead string's From and To): right, up and forward, named as every offset is. */
+const OFFSET_PARTS: readonly (readonly [string, string])[] = [['R', 'Right'], ['U', 'Up'], ['F', 'Forward']];
+
+/**
+ * A pair's or three's row: the label it shows (without its words in brackets when the boxes' prefixes say them: "Size over
+ * life (start, peak, end)" shows "Size over life", its boxes S, P and E), and each box's prefix and full name. The help
+ * text stays keyed by the full label.
+ */
+export function groupParts(kind: string, key: string, label: string, n: number): { shown: string; boxes: { prefix: string; name: string }[] } {
+  if (key === 'offset' && n === 3) return { shown: label, boxes: OFFSET_PARTS.map(([prefix, name]) => ({ prefix, name })) };
+  const parts = PARTS[`${kind}:${key}`] ?? PARTS[key];
+  const base = label.replace(/\s*\([^()]*\)$/, '');
+  if (parts && parts.length === n) return { shown: base, boxes: parts.map(([prefix, word]) => ({ prefix, name: `${base}, ${word}` })) };
+  return { shown: label, boxes: Array.from({ length: n }, (_, i) => ({ prefix: String(i + 1), name: i === 0 ? label : `${label} (${i + 1})` })) };
+}
+
 /**
  * Build the form for the object at basePath inside the selected layer. `kind` is the shape kind, for style choices.
  * Each control refreshes itself from the document; structural changes (a part switched on or off, a tone added) rebuild
@@ -112,7 +147,8 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       return c.el;
     }
     if (typeof v === 'number') {
-      const c = numberField({ label, value: v, step: stepOf(key), unit: unitOf(key), onChange: (x) => edit(p, x, label) });
+      // A drag on its label is one undo step: the edits merge by path until the commit.
+      const c = numberField({ label, value: v, step: stepOf(key), unit: unitOf(key), onInput: (x) => edit(p, x, label, true), onCommit: () => app.commit() });
       parts.push({ refresh: () => { const x = get(p); if (typeof x === 'number') c.set(x); } });
       return c.el;
     }
@@ -124,9 +160,11 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       else if (CHOICES[key]) options = CHOICES[key]!.map((x) => ({ value: x, label: x }));
       else if (key === 'phase' || key === 'find' || key === 'letGo') options = PHASE_NAMES.map((x) => ({ value: x, label: x }));
       if (options) {
-        const c = selectField({ label, options, value: v, onChange: (x) => edit(p, x, label) });
-        // Colour lists follow the palette: a colour added in the picker shows up at once.
+        // A colour role's select has a swatch of the role's colour (for the faction shown) at its left edge.
         const roleList = isRoleKey(key, parent);
+        const c = selectField({ label, options, value: v, swatch: roleList ? roleHex(app) : undefined, onChange: (x) => edit(p, x, label) });
+        // Colour lists follow the palette: a colour added in the picker shows up at once (and set() paints the swatch again,
+        // for a faction changed or a colour edited in the picker).
         parts.push({ refresh: () => { if (roleList) c.setOptions(roles()); c.set(get(p) as string); } });
         return c.el;
       }
@@ -135,17 +173,18 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       return c.el;
     }
     if (Array.isArray(v)) {
-      // A pair of numbers: a range or a 2D vector.
-      if (v.length === 2 && v.every((x) => typeof x === 'number')) {
-        const a = numberField({ label: `${label}`, value: v[0] as number, step: stepOf(key), unit: unitOf(key), onChange: (x) => edit([...p, 0], x, label) });
-        const b = numberField({ label: '…', value: v[1] as number, step: stepOf(key), unit: unitOf(key), onChange: (x) => edit([...p, 1], x, label) });
-        parts.push({ refresh: () => { const x = get(p) as number[]; if (Array.isArray(x)) { a.set(x[0]!); b.set(x[1]!); } } });
-        return h('div', { class: 'fieldrow' }, a.el, b.el);
-      }
-      if (v.length === 3 && v.every((x) => typeof x === 'number')) {
-        const fs = [0, 1, 2].map((i) => numberField({ label: i === 0 ? label : '', value: v[i] as number, step: 0.05, onChange: (x) => edit([...p, i], x, label) }));
-        parts.push({ refresh: () => { const x = get(p) as number[]; fs.forEach((f, i) => f.set(x[i]!)); } });
-        return h('div', { class: 'fieldrow' }, ...fs.map((f) => f.el));
+      // A pair of numbers (a range or a 2D vector), or three: one row, a short prefix in each box ("Min", "Max"; "R", "U",
+      // "F"), its full name in its tooltip and as its name for screen readers (groupParts). Each box keeps the step and the
+      // unit it had: a pair its field's (shown once, after the last box), three 0.05 and none.
+      if ((v.length === 2 || v.length === 3) && v.every((x) => typeof x === 'number')) {
+        const three = v.length === 3;
+        const g = groupParts(kind, key, label, v.length);
+        const boxes = g.boxes.map((part, i) => numberBox({
+          label: part.name, prefix: part.prefix, help: label, value: v[i] as number, step: three ? 0.05 : stepOf(key),
+          onInput: (x) => edit([...p, i], x, label, true), onCommit: () => app.commit(),
+        }));
+        parts.push({ refresh: () => { const x = get(p) as number[]; if (Array.isArray(x)) boxes.forEach((b, i) => { if (typeof x[i] === 'number') b.set(x[i]!); }); } });
+        return numberGroup({ label: g.shown, help: g.shown !== label ? label : undefined, boxes, unit: three ? undefined : unitOf(key) });
       }
       // Any other list of numbers (per-step factors), typed as "1.18, 1.06".
       if (v.every((x) => typeof x === 'number')) {
@@ -191,22 +230,23 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       }
       // Tones: role and scale each; add or remove.
       if (key === 'tones') {
+        // Each tone: its colour (a role, with its swatch) and its scale, each a row, and Remove under them.
         const rows = (v as Record<string, unknown>[]).map((t, i) => {
-          const role = selectField({ label: `Tone ${i + 1}`, options: roles(), value: t.role as string, onChange: (x) => edit([...p, i, 'role'], x, 'Tone colour') });
-          const sc = numberField({ label: 'Scale', value: t.scale as number, step: 0.01, onChange: (x) => edit([...p, i, 'scale'], x, 'Tone scale') });
+          const role = selectField({ label: `Tone ${i + 1}`, options: roles(), value: t.role as string, swatch: roleHex(app), onChange: (x) => edit([...p, i, 'role'], x, 'Tone colour') });
+          const sc = numberField({ label: 'Scale', value: t.scale as number, step: 0.01, onInput: (x) => edit([...p, i, 'scale'], x, 'Tone scale', true), onCommit: () => app.commit() });
           parts.push({ refresh: () => { const q = (get(p) as Record<string, unknown>[])[i]; if (q) { role.setOptions(roles()); role.set(q.role as string); sc.set(q.scale as number); } } });
           const del = h('button', { class: 'mini', attrs: { type: 'button' }, text: 'Remove', on: { click: () => {
             const list = (get(p) as unknown[]).filter((_, k) => k !== i);
             if (list.length) edit(p, list, 'Remove tone');
           } } });
-          return h('div', { class: 'tone-row' }, role.el, sc.el, del);
+          return h('div', { class: 'tone-row' }, role.el, sc.el, h('div', { class: 'prop-actions' }, del));
         });
         const add = h('button', { class: 'mini', attrs: { type: 'button' }, text: 'Add a tone', on: { click: () => {
           const list = get(p) as Record<string, unknown>[];
           const last = list[list.length - 1] ?? { role: 'heat.4', scale: 1 };
           edit(p, [...list, { role: last.role, scale: Math.max(0.1, ((last.scale as number) ?? 1) * 0.6) }], 'Add tone');
         } } });
-        return fold(label, [...rows, add], true);
+        return fold(label, [...rows, h('div', { class: 'prop-actions' }, add)], true);
       }
       return null;
     }
