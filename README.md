@@ -216,7 +216,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (315 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (316 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -284,9 +284,10 @@ selection scrolled into view in both, nothing round them moving), the timeline (
 176 and 200 px, the ruler 24, the phase strip 16, rows 24 and bars 16 px with 3 px corners; every bar's label whole in its
 lane, inside its bar when it fits, else beside it in the muted colour, the Rifle shot's Bullet and a short bar near the end
 of the span too, and after the splitters make the lanes narrower, then wider again; the phases' names inside when they fit,
-their times in their tooltips; the playhead's line through the ruler and the lanes, its 10 px head clear of the tick labels
-and dragging the time from where it is; no label hidden by the playhead, on the Hammer leech beam and the Rifle shot at
-20 ms; the ruler and the phase strip at the top while the rows scroll, and a selected row scrolled into view below them; a
+their times in their tooltips, and measured also when the effect has no layers; the playhead's line through the ruler and
+the lanes, its 10 px head clear of the tick labels and dragging the time from where it is; no label hidden by the playhead,
+on the Hammer leech beam and the Rifle shot at 20 ms; the ruler and the phase strip at the top while the rows scroll, and a
+selected row scrolled into view below them; a
 click on a bar, on a label beside its bar or on a name selecting and keeping the time, a drag from a bar and a press on the
 ruler, the phase strip or an empty part of a lane scrubbing; the selected row's tint across the name and the lane and its
 bar's outline, the hovered and selected lanes' colours in Day and Night, and a row left out of the tier at 35 %), the keys
@@ -1009,7 +1010,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     in the Low tier", "rides Bullet"). Before, only the bar had a tooltip. The column runs to the bottom of the timeline,
     with its 1 px line.
   - **The phase strip**: a phase's name that does not fit is hidden, not cut; its times stay in the tooltip. On the ruler,
-    a label that would run into the "ms" at its right end is hidden too (only in the narrowest lanes).
+    a label that would run into the "ms" at its right end is hidden too (in narrow lanes, or when the last label sits close
+    to the end). Both are measured from the ruler, so also when the effect has no layers.
   - **Rows**: a 24 px row with its 1 px line leaves 23 px, so the 16 px bar sits 4 px from the top, with 3 px and the line
     under it.
   - The bar's tooltip names the tier as the Tier chip does ("not drawn in the Low tier"; it said "low").

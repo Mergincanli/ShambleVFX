@@ -3251,11 +3251,11 @@ if (webgpu) {
   // -- the timeline (docs/ui-redesign.md 6.5): its sizes at 1920 x 1080 and 2560 x 1440 (the names column, the ruler, the
   // phase strip, the rows, the bars); every bar's label in full view in its lane, inside its bar when it fits, else beside
   // it in --text-muted (the Rifle shot's Bullet; a bar near the end of the span), also after a splitter makes the lanes
-  // narrower and back; the phases' names inside when they fit, their times in their tooltips; the playhead (its line
-  // through the ruler and the lanes, its head, which drags) and no label hidden by it; the ruler and the phase strip at the
-  // top while the rows scroll, and a selected row scrolled into view below them; scrubbing, and a click on a bar selecting;
-  // the selected row, the hovered one and a row left out of the tier. On a page of its own: the splitters' sizes are
-  // remembered.
+  // narrower and back; the phases' names inside when they fit, their times in their tooltips, also with no layers; the
+  // playhead (its line through the ruler and the lanes, its head, which drags) and no label hidden by it; the ruler and the
+  // phase strip at the top while the rows scroll, and a selected row scrolled into view below them; scrubbing, and a click
+  // on a bar selecting; the selected row, the hovered one and a row left out of the tier. On a page of its own: the
+  // splitters' sizes are remembered.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
     const tp = g.page;
@@ -3405,6 +3405,39 @@ if (webgpu) {
       beamPhases.length === 3 && beamPhases.every((p) => p.fit === 'yes' && p.visible && p.inside && p.size === '11px') && beamPhases.map((p) => p.tip).join(' | ') === 'wind-up: 0–350 ms | peak: 350–2850 ms | fade: 2850–3150 ms'
         && narrowPhases[0].name === 'windup' && narrowPhases[0].fit === 'no' && !narrowPhases[0].visible && narrowPhases[0].tip === 'wind-up: 0–250 ms' && narrowPhases.slice(1).every((p) => p.fit === 'yes' && p.visible),
       JSON.stringify({ beamPhases, narrowPhases }));
+    // An effect with phases and no layers: the phases' names and the ruler's labels are measured all the same. The Hammer
+    // leech beam with a 40 ms wind-up (15 px wide) and every layer deleted, then all of it undone: the wind-up's name is
+    // hidden, not cut, and no ruler label runs into the "ms" (the 3000).
+    await showTl('board_beam', 1000);
+    await tp.evaluate(() => { const a = window.__vfx.app; a.editEffect(['phases', 'windupMs'], 40); a.commit(); });
+    const beamLayers = await tp.evaluate(() => window.__vfx.app.effect().layers.length);
+    for (let i = 0; i < beamLayers; i++) {
+      await tp.evaluate(() => { const a = window.__vfx.app; a.selectLayer(a.effect().layers[0].id); document.activeElement?.blur(); });
+      await tp.keyboard.press('Delete');
+    }
+    await showTl('board_beam', 20);
+    const bare = await tp.evaluate(() => {
+      const unit = document.querySelector('.timeline .tl-unit').getBoundingClientRect();
+      const shown = (s) => getComputedStyle(s).visibility === 'visible';
+      return {
+        rows: document.querySelectorAll('.timeline .tl-row').length,
+        phases: [...document.querySelectorAll('.timeline .tl-phase')].map((p) => {
+          const b = p.getBoundingClientRect(), s = p.querySelector('span'), r = s.getBoundingClientRect();
+          return { name: p.classList[1], fit: p.dataset.fit ?? null, shown: shown(s), whole: !shown(s) || (r.left >= b.left - 0.5 && r.right <= b.right + 0.5) };
+        }),
+        ticks: [...document.querySelectorAll('.timeline .tl-tick')].map((t) => {
+          const s = t.querySelector('span');
+          return { text: t.textContent, fit: t.dataset.fit ?? null, clear: !shown(s) || s.getBoundingClientRect().right <= unit.left - 1 };
+        }),
+      };
+    });
+    await tp.evaluate(() => document.activeElement?.blur());
+    for (let i = 0; i <= beamLayers; i++) await tp.keyboard.press('Control+z');
+    const beamBack = await tp.evaluate(() => { const fx = window.__vfx.app.effect(); return `${fx.layers.length} layers, wind-up ${fx.phases.windupMs} ms`; });
+    ok('an effect with phases and no layers: its phases\' names and the ruler\'s labels are still measured (the Hammer leech beam with a 40 ms wind-up and every layer deleted): the wind-up\'s name is hidden, not cut, and no ruler label runs into the "ms"',
+      bare.rows === 0 && bare.phases.length === 3 && bare.phases.every((p) => p.fit !== null && p.whole) && bare.phases[0].name === 'windup' && bare.phases[0].fit === 'no' && !bare.phases[0].shown
+        && bare.ticks.length > 3 && bare.ticks.every((t) => t.fit !== null && t.clear) && beamBack === '16 layers, wind-up 350 ms',
+      JSON.stringify({ bare, beamBack }));
     // The playhead (6.5): a 2 px line in --accent-ink through the ruler and the phase strip (.tl-head) and the lanes
     // (.tl-line), at the same place and meeting with no gap; its 10 px head in the ruler's lower half, clear of every tick
     // label, the 0 too at 0 ms. The ruler, the phase strip and the head stay at the top while the rows scroll. (The playhead

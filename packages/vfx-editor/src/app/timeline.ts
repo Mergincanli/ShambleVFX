@@ -122,10 +122,10 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
   /** The label sizes in style.css (--tl-label-pad, --tl-label-gap), read once the page has its styles. */
   let sizes: { pad: number; gap: number } | null = null;
   const fit = () => {
-    const lane = rows.querySelector<HTMLElement>('.tl-lane');
-    const L = lane?.getBoundingClientRect();
-    // Not shown (?frame=1 hides the timeline): nothing to measure.
-    if (!L || L.width <= 0) return;
+    // The lanes are exactly as wide as the ruler: measure from it, so the phases' names and the ruler's labels are measured
+    // also when the effect has no layers (no lane). Not shown (?frame=1 hides the timeline): nothing to measure.
+    const L = ruler.getBoundingClientRect();
+    if (L.width <= 0) return;
     if (!sizes) {
       const s = getComputedStyle(el);
       sizes = { pad: parseFloat(s.getPropertyValue('--tl-label-pad')) || 4, gap: parseFloat(s.getPropertyValue('--tl-label-gap')) || 6 };
