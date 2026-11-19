@@ -3194,6 +3194,32 @@ if (webgpu) {
     const still = await lp.evaluate(() => ({ left: document.querySelector('.left').scrollTop, app: document.querySelector('#app').scrollTop, doc: document.scrollingElement.scrollTop, effects: document.querySelector('.effects-section').scrollTop }));
     ok('a new selection scrolls into view, as little as needed, in the Layers list (picked on the timeline) and on the timeline (picked in the list); nothing round the lists scrolls',
       !lastBefore && listScrolled && !tlBefore && tlScrolled && still.left === 0 && still.app === 0 && still.doc === 0 && still.effects === 0, JSON.stringify({ lastBefore, listScrolled, tlBefore, tlScrolled, still }));
+    // A layer moved by Ctrl+[ from the last row that shows stays in view in both places (it went under the timeline's sticky
+    // ruler, or out of the Layers list).
+    const edgeRow = await lp.evaluate(() => {
+      const slot = document.querySelector('.timeline-slot');
+      slot.scrollTop = 0;
+      const s = slot.getBoundingClientRect(), rows = [...slot.querySelectorAll('.tl-row')];
+      let last = null;
+      rows.forEach((r, i) => { if (r.getBoundingClientRect().bottom <= s.bottom + 0.5 && i < rows.length - 1) last = r.dataset.layer; });
+      return last;
+    });
+    const rowIndex = (id) => lp.evaluate((i) => [...document.querySelectorAll('.timeline .tl-row')].findIndex((r) => r.dataset.layer === i), edgeRow);
+    await lp.evaluate((id) => window.__vfx.app.selectLayer(id), edgeRow);
+    await lp.evaluate(() => document.activeElement?.blur?.());
+    const edgeBefore = await rowIndex(edgeRow);
+    await lp.keyboard.press('Control+BracketLeft');
+    await lp.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const movedEdge = await lp.evaluate((id) => {
+      const slot = document.querySelector('.timeline-slot'), s = slot.getBoundingClientRect(), top = document.querySelector('.timeline .tl-top')?.getBoundingClientRect();
+      const t = slot.querySelector(`.tl-row[data-layer="${id}"]`).getBoundingClientRect();
+      const list = document.querySelector('.layers-list'), l = list.getBoundingClientRect(), r = list.querySelector(`.layer-item[data-layer="${id}"]`).getBoundingClientRect();
+      return { timeline: t.top >= (top ? top.bottom : s.top) - 0.5 && t.bottom <= s.bottom + 0.5, list: r.top >= l.top - 0.5 && r.bottom <= l.bottom + 0.5, undo: window.__vfx.app.history.undoLabel };
+    }, edgeRow);
+    const edgeAfter = await rowIndex(edgeRow);
+    await lp.keyboard.press('Control+z');
+    ok('a layer moved by Ctrl+[ from the last row that shows stays in view on the timeline (below its sticky ruler) and in the Layers list',
+      !!edgeRow && edgeAfter === edgeBefore + 1 && movedEdge.undo === 'Move layer' && movedEdge.timeline && movedEdge.list, JSON.stringify({ edgeRow, edgeBefore, edgeAfter, movedEdge }));
     await lp.locator('.split-effects').dblclick();
 
     // Empty: a new effect has no layers: "No layers yet." and an "Add a layer" button, which opens the add menu.

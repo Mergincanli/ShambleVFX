@@ -205,13 +205,16 @@ export class App implements AppApi {
     this.inspector.refresh();
     this.timelineView.refresh();
     // A new selection shows in the Layers list and on the timeline: each scrolled as little as needed to show its row.
-    if (changed && id) {
-      const row = this.els.layers.querySelector(`.layer-item[data-layer="${CSS.escape(id)}"]`);
-      if (row) scrollNearest(this.els.layers, row);
-      const slot = this.els.root.querySelector<HTMLElement>('.timeline-slot');
-      const tl = slot?.querySelector(`.tl-row[data-layer="${CSS.escape(id)}"]`);
-      if (slot && tl) scrollNearest(slot, tl);
-    }
+    if (changed && id) this.showLayerRow(id);
+  }
+
+  /** A layer's row in the Layers list and on the timeline, each scrolled as little as needed to show it. */
+  private showLayerRow(id: string): void {
+    const row = this.els.layers.querySelector(`.layer-item[data-layer="${CSS.escape(id)}"]`);
+    if (row) scrollNearest(this.els.layers, row);
+    const slot = this.els.root.querySelector<HTMLElement>('.timeline-slot');
+    const tl = slot?.querySelector(`.tl-row[data-layer="${CSS.escape(id)}"]`);
+    if (slot && tl) scrollNearest(slot, tl);
   }
 
   hoverLayer(id: string | null): void {
@@ -1248,6 +1251,9 @@ export class App implements AppApi {
     if (!this.selEffect || !delta) return;
     this.history.apply('Move layer', moveLayer(this.history.doc, this.selEffect, id, delta));
     this.history.endGesture();
+    // The moved row stays in view in both places: at the edge of what shows, Ctrl+] or Ctrl+[ took it under the timeline's
+    // sticky ruler or out of the Layers list.
+    this.showLayerRow(id);
   }
 
   private duplicateSelected(): void {

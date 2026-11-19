@@ -216,7 +216,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (317 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (318 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -280,7 +280,8 @@ More and by a right-click, the buttons staying while it is open, and Esc closing
 Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
 opens below it; a press of less than 4 px a click, a drag with its 2 px line in one undo step, and Esc cancelling it
 (letting go after that is not a click); the empty state; the hover highlight both ways with the timeline; a new
-selection scrolled into view in both, nothing round them moving), the timeline (its sizes at 1920 and 2560: the names column
+selection scrolled into view in both, nothing round them moving, and a layer moved by Ctrl+[ from the last row that shows
+staying in view in both), the timeline (its sizes at 1920 and 2560: the names column
 176 and 200 px, the ruler 24, the phase strip 16, rows 24 and bars 16 px with 3 px corners; every bar's label whole in its
 lane, inside its bar when it fits, else beside it in the muted colour, the Rifle shot's Bullet and a short bar near the end
 of the span too, and after the splitters make the lanes narrower, then wider again; the phases' names inside when they fit,
@@ -959,7 +960,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     search**; "No layers yet." with **Add a layer**, which opens the add menu below it. With no effect, the Layers list
     still says "No effect.".
   - **The hover highlight** is `--bg-hover`, as on a row under the mouse; a selected row keeps its own look. A new selection
-    scrolls only the Layers list and the timeline's rows, as little as needed.
+    scrolls only the Layers list and the timeline's rows, as little as needed. A moved layer (Ctrl+], Ctrl+[, its row's
+    buttons or menu) does so too, so it never ends under the timeline's ruler or out of the list.
   - **Keys.** / puts the focus in the search without typing the /. Ctrl+D, Ctrl+] and Ctrl+[ go by the character typed, so
     they follow the keyboard's layout; Ctrl+D stops the browser's bookmark only when it duplicates something, and does
     nothing while you type in a field. All of them, and F2, wait while a menu, the colour picker or a dialog is open, or
