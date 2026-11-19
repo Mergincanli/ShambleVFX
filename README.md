@@ -147,7 +147,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (547): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (551): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -182,7 +182,9 @@ export whose palette.json has such a part, loading a profile keeping what the ef
 drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
 on, within budget, how many numbers over, compared with the budgets that count); the window's grid (the sidebars within
 their limits, both giving way so the centre keeps 640 px, the effects list's and the timeline's limits, the sizes
-remembered); the runtime's loader and its version guard; the screen-area count and the cost measurement.
+remembered); numbers typed with a decimal point or a comma, a drag in whole steps and a value kept within its limits
+(the Distance popover's number box); the runtime's loader and its version guard; the screen-area count and the cost
+measurement.
 
 ```bash
 npm run check:browser
