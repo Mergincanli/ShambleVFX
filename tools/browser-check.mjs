@@ -1071,6 +1071,32 @@ if (webgpu) {
   }));
   ok('the Faction chip\'s menu shows each faction\'s marking, its name and its team colour\'s dot; the chip shows the chosen faction\'s marking, filled with its team colour, and its name',
     insignia.rows.join() === 'icon icon-faction-soviets|Soviets|dot,icon icon-faction-allies|Allies|dot,icon icon-faction-empire|Empire|dot' && insignia.chip === insignia.want, JSON.stringify(insignia));
+  // Each team colour's dot keeps an edge that stands out from the menu (3:1 or more) in Day and in Night, so a dark team
+  // colour (Empire's purple on Night's menu) still shows. The theme is put back after.
+  const dots = await p.evaluate(() => {
+    const rgba = (s) => { const v = s.match(/[\d.]+/g).map(Number); return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }; };
+    const over = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
+    const lum = (c) => [c.r, c.g, c.b].map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+    const ratio = (x, y) => { const [m, n] = [lum(x), lum(y)].sort((u, w) => w - u); return (m + 0.05) / (n + 0.05); };
+    const was = document.documentElement.dataset.theme;
+    const out = {};
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.dataset.theme = theme;
+      const menu = document.getElementById('faction-menu');
+      const bg = rgba(getComputedStyle(menu).backgroundColor);
+      out[theme] = [...menu.querySelectorAll('.team-dot')].map((d) => {
+        const cs = getComputedStyle(d), shadow = cs.boxShadow, m = shadow.match(/rgba?\([^)]*\)/);
+        if (!m) return { shadow, ratio: 0 };
+        // An inset edge is drawn over the dot's own colour; an edge outside it, over the menu.
+        const ring = over(rgba(m[0]), shadow.includes('inset') ? rgba(cs.backgroundColor) : bg);
+        return { fill: cs.backgroundColor, shadow, ratio: +ratio(ring, bg).toFixed(2) };
+      });
+    }
+    document.documentElement.dataset.theme = was;
+    return out;
+  });
+  ok('each team colour\'s dot in the Faction menu has an edge that stands out from the menu, 3:1 or more, in Day and in Night',
+    ['light', 'dark'].every((t) => dots[t].length === 3 && dots[t].every((d) => d.ratio >= 3)), JSON.stringify(dots));
 
   // -- the preview is drawn once per screen frame: one frame loop, even after the check drew frames itself (showAt). Each
   // extra loop would draw the whole scene again in every frame (in this software-drawing browser, that is what made a

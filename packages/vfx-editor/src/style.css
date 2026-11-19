@@ -492,9 +492,10 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 /* Distance: drag the chip sideways to change it. */
 .distance-chip { cursor: ew-resize; }
 /* A faction's marking filled with its team colour (a colour from the palette, the one exception to the tokens), its
-   outline in the text colour; and the team colour's dot in the faction menu. */
+   outline in the text colour; and the team colour's dot in the faction menu, with a 1 px edge round it in --text-faint, as
+   an unchecked box has: 3:1 or more on the menu in both themes, so a dark team colour (Empire's purple in Night) shows. */
 .team-filled .insignia { fill: var(--team); stroke: var(--text); }
-.team-dot { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--team); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+.team-dot { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--team); box-shadow: 0 0 0 1px var(--text-faint); }
 /* The preview fills its area edge to edge. No yellow over it (the browser check counts the flash's orange in it). */
 .viewport-wrap { position: relative; min-height: 0; background: var(--ground); overflow: hidden; }
 .viewport { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }

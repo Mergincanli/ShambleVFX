@@ -777,7 +777,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     Each Tier row says "draws only the layers in this tier", as the brief does (a projectile has no tiers; the layers riding
     it follow theirs). The Scene menu's footer, "Each effect remembers its scene.", holds while the editor runs, and in
     project.json once the project is saved.
-  - The Faction chip's marking is filled with the team colour of the built-in palette, as the faction buttons were.
+  - The Faction chip's marking is filled with the team colour of the built-in palette, as the faction buttons were. In its
+    menu, each team colour's dot has a 1 px edge round it in `--text-faint`, as an unchecked box has: the edge stands out
+    from the menu by 3:1 or more in both themes, so Empire's dark purple shows in Night. The dots in Day have it too.
   - Fire's tooltip is the brief's line, "Fire from the stand-in to the target, as the game does", with F; the help text under
     it adds "Each press is a new play, and several can overlap."
   - The rows of the chips' menus have help texts of their own (Whole screen, Game size, Close-up; the close-up on the muzzle
