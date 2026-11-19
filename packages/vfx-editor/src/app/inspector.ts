@@ -80,10 +80,14 @@ export function buildInspector(app: AppApi): InspectorView {
     if (layer) el.dataset.helpLayer = layer.type; else delete el.dataset.helpLayer;
     if (layer?.type === 'shape') el.dataset.helpKind = layer.shape.kind; else delete el.dataset.helpKind;
     const hadFocus = el.contains(document.activeElement);
-    el.replaceChildren();
     // Another effect or layer starts at the top of the panel (a part switched on rebuilds too, and keeps its place).
     const selection = `${fx?.id}|${layer?.id}`;
     const another = selection !== shownSelection;
+    // The same selection built again (a tier switched on, a part added): the control that had the focus is found again by
+    // its name for screen readers (the first, second… of that name), so the keyboard carries on from it.
+    const focusName = hadFocus && !another ? document.activeElement?.getAttribute('aria-label') ?? null : null;
+    const focusAt = focusName ? [...el.querySelectorAll('[aria-label]')].filter((x) => x.getAttribute('aria-label') === focusName).indexOf(document.activeElement!) : -1;
+    el.replaceChildren();
     if (another) { shownSelection = selection; if (el.parentElement) el.parentElement.scrollTop = 0; }
     look.setShown(!!(fx && layer));
     if (!fx) { el.append(h('p', { class: 'empty', text: 'Open or make an effect.' })); return; }
@@ -101,6 +105,7 @@ export function buildInspector(app: AppApi): InspectorView {
     // The control that had the focus (the way back, a rider) went with the old view: the new view's title takes it, so the
     // keyboard carries on from the top of what is now selected.
     if (another && hadFocus) (el.querySelector('.insp-title') as HTMLElement | null)?.focus({ preventScroll: true });
+    else if (focusName && focusAt >= 0) ([...el.querySelectorAll<HTMLElement>('[aria-label]')].filter((x) => x.getAttribute('aria-label') === focusName)[focusAt])?.focus({ preventScroll: true });
   };
   const refresh = () => {
     const fx = app.effect();
@@ -467,7 +472,11 @@ function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
 
 const TIER_TEXT: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 
-/** In which quality tiers the layer shows. The last tier cannot be unticked: the layer would never draw. */
+/**
+ * In which quality tiers the layer shows: three toggle chips, each with its tier's icon and word (on: the field colour, the
+ * icon in --accent-ink). Each chip is a label round its real checkbox, which lies over the whole chip, see-through, so the
+ * keyboard and a click work as on any checkbox. The last tier cannot be switched off: the layer would never draw.
+ */
 function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
   const V = () => app.layer() as VisibleLayer;
   const boxes = TIER_NAMES.map((t) => {
@@ -479,7 +488,7 @@ function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
       app.editLayer(['tiers'], TIER_NAMES.filter((x) => now.has(x)), { label: 'Tiers' });
       app.commit();
     });
-    return { t, box, el: h('label', { class: 'check tier' }, box, h('span', { text: TIER_TEXT[t] })) };
+    return { t, box, el: h('label', { class: 'check tier tier-chip', attrs: { 'data-tier': t } }, box, icon(`tier-${t}`), h('span', { text: TIER_TEXT[t] })) };
   });
   const draw = () => {
     const on = V().tiers;
@@ -492,27 +501,38 @@ function tierFields(app: AppApi, parts: Refresher[]): HTMLElement {
   };
   draw();
   parts.push({ refresh: draw });
-  return h('div', { class: 'row tiers' }, h('div', { class: 'lab' }, h('span', { text: 'Shows in' }), h('span', { class: 'hint', text: 'Low drops extras but must stay readable' })),
-    h('div', { class: 'tier-boxes' }, ...boxes.map((b) => b.el)));
+  // The label on the left, the chips on the right: three chips with their words need more room than the control column has
+  // (about 190 px against 161 at 1920), so the row lets them start left of it, and in a panel too narrow for that they go
+  // under the label.
+  return h('div', { class: 'field prop tiers-row', attrs: { role: 'group', 'aria-label': 'Shows in' } }, h('span', { class: 'flab', text: 'Shows in' }),
+    h('div', { class: 'tier-boxes' }, ...boxes.map((b) => b.el)),
+    h('p', { class: 'hint', text: 'Low drops extras but must stay readable.' }));
 }
 
 // ---------------------------------------------------------------- the layer's details
 
+/** A layer's kind, in its Layer section's header. */
+const KIND: Record<Layer['type'], string> = { sprite: 'Sprite', projectile: 'Projectile', shape: 'Shape', burst: 'Burst', word: 'Word' };
+
 /**
- * Everything of the layer, in one card (the settings inventory of tools/ui-shots.mjs reads a layer from it): the Look (a
- * live picture of the layer); its kind, what draws it, its name and tiers; a projectile's riders; the type's own sections
- * with its colours; then Time. The Colour section comes before the long lists of settings, so it shows without scrolling:
- * right after the name and tiers of a shape, a burst or a word, after a projectile's riders, and after a sprite's Image and
- * Size and place (it holds the tint).
+ * Everything of the layer, in one section element (the settings inventory of tools/ui-shots.mjs reads a layer from it), as
+ * sections that fold: the Look (a live picture of the layer); Layer (what draws it, its name, its tiers; its kind in the
+ * header); a projectile's riders; the type's own sections with its colours; then Time. The Colour section comes before the
+ * long lists of settings, so it shows without scrolling: right after Layer for a shape, a burst or a word, after a
+ * projectile's riders, and after a sprite's Image and Size and place (it holds the tint).
  */
 function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: ColourListView, look: LookView): HTMLElement {
   const L = () => app.layer() as Layer;
-  const box = h('section', { class: 'card layer' });
-  const name = textField({ label: 'Layer name', value: layer.name, onChange: (v) => app.editLayer(['name'], v.trim() || 'Layer', { label: 'Rename layer' }) });
+  const box = h('section', { class: 'card layer sections' });
+  // An empty name keeps "Layer"; the box then shows the name as it is, also while it has the focus.
+  const name = textField({ label: 'Name', value: layer.name, onChange: (v) => {
+    app.editLayer(['name'], v.trim() || 'Layer', { label: 'Rename layer' });
+    name.input.value = L().name;
+  } });
   parts.push({ refresh: () => name.set(L().name) });
-  const title = { sprite: 'Sprite layer', projectile: 'Projectile layer', shape: 'Shape layer', burst: 'Burst layer', word: 'Word layer' }[layer.type];
-  box.append(lookFold(look), h('h2', { text: title }), drawsLine(app, parts), name.el);
-  if (layer.type !== 'projectile') box.append(tierFields(app, parts));
+  const rows: HTMLElement[] = [drawsLine(app, parts), name.el];
+  if (layer.type !== 'projectile') rows.push(tierFields(app, parts));
+  box.append(lookFold(look), fold('Layer', rows, true, [], { meta: h('span', { class: 'fold-meta', text: KIND[layer.type] }) }));
   if (layer.type === 'sprite') box.append(...spriteFields(app, parts, colours));
   else if (layer.type === 'projectile') box.append(ridersFold(app, parts), colourFold(colours), ...projectileFields(app, parts));
   else {
@@ -528,15 +548,21 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: Co
 
 function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement[] {
   const S = () => app.layer() as SpriteLayer;
-  // Image, with the pivot shown as a dot: click the picture to move the pivot.
+  // Image, with the pivot shown as a dot: click the picture to move the pivot. The picture is as wide as the panel allows
+  // and at most 160 px tall (--h-thumb), on the checkerboard, in a well as wide as the panel; --ar is its width over its
+  // height, from the image once it has loaded.
   const image = selectField({ label: 'Image', options: app.imageNames().map((n) => ({ value: n, label: n })), value: S().image,
     onChange: (v) => { app.editLayer(['image'], v, { label: 'Image' }); app.commit(); } });
-  const thumb = h('div', { class: 'thumb', title: 'Click to put the pivot here' });
+  const pic = h('div', { class: 'thumb-pic', title: 'Click to put the pivot here' });
+  const thumb = h('div', { class: 'thumb' }, pic);
   const img = h('img', { attrs: { alt: '' } });
   const grid = h('div', { class: 'thumbgrid' });
   const dot = h('div', { class: 'pivot' });
-  thumb.append(img, grid, dot);
-  thumb.addEventListener('click', (e) => {
+  pic.append(img, grid, dot);
+  const fit = () => { if (img.naturalWidth && img.naturalHeight) pic.style.setProperty('--ar', String(img.naturalWidth / img.naturalHeight)); };
+  img.addEventListener('load', fit);
+  img.addEventListener('error', () => { thumb.hidden = true; });
+  pic.addEventListener('click', (e) => {
     const r = img.getBoundingClientRect();
     const fb = S().flipbook;
     const fw = r.width / (fb?.cols ?? 1), fh = r.height / (fb?.rows ?? 1);
@@ -551,7 +577,7 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
     onInput: (v) => app.editLayer(['pivot', 0], clamp01(v), { mergeKey: 'pivot0', label: 'Pivot' }), onCommit: commit });
   const pivotV = numberBox({ label: 'Pivot y', prefix: 'Y', value: S().pivot[1], step: 0.01, min: 0, max: 1,
     onInput: (v) => app.editLayer(['pivot', 1], clamp01(v), { mergeKey: 'pivot1', label: 'Pivot' }), onCommit: commit });
-  const flip = checkField({ label: 'Flipbook (a grid of frames)', value: !!S().flipbook, onChange: (v) => { app.editLayer(['flipbook'], v ? { cols: 2, rows: 2, frames: 4, loop: false } : undefined, { label: 'Flipbook' }); app.commit(); } });
+  const flip = checkField({ label: 'Flipbook', value: !!S().flipbook, onChange: (v) => { app.editLayer(['flipbook'], v ? { cols: 2, rows: 2, frames: 4, loop: false } : undefined, { label: 'Flipbook' }); app.commit(); } });
   const cols = numberBox({ label: 'Columns', prefix: 'Cols', value: S().flipbook?.cols ?? 1, step: 1, min: 1, max: 64, onInput: (v) => fb('cols', v), onCommit: commit });
   const rows = numberBox({ label: 'Rows', prefix: 'Rows', value: S().flipbook?.rows ?? 1, step: 1, min: 1, max: 64, onInput: (v) => fb('rows', v), onCommit: commit });
   const frames = numberBox({ label: 'Frames', prefix: 'Frames', value: S().flipbook?.frames ?? 1, step: 1, min: 1, onInput: (v) => fb('frames', v), onCommit: commit });
@@ -568,7 +594,9 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
   const fbBox = numberGroup({ label: 'Grid', boxes: [cols, rows, frames] });
   const drawThumb = () => {
     const s = S();
-    img.src = app.imageUrl(s.image) ?? '';
+    const url = app.imageUrl(s.image) ?? '';
+    if (img.getAttribute('src') !== url) { img.src = url; thumb.hidden = !url; }
+    fit();
     grid.style.backgroundSize = s.flipbook ? `${100 / s.flipbook.cols}% ${100 / s.flipbook.rows}%` : '100% 100%';
     grid.classList.toggle('on', !!s.flipbook);
     const cw = 100 / (s.flipbook?.cols ?? 1), ch = 100 / (s.flipbook?.rows ?? 1);
@@ -623,7 +651,7 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
 
   return [
     fold('Image', [image.el, thumb, numberGroup({ label: 'Pivot', boxes: [pivotU, pivotV] }), flip.el, fbBox, loop.el,
-      h('div', { class: 'row' }, h('button', { class: 'plain', attrs: { type: 'button' }, text: 'Add PNG images to the project…', on: { click: () => app.importImages() } }))], true),
+      h('div', { class: 'fold-foot' }, h('button', { class: 'plain add-images', attrs: { type: 'button' }, on: { click: () => app.importImages() } }, icon('import'), h('span', { text: 'Add PNG images…' })))], true),
     fold('Size and place', [w.el, hh.el, facing.el, anchor.el, offset.el], true),
     // One Colour section: how the image is tinted, then the colours that gives the sprite.
     colourFold(colours, [tintMode.el, role.el]),
@@ -686,7 +714,8 @@ function projectileFields(app: AppApi, parts: Refresher[]): HTMLElement[] {
   } });
   return [
     fold('Path', [...endSel('from', 'From'), ...endSel('to', 'To')], true),
-    fold('Motion', [flightMode.el, speed.el, flightMs.el, flightPhase.el, flight, arc.el, stretch.el, spin.el], true),
+    // Its readout ("Now: 9 ms in the air over 7.2 m.") at the end of the section, as every readout.
+    fold('Motion', [flightMode.el, speed.el, flightMs.el, flightPhase.el, arc.el, stretch.el, spin.el, flight], true),
   ];
 }
 

@@ -56,6 +56,7 @@
   --w-cost-names: 100px;  /* the cost table's row names ("CPU ms a frame" on one line at 1920) */
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
+  --h-thumb: 160px;  /* a sprite's image under Image: as wide as the panel allows, at most this tall */
   /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
      row (its 1 px line included), a bar in it; a bar's label inside it, from its left edge, or beside it, from its edge. */
   --tl-name: 176px;
@@ -469,17 +470,17 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 button.banner-path { cursor: pointer; text-decoration: underline transparent; text-underline-offset: 2px; }
 button.banner-path:hover { text-decoration-color: currentColor; }
 .banner-msg { overflow-wrap: anywhere; }
-/* The Look, first in a layer's settings: right under the header, so its line is the header's; the layer's kind after it
-   starts a section of its own, with the usual line above. The picture is the preview's ground (a game colour) until the
-   runtime draws on it: no edge, since the ground stands out from the panel in both themes. */
-.card.layer > .look-fold { border-top: 0; }
-.card.layer > .look-fold + h2 { margin: 0 calc(-1 * var(--pad-panel)); padding: 0 var(--pad-panel); border-top: 1px solid var(--line); }
+/* The Look, first in a layer's settings (right under the header, it has no line of its own: see .sections). The picture is
+   the preview's ground (a game colour) until the runtime draws on it: no edge, since the ground stands out from the panel
+   in both themes. */
 .look-box { position: relative; height: var(--look-h); border-radius: var(--r-control); background: var(--ground); overflow: hidden; }
 .look-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .look-note { margin: 4px 0 0; }
 .look-note:empty { display: none; }
-/* What draws a layer, under its kind. Always shown (not a hint); a file name is Plex Mono. */
-.draws { margin: -6px 0 4px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+/* What draws a layer, first in its Layer section. Not a hint: Show hints off keeps it; a file name is Plex Mono. */
+.draws { margin: 0 0 4px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+/* Muted words at the right end of a section's header: a layer's kind. */
+.fold-meta { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
 .draws code, .rider-what code { color: var(--text); overflow-wrap: anywhere; }
 /* A projectile's riders: rows edge to edge, each a button that selects the layer, with what draws it under its name. */
 .riders { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--pad-panel)); }
@@ -830,10 +831,25 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .check.prop { display: grid; gap: 0 8px; margin: var(--prop-gap) 0; }
 .check.prop > .check-text { grid-column: 1; grid-row: 1; }
 .check.prop > input { grid-column: 2; grid-row: 1; justify-self: start; }
-.row.tiers { margin: 8px 0 4px; }
-.tier-boxes { display: flex; gap: 16px; }
-.tier-boxes .check { margin: 0; }
-.tier-boxes input:disabled { cursor: not-allowed; }
+/* Shows in: its label, then three toggle chips on the right (they need more room than the control column has, so they start
+   left of it; in a panel too narrow even for that they go under the label). A chip: its tier's icon and word, 24 px; on,
+   the field colour with the icon in --accent-ink (a toggle that is on, 4.6); off, only an edge. Its checkbox lies over the
+   whole chip, see-through: a click and the keyboard work on it; its focus ring is the chip's. */
+.prop.tiers-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: var(--prop-gap); }
+.prop.tiers-row > .flab { flex: none; }
+.prop.tiers-row > .hint { flex-basis: 100%; }
+.tier-boxes { display: flex; gap: 4px; margin-left: auto; }
+.tier-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 4px; height: var(--h-control); min-height: 0; margin: 0; padding: 0 8px 0 6px;
+  border-radius: var(--r-control); background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--text-muted); white-space: nowrap;
+}
+.tier-chip:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tier-chip:has(input:checked) { background: var(--bg-field); box-shadow: none; color: var(--text); }
+.tier-chip:has(input:checked):hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tier-chip:has(input:checked) .icon { color: var(--accent-ink); }
+.tier-chip input[type="checkbox"] { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: var(--r-control); background: transparent; opacity: 0; cursor: pointer; }
+.tier-chip:has(input:focus-visible) { box-shadow: 0 0 0 1px var(--focus), 0 0 0 3px var(--focus-ring); }
+.tier-chip input:disabled { cursor: not-allowed; }
 /* The colour list: the colours of what is selected; with Show all, every colour, the selection's in bold (Plex Mono 600)
    and the others muted. Role names in mono (they are typed into files). The main colour is a stored choice, not a
    selection, so it is not yellow: the field colour, a 1 px edge and weight 500 (README, Assumptions). The edge gives way to
@@ -858,14 +874,20 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .colour-note { margin: 0 0 4px; }
 .chip { width: 14px; height: 14px; flex: none; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .rname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.thumb { position: relative; display: inline-block; max-width: 100%; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--r-control); cursor: crosshair;
+/* A sprite's image under Image: a well as wide as the panel (the field colour), the picture in its middle on the
+   checkerboard, as wide as the panel allows and at most --h-thumb tall (--ar: its width over its height, set from the
+   image), with the frame grid and the pivot over it. */
+.thumb { display: flex; justify-content: center; margin: 4px 0 8px; border-radius: var(--r-control); background: var(--bg-field); }
+.thumb-pic { position: relative; flex: none; width: min(100%, calc(var(--h-thumb) * var(--ar, 1))); aspect-ratio: var(--ar, 1); border-radius: var(--r-segment); cursor: crosshair;
   background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 14px 14px; }
-.thumb img { display: block; max-width: 100%; max-height: 170px; border-radius: var(--r-segment); }
+.thumb-pic img { display: block; width: 100%; height: 100%; border-radius: var(--r-segment); }
+.add-images .icon { color: var(--text-muted); }
 .thumbgrid { position: absolute; inset: 0; pointer-events: none; }
 .thumbgrid.on { background-image: linear-gradient(to right, var(--thumb-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--thumb-grid) 1px, transparent 1px); }
 /* The pivot: a neutral handle that shows on any image. */
 .pivot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--handle-edge); border-radius: 50%; background: var(--handle-fill); pointer-events: none; }
-.readout { margin: 4px 0 8px; font-size: var(--fs-small); color: var(--text-muted); }
+/* A readout ("Now: 9 ms in the air over 7.2 m.", "Shows from 0 to 167 ms…"): 11 px, muted, at the end of its section. */
+.readout { margin: 4px 0 8px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 .problems { margin: 0 0 8px; padding-left: 16px; }
 .problems code { padding: 0 4px; border-radius: var(--r-control); background: var(--bg-field); font-size: var(--fs-small); }
 .events input.text { font-family: var(--mono); }

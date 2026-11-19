@@ -8,7 +8,7 @@ import type { SoundWord } from '@shamble/vfx-format';
 import type { AppApi } from './api';
 import { wordsFromText } from '../doc/edits';
 import type { Path } from '../doc/edits';
-import { checkField, fold, h, numberBox, numberField, numberGroup, selectField, textField } from './dom';
+import { checkField, fold, h, iconButton, numberBox, numberField, numberGroup, selectField, textField } from './dom';
 
 interface Refresher { refresh(): void }
 
@@ -284,7 +284,8 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
     return field(key, p, parent);
   };
 
-  // A glow's gradient: a choice of the palette's gradients (made in the colour picker's Gradients section).
+  // A glow's gradient: a choice of the palette's gradients, and an edit button that opens the colour picker at its gradients
+  // (on the glow's colour), with the gradient chosen open in the gradient editor.
   const gradientField = (): HTMLElement => {
     const current = () => (get(['gradient']) as string | undefined) ?? '';
     const opts = () => {
@@ -293,10 +294,13 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       if (current() && !names.includes(current())) list.push({ value: current(), label: `${current()} (not in the palette)` });
       return list;
     };
-    const c = selectField({ label: 'Gradient, middle to rim', options: opts(), value: current(), onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
+    const role = () => { const r = (get(['role']) as string | undefined) ?? MAIN_ROLE; return r === MAIN_ROLE ? app.effect()?.controls.colour ?? r : r; };
+    const editBtn: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Edit the gradients', className: 'mini edit-gradient', onClick: () => app.openGradients(role(), editBtn, current() || undefined) });
+    editBtn.setAttribute('aria-haspopup', 'dialog');
+    const c = selectField({ label: 'Gradient, middle to rim', options: opts(), value: current(), extra: editBtn, onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
     parts.push({ refresh: () => { c.setOptions(opts()); c.set(current()); } });
     return h('div', { class: 'gradient-field' }, c.el,
-      h('p', { class: 'hint', text: 'Make or change gradients in the colour picker, under Gradients.' }));
+      h('p', { class: 'hint', text: 'The edit button opens the colour picker at its gradients, to make or change one.' }));
   };
 
   const obj = get([]) as Record<string, unknown> | undefined;

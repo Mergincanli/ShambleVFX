@@ -184,7 +184,16 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Shape layer': 'A comic shape drawn in code, no image: its kind decides the look, and its settings shape it.',
   'Burst layer': 'Small pieces thrown out from one point, at once or again and again: sparks, chips, dust. Each play throws them differently unless Changes every play is off.',
   'Word layer': 'A comic sound word in our own block letters, such as BOOM. It faces the screen, shows one of its words each play and shrinks with your distance.',
-  'Layer name': 'The layer\'s name in the Layers list and on the timeline. Only for you: the game never shows it.',
+  'Layer': {
+    text: 'The layer itself: what draws it, its name and the quality tiers it shows in. Its kind is on the right of the title.',
+    when: [
+      { title: true, layer: 'sprite', text: 'A sprite layer: an image from the project\'s images folder, placed on the origin, the target or a projectile, sized in metres and shown for a time. Here: what draws it, its name and the tiers it shows in.' },
+      { title: true, layer: 'projectile', text: 'A projectile layer: an invisible path from one point to another. Other layers ride it, and layers can start when it lands. Here: its name.' },
+      { title: true, layer: 'shape', text: 'A shape layer: a comic shape drawn in code, no image; its kind decides the look. Here: what draws it, its name and the tiers it shows in.' },
+      { title: true, layer: 'burst', text: 'A burst layer: small pieces thrown out from one point, at once or again and again. Here: what draws it, its name and the tiers it shows in.' },
+      { title: true, layer: 'word', text: 'A word layer: a comic sound word in our own block letters, such as BOOM. Here: what draws it, its name and the tiers it shows in.' },
+    ],
+  },
   'Shows in': 'The quality tiers this layer draws in: Low, Medium, High. Low drops extras but must stay readable; at least one tier stays on.',
   'Shows in Low': 'Draw this layer in the Low tier, the cheapest. Low drops extras but must stay readable.',
   'Shows in Medium': 'Draw this layer in the Medium tier.',
@@ -335,7 +344,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   },
   'Pivot x': 'Which point of the image sits on its place, across: 0 is the left edge, 0.5 the middle, 1 the right. Or click the thumbnail.',
   'Pivot y': 'Which point of the image sits on its place, down: 0 is the top edge, 0.5 the middle, 1 the bottom. Or click the thumbnail.',
-  'Flipbook (a grid of frames)': 'The image is a grid of frames, read left to right and top to bottom, one frame per step. Set its columns, rows and frames.',
+  'Flipbook': 'The image is a grid of frames, read left to right and top to bottom, one frame per step. Set its columns, rows and frames.',
   'Pivot': 'Which point of the image sits on its place: X across (0 is the left edge, 0.5 the middle, 1 the right), Y down (0 is the top edge, 1 the bottom). Or click the thumbnail.',
   'Grid': 'The flipbook\'s grid of frames: Cols across, Rows down, and how many Frames it plays (at most columns × rows).',
   'Columns': 'How many frames across the image\'s grid.',
@@ -683,7 +692,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Dark middle': 'A darker middle, as a share of the stain\'s size: 0.6 covers 60 %; 0 = none.',
   'Middle colour': 'The colour of the stain\'s darker middle, from the palette.',
   'Gone after (share of life)': 'The lines shorten and are gone after this share of the layer\'s life: 0.5 is halfway.',
-  'Gradient, middle to rim': 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make or change one in the colour picker: click a colour swatch, then Gradients.',
+  'Gradient, middle to rim': 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.',
   'Length (share of path)': 'How much of the path behind the projectile the streak covers, as a share of the whole path: 0.1 is a tenth.',
   'Hot head': 'The front part of the streak in another colour, like a shell\'s hot head. Set its colour and its share of the streak.',
   'Share': 'How much of the streak, from the front, is the hot head: 0.4 is 40 %.',
@@ -712,7 +721,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Boil every (steps)': 'The lumps change every this many steps, such as 2, so the bed boils.',
 
   // ------------------------------------------------------------ buttons in the right panel (not in the settings inventory)
-  'Add PNG images to the project…': 'Copy PNG files from your computer into the project\'s images folder, so layers can use them. An example cannot change: Save as first.',
+  'Add PNG images…': 'Copy PNG files from your computer into the project\'s images folder, so layers can use them. An example cannot change: Save as first.',
   'Add a tone': 'Add a tone inside the last one: the same colour at 60 % of its size.',
   'Remove': 'Remove this tone. A shape keeps at least one.',
 

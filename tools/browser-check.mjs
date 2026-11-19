@@ -584,7 +584,8 @@ if (webgpu) {
       link: head?.querySelector('.crumb')?.textContent ?? null, title: head?.querySelector('.insp-title')?.textContent ?? null,
       icon: !!head?.querySelector('svg, img'), headH: head ? Math.round(head.getBoundingClientRect().height) : null,
       cardTop: card ? Math.round(card.getBoundingClientRect().top - top) : null, effectSettings: !!ins.querySelector('.bigcontrols'),
-      draws: card?.querySelector(':scope > .draws')?.textContent ?? null, drawsFile: card?.querySelector(':scope > .draws code')?.textContent ?? null,
+      // What draws the layer: since UI phase 6 the first line of its Layer section (it was right under the layer's kind).
+      draws: card?.querySelector('.draws')?.textContent ?? null, drawsFile: card?.querySelector('.draws code')?.textContent ?? null,
       // Cost and Checks in the view, in order, and whether Cost is the last section.
       costAndChecks: [...ins.children].map((c) => c.classList.contains('costcard') ? 'cost' : c.classList.contains('checks') ? 'checks' : null).filter(Boolean).join(),
       costLast: !!ins.lastElementChild?.classList.contains('costcard'),
@@ -602,7 +603,8 @@ if (webgpu) {
     back.layer === null && back.effectSettings && back.first === 'insp-head effect-head' && back.second.includes('bigcontrols') && back.link === null && back.title === 'Rifle shot (demo)'
       && back.kind === 'Effect' && !!back.dot && back.dot.dot === back.dot.main && back.headH === 40 && back.effectTop === back.headH && back.costAndChecks === 'cost' && back.costLast, JSON.stringify(back));
   await layerRow('Hit spark').click();
-  await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Layer name$/ }) }).locator('input').focus();
+  // The layer's name: "Name" in its Layer section since UI phase 6 (it was "Layer name").
+  await p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Name$/ }) }).locator('input').focus();
   await p.keyboard.press('Escape');
   const whileTyping = await panel();
   // A checkbox just clicked keeps the focus; that is not typing, so Esc leaves the layer from there (Show all, on and off).
@@ -1232,6 +1234,158 @@ if (webgpu) {
       cutTips.role?.[0] === 'main (the effect\'s colour)' && cutTips.role?.[1] === wantRole && cutTips.sits === null, JSON.stringify({ cutTips, wantRole }));
     ok('the effect\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await ep.close();
+  }
+
+  // -- a layer's settings (docs/ui-redesign.md 6.6, UI phase 6): the Look, then Layer (what draws it, its name, Shows in as
+  // three toggle chips with the tier icons, their real checkboxes see-through over them), then the type's own sections. A
+  // sprite's Image section: its image select, the picture as wide as the panel allows and at most 160 px tall on the
+  // checkerboard with its pivot (a click moves it), Pivot, Flipbook, Grid, Loop the frames, and "Add PNG images…". Readouts
+  // end their sections. A glow's gradient has an edit button. And the done-when of phase 6 at 1920 x 1080 (fresh storage,
+  // Show hints on): a sprite's Layer, Image and Size and place show without scrolling, the Look first, and the effect's
+  // Effect, Scale, Phases and Colour. On a page of its own.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const lp = g.page;
+    const undoNow = () => lp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null }; });
+    const cssColour = (value, prop = 'color') => lp.evaluate(({ value, prop }) => { const s = document.createElement('span'); s.style[prop] = value; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; }, { value, prop });
+    const select = (fx, layer) => lp.evaluate(({ fx, layer }) => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect(fx); a.selectLayer(layer); }, { fx, layer });
+    /** The sprite's picture, once its image has loaded (before that it is a 160 px square). */
+    const pictureLoaded = () => lp.waitForFunction(() => { const i = document.querySelector('.inspector .thumb-pic img'); return !!i && i.complete && i.naturalWidth > 0 && !!document.querySelector('.inspector .thumb-pic').style.getPropertyValue('--ar'); }, null, { timeout: 10000 }).catch(() => {});
+
+    // The done-when, first, with fresh storage: everything open as it is at first, Show hints on.
+    await select('rifle_shot', 'flash');
+    await pictureLoaded();
+    const fits = await lp.evaluate(async () => {
+      const a = window.__vfx.app, right = document.querySelector('.right'), panel = right.getBoundingClientRect();
+      // The colour list moves to its new place in a short animation: measure where things end up.
+      const settled = () => Promise.all(document.getAnimations().filter((x) => x.effect?.target?.closest?.('.swatches')).map((x) => x.finished.catch(() => {})));
+      const bottomOf = (title) => { const d = [...document.querySelectorAll('.inspector details')].find((x) => x.querySelector(':scope > summary > .fold-title')?.textContent === title); return d ? Math.round(d.getBoundingClientRect().bottom) : null; };
+      const firstFold = document.querySelector('.inspector section.card.layer > details')?.querySelector(':scope > summary > .fold-title')?.textContent ?? null;
+      const out = { hints: document.documentElement.dataset.hints, panelBottom: Math.round(panel.bottom), scroll: right.scrollTop, first: firstFold,
+        sprite: { Look: bottomOf('Look'), Layer: bottomOf('Layer'), Image: bottomOf('Image'), 'Size and place': bottomOf('Size and place') } };
+      a.selectLayer(null);
+      await settled();
+      out.effect = { Effect: bottomOf('Effect'), Scale: bottomOf('Scale'), Phases: bottomOf('Phases'), Colour: bottomOf('Colour') };
+      return out;
+    });
+    const inside = (o) => Object.values(o).every((b) => b !== null && b <= fits.panelBottom);
+    ok('done when: at 1920 x 1080 (fresh storage, Show hints on) a sprite\'s Layer, Image and Size and place sections show without scrolling, the Look first (the demo\'s Muzzle flash, a flipbook), and the effect\'s Effect, Scale, Phases and Colour',
+      fits.hints === 'on' && fits.scroll === 0 && fits.first === 'Look' && inside(fits.sprite) && inside(fits.effect), JSON.stringify(fits));
+
+    // Layer: what draws it, its name and Shows in, its kind in its header; Shows in as three toggle chips.
+    await select('board_molotov', 'flames');
+    const chipsNow = () => lp.evaluate(() => {
+      const fold = [...document.querySelectorAll('.inspector details')].find((x) => x.querySelector(':scope > summary > .fold-title')?.textContent === 'Layer');
+      const row = fold.querySelector('.tiers-row'), label = row.querySelector(':scope > .flab');
+      return { kind: fold.querySelector(':scope > summary > .fold-meta')?.textContent ?? null, rows: [...fold.querySelectorAll(':scope > .foldbody > *')].map((e) => e.matches('.draws') ? 'draws' : e.querySelector(':scope > .flab')?.textContent ?? e.className),
+        chips: [...row.querySelectorAll('.tier-boxes > label.check')].map((c) => {
+          const box = c.querySelector('input'), r = c.getBoundingClientRect(), b = box.getBoundingClientRect();
+          return { word: c.querySelector('span').textContent, icon: c.querySelector('svg')?.getAttribute('class'), on: box.checked, off: box.disabled, name: box.getAttribute('aria-label'),
+            over: Math.abs(r.left - b.left) < 0.5 && Math.abs(r.width - b.width) < 0.5 && Math.abs(r.height - b.height) < 0.5, clear: getComputedStyle(box).opacity === '0',
+            bg: getComputedStyle(c).backgroundColor, iconColour: getComputedStyle(c.querySelector('svg')).color, h: Math.round(r.height), top: Math.round(r.top), tip: window.__vfx.app.tipForChecks(c)?.lines[0] ?? null };
+        }), labelTop: Math.round(label.getBoundingClientRect().top), tiers: window.__vfx.app.layer().tiers.join(',') };
+    });
+    const field = await cssColour('var(--bg-field)', 'backgroundColor'), accent = await cssColour('var(--accent-ink)');
+    const ch0 = await chipsNow();
+    // The keyboard: Tab from the name onto the first chip, Space switches Low on (one undo step), Space again off.
+    await lp.locator('.inspector .tiers-row').evaluate((row) => row.closest('.foldbody').querySelector('label.field input').focus());
+    const u0 = await undoNow();
+    await lp.keyboard.press('Tab');
+    const focused = await lp.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+    await lp.keyboard.press('Space');
+    const ch1 = await chipsNow();
+    const u1 = await undoNow();
+    await lp.keyboard.press('Space');
+    const ch2 = await chipsNow();
+    // The last tier cannot be switched off.
+    await select('board_molotov', 'flames_low');
+    const chLast = await chipsNow();
+    ok('Layer: what draws it, Name and Shows in, the layer\'s kind on the right of its header; Shows in is three chips with the tier icons and words, a chip that is on in the field colour with its icon in --accent-ink, one that is off without',
+      ch0.kind === 'Shape' && ch0.rows.join() === 'draws,Name,Shows in' && ch0.chips.map((c) => `${c.word}|${c.icon}|${c.name}`).join() === 'Low|icon icon-tier-low|Shows in Low,Medium|icon icon-tier-medium|Shows in Medium,High|icon icon-tier-high|Shows in High'
+        && ch0.chips.every((c) => c.h === 24 && Math.abs(c.top - ch0.labelTop) <= 6) && !ch0.chips[0].on && ch0.chips[0].bg !== field && ch0.chips[1].on && ch0.chips[1].bg === field && ch0.chips[1].iconColour === accent,
+      JSON.stringify(ch0));
+    ok('each chip\'s real checkbox lies over the whole chip, see-through: Tab reaches it, Space switches the tier on and off (one undo step each), and the last tier cannot be switched off (its tooltip says why)',
+      ch0.chips.every((c) => c.over && c.clear) && focused === 'Shows in Low' && ch1.tiers === 'low,medium,high' && ch1.chips[0].on && u1.n === u0.n + 1 && u1.label === 'Tiers' && ch2.tiers === 'medium,high'
+        && chLast.tiers === 'low' && chLast.chips[0].on && chLast.chips[0].off && chLast.chips[0].tip === 'A layer must show in at least one tier',
+      JSON.stringify({ focused, ch1: ch1.tiers, u0, u1, ch2: ch2.tiers, last: chLast.chips[0] }));
+
+    // The Image section of a sprite: the order of its rows, the picture's size, a click on it moving the pivot.
+    await select('rifle_shot', 'flash');
+    await pictureLoaded();
+    const imageNow = () => lp.evaluate(() => {
+      const fold = [...document.querySelectorAll('.inspector details')].find((x) => x.querySelector(':scope > summary > .fold-title')?.textContent === 'Image');
+      const body = fold.querySelector(':scope > .foldbody'), well = body.querySelector('.thumb'), pic = well.querySelector('.thumb-pic'), dot = pic.querySelector('.pivot');
+      const w = well.getBoundingClientRect(), p = pic.getBoundingClientRect(), d = dot.getBoundingClientRect(), row = body.getBoundingClientRect();
+      const add = body.querySelector('button.add-images');
+      return { rows: [...body.children].filter((e) => !e.hidden).map((e) => e.matches('.thumb') ? 'picture' : e.querySelector(':scope > .flab, :scope > .check-text')?.textContent ?? e.querySelector('button')?.textContent ?? e.className),
+        well: { w: Math.round(w.width), full: Math.abs(w.width - row.width) < 1 }, pic: { w: Math.round(p.width), h: Math.round(p.height), centred: Math.abs((p.left - w.left) - (w.right - p.right)) < 1, checker: getComputedStyle(pic).backgroundImage.includes('conic') },
+        dot: { x: (d.left + d.width / 2 - p.left) / p.width, y: (d.top + d.height / 2 - p.top) / p.height }, pivot: window.__vfx.app.layer().pivot,
+        add: add ? `${add.textContent}|${!!add.querySelector('svg.icon-import')}|${add.className}` : null };
+    });
+    const im0 = await imageNow();
+    const picBox = await lp.locator('.inspector .thumb-pic').boundingBox();
+    const u2 = await undoNow();
+    await lp.mouse.click(picBox.x + picBox.width * 0.1, picBox.y + picBox.height * 0.3);
+    const im1 = await imageNow();
+    const u3 = await undoNow();
+    await lp.keyboard.press('Control+z');
+    await select('rifle_shot', 'tracer');
+    await pictureLoaded();
+    const tracer = await imageNow();
+    ok('Image: the image, its picture, Pivot, Flipbook, Grid, Loop the frames and "Add PNG images…" (a ghost button with the import icon); the picture as wide as the panel allows and at most 160 px tall, on the checkerboard in a well as wide as the panel (a square image 160 x 160, the 512 x 48 tracer the panel\'s width)',
+      im0.rows.join() === 'Image,picture,Pivot,Flipbook,Grid,Loop the frames,Add PNG images…' && im0.add === 'Add PNG images…|true|plain add-images' && im0.well.full && im0.pic.w === 160 && im0.pic.h === 160 && im0.pic.centred && im0.pic.checker
+        && tracer.pic.w === tracer.well.w && Math.abs(tracer.pic.h - tracer.well.w * 48 / 512) <= 1,
+      JSON.stringify({ im0, tracer: { pic: tracer.pic, well: tracer.well } }));
+    // (The click lands on whole pixels and the picture may start on a half pixel: the pivot, kept to two decimals, may be
+    // 0.01 off what the click aimed at.)
+    ok('a click on the picture puts the pivot there (in its frame of the flipbook): one undo step, and the pivot\'s dot follows',
+      Math.abs(im1.pivot[0] - 0.2) <= 0.011 && Math.abs(im1.pivot[1] - 0.6) <= 0.011 && u3.n === u2.n + 1 && u3.label === 'Pivot'
+        && Math.abs(im1.dot.x - im1.pivot[0] / 2) < 0.01 && Math.abs(im1.dot.y - im1.pivot[1] / 2) < 0.01,
+      JSON.stringify({ before: im0.pivot, after: im1.pivot, dot: im1.dot, u3 }));
+
+    // Readouts end their sections, 11 px and muted.
+    const readouts = await lp.evaluate(() => {
+      const a = window.__vfx.app;
+      const muted = (() => { const s = document.createElement('span'); s.style.color = 'var(--text-muted)'; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; })();
+      const lastOf = (title) => { const d = [...document.querySelectorAll('.inspector details')].find((x) => x.querySelector(':scope > summary > .fold-title')?.textContent === title); const e = [...d.querySelector(':scope > .foldbody').children].filter((x) => !x.hidden).at(-1);
+        return { readout: e.matches('.readout'), text: e.textContent, size: getComputedStyle(e).fontSize, muted: getComputedStyle(e).color === muted }; };
+      a.pickEffect('rifle_shot'); a.selectLayer('bullet');
+      return { motion: lastOf('Motion'), time: lastOf('Time') };
+    });
+    ok('readouts end their sections, 11 px and muted: "Now: … in the air over … m." at the end of a projectile\'s Motion, "Shows from … ms" at the end of Time',
+      readouts.motion.readout && /^Now: \d+ ms in the air over [\d.]+ m\.$/.test(readouts.motion.text) && readouts.time.readout && /^Shows from \d+ to \d+ ms/.test(readouts.time.text)
+        && [readouts.motion, readouts.time].every((r) => r.size === '11px' && r.muted), JSON.stringify(readouts));
+
+    // A glow's gradient: its edit button opens the colour picker at its gradients; with a gradient chosen, that one is open
+    // in the gradient editor.
+    await select('board_beam', 'emitter_glow');
+    const gradButton = lp.locator('.inspector .gradient-field button.edit-gradient');
+    const gradInfo = await gradButton.evaluate((b) => `${b.getAttribute('aria-label')}|${!!b.querySelector('svg.icon-edit')}|${b.closest('label.field')?.querySelector('.flab')?.textContent}`);
+    await gradButton.click();
+    await lp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    await lp.waitForTimeout(200);
+    const gradientsNow = () => lp.evaluate(() => {
+      const c = document.querySelector('.cpick'), sec = c.querySelector('details.gr'), r = c.getBoundingClientRect(), s = sec.getBoundingClientRect();
+      return { role: c.querySelector('.cp-title').textContent, open: sec.open, inView: s.top >= r.top - 1 && s.top < r.bottom - 40, focus: document.activeElement === sec.querySelector(':scope > summary'),
+        editor: c.querySelector('.gr-editor').open ? c.querySelector('.gr-title').textContent : null };
+    });
+    const gp0 = await gradientsNow();
+    await lp.locator('.gr-tile', { hasText: 'Radial ramp' }).click();
+    await lp.locator('.gr-body button', { hasText: 'Use on the selected glow' }).click();
+    await lp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    await lp.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+    await lp.evaluate(() => { const d = document.querySelector('.cpick .gr-editor'); d.open = false; });
+    await gradButton.click();
+    await lp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    await lp.waitForTimeout(200);
+    const gp1 = await gradientsNow();
+    const gradLayer = await lp.evaluate(() => window.__vfx.app.layer().shape.gradient ?? null);
+    await lp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    ok('a glow\'s "Gradient, middle to rim" has an edit button that opens the colour picker at its gradients (on the glow\'s colour, the Gradients section open and in view); with a gradient chosen, that gradient is open in the editor (the picker\'s tabs come in UI phase 7)',
+      gradInfo === 'Edit the gradients|true|Gradient, middle to rim' && gp0.role === 'glow' && gp0.open && gp0.inView && gp0.focus && gradLayer === 'glow.ramp' && gp1.open && gp1.inView && gp1.editor === 'glow.ramp',
+      JSON.stringify({ gradInfo, gp0, gp1, gradLayer }));
+    ok('the layer\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await lp.close();
   }
 
   // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
@@ -2158,7 +2312,7 @@ if (webgpu) {
       longWords.events.includes('One event plays one effect; the names are proposals until the game settles them') && longWords.size.includes('sprites, shapes, pieces, words and offsets')
         && longWords.intensity.includes('never makes anything see-through') && longWords.duration.includes('A flight by speed') && longWords.cost.includes('fixed seed') && longWords.cost.includes('saved in project.json')
         && longWords.checks.includes('links between layers') && longWords.layers?.[0] === 'Top of the list draws on top.' && longWords.colour.includes('used by every layer whose colour is "main"')
-        && longWords.gradient.includes('click a colour swatch, then Gradients') && longWords.layerColour.includes('the marked one is the effect\'s main colour')
+        && longWords.gradient.includes('the edit button next to it opens the picker at its gradients') && longWords.layerColour.includes('the marked one is the effect\'s main colour')
         && longWords.newColour.includes('Effects name it') && longWords.gradients.includes('Blurred, mesh and image gradients are not in') && longWords.ramp.includes('(OKLCH)')
         && longWords.editor.includes('cannot be renamed or removed this round'), JSON.stringify(longWords));
     // One name for one thing: the Game events hint says what the game does with the names in the words of its tooltip and

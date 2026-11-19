@@ -92,7 +92,9 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    its full name. A colour setting shows a swatch of its colour, for the faction shown.
    They start with **Look**: a live picture of the layer alone, drawn by the game's code on the ground colour, framed on it
    and playing its own time in a loop at the speed the speed buttons set (a layer that rides a projectile flies along its
-   path; a projectile shows the layers riding it). Fold it to put it away. A sprite still shows its image under Image. Each
+   path; a projectile shows the layers riding it). Fold it to put it away. Then **Layer**, with the layer's kind on the
+   right of its title: what draws it, its name and **Shows in**, three chips (Low, Medium, High) that switch its tiers. A
+   sprite shows its image under **Image**, as wide as the panel allows: click the picture to put the pivot there. Each
    layer says what draws it: an image ("Image: muzzle_flash.png") or code ("Drawn in code, no image"). A projectile is an
    invisible path: its panel lists the layers riding it (click one to select it), and those say "rides Bullet" in the
    Layers list. Shapes, bursts and words show the settings the file has, with optional parts behind a switch, except two
@@ -105,7 +107,7 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    by its kind (a ring, a smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a
    projectile; a sprite shows its own image (the first frame of a flipbook). See 20 and 21 for the two lists.
 8. The **Tier** chip (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the
-   list and on the timeline. A layer's **Shows in** boxes set its tiers.
+   list and on the timeline. A layer's **Shows in** chips set its tiers (a layer keeps at least one).
 9. **Game events**, in the effect's Effect section: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
 10. **Cost**, the last section of the effect's settings, closed at first (the triangles and the cost in the status bar open
@@ -119,7 +121,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     colours of what is selected: the effect's, or one layer's (with the ones it draws without naming them, such as the
     black ink outline); a projectile has none of its own and shows those of the layers riding it. **Show all** shows every
     colour, the selection's in bold. Change the colour, add colours, and under **Gradients** start from a ready-made
-    gradient or make your own; a glow can use one, and smoke, the fire's bed and bursts draw one named in their file. See
+    gradient or make your own; a glow can use one (the pencil next to its gradient opens the picker at the gradients), and
+    smoke, the fire's bed and bursts draw one named in their file. See
     [docs/colours.md](docs/colours.md).
 13. **Night mode**, the sun or moon button in the top bar, or in the main menu: dark panels (the preview keeps the game's
     colours). It is remembered.
@@ -232,7 +235,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (349 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (357 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -256,7 +259,12 @@ the dialog's OK, and cancelled; a move past 80 characters refused) and the Name 
 proportion, in the phase colours, and empty at 0, 0, 0; Main colour's swatch, one undo step and its edit button; Edit
 palette… opening the picker at its palette; Cost's header words and Measure working while it is closed, the Budgets
 toggle, the conditions in the info icon, the row names whole; a select too narrow for its value giving it in its
-tooltip), Fade
+tooltip; a layer's Layer section with its kind, what draws it, its name and Shows in as three chips with the tier icons,
+their see-through checkboxes over them taking Tab and Space (one undo step each) and the last tier kept; the Image section's
+rows in the brief's order, its picture as wide as the panel allows and at most 160 px tall, a click on it moving the pivot
+(one undo step); readouts at the end of their sections; a glow's gradient's edit button opening the picker at its
+gradients, with the gradient chosen in the editor; and phase 6's done-when at 1920 × 1080: a sprite's Look, Layer, Image
+and Size and place, and the effect's Effect, Scale, Phases and Colour, without scrolling), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
@@ -1065,14 +1073,13 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     has them.
 - **The inspector** (UI phase 6 of [docs/ui-redesign.md](docs/ui-redesign.md): the property rows, numbers you drag or type,
   rows of two or three numbers with prefixes, sliders, segmented choices, the colour roles' swatches and the folds are the
-  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first three's (the
+  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first four's (the
   rows and fields; the header's More menus, the problems banner, and Cost and Checks out of a layer's view; the effect's
-  sections):
+  sections; a layer's view):
   - **Rows**: 28 px, with 4 px between them, as the brief's words say (a row 32 px from the next). The label column is at
     least 84 px and at most 38 % of the row, so 103 px at 1920 and 112 px at 2560. Every control fills its column, number
     boxes too, so the numbers, right-aligned, line up at the panel's right edge. A checkbox's words sit in the label column
     and its box in the control column, as the brief draws "Flipbook [on]". A hint under a row spans both columns.
-  - **A row that keeps its old shape until the next slice**: Shows in (the next slice makes it tier chips).
   - **Numbers**: a slider's box shows all its decimals ("1.00 ×", "40 m/s"); every other box shows at most 3 decimals and no
     zeros at the end, as the boxes always did ("0.5", "350 ms"). A number typed or dragged is rounded to those decimals:
     before, a typed 0.12345 was kept whole while the box showed 0.123. A number in the file with more decimals than its box
@@ -1143,7 +1150,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     effect's view ends with Cost, as the brief draws it.
   - **Labels renamed** in the effect's view: "Effect name" is **Name** and "Game events it answers" is **Game events** (the
     brief's words); the colour row's "Colour" is **Main colour**, and the colour list has its own name for screen readers,
-    "The effect's colours" (a layer's is "Colours this layer uses"); "Phases" is the section's title. The help texts follow.
+    "The effect's colours" (a layer's is "Colours this layer uses"); "Phases" is the section's title. In a layer's view:
+    the section the layer's kind headed ("Sprite layer", "Projectile layer", "Shape layer", "Burst layer", "Word layer") is
+    **Layer**, "Layer name" is **Name**, "Flipbook (a grid of frames)" is **Flipbook**, and the button "Add PNG images to
+    the project…" says **Add PNG images…** (the brief's words). The help texts follow.
   - **Name and Folder**: the Name field shows the name without its folder and renames by the Effects list's rename rules,
     through one function: the folder stays, " / " typed makes a folder inside it, an empty name keeps the old one (the box
     shows it again), and its box takes at most the 80 characters less its folder. The Folder select lists No folder, the
@@ -1179,6 +1189,30 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **A select too narrow for its value** (the browser draws no ellipsis in a closed select): its tooltip gives the chosen
     value whole, then the help text of its row's label, by the pointer and, at once, by the keyboard's focus. A select whose
     value fits has no tooltip of its own; the keyboard's focus on it shows its label's, as before.
+  - **A layer's view** (slice 4): the Look, then **Layer**, a section that folds like the others, with the layer's kind
+    muted on the right of its title ("Sprite", "Shape"…): what draws the layer, its Name and Shows in. Folding Layer hides
+    the line that says what draws the layer with the name and the tiers, as folding the Look hides the Look; Part B's "not
+    drawn" warning can sit next to that line. A projectile's Layer has its name only (it has no tiers).
+  - **Shows in, as chips**: three chips, each its tier's icon (tier-low, tier-medium, tier-high) and word; on: the field
+    colour with the icon in --accent-ink (a toggle that is on); off: only a 1 px edge. The chips with their words need about
+    190 px and the control column has 161 at 1920, so this row lets them start left of the column, on the right of its
+    label; in a panel too narrow even for that, they go under the label. The real checkbox of each chip lies over the whole
+    chip, see-through, so a click and the keyboard work as on any checkbox, and its focus ring is the chip's. The last tier
+    is on and cannot be switched off; its tooltip says why. The hint "Low drops extras but must stay readable." is a line
+    under the row now (it sat beside the label).
+  - **The focus after the panel is built again**: switching a tier on or off (or adding a part) changes the layer's
+    structure, and the panel is built again. The control that had the focus gets it back, found by its name for screen
+    readers, so the keyboard goes on from the same chip or box; before, the focus was lost, and Space then played the effect.
+  - **Image**: the picture is as wide as the panel allows and at most 160 px tall, smaller images grown to fit too, on the
+    checkerboard, in a well of the field colour as wide as the panel (a square image is 160 × 160 in its middle). It is
+    hidden while the layer's image is missing or does not load (the problems banner says so). A click on the picture puts
+    the pivot there, in its frame of a flipbook, as before; the order is the brief's: the image, the picture, Pivot,
+    Flipbook, Grid, Loop the frames, Add PNG images… (a ghost button with the import icon).
+  - **Readouts** end their sections, 11 px and muted: a projectile's "Now: … in the air over … m." moved from under the
+    flight's choice to the end of Motion; "Shows from … ms" already ended Time.
+  - **A glow's gradient** has an edit button (the pencil) after its select: until the picker's tabs come (UI phase 7), it
+    opens the picker on the glow's colour, scrolled to its Gradients section, opened, with the keyboard focus on its title,
+    and the gradient chosen open in the gradient editor (none chosen: the editor as it was). Its hint says so.
 
 ## Claude skills
 

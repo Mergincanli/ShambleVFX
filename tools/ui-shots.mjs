@@ -41,6 +41,8 @@ const STATES = [
   { name: 'beam-effect', project: DEMO, effect: 'board_beam', ms: 1000 },
   // The first sprite in the effect's file is the Tracer (the Layers list shows the file upside down: second from the bottom).
   { name: 'rifle-sprite', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'first:sprite' },
+  // The Muzzle flash, a flipbook: its Image section at its tallest (phase 6's done-when measures this layer).
+  { name: 'flash-layer', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'flash' },
   // Emitter glow: third from the top, so it shows in the Layers list and on the timeline without scrolling. It is the
   // layer the browser check uses, and a glow, so its gradient field is in the panel.
   { name: 'beam-layer', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow' },
