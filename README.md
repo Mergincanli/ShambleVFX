@@ -258,8 +258,8 @@ no Cost or Checks under a layer; the effect's sections in order, Cost closed at 
 the dialog's OK, and cancelled; a move past 80 characters refused) and the Name field keeping the folder; the Phases bar in
 proportion, in the phase colours, and empty at 0, 0, 0; Main colour's swatch, one undo step and its edit button; Edit
 palette… opening the picker at its palette; Cost's header words and Measure working while it is closed, the Budgets
-toggle, the conditions in the info icon, the row names whole; a select too narrow for its value giving it in its
-tooltip; a layer's Layer section with its kind, what draws it, its name and Shows in as three chips with the tier icons,
+toggle, the conditions in the info icon, the row names whole; a select or a text box too narrow for its value giving it
+in its tooltip; a layer's Layer section with its kind, what draws it, its name and Shows in as three chips with the tier icons,
 their see-through checkboxes over them taking Tab and Space (one undo step each) and the last tier kept; the Image section's
 rows in the brief's order, its picture as wide as the panel allows and at most 160 px tall, a click on it moving the pivot
 (one undo step); readouts at the end of their sections; a glow's gradient's edit button opening the picker at its
@@ -1118,7 +1118,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     shows an empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2). A fire's
     tones (flames, the bed) stay boxes where you type a colour's name, as before: they have no swatch.
   - A value longer than its select's column ("fire.smoke.light") is cut short: the browser draws no ellipsis in a select.
-    The open list shows it whole, and so does the select's tooltip (see "A select too narrow for its value" below).
+    The open list shows it whole, and so does the select's tooltip (see "A select or a text box too narrow for its value"
+    below).
   - A star's tone: its colour and its scale, each a row, then Remove; Add a tone under the last. Remove and Add a tone line
     up with the controls.
   - **Folds**: the chevron is the icons' chevron (turned down when open), the title 13 px semibold and cut with an ellipsis.
@@ -1186,9 +1187,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     cannot be switched off, and its tooltip says why. The line saying which budgets count shows with the boxes, or whenever
     a level of budgets counts; with none on and no boxes it would ask for a number where no box shows. Part B's Budgets
     place goes under this toggle.
-  - **A select too narrow for its value** (the browser draws no ellipsis in a closed select): its tooltip gives the chosen
-    value whole, then the help text of its row's label, by the pointer and, at once, by the keyboard's focus. A select whose
-    value fits has no tooltip of its own; the keyboard's focus on it shows its label's, as before.
+  - **A select or a text box too narrow for its value** (the browser draws no ellipsis in a closed select; a text box now
+    ends in one while it does not have the focus, as a long effect name does at 1920): its tooltip gives the value whole,
+    then the help text of its row's label, by the pointer and, at once, by the keyboard's focus. One whose value fits has no
+    tooltip of its own; the keyboard's focus on it shows its label's, as before.
   - **A layer's view** (slice 4): the Look, then **Layer**, a section that folds like the others, with the layer's kind
     muted on the right of its title ("Sprite", "Shape"…): what draws the layer, its Name and Shows in. Folding Layer hides
     the line that says what draws the layer with the name and the tiers, as folding the Look hides the Look; Part B's "not

@@ -289,6 +289,8 @@ input.text, input.num, input.budget, select {
   background: var(--bg-field); color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body);
 }
 input.text, select { width: 100%; }
+/* A text box too narrow for its words ends in an ellipsis while it does not have the focus (its tooltip gives them whole). */
+input.text:not(:focus) { text-overflow: ellipsis; }
 input.num { width: 72px; text-align: right; }
 input.text:hover, input.num:hover, input.budget:hover, select:hover { border-color: var(--line-strong); }
 input.text:focus-visible, input.num:focus-visible, input.budget:focus-visible, select:focus-visible { outline: none; border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus-ring); }

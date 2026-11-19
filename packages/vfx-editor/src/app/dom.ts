@@ -362,25 +362,31 @@ function ownWords(el: Element): string {
 
 function hasTip(el: Element): boolean {
   return el.hasAttribute('data-tip') || el.hasAttribute('title') || (el.matches('.icon-only') && el.hasAttribute('aria-label')) || !!helpOf(el)
-    || (el instanceof HTMLSelectElement && cutSelectText(el) !== null);
+    || (cuttable(el) && cutText(el) !== null);
 }
 
 /** Room a closed select keeps for its arrow, in px (Chromium's, on Linux and Windows). */
 const SELECT_ARROW = 20;
 let measurer: CanvasRenderingContext2D | null = null;
 
+/** A select, or a text box (input.text), whose words can be cut short. */
+function cuttable(el: Element): el is HTMLSelectElement | HTMLInputElement {
+  return el instanceof HTMLSelectElement || (el instanceof HTMLInputElement && el.matches('input.text'));
+}
+
 /**
- * The chosen option's words, when its select is too narrow to show them whole ("fire.smoke.lig…"): the browser draws no
- * ellipsis in a closed select, so the tooltip gives the words instead. Null when they fit (or the select is not shown).
+ * The words a select or a text box shows cut short, whole: a select's chosen option ("fire.smoke.lig…": the browser draws
+ * no ellipsis in a closed select), or a text box's words (it ends in an ellipsis while it does not have the focus). The
+ * tooltip gives them. Null when they fit (or it is not shown).
  */
-export function cutSelectText(sel: HTMLSelectElement): string | null {
-  const text = (sel.selectedOptions[0]?.textContent ?? '').trim();
-  if (!text || !sel.getClientRects().length) return null;
+export function cutText(el: HTMLSelectElement | HTMLInputElement): string | null {
+  const text = (el instanceof HTMLSelectElement ? el.selectedOptions[0]?.textContent ?? '' : el.value).trim();
+  if (!text || !el.getClientRects().length) return null;
   measurer ??= document.createElement('canvas').getContext('2d');
   if (!measurer) return null;
-  const s = getComputedStyle(sel);
+  const s = getComputedStyle(el);
   measurer.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
-  const room = sel.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) - SELECT_ARROW;
+  const room = el.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) - (el instanceof HTMLSelectElement ? SELECT_ARROW : 0);
   return measurer.measureText(text).width > room ? text : null;
 }
 
@@ -425,10 +431,10 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   if (full && !own.includes(full)) lines.push(full);
   if (own) lines.push(own);
   if (help?.text && flat(help.text) !== own) lines.push(help.text);
-  // A select too narrow for its chosen words: those words, then the help text of its row's label (what the label's own
-  // tooltip says), so the keyboard's focus on it still explains the setting.
-  if (el instanceof HTMLSelectElement && !lines.length) {
-    const words = cutSelectText(el);
+  // A select or a text box too narrow for its words: those words, then the help text of its row's label (what the label's
+  // own tooltip says), so the keyboard's focus on it still explains the setting.
+  if (cuttable(el) && !lines.length) {
+    const words = cutText(el);
     if (words) {
       lines.push(words);
       const lab = el.closest('label.field, .field')?.querySelector(':scope > .flab');

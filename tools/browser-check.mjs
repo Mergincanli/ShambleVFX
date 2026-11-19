@@ -1220,18 +1220,24 @@ if (webgpu) {
       c1.title.includes('fixed seed') && c2.info?.startsWith('Measured at a fresh game camera') && rowNames.length === 5 && rowNames.every((r) => !r.cut && r.lines === 1),
       JSON.stringify({ title: c1.title.slice(0, 60), info: c2.info?.slice(0, 60), rowNames }));
 
-    // A select too narrow for its value (no ellipsis in a closed select): its tooltip gives the value whole, then its label's
-    // help text, by the pointer and by the keyboard; a select whose value fits has none of its own.
+    // A select too narrow for its value (no ellipsis in a closed select), or a text box (an ellipsis while it does not have
+    // the focus): its tooltip gives the value whole, then its label's help text, by the pointer and by the keyboard; one whose
+    // value fits has none of its own.
     const cutTips = await ep.evaluate(() => {
       const a = window.__vfx.app;
+      const control = (label, tag) => [...document.querySelectorAll('.inspector label.field, .inspector .field')].find((f) => f.querySelector(':scope > .flab')?.textContent === label)?.querySelector(tag);
+      a.pickEffect('board_beam'); a.selectLayer(null);
+      const name = control('Name', 'input'), events = control('Game events', 'input');
+      const out = { name: a.tipForChecks(name)?.lines ?? null, ellipsis: getComputedStyle(name).textOverflow, events: a.tipForChecks(events)?.lines ?? null };
       a.pickEffect('rifle_shot'); a.selectLayer('hit');
-      const sel = (label) => [...document.querySelectorAll('.inspector label.field')].find((f) => f.querySelector(':scope > .flab')?.textContent === label)?.querySelector('select');
-      const role = sel('Role'), sits = sel('Sits on');
-      return { role: a.tipForChecks(role)?.lines ?? null, value: role.selectedOptions[0].textContent, sits: a.tipForChecks(sits)?.lines ?? null, sitsValue: sits.selectedOptions[0].textContent };
+      const role = control('Role', 'select'), sits = control('Sits on', 'select');
+      return { ...out, role: a.tipForChecks(role)?.lines ?? null, value: role.selectedOptions[0].textContent, sits: a.tipForChecks(sits)?.lines ?? null, sitsValue: sits.selectedOptions[0].textContent };
     });
     const wantRole = help.helpFor('Role', { section: ['Colour'], layer: 'sprite' });
-    ok('a select too narrow for its value ("main (the effect\'s colour)") has a tooltip with the value whole, then its label\'s help text; one whose value fits has none of its own',
-      cutTips.role?.[0] === 'main (the effect\'s colour)' && cutTips.role?.[1] === wantRole && cutTips.sits === null, JSON.stringify({ cutTips, wantRole }));
+    const wantName = help.helpFor('Name', { section: ['Effect'] });
+    ok('a select too narrow for its value ("main (the effect\'s colour)"), or a text box ("Hammer leech beam (board)", which ends in an ellipsis), has a tooltip with the value whole, then its label\'s help text; one whose value fits has none of its own',
+      cutTips.role?.[0] === 'main (the effect\'s colour)' && cutTips.role?.[1] === wantRole && cutTips.sits === null
+        && cutTips.name?.[0] === 'Hammer leech beam (board)' && cutTips.name?.[1] === wantName && cutTips.ellipsis === 'ellipsis' && cutTips.events === null, JSON.stringify({ cutTips, wantRole, wantName }));
     ok('the effect\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await ep.close();
   }
