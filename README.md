@@ -190,7 +190,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (248 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (251 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -213,7 +213,7 @@ pointer; drawn over the colour picker, 12 px, at most 280 px, dark in both theme
 tag and the line saying what draws a layer explaining themselves; every
 label and section title of every layer of both examples, and every control of the bars, with a help text; every hint in
 the right panel one line, two at most, at the default width; the full words of each rewritten hint in the tooltip of what
-it explains), the add menu,
+it explains; the Game events hint in its tooltip's words), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
 says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
@@ -230,7 +230,8 @@ two rows at 1280; Fire's and the chips' tooltips; each chip's menu by mouse and 
 chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
 a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
-keys and a typed "0,5"; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
+keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box showing what the chip shows,
+the keys working from 14 m as before; a right-click menu staying inside the window; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
 and showing the hints and the drag hint over the preview, remembered after a reload; `?hints=off` and `?hints=on` for their
 page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), Save as, Export and Import
@@ -241,7 +242,7 @@ opened, and the editor says why, also when it is the project the editor starts w
 (exact palette colours, every event plays, Low draws less, the version guard, a glow drawn from an exported gradient in
 its exact colours) and its bundle (no checker, no editor code); the colour picker (a typed colour, a drag and Revert, a
 new colour, and the focus back on the swatch that opened it when it closes, also in a layer's list that hides the main
-colour), a ready-made gradient on a glow, night mode, the faction markings in the Faction chip's menu, and Save as, Export and Import carrying
+colour), a ready-made gradient on a glow, night mode, the faction markings in the Faction chip's menu and the edge round their team colours' dots in Day and Night, and Save as, Export and Import carrying
 the project's palette.json. It saves screenshots to `out/screenshots/`.
 It needs Playwright's Chromium (`npx playwright install chromium` once on a new machine). This headless browser draws in
 software, so an editor page opened while another one draws waits for it: the check notes how long its second editor page
