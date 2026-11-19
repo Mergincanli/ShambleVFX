@@ -473,6 +473,8 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
    View. A window too narrow for it wraps it onto a second row, the controls in the same order. */
 .vbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: var(--h-toolbar); padding: 3px var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); }
 .vbar .fade-toggle { margin-left: auto; }
+/* The timeline header's Speed: its label and its buttons on one row. */
+.transport .row { margin: 0; flex-direction: row; align-items: center; gap: 8px; }
 /* Chips: 24 px on the field colour, an icon, the value and a chevron; no edge at rest, a 1 px --line-strong edge on hover.
    With its menu open, the icon and the chevron are --accent-ink (4.6). */
 .chip-btn {
