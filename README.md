@@ -1002,8 +1002,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     letters would make them thinner).
   - **The playhead's head** is a 10 px shape pointing down, in the ruler's lower half, its point on the ruler's line. The
     tick labels sit in the upper half, 3 px from the top, so the head never covers one, not even the 0 at 0 ms. It can be
-    grabbed 2 px round it and drags the time from where it is (a press on it does not jump); like a press on the ruler, it
-    pauses. The keyboard has ← and → and the time readout, so the head takes no focus. The line is two parts that meet:
+    grabbed 2 px either side of it and 4 px above it, and drags the time from where it is (a press on it does not jump);
+    like a press on the ruler, it pauses. The keyboard has ← and → and the time readout, so the head takes no focus. The line is two parts that meet:
     one in the header, which stays at the top, and one over the rows.
   - **The ruler and the phase strip stay at the top** while the rows scroll, with the playhead's head. A row scrolled into
     view (a new selection) stops below them: the rows' scroll padding is 40 px, or 24 px when the effect has no phases (as
