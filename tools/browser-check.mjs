@@ -3363,6 +3363,15 @@ if (webgpu) {
     await frames();
     const narrowLate = (await labelsNow()).find((x) => x.id === 'tracer_core');
     const narrowest = await tp.evaluate(() => Math.round(document.querySelector('.centre').getBoundingClientRect().width));
+    // There, the ruler's labels: one that would run into the "ms" at the ruler's end is hidden (the Molotov's 5000; its 5500
+    // sits past the end, where it never showed).
+    await showTl('board_molotov', 20);
+    const narrowTicks = await tp.evaluate(() => {
+      const unit = document.querySelector('.timeline .tl-unit').getBoundingClientRect();
+      const ticks = [...document.querySelectorAll('.timeline .tl-tick')].map((t) => ({ text: t.textContent, right: t.querySelector('span').getBoundingClientRect().right, shown: getComputedStyle(t.querySelector('span')).visibility === 'visible' }));
+      return { hidden: ticks.filter((t) => !t.shown).map((t) => t.text), clear: ticks.every((t) => !t.shown || t.right <= unit.left - 1) };
+    });
+    await showTl('rifle_shot', 20);
     await tp.setViewportSize({ width: 1920, height: 1080 });
     await frames();
     await showTl('board_molotov', 20);
@@ -3379,10 +3388,10 @@ if (webgpu) {
     await tp.keyboard.press('Control+z');
     const lateBack = await tp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); const l = a.effect().layers.find((x) => x.id === 'tracer_core'); return JSON.stringify([l.start, l.durationMs]); });
     const ign = (list) => list.find((x) => x.id === 'ignition_lines');
-    ok('a splitter dragged until a bar\'s label no longer fits: the label moves beside its bar, whole and in --text-muted (Molotov\'s 250 ms bars); with no room on its right it goes left (the late 15 ms bar, in a 640 px centre); a double-click on the splitters brings it back inside',
+    ok('a splitter dragged until a bar\'s label no longer fits: the label moves beside its bar, whole and in --text-muted (Molotov\'s 250 ms bars); with no room on its right it goes left (the late 15 ms bar, in a 640 px centre, where a ruler label that would run into the "ms" is hidden); a double-click on the splitters brings it back inside',
       labelsRight(narrowMolotov) && ign(narrowMolotov).where === 'right' && labelsRight([narrowLate]) && narrowLate.where === 'left' && labelsRight(wideMolotov) && ign(wideMolotov).where === 'inside'
-        && narrowest === 640 && lateBack === '[{"ms":0},80]',
-      JSON.stringify({ lanes, narrowest, narrow: ign(narrowMolotov), late: narrowLate, wide: ign(wideMolotov), lateBack }));
+        && narrowest === 640 && narrowTicks.clear && narrowTicks.hidden.join() === '5000,5500' && lateBack === '[{"ms":0},80]',
+      JSON.stringify({ lanes, narrowest, narrow: ign(narrowMolotov), late: narrowLate, ticks: narrowTicks, wide: ign(wideMolotov), lateBack }));
 
     // The phases: each name inside its phase when it fits (Hammer leech beam), hidden when it does not (the Molotov's
     // 250 ms wind-up in the narrow lanes); the times in the tooltip either way.
@@ -3421,13 +3430,24 @@ if (webgpu) {
     const ph0 = await playheadNow();
     await showTl('board_beam', 1000);
     const ph1 = await playheadNow();
+    // While firing it is hidden, both parts, as before; showing a moment brings it back.
+    const firing = await tp.evaluate(async () => {
+      const a = window.__vfx.app;
+      const gone = (s) => getComputedStyle(document.querySelector(s)).display === 'none';
+      a.fire();
+      await a.tickForChecks(40);
+      const out = { head: gone('.timeline .tl-head'), line: gone('.timeline .tl-line') };
+      await a.showAt(1000, 7);
+      out.back = !gone('.timeline .tl-head') && !gone('.timeline .tl-line');
+      return out;
+    });
     await tp.evaluate(() => { const s = document.querySelector('.timeline-slot'); s.scrollTop = s.scrollHeight; });
     await frames();
     const ph2 = await playheadNow();
     await tp.evaluate(() => { document.querySelector('.timeline-slot').scrollTop = 0; });
     const lineRight = (p) => p.headW === 2 && p.lineW === 2 && p.colour && p.sameX && p.headTop === 0 && p.headToTop === 0 && p.lineToRows === 0 && p.knob.join() === '10,10' && p.lowerHalf && p.clear;
-    ok('the playhead: a 2 px line in --accent-ink through the ruler, the phase strip and the lanes, one line with no gap; its 10 px head in the ruler\'s lower half, clear of the tick labels (the 0 too, at 0 ms)',
-      lineRight(ph0) && lineRight(ph1) && ph0.gap === 0 && ph1.gap === 0, JSON.stringify({ ph0, ph1 }));
+    ok('the playhead: a 2 px line in --accent-ink through the ruler, the phase strip and the lanes, one line with no gap; its 10 px head in the ruler\'s lower half, clear of the tick labels (the 0 too, at 0 ms); hidden while firing, both parts',
+      lineRight(ph0) && lineRight(ph1) && ph0.gap === 0 && ph1.gap === 0 && firing.head && firing.line && firing.back, JSON.stringify({ ph0, ph1, firing }));
     ok('with the rows scrolled to the end the ruler, the phase strip and the playhead\'s head stay at the top, and the line goes on under them',
       lineRight(ph2) && ph2.scrolled > 100 && ph2.stuck === 0 && ph2.headIn && ph2.gap < 0, JSON.stringify(ph2));
 
@@ -3518,8 +3538,9 @@ if (webgpu) {
     // takes those). In Day and in Night.
     const looks = async (theme) => {
       await showTl('rifle_shot', 200, 'tracer');
-      // The pointer on the Hit spark row's name (its lane highlights), away from any tooltip's way.
-      await tp.locator('.timeline .tl-row[data-layer="hit"] .tl-name').hover({ position: { x: 150, y: 12 } });
+      // The pointer on an empty part of the Hit spark row's lane, where no tooltip opens: the row highlights.
+      const hitLane = await tp.locator('.timeline .tl-row[data-layer="hit"] .tl-lane').boundingBox();
+      await tp.mouse.move(hitLane.x + hitLane.width - 60, hitLane.y + hitLane.height / 2);
       await tp.waitForTimeout(300);
       const geo = await tp.evaluate(() => {
         const probe = (prop, v) => { const s = document.createElement('span'); s.style[prop] = v; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; };
@@ -3565,21 +3586,29 @@ if (webgpu) {
       const x = stepPx ? b.left + 1 + (Math.ceil((l.right + 20 - b.left - 1) / stepPx) + 0.5) * stepPx : l.right + 40;
       const type = [...bar.classList][1];
       const out = { off: row.classList.contains('off'), name: getComputedStyle(row.querySelector('.tl-name')).color === probe('var(--text-muted)'), fill: probe(`var(--tl-${type})`), lane: probe('var(--tl-lane)'),
-        at: [Math.round(x), Math.round(b.top + b.height / 2)], stepPx: +stepPx.toFixed(1), type };
-      a.selectLayer('flames');
-      const sel = document.querySelector('.timeline .tl-row[data-layer="flames"]');
-      out.selName = getComputedStyle(sel.querySelector('.tl-name')).color === probe('var(--text)');
-      out.selOutline = getComputedStyle(sel.querySelector('.tl-bar')).outlineColor === probe('var(--accent-ink)');
-      a.selectLayer(null);
+        at: [Math.round(x), Math.round(b.top + b.height / 2)], stepPx: +stepPx.toFixed(1), type, outlineAt: [Math.round(b.left + b.width / 2), Math.round(b.top - 2)],
+        // Its label: the bar's text colour at 35 % over the bar's own 35 %, as the whole bar at 35 % looks.
+        label: getComputedStyle(label).color === probe(`color-mix(in srgb, var(--tl-bar-text) 35%, color-mix(in srgb, var(--tl-${type}) 35%, var(--tl-lane)))`) };
       return out;
     });
     const offPng = PNG.sync.read(await tp.screenshot());
     const offPx = hex(offPng, offLook.at[0], offLook.at[1]);
+    // Selected, its name keeps --text and its outline is --accent-ink at full strength (sampled where it is drawn).
+    const offSel = await tp.evaluate(() => {
+      const a = window.__vfx.app;
+      a.selectLayer('flames');
+      const probe = (v) => { const s = document.createElement('span'); s.style.color = v; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+      const accent = probe('var(--accent-ink)');
+      return { name: getComputedStyle(document.querySelector('.timeline .tl-row[data-layer="flames"] .tl-name')).color === probe('var(--text)'),
+        accent: '#' + accent.match(/\d+/g).slice(0, 3).map((v) => (+v).toString(16).padStart(2, '0')).join('').toUpperCase() };
+    });
+    const offSelPx = hex(PNG.sync.read(await tp.screenshot()), offLook.outlineAt[0], offLook.outlineAt[1]);
+    await tp.evaluate(() => window.__vfx.app.selectLayer(null));
     await tp.evaluate(async () => { const a = window.__vfx.app; a.setTierForChecks('high'); await a.showAt(1200, 7); });
     const rgb = (c) => c.match(/\d+/g).slice(0, 3).map(Number);
     const offWant = '#' + rgb(offLook.fill).map((f, i) => Math.round(0.35 * f + 0.65 * rgb(offLook.lane)[i]).toString(16).padStart(2, '0')).join('').toUpperCase();
-    ok('a bar left out of the tier is at 35 % (its fill 0.35 of its colour over the lane) and its name muted; selected, its name keeps --text and its outline stays whole',
-      offLook.off && offLook.name && diff(offPx, offWant) <= 2 && offLook.selName && offLook.selOutline, JSON.stringify({ offLook, offPx, offWant }));
+    ok('a bar left out of the tier is at 35 % (its fill 0.35 of its colour over the lane, its label at 35 % too) and its name muted; selected, its name keeps --text and its outline is drawn at full strength',
+      offLook.off && offLook.name && offLook.label && diff(offPx, offWant) <= 2 && offSel.name && diff(offSelPx, offSel.accent) <= 1, JSON.stringify({ offLook, offPx, offWant, offSel, offSelPx }));
 
     // Neither hides the other: at 20 ms on the Hammer leech beam the playhead crosses the first digit of "3150 ms", the "w"
     // of "wind-up" and the ruler's 0; at 20 ms on the Rifle shot it crosses the Bullet's label beside its bar. Each label's

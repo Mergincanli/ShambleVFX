@@ -974,8 +974,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **A click on a bar** selects its layer and leaves the time as it is. A press that moves 4 px or more (as on a row of
     the Layers list) scrubs instead, from where the pointer is then, and selects nothing. Before, any press on a bar
     scrubbed: the time jumped there and nothing was selected. The Hammer leech beam's bars fill most of their lanes: to go
-    to a moment there, press on the ruler, the phase strip or an empty part of a lane, or drag. A press with another mouse
-    button scrubs, as before.
+    to a moment there, press on the ruler, the phase strip or an empty part of a lane, or drag. A click on a bar also
+    leaves playback as it is; before, the press paused it, as every scrub does. A press with another mouse button scrubs,
+    as before.
   - **A bar's label** goes inside the bar when it fits there with 4 px on each side. Else it goes just right of the bar,
     6 px from its edge; when it would come closer than 4 px to the lane's end (a short bar near the end of the span), it
     goes left of the bar instead, 6 px from it. Beside the bar it is `--text-muted`. A bar is one to a row, so a label
@@ -992,8 +993,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     with a 1 px edge in the colour behind it (a 2 px stroke under its letters), so the line stops just short of the letters
     and shows everywhere else: neither hides the other. For a label beside its bar on a hovered or the selected row, that
     edge takes two new tokens per theme, `--tl-lane-hover` and `--tl-lane-selected`: the lane under `--bg-hover` and
-    under `--bg-selected`, as the browser draws them (the browser check holds them to it). That stroke needs a browser
-    that can draw it under the letters (`paint-order` on text: Chrome 123 or newer).
+    under `--bg-selected`, as the browser draws them (the browser check holds them to it). The stroke goes under the
+    letters with `paint-order`: the browser check's Chromium draws it so on text, and checks that no letter changes under
+    the playhead (a browser that drew it over the letters would make them thinner).
   - **The playhead's head** is a 10 px shape pointing down, in the ruler's lower half, its point on the ruler's line. The
     tick labels sit in the upper half, 3 px from the top, so the head never covers one, not even the 0 at 0 ms. It can be
     grabbed 2 px round it and drags the time from where it is (a press on it does not jump); like a press on the ruler, it
@@ -1006,7 +1008,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     long name ends in an ellipsis; its tooltip gives the full name and the same words as the Layers list's row ("not drawn
     in the Low tier", "rides Bullet"). Before, only the bar had a tooltip. The column runs to the bottom of the timeline,
     with its 1 px line.
-  - **The phase strip**: a phase's name that does not fit is hidden, not cut; its times stay in the tooltip.
+  - **The phase strip**: a phase's name that does not fit is hidden, not cut; its times stay in the tooltip. On the ruler,
+    a label that would run into the "ms" at its right end is hidden too (only in the narrowest lanes).
   - **Rows**: a 24 px row with its 1 px line leaves 23 px, so the 16 px bar sits 4 px from the top, with 3 px and the line
     under it.
   - The bar's tooltip names the tier as the Tier chip does ("not drawn in the Low tier"; it said "low").

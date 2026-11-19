@@ -6,9 +6,10 @@
  * origin and target (flight time depends on them); the span fits the effect.
  *
  * A bar's label ("250 ms", "9 ms in the air") sits inside the bar when it fits; else just right of it, or left of it when
- * the lane ends first: never cut. A phase's name shows inside it when it fits (its times are in its tooltip). Whether a
- * label fits is measured on every refresh, and again when the timeline changes size (the splitters, the window) and when
- * the fonts come in: bars are as wide as a share of the lane.
+ * the lane ends first: never cut. A phase's name shows inside it when it fits (its times are in its tooltip), and a ruler
+ * label that would run into the "ms" at the ruler's end is hidden. Whether a label fits is measured on every refresh, and
+ * again when the timeline changes size (the splitters, the window) and when the fonts come in: bars are as wide as a share
+ * of the lane.
  *
  * The playhead: a 2 px line through the ruler, the phase strip and the lanes, in two parts (one in the header that stays at
  * the top, one over the rows), with its head on the ruler. Every label is drawn over the line, with a 1 px edge in the
@@ -20,7 +21,7 @@
  * on a bar that moves 4 px or more scrubs instead. The head drags the time from where it is. The row under the mouse is
  * highlighted in the Layers list too.
  *
- * The browser check reads: .timeline, .tl-top with .tl-ruler (.tl-tick and its label), .tl-phases and .tl-phase
+ * The browser check reads: .timeline, .tl-top with .tl-ruler (.tl-tick, data-fit, and its label), .tl-phases and .tl-phase
  * (data-fit), .tl-head with its .tl-knob; .tl-rows with .tl-row[data-layer] (.tl-name: its icon, and a span with the name;
  * .tl-lane; .tl-bar with data-fit and its .tl-label) and .tl-line.
  */
@@ -139,6 +140,9 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
       const cs = getComputedStyle(p);
       return { p, room: p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), label: p.querySelector('span')!.getBoundingClientRect().width };
     });
+    // The ruler's labels: one that would run into the "ms" at its right end, or past the end, is hidden (narrow lanes).
+    const unitLeft = ruler.querySelector('.tl-unit')?.getBoundingClientRect().left ?? Infinity;
+    const ticks = [...ruler.querySelectorAll<HTMLElement>('.tl-tick')].map((t) => ({ t, right: t.querySelector('span')!.getBoundingClientRect().right }));
     for (const b of bars) {
       // Inside: the label and its padding on both sides, within the bar's 1 px border. Beside: the gap from the bar's edge,
       // and the lane's own edge (the label's padding) kept free. (With the editor's narrowest centre, 640 px, one side
@@ -150,6 +154,10 @@ export function buildTimeline(app: AppApi, onScrub: (ms: number, done: boolean) 
     for (const n of names) {
       const v = n.label <= n.room ? 'yes' : 'no';
       if (n.p.dataset.fit !== v) n.p.dataset.fit = v;
+    }
+    for (const k of ticks) {
+      const v = k.right <= unitLeft - pad ? 'yes' : 'no';
+      if (k.t.dataset.fit !== v) k.t.dataset.fit = v;
     }
   };
   // The lanes' width changes with the splitters and the window, and a label's with the fonts.
