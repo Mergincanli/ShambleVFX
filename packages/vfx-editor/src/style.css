@@ -59,6 +59,7 @@
   --tl-bar-top: 4px;      /* from the row's top: 4 px over the bar, 3 px and the row's line under it */
   --tl-label-pad: 4px;
   --tl-label-gap: 6px;
+  --w-head: 10px;         /* the playhead's head, on the ruler */
   --ground: #B8A683; /* the preview's ground: a game colour, never themed */
   /* The window's grid (docs/ui-redesign.md 5.2), for windows narrower than 2200 px (1920 x 1080); wider ones below. A size
      dragged with a splitter is set on #app, over these (src/app/layout.ts). */
@@ -124,6 +125,8 @@
   --tick: rgba(35, 32, 27, 0.2);            /* the ruler's ticks */
   --tick-step: rgba(35, 32, 27, 0.14);      /* the ruler's 1/12 s marks: fainter */
   --tl-row-line: rgba(223, 217, 206, 0.5);  /* between timeline rows: --line at 50 % */
+  --tl-lane-hover: #E2DED8;                /* a lane under --bg-hover, and under --bg-selected: the edge of a label beside its */
+  --tl-lane-selected: #F2D8AC;             /* bar on a hovered or the selected row (it must match the row exactly) */
   --tl-bar-step: rgba(35, 32, 27, 0.15);    /* step marks inside a bar: the bar's ink at 15 % */
   --thumb-grid: rgba(35, 32, 27, 0.55);     /* a flipbook's frame lines over its image */
   --handle-fill: #F2F2F2;                   /* the pivot and a hovered colour: show on any image, same in both themes */
@@ -186,6 +189,8 @@
   --tick: rgba(255, 255, 255, 0.16);
   --tick-step: rgba(255, 255, 255, 0.1);
   --tl-row-line: rgba(61, 61, 61, 0.5);
+  --tl-lane-hover: #2B2B2B;
+  --tl-lane-selected: #423520;
   --tl-bar-step: rgba(30, 30, 30, 0.15);
   --thumb-grid: rgba(237, 237, 237, 0.55);
   --handle-fill: #F2F2F2;
@@ -593,7 +598,10 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 /* The timeline with its header (6.5): the transport, then the tracks, which scroll. */
 .timeline-pane { display: grid; grid-template-rows: var(--h-timeline-head) minmax(0, 1fr); min-height: 0; border-top: 1px solid var(--line); }
 .transport { display: flex; align-items: center; gap: 8px; height: var(--h-timeline-head); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
-.timeline-slot { min-height: 0; overflow: auto; background: var(--tl-lane); }
+/* A row scrolled into view (a new selection) stops below the ruler and the phase strip, which stay at the top of the
+   rows' scroll: scroll padding as tall as they are (scrollNearest in dom.ts reads it). */
+.timeline-slot { min-height: 0; overflow: auto; background: var(--tl-lane); scroll-padding-top: var(--h-ruler); }
+.timeline-slot:has(.tl-phases:not([hidden])) { scroll-padding-top: calc(var(--h-ruler) + var(--h-phases)); }
 /* Play: the transport's main button, a 24 px icon button filled with the field colour, never yellow. */
 .transport .play { width: var(--h-control); height: var(--h-control); padding: 0; border: 1px solid transparent; border-radius: var(--r-control); background: var(--bg-field); color: var(--text); }
 .transport .play:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-field); color: var(--text); }
@@ -611,16 +619,25 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 
 /* The timeline (6.5): the names column on the panel colour, running to the bottom with its 1 px line, the lanes on
    --tl-lane, each bar in its type's colour. Nothing past its right edge shows (the ruler's last label, the playhead's head
-   at the very end), so it never scrolls sideways. */
+   at the very end), so it never scrolls sideways. The ruler and the phase strip stay at the top while the rows scroll.
+   Paint order, from the bottom: the rows and their bars, the playhead's line, then every label (the ruler's, the phases',
+   the bars'), each with a 1 px edge in the colour behind it (--tl-halo), so the line stops short of its letters: neither
+   hides the other. */
 .timeline {
-  min-height: 100%; user-select: none; overflow-x: clip;
+  isolation: isolate; min-height: 100%; user-select: none; overflow-x: clip;
   background: linear-gradient(to right, var(--bg-panel) calc(var(--tl-name) - 1px), var(--line) calc(var(--tl-name) - 1px) var(--tl-name), var(--tl-lane) var(--tl-name));
 }
 .tl-track { position: relative; cursor: ew-resize; touch-action: none; }
+/* The ruler and the phase strip with the playhead's head and its line through them, over the rows. */
+.tl-top { position: sticky; top: 0; z-index: 2; background: var(--bg-panel); }
+.tl-rows { position: relative; z-index: 1; }
+/* Every label over the playhead's line, with its 1 px edge: a 2 px stroke in --tl-halo drawn under the letters (so they
+   keep their weight), the colour behind the label. */
+.tl-tick span, .tl-unit, .tl-phase span, .tl-label { z-index: 2; -webkit-text-stroke: 2px var(--tl-halo); paint-order: stroke fill; }
 /* The ruler (24 px): a label every 100, 200 or 500 ms at the top, in --text-faint; the major ticks its full height, the
    1/12 s steps short and fainter at the bottom. The column line is a shadow, not a border, so the ticks line up with the
    bars and with where a press scrubs to. */
-.tl-ruler { position: relative; height: var(--h-ruler); margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
+.tl-ruler { --tl-halo: var(--bg-panel); position: relative; height: var(--h-ruler); margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--tick); }
 .tl-tick span { position: absolute; left: 3px; top: 3px; font-size: var(--fs-small); line-height: 1; color: var(--text-faint); }
 .tl-step { position: absolute; bottom: 0; height: 6px; border-left: 1px solid var(--tick-step); }
@@ -629,46 +646,67 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
    tooltip. */
 .tl-phases { position: relative; height: var(--h-phases); margin-left: var(--tl-name); background: var(--bg-panel); border-bottom: 1px solid var(--line); box-shadow: -1px 0 0 var(--line); }
 .tl-phase { position: absolute; top: 1px; bottom: 1px; display: flex; align-items: center; padding: 0 4px; overflow: hidden; color: var(--tl-phase-text); }
-.tl-phase span { font-size: var(--fs-small); line-height: 1; white-space: nowrap; }
+.tl-phase span { position: relative; font-size: var(--fs-small); line-height: 1; white-space: nowrap; }
 .tl-phase[data-fit="no"] span { visibility: hidden; }
-.tl-phase.windup { background: var(--tl-windup); }
-.tl-phase.peak { background: var(--tl-peak); }
-.tl-phase.fade { background: var(--tl-fade); }
-/* A row (24 px, its 1 px line included): the layer's icon and name, then its lane. */
-.tl-row { position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line); }
+.tl-phase.windup { --tl-halo: var(--tl-windup); background: var(--tl-windup); }
+.tl-phase.peak { --tl-halo: var(--tl-peak); background: var(--tl-peak); }
+.tl-phase.fade { --tl-halo: var(--tl-fade); background: var(--tl-fade); }
+/* A row (24 px, its 1 px line included): the layer's icon and name, then its lane. Hovered (here or in the Layers list) and
+   selected as in the Layers list: the tint across the name and the lane. --tl-row-bg is the lane's colour under it. */
+.tl-row { --tl-row-bg: var(--tl-lane); position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line); }
+.tl-row:not(.sel):hover, .tl-row.hovered:not(.sel) { --tl-row-bg: var(--tl-lane-hover); }
 .tl-row:not(.sel):hover { background: var(--bg-hover); }
-.tl-row.sel { background: var(--bg-selected); }
+.tl-row.sel { --tl-row-bg: var(--tl-lane-selected); background: var(--bg-selected); }
 .tl-row.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent-ink); }
 .tl-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 8px 0 var(--pad-panel); border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; overflow: hidden; white-space: nowrap; cursor: pointer; }
 .tl-name[aria-pressed="true"] { font-weight: 500; }
 .tl-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tl-name:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
 .tl-lane { position: relative; }
-/* A bar: 16 px, 3 px corners. The 1 px edge is drawn just outside the bar, over the lane, so it stands out from the lane
-   (3:1 in Day) whatever the bar's fill. The border stays, transparent, so the step marks keep their places. */
+/* A bar: 16 px, 3 px corners, in its type's colour (--bar). The 1 px edge is drawn just outside the bar, over the lane, so
+   it stands out from the lane (3:1 in Day) whatever the bar's fill. The border stays, transparent, so the step marks keep
+   their places. A click selects its layer, a drag scrubs. */
 .tl-bar {
+  --bar: var(--tl-sprite); --tl-halo: var(--bar);
   position: absolute; top: var(--tl-bar-top); height: var(--h-bar);
-  border: 1px solid transparent; border-radius: var(--r-bar); background-color: var(--tl-sprite);
-  box-shadow: 0 0 0 1px var(--tl-bar-edge);
+  border: 1px solid transparent; border-radius: var(--r-bar); background-color: var(--bar);
+  box-shadow: 0 0 0 1px var(--tl-bar-edge); cursor: pointer;
 }
-.tl-bar.projectile { background-color: var(--tl-projectile); }
-.tl-bar.shape { background-color: var(--tl-shape); }
-.tl-bar.burst { background-color: var(--tl-burst); }
-.tl-bar.word { background-color: var(--tl-word); }
+.tl-bar.projectile { --bar: var(--tl-projectile); }
+.tl-bar.shape { --bar: var(--tl-shape); }
+.tl-bar.burst { --bar: var(--tl-burst); }
+.tl-bar.word { --bar: var(--tl-word); }
 .tl-bar.steps { background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--step) - 1px), var(--tl-bar-step) calc(var(--step) - 1px) var(--step)); }
 /* Its label ("250 ms", "9 ms in the air"): inside the bar when it fits; else just right of it, or left of it when the lane
    ends first, in --text-muted (timeline.ts measures it: data-fit on the bar). Never cut. */
 .tl-label { position: absolute; top: 0; bottom: 0; left: var(--tl-label-pad); display: flex; align-items: center; font-size: var(--fs-small); line-height: 1; white-space: nowrap; color: var(--tl-bar-text); }
-.tl-bar[data-fit="right"] .tl-label { left: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
-.tl-bar[data-fit="left"] .tl-label { left: auto; right: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
+.tl-bar[data-fit="right"] .tl-label { --tl-halo: var(--tl-row-bg); left: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
+.tl-bar[data-fit="left"] .tl-label { --tl-halo: var(--tl-row-bg); left: auto; right: calc(100% + 1px + var(--tl-label-gap)); color: var(--text-muted); }
+/* The selected layer's bar: a 2 px outline in --accent-ink. */
 .tl-row.sel .tl-bar { outline: 2px solid var(--accent-ink); }
-/* Left out of the tier the preview draws. */
-.tl-row.off .tl-bar { opacity: 0.35; }
+/* Left out of the tier the preview draws: the bar and its label at 35 %, mixed with what is behind them rather than made
+   see-through (opacity would take the label under the playhead's line), and the name muted. The selected bar's outline
+   stays whole. */
+.tl-row.off .tl-bar {
+  --tl-halo: color-mix(in srgb, var(--bar) 35%, var(--tl-row-bg));
+  background-color: color-mix(in srgb, var(--bar) 35%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tl-bar-edge) 35%, transparent);
+}
+.tl-row.off .tl-bar.steps { background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--step) - 1px), color-mix(in srgb, var(--tl-bar-step) 35%, transparent) calc(var(--step) - 1px) var(--step)); }
+.tl-row.off .tl-label { color: color-mix(in srgb, var(--tl-bar-text) 35%, var(--tl-halo)); }
+.tl-row.off .tl-bar[data-fit="right"] .tl-label, .tl-row.off .tl-bar[data-fit="left"] .tl-label { color: color-mix(in srgb, var(--text-muted) 35%, var(--tl-row-bg)); }
 .tl-row.off .tl-name { color: var(--text-muted); }
 /* On the selected row the name keeps --text: muted on the selected tint is under 4.5:1 in Night (README, Assumptions). */
 .tl-row.sel.off .tl-name { color: var(--text); }
-.tl-head { position: absolute; top: 0; bottom: 0; width: 0; margin-left: -1px; border-left: 2px solid var(--accent-ink); pointer-events: none; }
-.tl-head::before { content: ''; position: absolute; top: 0; left: -6px; border: 5px solid transparent; border-top: 6px solid var(--accent-ink); border-bottom: 0; }
+/* The playhead: a 2 px line in --accent-ink through the ruler and the phase strip (.tl-head, in the header) and the lanes
+   (.tl-line, over the rows), under every label. Its 10 px head sits in the ruler's lower half, its point on the ruler's
+   line: the tick labels are in the upper half, so it never covers one, not even the 0. Drag the head to scrub; it can be
+   grabbed 2 px round it. */
+.tl-head, .tl-line { position: absolute; top: 0; bottom: 0; z-index: 1; width: 2px; margin-left: -1px; background: var(--accent-ink); pointer-events: none; }
+.tl-knob {
+  position: absolute; top: calc(var(--h-ruler) - var(--w-head) - 4px); left: calc(1px - var(--w-head) / 2 - 2px);
+  width: calc(var(--w-head) + 4px); height: calc(var(--w-head) + 4px); pointer-events: auto; cursor: ew-resize; touch-action: none;
+}
+.tl-knob::before { content: ''; position: absolute; left: 2px; bottom: 0; width: var(--w-head); height: var(--w-head); background: var(--accent-ink); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
 
 /* ---------------------------------------------------------------- inspector */
 .row { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }

@@ -13,7 +13,8 @@
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
 //    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
-//    bars, the phases' names), Save as into projects/, Export and Import, and the palette
+//    bars, the phases' names, the playhead and its head, the ruler staying at the top, clicks and scrubs, the selected, hovered
+//    and left-out rows), Save as into projects/, Export and Import, and the palette
 //    profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
 //    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
@@ -3250,8 +3251,11 @@ if (webgpu) {
   // -- the timeline (docs/ui-redesign.md 6.5): its sizes at 1920 x 1080 and 2560 x 1440 (the names column, the ruler, the
   // phase strip, the rows, the bars); every bar's label in full view in its lane, inside its bar when it fits, else beside
   // it in --text-muted (the Rifle shot's Bullet; a bar near the end of the span), also after a splitter makes the lanes
-  // narrower and back; the phases' names inside when they fit, their times in their tooltips. On a page of its own: the
-  // splitters' sizes are remembered.
+  // narrower and back; the phases' names inside when they fit, their times in their tooltips; the playhead (its line
+  // through the ruler and the lanes, its head, which drags) and no label hidden by it; the ruler and the phase strip at the
+  // top while the rows scroll, and a selected row scrolled into view below them; scrubbing, and a click on a bar selecting;
+  // the selected row, the hovered one and a row left out of the tier. On a page of its own: the splitters' sizes are
+  // remembered.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
     const tp = g.page;
@@ -3283,7 +3287,8 @@ if (webgpu) {
       z1920.name === 176 && z2560.name === 200 && sizesRight(z1920) && sizesRight(z2560), JSON.stringify({ z1920, z2560 }));
 
     // Every bar's label: in full view in its lane; inside the bar (its padding on both sides) when it fits there, in
-    // --tl-bar-text; else just right of the bar, or left of it, in --text-muted.
+    // --tl-bar-text; else just right of the bar, or left of it, in --text-muted. (A row left out of the tier has its label
+    // at 35 %: checked further on.)
     const labelsNow = () => tp.evaluate(() => {
       const probe = (v) => { const s = document.createElement('span'); s.style.color = v; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
       const muted = probe('var(--text-muted)'), ink = probe('var(--tl-bar-text)');
@@ -3296,7 +3301,7 @@ if (webgpu) {
         const colour = getComputedStyle(label).color;
         return { id: row.dataset.layer, text: label.textContent, fit: bar.dataset.fit, where, fits, w: +l.width.toFixed(1), bar: +b.width.toFixed(1),
           inLane: l.left >= lane.left - 0.5 && l.right <= lane.right + 0.5 && l.top >= lane.top - 0.5 && l.bottom <= lane.bottom + 0.5,
-          shown: getComputedStyle(label).visibility === 'visible' && l.width > 0, colourOk: colour === (where === 'inside' ? ink : muted) };
+          shown: getComputedStyle(label).visibility === 'visible' && l.width > 0, colourOk: row.classList.contains('off') || colour === (where === 'inside' ? ink : muted) };
       });
     });
     const labelsRight = (list) => list.every((x) => x.inLane && x.shown && x.colourOk && x.where === x.fit && (x.fits ? x.where === 'inside' : x.where === 'right' || x.where === 'left'));
@@ -3344,11 +3349,11 @@ if (webgpu) {
     // bars). In the narrowest centre (a window 1280 px wide, the sidebars at their widest: 640 px) the late bar's label has
     // no room left on its right and goes left of its bar. A double-click puts the sizes back, and the labels with them.
     const centreOf = async (sel) => { const b = await tp.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
-    const dragSplit = async (sel, dx) => {
+    const dragSplit = async (sel, dx, dy = 0) => {
       const [x, y] = await centreOf(sel);
       await tp.mouse.move(x, y);
       await tp.mouse.down();
-      await tp.mouse.move(x + dx, y, { steps: 6 });
+      await tp.mouse.move(x + dx, y + dy, { steps: 6 });
       await tp.mouse.up();
       await frames();
     };
@@ -3391,6 +3396,227 @@ if (webgpu) {
       beamPhases.length === 3 && beamPhases.every((p) => p.fit === 'yes' && p.visible && p.inside && p.size === '11px') && beamPhases.map((p) => p.tip).join(' | ') === 'wind-up: 0–350 ms | peak: 350–2850 ms | fade: 2850–3150 ms'
         && narrowPhases[0].name === 'windup' && narrowPhases[0].fit === 'no' && !narrowPhases[0].visible && narrowPhases[0].tip === 'wind-up: 0–250 ms' && narrowPhases.slice(1).every((p) => p.fit === 'yes' && p.visible),
       JSON.stringify({ beamPhases, narrowPhases }));
+    // The playhead (6.5): a 2 px line in --accent-ink through the ruler and the phase strip (.tl-head) and the lanes
+    // (.tl-line), at the same place and meeting with no gap; its 10 px head in the ruler's lower half, clear of every tick
+    // label, the 0 too at 0 ms. The ruler, the phase strip and the head stay at the top while the rows scroll. (The playhead
+    // moves on a drawn frame: showAt draws one.)
+    const playheadNow = () => tp.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--accent-ink)';
+      document.body.append(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const head = r('.timeline .tl-head'), line = r('.timeline .tl-line'), top = r('.timeline .tl-top'), ruler = r('.timeline .tl-ruler'), rows = r('.timeline .tl-rows'), slot = r('.timeline-slot');
+      const knob = document.querySelector('.timeline .tl-knob'), kb = knob.getBoundingClientRect(), shape = getComputedStyle(knob, '::before');
+      const hk = { left: kb.left + parseFloat(shape.left), right: kb.left + parseFloat(shape.left) + parseFloat(shape.width), top: kb.bottom - parseFloat(shape.height), bottom: kb.bottom };
+      const clear = [...document.querySelectorAll('.timeline .tl-tick span, .timeline .tl-unit')].every((s) => { const l = s.getBoundingClientRect(); return l.right <= hk.left || l.left >= hk.right || l.bottom <= hk.top || l.top >= hk.bottom; });
+      const colour = [...document.querySelectorAll('.timeline .tl-head, .timeline .tl-line')].every((x) => getComputedStyle(x).backgroundColor === accent) && shape.backgroundColor === accent;
+      return { headW: head.width, lineW: line.width, sameX: Math.abs(head.left - line.left) < 0.01, headTop: +(head.top - top.top).toFixed(1), headToTop: +(top.bottom - head.bottom).toFixed(1),
+        gap: +(line.top - head.bottom).toFixed(1), lineToRows: +(rows.bottom - line.bottom).toFixed(1), colour, knob: [parseFloat(shape.width), parseFloat(shape.height)],
+        lowerHalf: hk.top >= ruler.top + ruler.height / 2 - 0.5 && hk.bottom <= ruler.bottom + 0.5 && hk.left < head.left + 1 && hk.right > head.right - 1, clear,
+        stuck: +(top.top - slot.top).toFixed(1), headIn: head.top >= slot.top - 0.5, scrolled: document.querySelector('.timeline-slot').scrollTop };
+    });
+    await showTl('board_beam', 0);
+    const ph0 = await playheadNow();
+    await showTl('board_beam', 1000);
+    const ph1 = await playheadNow();
+    await tp.evaluate(() => { const s = document.querySelector('.timeline-slot'); s.scrollTop = s.scrollHeight; });
+    await frames();
+    const ph2 = await playheadNow();
+    await tp.evaluate(() => { document.querySelector('.timeline-slot').scrollTop = 0; });
+    const lineRight = (p) => p.headW === 2 && p.lineW === 2 && p.colour && p.sameX && p.headTop === 0 && p.headToTop === 0 && p.lineToRows === 0 && p.knob.join() === '10,10' && p.lowerHalf && p.clear;
+    ok('the playhead: a 2 px line in --accent-ink through the ruler, the phase strip and the lanes, one line with no gap; its 10 px head in the ruler\'s lower half, clear of the tick labels (the 0 too, at 0 ms)',
+      lineRight(ph0) && lineRight(ph1) && ph0.gap === 0 && ph1.gap === 0, JSON.stringify({ ph0, ph1 }));
+    ok('with the rows scrolled to the end the ruler, the phase strip and the playhead\'s head stay at the top, and the line goes on under them',
+      lineRight(ph2) && ph2.scrolled > 100 && ph2.stuck === 0 && ph2.headIn && ph2.gap < 0, JSON.stringify(ph2));
+
+    // The head drags: a press on it, 2 px off its middle, keeps the time (and pauses); 100 px of drag move it by 100 px of
+    // time.
+    await showTl('board_beam', 500);
+    const tlState = () => tp.evaluate(() => { const a = window.__vfx.app, d = a.debugState(); return { ms: +d.mainTime.toFixed(1), playing: d.playing, layer: a.layer()?.id ?? null }; });
+    const kb = await tp.locator('.timeline .tl-knob').boundingBox();
+    const lanePx = await tp.evaluate(() => document.querySelector('.timeline .tl-ruler').getBoundingClientRect().width);
+    await tp.mouse.move(kb.x + kb.width / 2 + 2, kb.y + kb.height - 3);
+    await tp.mouse.down();
+    const headPressed = await tlState();
+    await tp.mouse.move(kb.x + kb.width / 2 + 102, kb.y + kb.height - 3, { steps: 5 });
+    const headDragged = await tlState();
+    await tp.mouse.up();
+    ok('the playhead\'s head drags: a press on it keeps the time, and 100 px of drag scrub 100 px of time, paused',
+      near(headPressed.ms, 500, 1) && !headPressed.playing && near(headDragged.ms, 500 + (100 / lanePx) * 3500, 3) && !headDragged.playing, JSON.stringify({ headPressed, headDragged, lanePx }));
+
+    // Scrubbing as before: a press on the ruler, on the phase strip and on an empty part of a lane goes to that moment.
+    const pressAt = async (sel, fx, fy) => { const b = await tp.locator(sel).boundingBox(); await tp.mouse.click(b.x + b.width * fx, b.y + b.height * fy); return tlState(); };
+    const onRuler = await pressAt('.timeline .tl-ruler', 0.3, 0.3);
+    const onPhases = await pressAt('.timeline .tl-phases', 0.5, 0.5);
+    await showTl('rifle_shot', 0);
+    const onLane = await pressAt('.timeline .tl-row[data-layer="dust"] .tl-lane', 0.05, 0.5);
+    ok('a press on the ruler, the phase strip or an empty part of a lane scrubs to that moment, as before, and selects nothing',
+      near(onRuler.ms, 0.3 * 3500, 10) && near(onPhases.ms, 0.5 * 3500, 10) && near(onLane.ms, 0.05 * 400, 2) && [onRuler, onPhases, onLane].every((s) => !s.playing && s.layer === null),
+      JSON.stringify({ onRuler, onPhases, onLane }));
+
+    // A click on a bar selects its layer and leaves the time as it was (a press that moves 2 px is still a click); a press
+    // on a bar that moves scrubs, paused, and selects nothing; a click on a bar's label beside it, or on a name, selects.
+    // (The Hammer leech beam's bars fill most of their lanes.)
+    await showTl('board_beam', 500);
+    const barAt = async (id) => { const b = await tp.locator(`.timeline .tl-row[data-layer="${id}"] .tl-bar`).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+    let [bx, by] = await barAt('spot_star');
+    await tp.mouse.click(bx, by);
+    const barClick = await tlState();
+    [bx, by] = await barAt('beads');
+    await tp.mouse.move(bx, by);
+    await tp.mouse.down();
+    await tp.mouse.move(bx + 2, by + 1);
+    await tp.mouse.up();
+    const barNudge = await tlState();
+    [bx, by] = await barAt('emitter_glow');
+    await tp.mouse.move(bx, by);
+    await tp.mouse.down();
+    await tp.mouse.move(bx + 80, by, { steps: 4 });
+    const barDrag = await tlState();
+    await tp.mouse.up();
+    const barDragMs = await tp.evaluate((x) => { const r = document.querySelector('.timeline .tl-ruler').getBoundingClientRect(); return ((x - r.left) / r.width) * 3500; }, bx + 80);
+    await tp.locator('.timeline .tl-row[data-layer="closing_rings"] .tl-name').click();
+    const nameClick = await tlState();
+    await showTl('rifle_shot', 200);
+    await tp.locator('.timeline .tl-row[data-layer="bullet"] .tl-label').click();
+    const besideClick = await tlState();
+    ok('a click on a bar selects its layer and keeps the time (a 2 px move is still a click); a press on a bar that moves scrubs, paused, and selects nothing; a click on a label beside its bar, or on a name, selects',
+      barClick.layer === 'spot_star' && barClick.ms === 500 && barNudge.layer === 'beads' && barNudge.ms === 500 && barDrag.layer === 'beads' && !barDrag.playing && near(barDrag.ms, barDragMs, 5)
+        && nameClick.layer === 'closing_rings' && besideClick.layer === 'bullet' && besideClick.ms === 200, JSON.stringify({ barClick, barNudge, barDrag, barDragMs, nameClick, besideClick }));
+
+    // A layer whose row is scrolled out of view, selected: its row stops right below the ruler and the phase strip, not
+    // under them (Hammer leech beam, picked in the Layers list with the rows scrolled to the end). The Rifle shot has no
+    // phases: with the timeline at its lowest, its first row stops right below the ruler.
+    const rowUnder = (id) => tp.evaluate((id) => {
+      const slot = document.querySelector('.timeline-slot').getBoundingClientRect(), top = document.querySelector('.timeline .tl-top').getBoundingClientRect();
+      const row = document.querySelector(`.timeline .tl-row[data-layer="${id}"]`).getBoundingClientRect();
+      return { below: +(row.top - top.bottom).toFixed(1), header: +(top.bottom - slot.top).toFixed(1), inView: row.top >= top.bottom - 0.5 && row.bottom <= slot.bottom + 0.5, scrolled: document.querySelector('.timeline-slot').scrollTop };
+    }, id);
+    await showTl('board_beam', 1000);
+    await tp.evaluate(() => { const s = document.querySelector('.timeline-slot'); s.scrollTop = s.scrollHeight; });
+    await tp.locator('.layers-list .layer-item[data-layer="emitter_white"] .item-main').click();
+    const beamFirst = await rowUnder('emitter_white');
+    await tp.locator('.layers-list .layer-item[data-layer="ground_glow_target"] .item-main').scrollIntoViewIfNeeded();
+    await tp.locator('.layers-list .layer-item[data-layer="ground_glow_target"] .item-main').click();
+    const beamLast = await rowUnder('ground_glow_target');
+    await dragSplit('.split-timeline', 0, 600);
+    await showTl('rifle_shot', 20, 'bullet');
+    await showTl('rifle_shot', 20, 'dust');
+    const rifleFirst = await rowUnder('dust');
+    const lowest = await tp.evaluate(() => Math.round(document.querySelector('.timeline-pane').getBoundingClientRect().height));
+    await tp.locator('.split-timeline').dblclick();
+    await frames();
+    ok('a layer whose row is out of view, selected, scrolls into view below the ruler and the phase strip (40 px), not under them; below the ruler alone (24 px) when the effect has no phases',
+      beamFirst.below === 0 && beamFirst.header === 40 && beamFirst.inView && beamLast.inView && beamLast.scrolled > 0 && rifleFirst.below === 0 && rifleFirst.header === 24 && rifleFirst.inView && lowest === 140,
+      JSON.stringify({ beamFirst, beamLast, rifleFirst, lowest }));
+
+    // Selection and hover as in the Layers list: the selected row's --bg-selected across the name and the lane (its name
+    // cell the same colour as the selected row in the Layers list), its bar's 2 px --accent-ink outline; a hovered row's
+    // lane, and the selected one's, exactly --tl-lane-hover and --tl-lane-selected (the edge round a label beside its bar
+    // takes those). In Day and in Night.
+    const looks = async (theme) => {
+      await showTl('rifle_shot', 200, 'tracer');
+      // The pointer on the Hit spark row's name (its lane highlights), away from any tooltip's way.
+      await tp.locator('.timeline .tl-row[data-layer="hit"] .tl-name').hover({ position: { x: 150, y: 12 } });
+      await tp.waitForTimeout(300);
+      const geo = await tp.evaluate(() => {
+        const probe = (prop, v) => { const s = document.createElement('span'); s.style[prop] = v; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; };
+        const row = document.querySelector('.timeline .tl-row.sel'), bar = row.querySelector('.tl-bar'), name = row.querySelector('.tl-name'), lane = row.querySelector('.tl-lane');
+        const hovered = document.querySelector('.timeline .tl-row[data-layer="hit"]');
+        const list = document.querySelector('.layers-list .layer-item.sel').getBoundingClientRect();
+        const n = name.getBoundingClientRect(), l = lane.getBoundingClientRect(), b = bar.getBoundingClientRect(), hl = hovered.querySelector('.tl-lane').getBoundingClientRect();
+        const hex = (c) => '#' + c.match(/\d+/g).slice(0, 3).map((v) => (+v).toString(16).padStart(2, '0')).join('').toUpperCase();
+        return { rowBg: getComputedStyle(row).backgroundColor === probe('backgroundColor', 'var(--bg-selected)'), cells: getComputedStyle(name).backgroundColor + ' ' + getComputedStyle(lane).backgroundColor,
+          outline: `${getComputedStyle(bar).outlineStyle} ${getComputedStyle(bar).outlineWidth}`, outlineColour: getComputedStyle(bar).outlineColor === probe('color', 'var(--accent-ink)'),
+          hoveredClass: hovered.classList.contains('hovered') || hovered.matches(':hover'), want: { hover: hex(probe('color', 'var(--tl-lane-hover)')), sel: hex(probe('color', 'var(--tl-lane-selected)')) },
+          at: { name: [Math.round(n.right - 6), Math.round(n.top + n.height / 2)], list: [Math.round(list.right - 110), Math.round(list.top + list.height / 2)], lane: [Math.round(l.right - 20), Math.round(l.top + l.height / 2)],
+            hover: [Math.round(hl.right - 20), Math.round(hl.top + hl.height / 2)], outline: [Math.round(b.left + b.width / 2), Math.round(b.top - 2)] } };
+      });
+      const png = PNG.sync.read(await tp.screenshot({ path: join(shots, `timeline-selection-${theme}.png`) }));
+      const px = (p) => hex(png, p[0], p[1]);
+      const accent = await tp.evaluate(() => { const s = document.createElement('span'); s.style.color = 'var(--accent-ink)'; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return '#' + c.match(/\d+/g).slice(0, 3).map((v) => (+v).toString(16).padStart(2, '0')).join('').toUpperCase(); });
+      await tp.mouse.move(900, 300);
+      return { ...geo, px: { name: px(geo.at.name), list: px(geo.at.list), lane: px(geo.at.lane), hover: px(geo.at.hover), outline: px(geo.at.outline) }, accent };
+    };
+    const lookDay = await looks('day');
+    await tp.locator('.topbar .theme-toggle').click();
+    const lookNight = await looks('night');
+    await tp.locator('.topbar .theme-toggle').click();
+    const lookRight = (k) => k.rowBg && k.cells === 'rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)' && k.outline === 'solid 2px' && k.outlineColour && k.hoveredClass
+      && diff(k.px.name, k.px.list) <= 1 && diff(k.px.lane, k.want.sel) <= 1 && diff(k.px.hover, k.want.hover) <= 1 && diff(k.px.outline, k.accent) <= 1;
+    ok('the selected row: --bg-selected across the name (the colour of the selected row in the Layers list) and the lane, its bar outlined 2 px in --accent-ink; a hovered lane and the selected one exactly --tl-lane-hover and --tl-lane-selected, in Day and Night',
+      lookRight(lookDay) && lookRight(lookNight), JSON.stringify({ lookDay, lookNight }));
+
+    // Left out of the tier: the bar at 35 % (its fill 0.35 of its colour over the lane), the name muted; the selected one's
+    // name keeps --text and its outline stays whole. (The Molotov in Low: Flames is in Medium and High only.)
+    const offLook = await tp.evaluate(async () => {
+      const a = window.__vfx.app;
+      a.pickEffect('board_molotov');
+      a.setTierForChecks('low');
+      a.selectLayer(null);
+      await a.showAt(1200, 7);
+      const probe = (v) => { const s = document.createElement('span'); s.style.color = v; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+      const row = document.querySelector('.timeline .tl-row[data-layer="flames"]'), bar = row.querySelector('.tl-bar'), label = bar.querySelector('.tl-label');
+      const b = bar.getBoundingClientRect(), l = label.getBoundingClientRect();
+      // A point of the fill: halfway between two step marks (each 1 px at the end of its step), well right of the label.
+      const stepPx = bar.classList.contains('steps') ? (parseFloat(bar.style.getPropertyValue('--step')) / 100) * (b.width - 2) : 0;
+      const x = stepPx ? b.left + 1 + (Math.ceil((l.right + 20 - b.left - 1) / stepPx) + 0.5) * stepPx : l.right + 40;
+      const type = [...bar.classList][1];
+      const out = { off: row.classList.contains('off'), name: getComputedStyle(row.querySelector('.tl-name')).color === probe('var(--text-muted)'), fill: probe(`var(--tl-${type})`), lane: probe('var(--tl-lane)'),
+        at: [Math.round(x), Math.round(b.top + b.height / 2)], stepPx: +stepPx.toFixed(1), type };
+      a.selectLayer('flames');
+      const sel = document.querySelector('.timeline .tl-row[data-layer="flames"]');
+      out.selName = getComputedStyle(sel.querySelector('.tl-name')).color === probe('var(--text)');
+      out.selOutline = getComputedStyle(sel.querySelector('.tl-bar')).outlineColor === probe('var(--accent-ink)');
+      a.selectLayer(null);
+      return out;
+    });
+    const offPng = PNG.sync.read(await tp.screenshot());
+    const offPx = hex(offPng, offLook.at[0], offLook.at[1]);
+    await tp.evaluate(async () => { const a = window.__vfx.app; a.setTierForChecks('high'); await a.showAt(1200, 7); });
+    const rgb = (c) => c.match(/\d+/g).slice(0, 3).map(Number);
+    const offWant = '#' + rgb(offLook.fill).map((f, i) => Math.round(0.35 * f + 0.65 * rgb(offLook.lane)[i]).toString(16).padStart(2, '0')).join('').toUpperCase();
+    ok('a bar left out of the tier is at 35 % (its fill 0.35 of its colour over the lane) and its name muted; selected, its name keeps --text and its outline stays whole',
+      offLook.off && offLook.name && diff(offPx, offWant) <= 2 && offLook.selName && offLook.selOutline, JSON.stringify({ offLook, offPx, offWant }));
+
+    // Neither hides the other: at 20 ms on the Hammer leech beam the playhead crosses the first digit of "3150 ms", the "w"
+    // of "wind-up" and the ruler's 0; at 20 ms on the Rifle shot it crosses the Bullet's label beside its bar. Each label's
+    // letters and their 1 px edge look the same as with the playhead far away, and the line shows round them.
+    const underPlayhead = async (effect, onMs, awayMs, sel) => {
+      await showTl(effect, onMs);
+      const b = await tp.locator(sel).first().boundingBox();
+      const clip = { x: Math.floor(b.x), y: Math.floor(b.y), width: Math.ceil(b.x + b.width) - Math.floor(b.x), height: Math.ceil(b.y + b.height) - Math.floor(b.y) };
+      const lineX = await tp.evaluate(() => { const r = document.querySelector('.timeline .tl-line').getBoundingClientRect(); return r.left + r.width / 2; });
+      const on = PNG.sync.read(await tp.screenshot({ clip }));
+      await showTl(effect, awayMs);
+      const away = PNG.sync.read(await tp.screenshot({ clip }));
+      // In the label's own box: its background is the commonest colour with the playhead away; its letters, the pixels that
+      // differ from it (with their soft edges). A letter pixel may move a little (24 of 255: the label can sit at a fraction
+      // of a pixel, and its edge and letters round apart); without the edge they took the line's colour. Elsewhere in the
+      // box the line may show.
+      const counts = new Map();
+      for (let i = 0; i < away.data.length; i += 4) { const k = `${away.data[i]},${away.data[i + 1]},${away.data[i + 2]}`; counts.set(k, (counts.get(k) ?? 0) + 1); }
+      const bg = [...counts.entries()].sort((p, q) => q[1] - p[1])[0][0].split(',').map(Number);
+      const W = away.width, H = away.height;
+      const ink = (x, y) => { const i = (y * W + x) * 4; return Math.max(...[0, 1, 2].map((k) => Math.abs(away.data[i + k] - bg[k]))) > 40; };
+      let kept = 0, changedLetters = 0, lineShows = 0, most = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const d = Math.max(...[0, 1, 2].map((k) => Math.abs(on.data[i + k] - away.data[i + k])));
+        if (ink(x, y)) { most = Math.max(most, d); if (d > 24) changedLetters++; else kept++; } else if (d > 40) lineShows++;
+      }
+      return { sel, crosses: lineX >= clip.x + 1 && lineX <= clip.x + clip.width - 1, kept, changedLetters, most, lineShows };
+    };
+    const hidden = [
+      await underPlayhead('board_beam', 20, 1500, '.timeline .tl-row[data-layer="emitter_white"] .tl-label'),
+      await underPlayhead('board_beam', 20, 1500, '.timeline .tl-phase.windup span'),
+      await underPlayhead('board_beam', 20, 1500, '.timeline .tl-tick span'),
+      await underPlayhead('rifle_shot', 20, 200, '.timeline .tl-row[data-layer="bullet"] .tl-label'),
+    ];
+    ok('no label is hidden by the playhead: on "3150 ms" and "wind-up" at 20 ms (Hammer leech beam), the ruler\'s 0, and the Bullet\'s label beside its bar, the letters stay as they were and the line shows round them',
+      hidden.every((x) => x.crosses && x.kept > 20 && x.changedLetters === 0 && x.lineShows > 0), JSON.stringify(hidden));
     ok('the timeline page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await tp.close();
   }

@@ -1122,11 +1122,16 @@ export function reorderDrag(list: HTMLElement, o: {
   return { dragging: () => !!drag };
 }
 
-/** Scroll a list so that one of its rows shows, as little as needed (block: 'nearest'), and nothing round the list. */
+/**
+ * Scroll a list so that one of its rows shows, as little as needed (block: 'nearest'), and nothing round the list. The
+ * list's scroll padding counts, as it does for scrollIntoView: a row stops below what stays at the top of the list (the
+ * timeline's ruler and phase strip).
+ */
 export function scrollNearest(list: HTMLElement, row: Element): void {
-  const c = list.getBoundingClientRect(), r = row.getBoundingClientRect();
-  if (r.top < c.top) list.scrollTop -= c.top - r.top;
-  else if (r.bottom > c.bottom) list.scrollTop += Math.min(r.bottom - c.bottom, r.top - c.top);
+  const c = list.getBoundingClientRect(), r = row.getBoundingClientRect(), s = getComputedStyle(list);
+  const top = c.top + (parseFloat(s.scrollPaddingTop) || 0), bottom = c.bottom - (parseFloat(s.scrollPaddingBottom) || 0);
+  if (r.top < top) list.scrollTop -= top - r.top;
+  else if (r.bottom > bottom) list.scrollTop += Math.min(r.bottom - bottom, r.top - top);
 }
 
 // ---------------------------------------------------------------- splitters (docs/ui-redesign.md 5.2)
