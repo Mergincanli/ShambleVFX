@@ -79,9 +79,18 @@ const PX = 'px on a 1080p screen';
  */
 export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   // ------------------------------------------------------------ the effect's own view
-  'Effect': 'The whole effect: its name, the game events that start it, the four big controls (Size, Intensity, Duration, Colour) and its phases.',
-  'Effect name': 'The effect\'s name in the editor. Its file keeps its own id, so you can rename it freely.',
-  'Game events it answers': 'The names the game starts this effect by, such as rifle.shot, with commas between. One event plays one effect; the names are proposals until the game settles them.',
+  'Effect': 'The effect itself: its name, the folder it sits in, and the game events that start it. Scale, Phases, Colour and Cost follow.',
+  'Name': {
+    text: 'Its name in the editor. Only for you: the game never shows it.',
+    when: [
+      { in: 'Effect', text: 'The effect\'s name in the editor, without its folder (that is Folder). Its file keeps its own id, so you can rename it freely. A " / " in the name makes a folder inside its folder.' },
+      { layer: ['sprite', 'projectile', 'shape', 'burst', 'word'], text: 'The layer\'s name in the Layers list and on the timeline. Only for you: the game never shows it.' },
+    ],
+  },
+  'Folder': 'The folder the effect sits in, in the Effects list: the part of its name before " / ". New folder… makes one. A move is one undo step; the name and its folder have at most 80 characters together.',
+  'Game events': 'The names the game starts this effect by, such as rifle.shot, with commas between. One event plays one effect; the names are proposals until the game settles them.',
+  'Main colour': 'The effect\'s main colour: every layer whose colour is "main" takes it, and the dot by the effect\'s name shows it. The edit button opens the colour picker on it.',
+  'Edit palette…': 'Open the colour picker at the whole palette: the team colours of the faction shown, and the shared ones. Click a colour there to change it.',
   'Size': {
     text: 'How big it is, in the unit shown.',
     when: [
@@ -103,6 +112,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
       { title: true, layer: 'sprite', text: 'Whether the image keeps its own colours or is tinted with a colour from the palette, and the palette colours this layer uses. Click a colour to change it everywhere it is used; the marked one is the effect\'s main colour.' },
       { title: true, layer: 'projectile', text: 'A projectile has no colours of its own: these are the colours of the layers riding it. Click a colour to change it everywhere it is used; the marked one is the effect\'s main colour.' },
       { title: true, layer: ['shape', 'burst', 'word'], text: 'The palette colours this layer uses, also those it draws without naming them, such as the black ink. Click one to change it everywhere it is used; the marked one is the effect\'s main colour.' },
+      { title: true, text: 'The effect\'s colours: its main colour, used by every layer whose colour is "main", and every colour its layers use. Click a colour to change it; Edit palette… shows the whole palette.' },
       { in: 'Colour', layer: 'sprite', text: 'Keep the image\'s colours, or multiply them by a palette colour. Draw images meant for tinting in white and greys, so the colour shows true.' },
       { in: 'Effect', text: 'Colours from the palette. The marked one is the effect\'s main colour, used by every layer whose colour is "main"; click a colour to change it or make it the main one.' },
       { in: 'Look', text: 'The pieces\' colour, from the palette.' },
@@ -125,12 +135,13 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
 
   // ------------------------------------------------------------ cost
   'Cost': {
-    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; type budgets to see red (over) or green (within). Each number is the most at any moment of the effect, at 60 frames a second with a fixed seed; hover a row\'s name for what it counts. No budget is decided yet, so type your own: the boxes are the project\'s budgets, saved in project.json.',
+    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; switch on Budgets and type budgets to see red (over) or green (within). Each number is the most at any moment of the effect, at 60 frames a second with a fixed seed; hover a row\'s name for what it counts, and the info icon for how it was measured. No budget is decided yet, so type your own: the boxes are the project\'s budgets, saved in project.json.',
     when: [
       { in: 'Status bar', text: 'The last Measure against the budgets that count: not measured yet, within budget, how many numbers are over, or out of date when the effect or the scene changed since. Click for Cost.' },
     ],
   },
-  'Measure': 'Play the effect through once per tier at 60 frames a second, at the game camera, and count what it costs. The preview waits meanwhile.',
+  'Measure': 'Play the effect through once per tier at 60 frames a second, at the game camera, and count what it costs. The preview waits meanwhile. Press it again after a change.',
+  'Budgets': 'Show the budget boxes under the numbers: type a number to set the project\'s budget for that row and tier, and the number turns red (over) or green (within). The boxes stay while a budget is set.',
   'Draws': 'Draw calls at the busiest moment: one per group in use (stains, light on the ground, the rest on the ground, over the scene). All effects playing share them, at most 4.',
   'Sprites alive': 'Items alive at the busiest moment: each sprite, piece, dot, letter, flame tongue, smoke puff, line, bead and shape counts once, however many outlines it has.',
   'Triangles': 'The most triangles drawn at any moment of the effect. The layers with the most in High are named under the table.',
@@ -287,6 +298,8 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
       { in: 'Tones', text: 'This tone\'s size as a share of the outer shape: 1 is full size, 0.5 half.' },
       { in: 'Every other step', text: 'The flash\'s size on every other step, such as 0.82, so it flickers between two sizes.' },
       { in: 'Pops in', text: 'How large the word is while it pops in: 1.15 is 15 % larger than normal.' },
+      // The effect's own Scale section (UI phase 6): a title with no section round it.
+      { title: true, in: '', text: 'The three big controls: Size, Intensity and Duration. Each changes the whole effect at once; 1 = as made.' },
     ],
   },
   'Solid (0 to 1)': {

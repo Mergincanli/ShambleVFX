@@ -44,6 +44,17 @@ export interface AppApi {
   duplicateEffect(id: string): void;
   /** Move to folder… for an effect: the folder menu (the folders there are, No folder, New folder…) below a button. */
   openFolderMenu(id: string, below: HTMLElement): void;
+  /**
+   * The right panel's Name field: rename an effect to the words typed (its name without its folder), by the Effects list's
+   * rename rules (one function for both). True when it was renamed.
+   */
+  renameEffectTo(id: string, typed: string): boolean;
+  /** Every folder in use in the project, A to Z ("Vehicles", "Vehicles / Tank", "Weapons"): the Folder select's choices. */
+  folders(): string[];
+  /** The right panel's Folder select: move an effect to a folder ('' for none), as Move to folder… does: one undo step. */
+  moveToFolder(id: string, folder: string): void;
+  /** The Folder select's New folder…: ask for the folder's name, then move the effect there. False when nothing moved. */
+  newFolder(id: string): Promise<boolean>;
   /** Delete an effect, after asking (undo brings it back). */
   deleteEffect(id: string): void;
   /** Rename a layer in place, in its row of the Layers list (as F2 does). */
@@ -77,6 +88,16 @@ export interface AppApi {
   setMainColour(role: string): void;
   /** Open the colour picker on a role, next to a swatch. */
   openColourPicker(role: string, anchor: HTMLElement): void;
+  /**
+   * "Edit palette…": the colour picker on a role, scrolled to its palette (its Palette section, opened). The picker's tabs
+   * come in UI phase 7; this then opens its Palette tab.
+   */
+  openPalette(role: string, anchor: HTMLElement): void;
+  /**
+   * A gradient field's edit button: the colour picker on a role, scrolled to its Gradients section (opened), with the
+   * gradient named open in the gradient editor when it is in the palette. UI phase 7 points this at the Gradients tab.
+   */
+  openGradients(role: string, anchor: HTMLElement, gradient?: string): void;
 
   /** The quality tier the preview draws (Low, Medium or High). */
   previewTier(): TierName;

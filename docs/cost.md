@@ -4,12 +4,13 @@ Every effect shows what it costs, per quality tier, next to budgets you type (de
 so the editor invents no limits: the boxes start empty, and a number turns red (over) or green (within) only once you type a
 budget.
 
-Press **Measure** on the **Cost** card, at the bottom of the effect's settings in the right panel (select the effect, not a
-layer; the triangles and the cost in the status bar go there). The editor plays the effect through **once per tier**,
-through `VfxRenderer` (the code the game ships), at a **fresh game camera** on the 1920 × 1080 screen, at **60 frames a
-second**, with **seed 1**, in the scene, faction, "made by" and distance the preview has now. The preview waits while it
-measures. The card prints these conditions under the table; when the effect or any of them changes, the numbers turn amber
-and say so.
+Press **Measure** in the header of **Cost**, the last section of the effect's settings in the right panel (select the effect,
+not a layer; the triangles and the cost in the status bar open it). Cost is closed at first: its header says how it stands
+in the status bar's words ("Not measured", "Within budget" in green, "2 over budget" in red, "Out of date" in amber), and
+Measure works open or closed. The editor plays the effect through **once per tier**, through `VfxRenderer` (the code the
+game ships), at a **fresh game camera** on the 1920 × 1080 screen, at **60 frames a second**, with **seed 1**, in the scene,
+faction, "made by" and distance the preview has now. The preview waits while it measures. The info icon after "Measured
+over …" gives these conditions in its tooltip; when the effect or any of them changes, the numbers turn amber and say so.
 
 **Each number is the most at any moment of the effect**, on its own: the most draws may come at another moment than the most
 triangles.
@@ -55,11 +56,13 @@ off").
 effect has a class); else the project's. Nothing is mixed: an empty box in the set that counts means no limit for that
 number, even when another level has one. When no level is on, nothing is compared and nothing turns red or green.
 
-### On the card today
+### In Cost today
 
-Until the editor's new Cost card comes (in the UI redesign), the card shows and edits **the project's budgets**: typing a
-number switches them on. A line under the card says which level counts for the effect shown, and the colours compare with
-that level's numbers. Classes and an effect's own budgets can be set only in `project.json` for now.
+Switch on **Budgets** under the table to show a box under each number: the boxes show and edit **the project's budgets**,
+and typing a number switches them on. While one of the project's budgets is set, the boxes stay (the toggle stays on); the
+toggle is remembered in your browser. A line under it says which level counts for the effect shown, and the colours compare
+with that level's numbers. Classes and an effect's own budgets can be set only in `project.json` until the Budgets place
+comes (UI phase 6, part B).
 
 ### In the files
 
@@ -81,7 +84,7 @@ Here the tank shell (in Big, with the class level on) is compared with 9000 tria
 2 draws in Low and nothing else, and every other effect with the project's 5000 triangles in High.
 
 A project made before (`project.json` version 1) had one set of budgets for the whole project. It becomes the project's
-budgets, **switched off**, with its numbers kept (the approved plan). On today's card, change one of them to switch them on.
+budgets, **switched off**, with its numbers kept (the approved plan). In Cost today, change one of them to switch them on.
 
 When the project is saved, `project.json` leaves out the budgets of effects the project no longer has (and their game events
 and scenes). The editor keeps them until you leave: undoing the delete brings the effect back with its budgets, and the next

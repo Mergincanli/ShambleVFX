@@ -22,6 +22,7 @@ import {
   replaceLayer as replaceLayerIn, setEffectValue, setLayerValue, setRoleColour,
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
+import { allFolders } from '../doc/folders';
 import { History } from '../doc/history';
 import { SHAPE_TEXT } from '../doc/layer-info';
 import { notDrawnNotes } from '../doc/not-drawn';
@@ -363,6 +364,17 @@ export class App implements AppApi {
     this.gradients.refresh();
   }
 
+  openPalette(role: string, anchor: HTMLElement): void {
+    this.openColourPicker(role, anchor);
+    this.picker.showPart('palette');
+  }
+
+  openGradients(role: string, anchor: HTMLElement, gradient?: string): void {
+    this.openColourPicker(role, anchor);
+    if (gradient && this.palette.gradients?.[gradient]) this.gradients.edit(gradient);
+    this.picker.showPart('gradients');
+  }
+
   events(): string[] {
     return this.selEffect ? [...(this.eventsValue[this.selEffect] ?? [])] : [];
   }
@@ -463,13 +475,15 @@ export class App implements AppApi {
     this.renderStatus();
   }
 
-  /** The status bar's triangles and cost: the effect's own view, scrolled to its cost card, the focus on Measure. */
+  /** The status bar's triangles and cost: the effect's own view, its Cost section opened and scrolled to, the focus on Measure. */
   private showCostCard(): void {
     if (this.selLayer) this.selectLayer(null);
     // Looked up after the selection: the panel was built again.
     const card = this.els.root.querySelector('.inspector .costcard');
+    const fold = card?.querySelector<HTMLDetailsElement>(':scope > details');
+    if (fold) fold.open = true;
     card?.scrollIntoView({ block: 'start', behavior: scrollBehaviour() });
-    (card?.querySelector('button') as HTMLButtonElement | null)?.focus({ preventScroll: true });
+    card?.querySelector<HTMLButtonElement>('.cost-measure')?.focus({ preventScroll: true });
   }
 
   /**
@@ -1296,6 +1310,25 @@ export class App implements AppApi {
   /** Move to folder… for an effect, below a button (the header's More): the Effects list's folder menu. */
   openFolderMenu(id: string, below: HTMLElement): void {
     this.effectsList.openFolderMenu(id, below);
+  }
+
+  /** The right panel's Name field: the Effects list's rename rules (one function, renameTo). */
+  renameEffectTo(id: string, typed: string): boolean {
+    return this.effectsList.renameTo(id, typed);
+  }
+
+  folders(): string[] {
+    return allFolders(this.history.doc.effects);
+  }
+
+  /** The right panel's Folder select: the Effects list's Move to folder. */
+  moveToFolder(id: string, folder: string): void {
+    this.effectsList.moveToFolder(id, folder);
+  }
+
+  /** The Folder select's New folder…: the Effects list's, with the same question. */
+  newFolder(id: string): Promise<boolean> {
+    return this.effectsList.newFolder(id);
   }
 
   /** Rename a layer in place, in its row of the Layers list, as F2 and the row's menu do. */

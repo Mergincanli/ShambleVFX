@@ -70,9 +70,10 @@ of a newer version is never written over.
 Click a swatch under **Colour** in the right panel. The list there shows the colours of what is selected: the effect's (its
 main colour and every layer's), or one layer's, with the ones it draws without naming them (the ink outline, a star's white
 first step, your own team's broken edge, its gradient's stops); a projectile has no colours of its own and shows those of
-the layers riding it. **Show all** shows every colour, the selection's in bold. The picker opens next to the swatch, and
-stays open while you play the effect or fire (Escape or Close puts it away). Keys pressed in it are its own; Ctrl+Z still
-undoes.
+the layers riding it. **Show all** shows every colour, the selection's in bold. In the effect's own settings, **Main colour**
+(above the list) picks the main colour, and its edit button (the pencil) opens the picker on it; **Edit palette…** (under the
+list) opens the picker at its whole palette. The picker opens next to the right panel, and stays open while you play the
+effect or fire (Escape or Close puts it away). Keys pressed in it are its own; Ctrl+Z still undoes.
 
 - **The wheel**: drag the ring for the hue, the triangle for brightness and saturation. The arrow keys work too (←/→ hue,
   ↑/↓ brightness, Page Up/Down saturation).

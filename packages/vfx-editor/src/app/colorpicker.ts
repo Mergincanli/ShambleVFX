@@ -78,6 +78,20 @@ export class ColourPicker {
     this.parts.canvas.focus({ preventScroll: true });
   }
 
+  /**
+   * Show one of its parts, opened: the whole palette, or the gradients (the panel in its extra slot). Its title comes to the
+   * top of the picker (which scrolls when it is taller than the window) and takes the keyboard focus. Until UI phase 7 gives
+   * the picker its tabs, "Edit palette…" and a gradient field's edit button open it this way.
+   */
+  showPart(part: 'palette' | 'gradients'): void {
+    if (!this.isOpen) return;
+    const sec = part === 'palette' ? this.el.querySelector<HTMLDetailsElement>(':scope > details.cp-palette-section') : this.parts.extra.querySelector<HTMLDetailsElement>('details.gr');
+    if (!sec) return;
+    sec.open = true;
+    this.el.scrollTop = sec.offsetTop - parseFloat(getComputedStyle(this.el).paddingTop);
+    sec.querySelector<HTMLElement>(':scope > summary')?.focus({ preventScroll: true });
+  }
+
   close(): void {
     if (!this.isOpen) return;
     this.el.hidePopover();
@@ -167,7 +181,7 @@ export class ColourPicker {
       derived,
       h('div', { class: 'cp-actions' }, main, revert),
       source, status,
-      h('details', { class: 'cp-section', attrs: { open: '' } }, h('summary', { text: 'Palette' }), palette),
+      h('details', { class: 'cp-section cp-palette-section', attrs: { open: '' } }, h('summary', { text: 'Palette' }), palette),
       h('details', { class: 'cp-section cp-new' }, h('summary', { text: 'New colour', attrs: { 'data-tip': 'A new colour role, starting as the colour above. Effects name it; a role cannot be renamed or removed later.' } }),
         h('p', { class: 'hint', text: 'A new role, starting as the colour above. It cannot be renamed or removed later.' }),
         newName,

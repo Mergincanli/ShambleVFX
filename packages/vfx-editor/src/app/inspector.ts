@@ -9,7 +9,7 @@
 import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
-import { FOLDER_SEP, folderOf, splitName } from '../doc/folders';
+import { FOLDER_SEP, NAME_MAX, folderOf, splitName } from '../doc/folders';
 import { riderLine, ridersOf, whatDraws } from '../doc/layer-info';
 import type { WhatDraws } from '../doc/layer-info';
 import type { AppApi } from './api';
@@ -90,17 +90,17 @@ export function buildInspector(app: AppApi): InspectorView {
     const head = layer ? layerHeader(app, parts, backToEffect, menus) : effectHeader(app, parts, menus);
     if (layer) el.append(head, layerDetails(app, layer, parts, colours, look));
     else {
-      // Cost sits at the bottom of the effect's settings only (docs/ui-redesign.md 6.6: never under a layer).
+      // Cost ends the effect's settings, closed at first, and never shows under a layer (docs/ui-redesign.md 6.6).
       const cost = costCard(app);
       parts.push(cost);
-      el.append(head, bigControls(app, parts, colours), h('p', { class: 'empty', text: 'Pick a layer on the left to see its details.' }), cost.el);
+      el.append(head, effectSections(app, parts, colours), cost.el);
     }
     // The problems banner goes in right under the header, and only while there are problems.
     parts.push(problemsBanner(app, banner, head));
     colours.refresh();
     // The control that had the focus (the way back, a rider) went with the old view: the new view's title takes it, so the
     // keyboard carries on from the top of what is now selected.
-    if (another && hadFocus) (el.querySelector('.insp-title, .bigcontrols > h2') as HTMLElement | null)?.focus({ preventScroll: true });
+    if (another && hadFocus) (el.querySelector('.insp-title') as HTMLElement | null)?.focus({ preventScroll: true });
   };
   const refresh = () => {
     const fx = app.effect();
@@ -276,33 +276,113 @@ function layerHeader(app: AppApi, parts: Refresher[], back: () => void, menus: H
   return head;
 }
 
-// ---------------------------------------------------------------- the big controls
+// ---------------------------------------------------------------- the effect's settings
 
-function bigControls(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
-  const c = () => app.effect()!.controls;
-  const name = textField({ label: 'Effect name', value: app.effect()!.name, onChange: (v) => app.editEffect(['name'], v.trim() || 'Effect', { label: 'Rename effect' }) });
-  const size = slider({ label: 'Size', min: 0.25, max: 3, step: 0.01, value: c().size, unit: '×', big: true, hint: 'Sprites, shapes, words, pieces and offsets. Not the start, the target or speeds.',
-    onInput: (v) => app.editEffect(['controls', 'size'], v, { mergeKey: 'size', label: 'Size' }), onCommit: () => app.commit() });
-  const intensity = slider({ label: 'Intensity', min: 0, max: 3, step: 0.01, value: c().intensity, unit: '×', big: true, hint: 'Flashes, hits and landings grow; streaks get longer. Never see-through.',
-    onInput: (v) => app.editEffect(['controls', 'intensity'], v, { mergeKey: 'intensity', label: 'Intensity' }), onCommit: () => app.commit() });
-  const duration = slider({ label: 'Duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. A flight by speed still takes distance ÷ speed.',
-    onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
-  const ph = () => app.effect()!.phases;
-  const phase = (key: 'windupMs' | 'peakMs' | 'fadeMs', label: string) => numberField({ label, value: ph()[key], step: 10, min: 0, unit: 'ms',
-    onInput: (v) => app.editEffect(['phases', key], Math.max(0, Math.round(v)), { mergeKey: key, label: `${label} length` }), onCommit: () => app.commit() });
-  const windup = phase('windupMs', 'Wind-up'), peak = phase('peakMs', 'Peak'), fadeF = phase('fadeMs', 'Fade');
-  parts.push({ refresh: () => {
-    name.set(app.effect()!.name); size.set(c().size); intensity.set(c().intensity); duration.set(c().duration);
-    windup.set(ph().windupMs); peak.set(ph().peakMs); fadeF.set(ph().fadeMs);
+/** The Folder select's last choice: a value no folder can have (a folder's parts are trimmed, so none starts with a space). */
+const NEW_FOLDER = ' new folder';
+
+/**
+ * The effect's own settings (docs/ui-redesign.md 6.6), as sections that fold: Effect (its name without its folder, the
+ * folder, the game events), Scale (the three big controls), Phases (a bar of the three lengths, then the lengths), Colour
+ * (the main colour, the colours of the effect, Edit palette…). One section element holds them (.bigcontrols: the effect's
+ * settings, as the browser check and the settings inventory know them). Cost follows it, closed at first.
+ */
+function effectSections(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
+  return h('section', { class: 'card bigcontrols sections' },
+    effectFold(app, parts), scaleFold(app, parts), phasesFold(app, parts), effectColourFold(app, parts, colours));
+}
+
+/** The Effect section: Name (without its folder), Folder, Game events. */
+function effectFold(app: AppApi, parts: Refresher[]): HTMLElement {
+  const fx = () => app.effect()!;
+  const base = () => splitName(fx().name).base;
+  /** The longest name the box takes: the 80 characters less its folder and " / ", as the list's rename box. */
+  const room = () => { const f = folderOf(fx().name); return String(Math.max(1, NAME_MAX - (f ? f.length + FOLDER_SEP.length : 0))); };
+  // The name is renamed by the Effects list's rules (one function): its folder stays, an empty name keeps the old one, a
+  // name too long is refused. The box then shows the name as it is, also while it has the focus.
+  const name = textField({ label: 'Name', value: base(), onChange: (v) => {
+    app.renameEffectTo(fx().id, v);
+    name.input.value = base();
   } });
-  const events = eventsField(app, parts);
-  // Its title takes the focus when you come back from a layer with the keyboard (see rebuild).
-  return h('section', { class: 'card bigcontrols' },
-    h('h2', { text: 'Effect', attrs: { tabindex: '-1' } }), name.el, events, size.el, intensity.el, duration.el,
-    h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: 'Phases' }), h('span', { class: 'hint', text: 'Layers can start with a phase or last until one ends.' })),
-      h('div', { class: 'fieldrow' }, windup.el, peak.el, fadeF.el)),
-    // The effect's colours: its main colour (marked) and every layer's. Show all shows the whole palette.
-    h('div', { class: 'row colour-row' }, h('div', { class: 'lab' }, h('span', { text: 'Colour' }), colours.toggle), colours.note, colours.el, colours.hint));
+  name.input.maxLength = Number(room());
+  // Folder: No folder, the folders there are, New folder… (the question dialog). It rewrites the name as Move to folder…
+  // does, in one undo step; a choice that does not move it (cancelled, too long) puts the select back.
+  const options = () => [{ value: '', label: 'No folder' }, ...app.folders().map((f) => ({ value: f, label: f })), { value: NEW_FOLDER, label: 'New folder…' }];
+  const current = () => folderOf(fx().name);
+  const folder = selectField({ label: 'Folder', options: options(), value: current(), onChange: (v) => {
+    const id = fx().id;
+    if (v === NEW_FOLDER) void app.newFolder(id).finally(() => { if (app.effect()?.id === id) folder.set(current()); });
+    else app.moveToFolder(id, v);
+    folder.set(current());
+  } });
+  parts.push({ refresh: () => {
+    name.set(base());
+    name.input.maxLength = Number(room());
+    folder.setOptions(options());
+    folder.set(current());
+  } });
+  return fold('Effect', [name.el, folder.el, eventsField(app, parts)], true);
+}
+
+/** The Scale section: Size, Intensity, Duration, each a slider with its icon before its name. */
+function scaleFold(app: AppApi, parts: Refresher[]): HTMLElement {
+  const c = () => app.effect()!.controls;
+  const size = slider({ label: 'Size', icon: 'size', min: 0.25, max: 3, step: 0.01, value: c().size, unit: '×', big: true, hint: 'Sprites, shapes, words, pieces and offsets. Not the start, the target or speeds.',
+    onInput: (v) => app.editEffect(['controls', 'size'], v, { mergeKey: 'size', label: 'Size' }), onCommit: () => app.commit() });
+  const intensity = slider({ label: 'Intensity', icon: 'intensity', min: 0, max: 3, step: 0.01, value: c().intensity, unit: '×', big: true, hint: 'Flashes, hits and landings grow; streaks get longer. Never see-through.',
+    onInput: (v) => app.editEffect(['controls', 'intensity'], v, { mergeKey: 'intensity', label: 'Intensity' }), onCommit: () => app.commit() });
+  const duration = slider({ label: 'Duration', icon: 'duration', min: 0.25, max: 4, step: 0.01, value: c().duration, unit: '×', big: true, hint: 'The effect\'s own times. A flight by speed still takes distance ÷ speed.',
+    onInput: (v) => app.editEffect(['controls', 'duration'], v, { mergeKey: 'duration', label: 'Duration' }), onCommit: () => app.commit() });
+  parts.push({ refresh: () => { size.set(c().size); intensity.set(c().intensity); duration.set(c().duration); } });
+  return fold('Scale', [size.el, intensity.el, duration.el], true);
+}
+
+const PHASE_KEYS: readonly { key: 'windupMs' | 'peakMs' | 'fadeMs'; name: PhaseName; prefix: string }[] = [
+  { key: 'windupMs', name: 'windup', prefix: 'W' }, { key: 'peakMs', name: 'peak', prefix: 'P' }, { key: 'fadeMs', name: 'fade', prefix: 'F' }];
+
+/**
+ * The Phases section: a 6 px bar of the three lengths in proportion, in the timeline's phase colours (empty when all three
+ * are 0), then the three lengths on one row, each box with its prefix (W, P, F) and its unit; their full names are their
+ * tooltips and their names for screen readers.
+ */
+function phasesFold(app: AppApi, parts: Refresher[]): HTMLElement {
+  const ph = () => app.effect()!.phases;
+  const segs = PHASE_KEYS.map((p) => h('span', { class: `phase-seg ${p.name}` }));
+  const bar = h('div', { class: 'phase-bar', attrs: { role: 'img' } }, ...segs);
+  const boxes = PHASE_KEYS.map((p) => numberBox({ label: PHASE_LABEL[p.name], prefix: p.prefix, value: ph()[p.key], step: 10, min: 0, unit: 'ms',
+    onInput: (v) => app.editEffect(['phases', p.key], Math.max(0, Math.round(v)), { mergeKey: p.key, label: `${PHASE_LABEL[p.name]} length` }), onCommit: () => app.commit() }));
+  const drawBar = () => {
+    const ms = PHASE_KEYS.map((p) => ph()[p.key]);
+    segs.forEach((s, i) => { s.style.flexGrow = String(ms[i]); s.hidden = ms[i]! <= 0; });
+    const total = ms.reduce((a, b) => a + b, 0);
+    bar.classList.toggle('none', total <= 0);
+    const words = total > 0 ? PHASE_KEYS.map((p, i) => `${PHASE_LABEL[p.name]} ${ms[i]} ms`).join(', ') : 'No phases: all three lengths are 0 ms';
+    bar.setAttribute('aria-label', words);
+    tip(bar, words);
+  };
+  drawBar();
+  parts.push({ refresh: () => { boxes.forEach((b, i) => b.set(ph()[PHASE_KEYS[i]!.key])); drawBar(); } });
+  return fold('Phases', [bar, numberGroup({ label: 'Phase lengths', boxes, bare: true }),
+    h('p', { class: 'hint', text: 'Layers can start with a phase or last until one ends.' })], true);
+}
+
+/**
+ * The effect's Colour section: Main colour (its swatch, the role and an edit button that opens the colour picker on it),
+ * the colours of the effect (the list shared with the layers' views; Show all next to the title), and "Edit palette…",
+ * which opens the picker at the whole palette.
+ */
+function effectColourFold(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
+  const role = () => app.effect()!.controls.colour;
+  const roles = () => roleNames(app.palette).map((r) => ({ value: r, label: r }));
+  const edit: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Edit the main colour', className: 'mini edit-colour', onClick: () => app.openColourPicker(role(), edit) });
+  edit.setAttribute('aria-haspopup', 'dialog');
+  const main = selectField({ label: 'Main colour', options: roles(), value: role(), swatch: roleHex(app), extra: edit, onChange: (v) => app.setMainColour(v) });
+  main.el.classList.add('main-colour');
+  const palette: HTMLButtonElement = h('button', { class: 'plain edit-palette', attrs: { type: 'button', 'aria-haspopup': 'dialog' }, on: { click: () => app.openPalette(role(), palette) } },
+    icon('palette'), h('span', { text: 'Edit palette…' }));
+  // The list of roles follows the palette (a colour added in the picker), and the swatch a faction change or an edit.
+  parts.push({ refresh: () => { main.setOptions(roles()); main.set(role()); } });
+  return fold('Colour', [main.el, colours.note, colours.el, colours.hint, h('div', { class: 'fold-foot' }, palette)], true, [colours.toggle]);
 }
 
 /** What draws the layer, in one line: its image, or code (a projectile draws nothing). Not a hint: it always shows. */
@@ -380,7 +460,7 @@ function eventsField(app: AppApi, parts: Refresher[]): HTMLElement {
   parts.push({ refresh: draw });
   // A property row: the label, the box; its problems and its hint under them, across the row.
   return h('div', { class: 'field prop events' },
-    h('span', { class: 'flab', text: 'Game events it answers' }), box, problems,
+    h('span', { class: 'flab', text: 'Game events' }), box, problems,
     // The game "starts" an effect by its names, as the tooltip (help.ts) and README say: one name for one thing.
     h('span', { class: 'hint', text: 'Names the game starts this effect by, separated by commas.' }));
 }

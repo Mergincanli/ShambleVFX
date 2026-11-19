@@ -124,6 +124,10 @@ const ICONS = {
   more: [{ circle: [5.5, 12, 1.6], fill: true }, { circle: [12, 12, 1.6], fill: true }, { circle: [18.5, 12, 1.6], fill: true }],
   'chevron-right': [{ d: 'M9.5 6l6 6-6 6' }],
   edit: [{ d: 'M4.5 19.5l1-4.2L15.8 5a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6L8.7 18.5z' }, { d: 'M13.8 7l3.2 3.2' }],
+  // UI phase 6, the effect's Scale: Size (two arrows, out to the corners), Intensity (a lightning bolt), Duration (a clock).
+  size: [{ d: 'M5 19L19 5M13.5 5H19v5.5M10.5 19H5v-5.5' }],
+  intensity: [{ d: 'M13.5 2.5l-8 11h6l-1 8 8-11h-6z' }],
+  duration: [{ circle: [12, 12, 8.5] }, { d: 'M12 7.5V12l3 2' }],
   'faction-soviets': [{ d: star(12, 12.8, 9.5, 0.42), cls: 'insignia' }],
   'faction-allies': [{ d: chevron(12, 12, 19), cls: 'insignia' }],
   'faction-empire': [{ d: flower(12, 12, 9.6, 0.27), cls: 'insignia' }],

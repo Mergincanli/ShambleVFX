@@ -48,11 +48,21 @@ function report(highDraws: number): CostReport {
   return { tiers: { low: tier(1), medium: tier(1), high: tier(highDraws) } } as unknown as CostReport;
 }
 
-describe('the cost summary in the status bar', () => {
+describe('the cost summary in the status bar and the Cost section\'s header', () => {
   it('says not measured, measuring and out of date, in that order of weight', () => {
     expect(costSummary(undefined, { stale: false, busy: null })).toMatchObject({ text: 'Cost: not measured', state: 'none' });
     expect(costSummary(report(2), { stale: true, busy: 'Measuring High…' })).toMatchObject({ text: 'Measuring…', state: 'none', detail: 'Measuring High…' });
     expect(costSummary(report(2), { stale: true, busy: null })).toMatchObject({ text: 'Out of date', state: 'warn' });
+  });
+
+  it('gives the header the same words, without "Cost:" where the header says it already', () => {
+    expect(costSummary(undefined, { stale: false, busy: null }).heading).toBe('Not measured');
+    expect(costSummary(report(2), { stale: true, busy: 'Measuring High…' }).heading).toBe('Measuring…');
+    expect(costSummary(report(2), { stale: true, busy: null }).heading).toBe('Out of date');
+    const tight = budgets({ project: { on: true, limits: { high: { draws: 1 } } } });
+    const over = costSummary(report(2), { stale: false, busy: null, counting: budgetThatCounts(tight, 'rifle_shot') });
+    expect(over.heading).toBe('1 over budget');
+    expect(over.heading).toBe(over.text);
   });
 
   it('compares with the budgets that count, as the card\'s cells do: within, or how many numbers are over', () => {

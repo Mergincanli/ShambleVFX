@@ -51,6 +51,9 @@
   --prop-gap: 4px;        /* between two property rows (each 28 px) */
   --w-slider-num: 56px;   /* a slider's number box */
   --w-slider-num-wide: 72px; /* the same, for a number and unit as long as "-1440 °/s" */
+  --h-phase-bar: 6px;     /* the effect's Phases bar */
+  --w-measure: 96px;      /* room at the right end of Cost's header for its Measure button */
+  --w-cost-names: 100px;  /* the cost table's row names ("CPU ms a frame" on one line at 1920) */
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
@@ -752,17 +755,29 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .tl-knob::before { content: ''; position: absolute; left: 2px; bottom: 0; width: var(--w-head); height: var(--w-head); background: var(--accent-ink); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
 
 /* ---------------------------------------------------------------- inspector */
-/* Rows that are not property rows: Shows in and Phases (a heading over their boxes), the effect's colours. */
+/* Rows that are not property rows (Shows in: a heading over its boxes, until the tier chips). */
 .row { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 .lab { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text-muted); }
 .lab .hint { text-align: right; }
 .unit { color: var(--text-muted); }
 .field { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .flab { color: var(--text-muted); }
-/* Phases' three numbers, each under its name. */
-.fieldrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
-.fieldrow > .prop { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-height: 0; margin: 0; }
 .check { display: flex; align-items: center; gap: 8px; min-height: var(--h-control); margin: 4px 0; cursor: pointer; }
+/* A section element that only holds folds (the effect's settings): no padding of its own under them and no line of its own
+   (each fold draws the line above its header); right under the panel's header, the first fold needs no line either. */
+.inspector > .sections { padding-bottom: 0; border-top: 0; }
+.inspector > .insp-head + .sections > .fold:first-child { border-top: 0; }
+/* A button under a section's rows (Edit palette…): its words line up with the rows' labels. */
+.fold-foot { margin: 4px 0 0 -6px; }
+.edit-palette .icon { color: var(--text-muted); }
+/* The effect's Phases: a 6 px bar of the three lengths in proportion, in the timeline's phase colours, 2 px apart; the
+   field colour alone when all three are 0. */
+.phase-bar { display: flex; gap: 2px; height: var(--h-phase-bar); margin: 4px 0 8px; border-radius: var(--r-bar); overflow: hidden; }
+.phase-bar.none { background: var(--bg-field); }
+.phase-seg { min-width: 2px; }
+.phase-seg.windup { background: var(--tl-windup); }
+.phase-seg.peak { background: var(--tl-peak); }
+.phase-seg.fade { background: var(--tl-fade); }
 
 /* A property row (6.6): a grid, the label in the left column (at least 84 px, at most 38 % of the row), the control in the
    rest; 28 px rows with 4 px between them. The label is 12 px --text-muted, cut with an ellipsis when it is too long (its
@@ -773,8 +788,15 @@ button.banner-path:hover { text-decoration-color: currentColor; }
   min-height: var(--h-row); margin: var(--prop-gap) 0;
 }
 .prop > .flab, .check.prop > .check-text { min-width: 0; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A label with an icon before its words (the effect's Size, Intensity, Duration): the words keep the ellipsis. */
+.prop > .flab.with-icon { display: flex; align-items: center; gap: 6px; }
+.flab-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .prop > .hint { grid-column: 1 / -1; }
-.prop > input.text, .prop > select, .prop > .role-select, .prop > .scrub, .prop > .slide-ctl, .prop > .prop-boxes { min-width: 0; width: 100%; }
+.prop > input.text, .prop > select, .prop > .role-select, .prop > .select-row, .prop > .scrub, .prop > .slide-ctl, .prop > .prop-boxes { min-width: 0; width: 100%; }
+/* A select with a button after it (the main colour and its edit button; a glow's gradient and its edit button). */
+.select-row { display: flex; align-items: center; gap: 4px; }
+.select-row > select, .select-row > .role-select { flex: 1 1 auto; min-width: 0; }
+.select-row > .icon-only { margin-right: -4px; }
 /* A number: drag its label (or its prefix) sideways, or type it. The box fills its column; the value sits right. */
 .prop .scrub { display: flex; padding: 0 6px; }
 .prop .scrub input.num, .prop .scrub input.num:hover, .prop .scrub input.num:focus-visible { flex: 1 1 0; width: 0; min-width: 2ch; }
@@ -784,6 +806,12 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .prop-boxes { display: flex; align-items: center; gap: 2px; }
 .prop-boxes > .scrub { flex: 1 1 auto; min-width: 0; gap: 2px; padding: 0 3px; }
 .prop-boxes > .unit { flex: none; margin-left: 2px; }
+/* A group with no label column: the boxes across the row, each with its prefix and its unit (the three phase lengths). */
+.prop-group.bare { display: flex; align-items: center; min-height: var(--h-row); margin: var(--prop-gap) 0; }
+.prop-group.bare > .prop-boxes { flex: 1 1 auto; min-width: 0; gap: 4px; }
+.prop-group.bare .prop-boxes > .scrub { display: flex; flex: 1 1 0; gap: 4px; padding: 0 6px; }
+.prop-group.bare .scrub input.num, .prop-group.bare .scrub input.num:hover, .prop-group.bare .scrub input.num:focus-visible { flex: 1 1 0; width: 0; min-width: 2ch; }
+.prop-group.bare .scrub .unit, .prop-group.bare .scrub-prefix { flex: none; }
 /* A slider: a 2 px track and a 12 px thumb, then its number in a 56 px box (72 px for a long number and unit). */
 .slide-ctl { display: flex; align-items: center; gap: 8px; }
 .slide-ctl input[type="range"] { flex: 1 1 auto; min-width: 0; }
@@ -828,7 +856,6 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .swatch-extra.missing { color: var(--bad); }
 .chip.none { background: transparent; box-shadow: inset 0 0 0 1px var(--bad); }
 .colour-note { margin: 0 0 4px; }
-.colour-row .lab .check { min-height: 0; margin: 0; }
 .chip { width: 14px; height: 14px; flex: none; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .rname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thumb { position: relative; display: inline-block; max-width: 100%; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--r-control); cursor: crosshair;
@@ -856,23 +883,39 @@ select[aria-label="Image"] { font-family: var(--mono); }
 .prop-actions > .mini { margin-left: -6px; }
 .gradient-field .hint { margin-top: 0; }
 
-/* The cost card. */
+/* Cost (6.6): a section that folds, closed at first, the last of the effect's settings. Its header: the chevron, "Cost",
+   the state in a few words on the right (coloured as the status bar's), and the Measure button, which sits over the
+   header's right end outside the fold (so it shows open or closed, and a click on it does not fold the section). */
+.inspector > .costcard { position: relative; padding-bottom: 0; border-top: 0; }
+.costcard > .fold > summary { padding-right: var(--w-measure); }
+.cost-sum { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
+.cost-sum[data-state="good"] { color: var(--good); }
+.cost-sum[data-state="bad"] { color: var(--bad); }
+.cost-sum[data-state="warn"] { color: var(--warn); }
+.cost-tools { position: absolute; top: 1px; right: var(--pad-panel); display: flex; align-items: center; height: var(--h-section); }
 .costcard .cost-status { margin: 0 0 8px; }
 .costcard .cost-status.stale { color: var(--warn); font-weight: 500; }
+/* The measuring conditions: the tooltip of an info icon after the state line. */
+.cost-info { display: inline-flex; margin-left: 4px; vertical-align: -4px; border-radius: var(--r-control); color: var(--text-muted); cursor: help; }
+.cost-info:focus-visible { outline-offset: 0; }
+/* The table, compact: 3 px above and under each number. The row names keep one column (wide enough for "CPU ms a frame" at
+   1920) and wrap rather than end in an ellipsis in a narrower panel; their tooltips say what each counts. */
 table.cost { width: 100%; border-collapse: collapse; table-layout: fixed; }
-table.cost th { padding: 4px 4px 4px 0; text-align: left; vertical-align: top; font-weight: 500; }
+table.cost th { padding: 3px 6px 3px 0; text-align: left; vertical-align: top; font-weight: 500; }
 table.cost thead th { padding-top: 0; color: var(--text-muted); border-bottom: 1px solid var(--line); }
-table.cost tbody th { width: 92px; color: var(--text-muted); font-weight: 400; cursor: help; text-decoration: underline dotted var(--text-faint); text-underline-offset: 3px; }
-/* A row name that does not fit ends in an ellipsis; its tooltip holds the full name and what it counts. */
-table.cost tbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.cost thead th:first-child { width: var(--w-cost-names); }
+table.cost tbody th { color: var(--text-muted); font-weight: 400; cursor: help; text-decoration: underline dotted var(--text-faint); text-underline-offset: 3px; }
 table.cost tbody th, table.cost td { border-top: 1px solid var(--line); }
-table.cost td { padding: 4px; vertical-align: top; }
+table.cost td { padding: 3px 4px; vertical-align: top; }
+/* The budget boxes show while the Budgets toggle under the table is on (or a budget is set). */
+table.cost:not(.with-budgets) input.budget { display: none; }
+.costcard .cost-heavy { margin-top: 4px; }
 table.cost .cv { font-weight: 600; }
 table.cost .cs { font-size: var(--fs-small); color: var(--text-muted); }
 table.cost .cs:empty { display: none; }
 /* No spin arrows (the arrow keys still step the number): Chrome keeps their room even while they are hidden, and in the
    296 px panel "budget" would not fit. */
-table.cost input.budget { width: 100%; margin-top: 4px; text-align: right; -moz-appearance: textfield; appearance: textfield; }
+table.cost input.budget { width: 100%; margin-top: 4px; padding: 0 4px; text-align: right; -moz-appearance: textfield; appearance: textfield; }
 table.cost input.budget::-webkit-inner-spin-button, table.cost input.budget::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 table.cost td.over { background: var(--bad-bg); }
 table.cost td.over .cv { color: var(--bad); }

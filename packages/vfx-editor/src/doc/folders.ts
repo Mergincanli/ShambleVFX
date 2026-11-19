@@ -37,6 +37,30 @@ export function joinName(folder: string, base: string): string {
   return folder ? `${folder}${FOLDER_SEP}${base}` : base;
 }
 
+/**
+ * An effect's new name after a rename, as the Effects list's rename box and the right panel's Name field both edit it: the
+ * words typed are the name without its folder, so the folder stays; " / " typed in them makes folders inside the effect's
+ * own folder. Spaces at either end do not count. Null: nothing changes (nothing typed, or the same name). 'too long': the
+ * name with its folder would pass NAME_MAX.
+ */
+export function renamedEffect(name: string, typed: string): string | null | 'too long' {
+  const words = typed.trim();
+  if (!words) return null;
+  const next = joinName(folderOf(name), words);
+  if (next === name) return null;
+  return next.length > NAME_MAX ? 'too long' : next;
+}
+
+/**
+ * An effect's new name after Move to folder… (or the right panel's Folder select): the same name in another folder ('' for
+ * none). Null: it is in that folder already. 'too long': the name with its new folder would pass NAME_MAX.
+ */
+export function movedEffect(name: string, folder: string): string | null | 'too long' {
+  const next = joinName(folder, splitName(name).base);
+  if (next === name) return null;
+  return next.length > NAME_MAX ? 'too long' : next;
+}
+
 /** The folders that hold a name, from the outside in: "Vehicles", then "Vehicles / Tank". */
 export function folderPaths(name: string): string[] {
   const { folders } = splitName(name);

@@ -36,6 +36,9 @@ const SEED = 7;
 //                     picture has that tooltip open
 const STATES = [
   { name: 'rifle-effect', project: DEMO, effect: 'rifle_shot', ms: 20 },
+  // The effect's view of an effect with phases (UI phase 6): the Rifle shot (demo)'s three lengths are 0, so its Phases bar
+  // is empty; the beam's shows all three.
+  { name: 'beam-effect', project: DEMO, effect: 'board_beam', ms: 1000 },
   // The first sprite in the effect's file is the Tracer (the Layers list shows the file upside down: second from the bottom).
   { name: 'rifle-sprite', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'first:sprite' },
   // Emitter glow: third from the top, so it shows in the Layers list and on the timeline without scrolling. It is the
@@ -76,6 +79,13 @@ const STATES = [
     await page.click('.inspector .problems-banner .banner-head');
   } },
   { name: 'effect-more', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-effect-menu') },
+  // Cost open (it is closed at first), measured, with its Budgets toggle on and one budget over, scrolled into view.
+  { name: 'cost-open', project: DEMO, effect: 'board_beam', ms: 1000, act: async (page) => {
+    await page.evaluate(() => window.__vfx.app.measureForChecks());
+    await page.click('.inspector .costcard > details > summary');
+    await page.locator('.inspector .costcard .cost-budgets input').check();
+    await page.evaluate(() => { window.__vfx.app.setBudget('high', 'draws', 1); document.querySelector('.inspector .costcard').scrollIntoView({ block: 'start' }); });
+  } },
   // (The Tracer, whose streak crosses the whole Look, so the part beside the menu still shows it drawn.)
   { name: 'layer-more', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'first:sprite', menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-layer-menu') },
 ];
@@ -95,9 +105,9 @@ async function hoverForTooltip(page, locator) {
 }
 const THEMES = [{ name: 'day', param: 'light' }, { name: 'night', param: 'dark' }];
 const SIZES = [{ width: 2560, height: 1440 }, { width: 1920, height: 1080 }];
-// What the colour picker opens from: the first of these that exists. Today it is the main colour's swatch in the Effect
-// card. Phase 6 replaces the swatch grid with an edit button next to the main colour: put that button first then.
-const PICKER_ANCHORS = ['.inspector .swatch[aria-current="true"]', '.inspector .bigcontrols', '.inspector'];
+// What the colour picker opens from: the first of these that exists. Since UI phase 6, the edit button next to the effect's
+// Main colour (as a click on it does); the main colour's swatch in the colour list, and the effect's settings, after it.
+const PICKER_ANCHORS = ['.inspector .main-colour .edit-colour', '.inspector .swatch[aria-current="true"]', '.inspector .bigcontrols', '.inspector'];
 
 // ---------------------------------------------------------------- options
 const USAGE = 'Usage: node tools/ui-shots.mjs [--prefix <word>] [--only <state,...>] [--fields <file.json>]\n'
@@ -255,12 +265,23 @@ function readInventory() {
       s.fields.push(name);
       if (hidden(el)) s.hidden.push(name);
     }
-    return sections.map((s) => (s.hidden.length ? s : { title: s.title, fields: s.fields }));
+    // A section element that only holds folds (since UI phase 6: the effect's settings, Cost's, a layer's) has no title and
+    // no field of its own: it is not listed.
+    return sections.filter((s) => s.title || s.fields.length).map((s) => (s.hidden.length ? s : { title: s.title, fields: s.fields }));
   };
 
+  // Cost folds, closed at first, and its budget boxes show while its Budgets toggle is on (UI phase 6): open it and switch
+  // Budgets on (the toggle is remembered), so the boxes are read as shown, not as hidden.
+  const openCost = () => {
+    const cost = inspector.querySelector('.costcard > details');
+    if (cost) cost.open = true;
+    const box = inspector.querySelector('.costcard .cost-budgets input');
+    if (box && !box.checked && !box.disabled) box.click();
+  };
   const effects = [];
   for (const id of a.debugState().effects.slice().sort()) {
     a.pickEffect(id);
+    openCost();
     const fx = a.effect();
     const entry = { id: fx.id, name: fx.name, effect: { sections: read(inspector) }, layers: [] };
     for (const l of fx.layers) {
@@ -278,12 +299,13 @@ function readInventory() {
 }
 
 const ABOUT = 'The settings inventory of the editor\'s right panel (the inspector), made by tools/ui-shots.mjs --fields. '
-  + 'For each effect of the example projects: "effect" is its own view, with no layer selected (the Effect and Cost sections; until UI phase 6 also Checks, '
+  + 'For each effect of the example projects: "effect" is its own view, with no layer selected (since UI phase 6 the sections Effect, Scale, Phases, Colour and Cost, '
+  + 'Cost read open with its Budgets toggle on, as it is closed at first; before, one Effect section held the first four; until UI phase 6 also Checks, '
   + 'which became the problems banner under the header, shown only when the checker finds problems, so none here); '
   + '"layers" are its layers, each selected and read from its own card (with a layer selected, the panel shows that card under a header that leads back to the effect; '
   + 'until UI phase 6 the Cost and Checks cards followed it, the same for every layer, so they were listed once, in the effect\'s view; since then they do not show under a layer). '
-  + 'Sections are the cards and folds, in panel order; a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
-  + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, a layer\'s colour list). '
+  + 'Sections are the cards and folds, in panel order (a card that only holds folds, as since UI phase 6, is not listed); a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
+  + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, the colour lists: a layer\'s, and since UI phase 6 the effect\'s too, which was named by its row\'s label "Colour" before). '
   + 'A row of two or three numbers (since UI phase 6) lists its label, then each box by its full name, the name a screen reader says (the box itself shows a short prefix): "Offset", "Right", "Up", "Forward"; "Life", "Life, min", "Life, max". '
   + 'Before UI phase 6, the second and third box of a generated pair or group of three were named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '

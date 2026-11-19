@@ -47,9 +47,14 @@ export function formatNumber(v: number, digits: number, trim = false): string {
   return /^-0(\.0*)?$/.test(t) ? t.slice(1) : t;
 }
 
-/** A row's label. `help`: the name help.ts knows it by, when the label shows other words. */
-function rowLabel(text: string, help?: string): HTMLSpanElement {
-  return h('span', { class: 'flab', text, attrs: help ? { 'data-help-label': help } : {} });
+/**
+ * A row's label. `help`: the name help.ts knows it by, when the label shows other words. `glyph`: an icon before the words
+ * (the effect's Scale: size, intensity, duration); the label's text stays its words alone.
+ */
+function rowLabel(text: string, help?: string, glyph?: IconName): HTMLSpanElement {
+  const attrs: Record<string, string> = help ? { 'data-help-label': help } : {};
+  if (!glyph) return h('span', { class: 'flab', text, attrs });
+  return h('span', { class: 'flab with-icon', attrs }, icon(glyph), h('span', { class: 'flab-text', text }));
 }
 
 /** What a number box needs. */
@@ -96,11 +101,11 @@ export interface NumberBox {
 /**
  * One box of a group of numbers (numberGroup): a short muted prefix inside it ("R", "X", "Cols"), dragged sideways like a
  * label. Its full name is its name for screen readers and its tooltip, followed by the help text for `help` (or for the
- * full name). Its unit is the group's.
+ * full name). Its unit is the group's, unless it has its own (`unit`: inside the box, as a single number's).
  */
-export function numberBox(o: Omit<NumberOptions, 'unit' | 'shown'> & { prefix: string }): NumberBox {
+export function numberBox(o: Omit<NumberOptions, 'shown'> & { prefix: string }): NumberBox {
   const s = scrubNumber({ label: o.label, value: o.value, step: o.step ?? 0.01, digits: o.digits ?? 3, trim: !o.fixed, min: o.min, max: o.max,
-    prefix: o.prefix, onInput: o.onInput, onCommit: o.onCommit });
+    prefix: o.prefix, unit: o.unit, onInput: o.onInput, onCommit: o.onCommit });
   s.el.setAttribute('data-tip', o.label);
   s.el.setAttribute('data-help-label', o.help ?? o.label);
   return { el: s.el, input: s.input, set: s.set };
@@ -108,11 +113,14 @@ export function numberBox(o: Omit<NumberOptions, 'unit' | 'shown'> & { prefix: s
 
 /**
  * Two or three numbers on one row (offset, pivot, a flipbook's grid, a nudge, a range), under one label. Their unit shows
- * once, muted, after the last box: three boxes with a unit each do not fit in the 296 px panel.
+ * once, muted, after the last box: three boxes with a unit each do not fit in the 296 px panel. `bare`: no label column, the
+ * boxes across the whole row (the effect's three phase lengths, each box with its unit); the label is the group's name for
+ * screen readers only.
  */
-export function numberGroup(o: { label: string; help?: string; boxes: NumberBox[]; unit?: string }): HTMLElement {
-  return h('div', { class: 'field prop prop-group', attrs: { role: 'group', 'aria-label': o.label } }, rowLabel(o.label, o.help),
-    h('span', { class: 'prop-boxes' }, ...o.boxes.map((b) => b.el), o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null));
+export function numberGroup(o: { label: string; help?: string; boxes: NumberBox[]; unit?: string; bare?: boolean }): HTMLElement {
+  const boxes = h('span', { class: 'prop-boxes' }, ...o.boxes.map((b) => b.el), o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null);
+  if (o.bare) return h('div', { class: 'prop-group bare', attrs: { role: 'group', 'aria-label': o.label } }, boxes);
+  return h('div', { class: 'field prop prop-group', attrs: { role: 'group', 'aria-label': o.label } }, rowLabel(o.label, o.help), boxes);
 }
 
 /**
@@ -123,7 +131,7 @@ export function numberGroup(o: { label: string; help?: string; boxes: NumberBox[
  */
 export function slider(o: {
   label: string; min: number; max: number; step: number; value: number; unit?: string; digits?: number; hint?: string; big?: boolean;
-  help?: string; onInput(v: number): void; onCommit?(): void;
+  help?: string; icon?: IconName; onInput(v: number): void; onCommit?(): void;
 }): Control<number> {
   const digits = o.digits ?? 2;
   const range = h('input', { attrs: { type: 'range', min: String(o.min), max: String(o.max), step: String(o.step), 'aria-label': o.label } });
@@ -134,7 +142,7 @@ export function slider(o: {
   const set = (v: number) => { range.value = String(v); num.set(v); };
   range.addEventListener('input', () => { num.set(+range.value); o.onInput(+range.value); });
   range.addEventListener('change', () => o.onCommit?.());
-  const lab = rowLabel(o.label, o.help);
+  const lab = rowLabel(o.label, o.help, o.icon);
   num.dragFrom(lab);
   set(o.value);
   const el = h('div', { class: o.big ? 'row field prop slide big' : 'row field prop slide' },
@@ -191,6 +199,8 @@ export type SelectView = Control<string> & { setOptions(opts: { value: string; l
  */
 export function selectField(o: {
   label: string; options: { value: string; label: string }[]; value: string; help?: string; swatch?: (role: string) => string | null | undefined;
+  /** A button after the select, in the control column (an edit button that opens the colour picker). */
+  extra?: HTMLElement;
   onChange(v: string): void;
 }): SelectView {
   const sel = h('select', { attrs: { 'aria-label': o.label } });
@@ -211,32 +221,38 @@ export function selectField(o: {
   sel.addEventListener('change', () => { paint(); o.onChange(sel.value); });
   const set = (v: string) => { sel.value = v; paint(); };
   set(o.value);
-  const control = chip ? h('span', { class: 'role-select' }, chip, sel) : sel;
+  const pick = chip ? h('span', { class: 'role-select' }, chip, sel) : sel;
+  const control = o.extra ? h('span', { class: 'select-row' }, pick, o.extra) : pick;
   return { el: h('label', { class: 'field prop' }, rowLabel(o.label, o.help), control), set, setOptions, select: sel };
 }
 
-/** A checkbox in a row: its label on the left, the 14 px box on the right (checked in --accent-ink). */
-export function checkField(o: { label: string; value: boolean; onChange(v: boolean): void }): Control<boolean> {
+/**
+ * A checkbox in a row: its label on the left, the 14 px box on the right (checked in --accent-ink). `help`: the name help.ts
+ * knows it by, when its words are shorter.
+ */
+export function checkField(o: { label: string; value: boolean; help?: string; onChange(v: boolean): void }): Control<boolean> & { box: HTMLInputElement } {
   const box = h('input', { attrs: { type: 'checkbox' } });
   box.addEventListener('change', () => o.onChange(box.checked));
   const set = (v: boolean) => { box.checked = v; };
   set(o.value);
-  return { el: h('label', { class: 'check prop' }, box, h('span', { class: 'check-text', text: o.label })), set };
+  return { el: h('label', { class: 'check prop', attrs: o.help ? { 'data-help-label': o.help } : {} }, box, h('span', { class: 'check-text', text: o.label })), set, box };
 }
 
 /**
  * A folding section (<details>): a chevron, its title (.fold-title, 13 px semibold), and its actions on the right. Its
  * open or closed state is remembered per title. `actions` sit on the right of its header row, outside the summary (a
- * control inside a summary would fold the section too), and show while it is open. The summary holds only the chevron
- * and the title, so its text is the title (the help texts and the settings inventory read it).
+ * control inside a summary would fold the section too), and show while it is open. `meta`: muted words at the right end of
+ * the summary, which show open or closed (no control: a layer's kind). The title is the summary's .fold-title (the help
+ * texts and the settings inventory read it).
  */
-export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = []): HTMLDetailsElement {
+export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = [], o: { meta?: HTMLElement; className?: string } = {}): HTMLDetailsElement {
   const key = `vfx-fold:${title}`;
   let open = openByDefault;
   try { const s = localStorage.getItem(key); if (s !== null) open = s === '1'; } catch { /* storage may be blocked */ }
   const chev = icon('chevron-right');
   chev.classList.add('fold-chev');
-  const d = h('details', { class: actions.length ? 'fold has-actions' : 'fold' }, h('summary', {}, chev, h('span', { class: 'fold-title', text: title })),
+  const cls = ['fold', actions.length ? 'has-actions' : '', o.className ?? ''].filter(Boolean).join(' ');
+  const d = h('details', { class: cls }, h('summary', {}, chev, h('span', { class: 'fold-title', text: title }), o.meta ?? null),
     actions.length ? h('div', { class: 'fold-actions' }, ...actions) : null, h('div', { class: 'foldbody' }, ...children));
   d.open = open;
   d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ } });
@@ -345,7 +361,27 @@ function ownWords(el: Element): string {
 }
 
 function hasTip(el: Element): boolean {
-  return el.hasAttribute('data-tip') || el.hasAttribute('title') || (el.matches('.icon-only') && el.hasAttribute('aria-label')) || !!helpOf(el);
+  return el.hasAttribute('data-tip') || el.hasAttribute('title') || (el.matches('.icon-only') && el.hasAttribute('aria-label')) || !!helpOf(el)
+    || (el instanceof HTMLSelectElement && cutSelectText(el) !== null);
+}
+
+/** Room a closed select keeps for its arrow, in px (Chromium's, on Linux and Windows). */
+const SELECT_ARROW = 20;
+let measurer: CanvasRenderingContext2D | null = null;
+
+/**
+ * The chosen option's words, when its select is too narrow to show them whole ("fire.smoke.lig…"): the browser draws no
+ * ellipsis in a closed select, so the tooltip gives the words instead. Null when they fit (or the select is not shown).
+ */
+export function cutSelectText(sel: HTMLSelectElement): string | null {
+  const text = (sel.selectedOptions[0]?.textContent ?? '').trim();
+  if (!text || !sel.getClientRects().length) return null;
+  measurer ??= document.createElement('canvas').getContext('2d');
+  if (!measurer) return null;
+  const s = getComputedStyle(sel);
+  measurer.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+  const room = sel.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) - SELECT_ARROW;
+  return measurer.measureText(text).width > room ? text : null;
 }
 
 /** The nearest element round the pointer's target that has a tooltip. */
@@ -389,6 +425,17 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   if (full && !own.includes(full)) lines.push(full);
   if (own) lines.push(own);
   if (help?.text && flat(help.text) !== own) lines.push(help.text);
+  // A select too narrow for its chosen words: those words, then the help text of its row's label (what the label's own
+  // tooltip says), so the keyboard's focus on it still explains the setting.
+  if (el instanceof HTMLSelectElement && !lines.length) {
+    const words = cutSelectText(el);
+    if (words) {
+      lines.push(words);
+      const lab = el.closest('label.field, .field')?.querySelector(':scope > .flab');
+      const labHelp = lab ? helpOf(lab) : null;
+      if (labHelp?.text) lines.push(labHelp.text);
+    }
+  }
   const key = el.getAttribute('data-tip-key') ?? help?.key;
   if (!lines.length && key) lines.push(flat(he.textContent) || flat(el.getAttribute('aria-label')));
   return lines.length ? { lines, ...(key ? { key } : {}) } : null;

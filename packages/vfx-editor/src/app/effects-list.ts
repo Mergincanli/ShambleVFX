@@ -11,7 +11,7 @@
  * The app keeps the effects and does the edits (the actions); this module shows them and says what was asked.
  */
 import type { EffectFile } from '@shamble/vfx-format';
-import { NAME_MAX, allFolders, effectMatches, effectTree, folderOf, folderPaths, joinName, splitName, FOLDER_SEP } from '../doc/folders';
+import { NAME_MAX, allFolders, effectMatches, effectTree, folderOf, folderPaths, movedEffect, renamedEffect, splitName, FOLDER_SEP } from '../doc/folders';
 import type { FolderNode } from '../doc/folders';
 import { contextMenu, h, icon, iconButton, menu, renameBox, scrollNearest, searchField, tip } from './dom';
 import type { MenuView, RenameBox } from './dom';
@@ -60,6 +60,16 @@ export interface EffectsListView {
   openFolderMenu(id: string, below: HTMLElement): void;
   /** Move an effect to a folder ('' for none): its name rewritten in one undo step, within the 80 characters. */
   moveToFolder(id: string, folder: string): void;
+  /**
+   * New folder… for an effect: ask for the folder's name (the question dialog), then move the effect into it. False when
+   * nothing moved (cancelled, an empty name, or too long).
+   */
+  newFolder(id: string): Promise<boolean>;
+  /**
+   * Rename an effect to the words typed (its name without its folder), by the rename box's rules: its folder stays, nothing
+   * typed keeps the name, a name too long is refused with a message. One undo step. True when it was renamed.
+   */
+  renameTo(id: string, typed: string): boolean;
 }
 
 /** The longest name allowed, as a sentence. */
@@ -150,23 +160,26 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     pendingReveal = id;
     render();
   };
+  /**
+   * The rename rules (the box here and the right panel's Name field): an empty name keeps the old one; the words typed are
+   * the name without its folder, and " / " in them makes folders inside the effect's own folder (renamedEffect).
+   */
+  const renameTo = (id: string, typed: string): boolean => {
+    const fx = act.effects().find((e) => e.id === id);
+    const name = fx ? renamedEffect(fx.name, typed) : null;
+    if (!fx || name === null) return false;
+    if (name === 'too long') { act.say(TOO_LONG, true); return false; }
+    // Renamed into a folder of its own: its row shows there. Otherwise nothing moves (a click elsewhere goes on).
+    if (folderOf(name) !== folderOf(fx.name)) pendingReveal = fx.id;
+    act.rename(fx.id, name, 'Rename effect');
+    return true;
+  };
   const endRename = (text: string | null, how: 'key' | 'elsewhere') => {
     const r = renaming;
     if (!r) return;
     renaming = null;
-    const fx = act.effects().find((e) => e.id === r.id);
-    const typed = text?.trim() ?? '';
-    // An empty name, or Esc: the name stays as it was. The box edits the name without its folder; " / " typed in it makes
-    // folders inside the effect's own folder.
-    const name = fx && typed ? joinName(folderOf(fx.name), typed) : null;
-    if (fx && name && name !== fx.name) {
-      if (name.length > NAME_MAX) { act.say(TOO_LONG, true); render(); }
-      else {
-        // Renamed into a folder of its own: its row shows there. Otherwise nothing moves (a click elsewhere goes on).
-        if (folderOf(name) !== folderOf(fx.name)) pendingReveal = fx.id;
-        act.rename(fx.id, name, 'Rename effect');
-      }
-    } else render();
+    // Esc (null): the name stays as it was. A rename builds the list again; anything else shows the row as it was.
+    if (text === null || !renameTo(r.id, text)) render();
     // From the keyboard, the focus goes back to the row (a click elsewhere keeps it where it went).
     if (how === 'key') (list.querySelector(`.item[data-effect="${CSS.escape(r.id)}"] .item-main`) as HTMLElement | null)?.focus({ preventScroll: true });
   };
@@ -186,14 +199,24 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
 
   /** Move to folder…: the folders there are, No folder and New folder…, made again each time (the folders change). */
   let folderMenu: MenuView | null = null;
-  const moveTo = (id: string, folder: string) => {
+  /** Move an effect to a folder ('' for none): one undo step, within NAME_MAX (movedEffect). True when it moved. */
+  const moveTo = (id: string, folder: string): boolean => {
     const fx = act.effects().find((e) => e.id === id);
-    if (!fx) return;
-    const name = joinName(folder, splitName(fx.name).base);
-    if (name === fx.name) return;
-    if (name.length > NAME_MAX) { act.say(TOO_LONG, true); return; }
+    const name = fx ? movedEffect(fx.name, folder) : null;
+    if (!fx || name === null) return false;
+    if (name === 'too long') { act.say(TOO_LONG, true); return false; }
     pendingReveal = id;
     act.rename(id, name, 'Move to folder');
+    return true;
+  };
+  /** New folder…: ask for its name (the question dialog), then move the effect into it. */
+  const newFolder = async (id: string): Promise<boolean> => {
+    const fx = act.effects().find((e) => e.id === id);
+    if (!fx) return false;
+    const typed = await act.askFolder(fx.name);
+    // "Weapons / Heavy" typed makes Heavy inside Weapons; spaces round each part and empty parts do not count.
+    const folder = (typed ?? '').split(FOLDER_SEP).map((p) => p.trim()).filter(Boolean).join(FOLDER_SEP);
+    return folder ? moveTo(id, folder) : false;
   };
   const makeFolderMenu = (): MenuView => {
     folderMenu?.el.remove();
@@ -205,14 +228,7 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
       { label: 'No folder', chosen: () => current === '', action: () => { if (id) moveTo(id, ''); } },
       ...allFolders(act.effects()).map((f) => ({ label: f, icon: 'folder' as const, helpLabel: '', chosen: () => current === f, action: () => { if (id) moveTo(id, f); } })),
       'divider',
-      { label: 'New folder…', icon: 'plus', action: () => {
-        if (!id || !fx) return;
-        void act.askFolder(fx.name).then((typed) => {
-          // "Weapons / Heavy" typed makes Heavy inside Weapons; spaces round each part and empty parts do not count.
-          const folder = (typed ?? '').split(FOLDER_SEP).map((p) => p.trim()).filter(Boolean).join(FOLDER_SEP);
-          if (folder) moveTo(id, folder);
-        });
-      } },
+      { label: 'New folder…', icon: 'plus', action: () => { if (id && fx) void newFolder(id); } },
     ] });
     return folderMenu;
   };
@@ -370,6 +386,8 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     startRename,
     renaming: () => !!renaming,
     openFolderMenu: openFolderMenuFor,
-    moveToFolder: moveTo,
+    moveToFolder: (id, folder) => { moveTo(id, folder); },
+    newFolder,
+    renameTo,
   };
 }

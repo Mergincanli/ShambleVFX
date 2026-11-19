@@ -546,6 +546,10 @@ if (webgpu) {
   });
   ok('the cost measurement does not see the fade: with a layer selected and Fade other layers on, the same counts and area', costFaded.on === 'true' && JSON.stringify(costFaded.tiers) === JSON.stringify(cost.one),
     JSON.stringify(costFaded.tiers.high));
+  // Since UI phase 6 Cost is a section that folds, closed at first, and its budget boxes show while its Budgets toggle is
+  // on: open it and switch Budgets on, as a person does, before typing a budget.
+  await p.locator('.inspector .costcard > details > summary').click();
+  await p.locator('.inspector .costcard .cost-budgets input').check();
   const budget = p.locator('table.cost input.budget').nth(2); // draws, High
   const levelBefore = await p.locator('.costcard .cost-level').innerText();
   await budget.fill('1');
@@ -1028,6 +1032,206 @@ if (webgpu) {
       placement.layerView === '' && placement.effectView === 'cost' && placement.last && !placement.checks, JSON.stringify(placement));
     ok('the header and problems page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await hp.close();
+  }
+
+  // -- the effect's settings (docs/ui-redesign.md 6.6, UI phase 6): sections that fold, in this order: Effect (Name without
+  // its folder, Folder, Game events), Scale (Size, Intensity, Duration, each with its icon), Phases (a bar of the three
+  // lengths, then the three lengths on one row), Colour (Main colour with its edit button, the effect's colours, Edit
+  // palette…), then Cost, closed at first: its state in its header with the Measure button, and a Budgets toggle that shows
+  // the budget boxes. On a page of its own, with fresh storage (folds and the Budgets toggle are remembered).
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const ep = g.page;
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const undoNow = () => ep.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null }; });
+    const cssColour = (value, prop = 'color') => ep.evaluate(({ value, prop }) => { const s = document.createElement('span'); s.style[prop] = value; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; }, { value, prop });
+    const rgbOf = (hex) => `rgb(${[1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)).join(', ')})`;
+    await ep.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); a.selectLayer(null); });
+
+    // The sections and their rows, as shown with fresh storage.
+    const layout = await ep.evaluate(() => {
+      const ins = document.querySelector('.inspector');
+      const words = (e) => (e?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      const secs = [...ins.querySelectorAll(':scope > .bigcontrols > details, :scope > .costcard > details')].map((d) =>
+        `${words(d.querySelector(':scope > summary > .fold-title'))}${d.open ? '' : ' (closed)'}: ${[...d.querySelectorAll(':scope > .foldbody > .prop > .flab, :scope > .foldbody > label.check')].map(words).join(', ')}`.trim());
+      return { secs, icons: [...ins.querySelectorAll('.bigcontrols .row.big > .flab > svg')].map((s) => s.getAttribute('class')), nums: ins.querySelectorAll('.bigcontrols .row.big input.num').length,
+        last: ins.lastElementChild?.matches('.costcard') ?? false };
+    });
+    ok('the effect\'s settings are sections that fold, in order: Effect (Name, Folder, Game events), Scale (Size, Intensity and Duration, each with its icon before its name), Phases, Colour (Main colour), then Cost, closed at first',
+      layout.secs.join(' | ') === 'Effect: Name, Folder, Game events | Scale: Size, Intensity, Duration | Phases: | Colour: Main colour | Cost (closed): Budgets'
+        && layout.icons.join() === 'icon icon-size,icon icon-intensity,icon icon-duration' && layout.nums === 3 && layout.last, JSON.stringify(layout));
+
+    // Name and Folder: New folder… (the question dialog's OK clicked), the name without its folder, a rename that keeps the
+    // folder, an empty name, No folder, New folder… cancelled, and a move that would pass 80 characters.
+    const nameBox = ep.locator('.inspector .bigcontrols label.field', { has: ep.locator(':scope > .flab', { hasText: /^Name$/ }) }).locator('input');
+    const folderSel = ep.locator('.inspector .bigcontrols label.field', { has: ep.locator(':scope > .flab', { hasText: /^Folder$/ }) }).locator('select');
+    const fxNow = () => ep.evaluate(() => { const a = window.__vfx.app, sel = [...document.querySelectorAll('.inspector .bigcontrols label.field')].find((f) => f.querySelector('.flab')?.textContent === 'Folder')?.querySelector('select');
+      return { name: a.effect().name, box: [...document.querySelectorAll('.inspector .bigcontrols label.field')].find((f) => f.querySelector('.flab')?.textContent === 'Name')?.querySelector('input').value,
+        folder: sel?.value ?? null, options: sel ? [...sel.options].map((o) => o.textContent) : [], undo: a.history.undoLabel ?? null, n: a.history.past.length }; });
+    const f0 = await fxNow();
+    await folderSel.selectOption({ label: 'New folder…' });
+    await ep.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+    const whileAsking = (await fxNow()).folder;
+    await ep.locator('dialog[open] input.text').fill('Tests');
+    await ep.locator('dialog[open] button', { hasText: 'OK' }).click();
+    const f1 = await fxNow();
+    await nameBox.fill('Beam two');
+    await nameBox.press('Enter');
+    const f2 = await fxNow();
+    await nameBox.fill('   ');
+    await nameBox.press('Enter');
+    const f3 = await fxNow();
+    await folderSel.selectOption({ label: 'No folder' });
+    const f4 = await fxNow();
+    await folderSel.selectOption({ label: 'New folder…' });
+    await ep.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+    await ep.locator('dialog[open] button', { hasText: 'Cancel' }).click();
+    const f5 = await fxNow();
+    await nameBox.fill('n'.repeat(76));
+    await nameBox.press('Enter');
+    const f6 = await fxNow();
+    await folderSel.selectOption({ label: 'New folder…' });
+    await ep.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+    await ep.locator('dialog[open] input.text').fill('Tests');
+    await ep.locator('dialog[open] button', { hasText: 'OK' }).click();
+    const tooLong = await ep.waitForFunction(() => { const t = document.querySelector('.status.show')?.textContent ?? ''; return /too long/.test(t) ? t : null; }, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+    const f7 = await fxNow();
+    for (let k = 0; k < 4; k++) await ep.keyboard.press('Control+z');
+    const f8 = await fxNow();
+    ok('Folder: New folder… asks for a name (OK clicked) and moves the effect there in one undo step; the Name field shows the name without its folder, and a name typed keeps the folder (one undo step); an empty name changes nothing; No folder moves it out',
+      f0.name === 'Hammer leech beam (board)' && f0.box === f0.name && f0.folder === '' && f0.options[0] === 'No folder' && f0.options.at(-1) === 'New folder…' && whileAsking === ''
+        && f1.name === 'Tests / Hammer leech beam (board)' && f1.box === 'Hammer leech beam (board)' && f1.folder === 'Tests' && f1.options.includes('Tests') && f1.undo === 'Move to folder' && f1.n === f0.n + 1
+        && f2.name === 'Tests / Beam two' && f2.undo === 'Rename effect' && f2.n === f1.n + 1 && f3.name === f2.name && f3.box === 'Beam two' && f3.n === f2.n
+        && f4.name === 'Beam two' && f4.folder === '' && f4.undo === 'Move to folder' && f4.n === f3.n + 1,
+      JSON.stringify({ f0, whileAsking, f1, f2, f3, f4 }));
+    ok('Folder: New folder… cancelled puts the select back and changes nothing; a move that would pass 80 characters with its folder is refused in a message, and the select goes back',
+      f5.name === f4.name && f5.folder === '' && f5.n === f4.n && f6.name === 'n'.repeat(76) && f6.n === f5.n + 1 && /too long/.test(tooLong ?? '') && f7.name === f6.name && f7.folder === '' && f7.n === f6.n
+        && f8.name === 'Hammer leech beam (board)',
+      JSON.stringify({ f5, f6: [f6.name.length, f6.n], tooLong, f7: [f7.name.length, f7.folder, f7.n], f8: f8.name }));
+
+    // Phases: the bar shows the three lengths in proportion, in the timeline's phase colours; the lengths on one row, each box
+    // with its prefix and its unit; a length typed changes the bar; all three at 0 (Rifle shot (demo)): an empty bar.
+    const phases = () => ep.evaluate(() => {
+      const bar = document.querySelector('.inspector .phase-bar'), group = bar?.parentElement.querySelector('.prop-group.bare');
+      const segs = [...bar.querySelectorAll('.phase-seg')].map((s) => ({ name: s.classList[1], w: s.getBoundingClientRect().width, shown: !s.hidden, bg: getComputedStyle(s).backgroundColor }));
+      return { h: Math.round(bar.getBoundingClientRect().height), w: bar.getBoundingClientRect().width, none: bar.classList.contains('none'), tip: window.__vfx.app.tipForChecks(bar)?.lines[0] ?? null, segs,
+        boxes: [...group.querySelectorAll('.scrub')].map((s) => `${s.querySelector('.scrub-prefix').textContent}|${s.querySelector('input').getAttribute('aria-label')}|${s.querySelector('input').value}|${s.querySelector('.unit').textContent}`),
+        oneRow: Math.round(group.getBoundingClientRect().height) === 28, fx: window.__vfx.app.effect().phases };
+    });
+    const ph0 = await phases();
+    const phaseColours = [await cssColour('var(--tl-windup)', 'backgroundColor'), await cssColour('var(--tl-peak)', 'backgroundColor'), await cssColour('var(--tl-fade)', 'backgroundColor')];
+    const windup = ep.locator('.inspector .prop-group.bare input.num[aria-label="Wind-up"]');
+    await windup.fill('0');
+    await windup.press('Enter');
+    const ph1 = await phases();
+    const u1 = await undoNow();
+    await ep.keyboard.press('Control+z');
+    await ep.evaluate(() => window.__vfx.app.pickEffect('rifle_shot'));
+    const phZero = await phases();
+    const total = ph0.segs.reduce((a, s) => a + s.w, 0), ms = [350, 2500, 300];
+    ok('Phases: a 6 px bar of the three lengths in proportion (350, 2500, 300 ms), in the timeline\'s phase colours, then the three lengths on one row (W, P, F: Wind-up, Peak, Fade, in ms); a length set to 0 leaves the bar',
+      ph0.h === 6 && ph0.segs.every((s, i) => s.shown && Math.abs(s.w / total - ms[i] / 3150) < 0.01 && s.bg === phaseColours[i]) && Math.abs(total + 4 - ph0.w) < 1
+        && ph0.boxes.join() === 'W|Wind-up|350|ms,P|Peak|2500|ms,F|Fade|300|ms' && ph0.oneRow && ph0.tip === 'Wind-up 350 ms, Peak 2500 ms, Fade 300 ms'
+        && ph1.fx.windupMs === 0 && !ph1.segs[0].shown && ph1.segs[1].shown && u1.label === 'Wind-up length',
+      JSON.stringify({ ph0, ph1: ph1.segs, u1, phaseColours }));
+    ok('Phases with all three lengths at 0 (Rifle shot (demo)): the bar is empty, and its tooltip says there are no phases',
+      phZero.none && phZero.segs.every((s) => !s.shown) && phZero.h === 6 && phZero.tip === 'No phases: all three lengths are 0 ms' && phZero.boxes.join() === 'W|Wind-up|0|ms,P|Peak|0|ms,F|Fade|0|ms',
+      JSON.stringify(phZero));
+
+    // Colour: Main colour (the role's swatch, the role, an edit button that opens the picker on it); another role is one undo
+    // step and the header's dot follows; Edit palette… opens the picker at its palette.
+    await ep.evaluate(() => window.__vfx.app.pickEffect('board_beam'));
+    const mainNow = () => ep.evaluate(() => {
+      const a = window.__vfx.app, row = document.querySelector('.inspector .main-colour'), sel = row.querySelector('select'), edit = row.querySelector('button.edit-colour');
+      return { role: sel.value, want: a.effect().controls.colour, swatch: getComputedStyle(row.querySelector('.role-swatch')).backgroundColor, dot: getComputedStyle(document.querySelector('.inspector .fx-dot')).backgroundColor,
+        hex: a.palette.factions[a.faction]?.roles[sel.value]?.hex ?? a.palette.roles[sel.value]?.hex, edit: edit ? `${edit.getAttribute('aria-label')}|${a.tipForChecks(edit)?.lines[0]}|${!!edit.querySelector('svg.icon-edit')}` : null,
+        font: getComputedStyle(sel).fontFamily.split(',')[0].replace(/"/g, ''), undo: a.history.undoLabel ?? null, n: a.history.past.length };
+    });
+    const m0 = await mainNow();
+    await ep.locator('.inspector .main-colour select').selectOption('team');
+    const m1 = await mainNow();
+    await ep.keyboard.press('Control+z');
+    await ep.locator('.inspector .main-colour button.edit-colour').click();
+    await ep.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    const picker1 = await ep.evaluate(() => ({ title: document.querySelector('.cpick .cp-title').textContent }));
+    await ep.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    await ep.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+    await ep.locator('.inspector .edit-palette').click();
+    await ep.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    await ep.waitForTimeout(200);
+    const picker2 = await ep.evaluate(() => {
+      const c = document.querySelector('.cpick'), sec = c.querySelector('details.cp-palette-section'), r = c.getBoundingClientRect(), s = sec.getBoundingClientRect();
+      return { title: c.querySelector('.cp-title').textContent, open: sec.open, focus: document.activeElement === sec.querySelector('summary'), inView: s.top >= r.top - 1 && s.top < r.bottom - 40,
+        chips: sec.querySelectorAll('.cp-pchip').length, icon: !!document.querySelector('.inspector .edit-palette svg.icon-palette') };
+    });
+    await ep.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    await ep.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+    ok('Main colour: the role\'s swatch, the role (Plex Mono) and an edit button; another role is one undo step and the header\'s dot follows; the edit button opens the colour picker on the main colour',
+      m0.role === m0.want && m0.role === 'glow' && m0.swatch === rgbOf(m0.hex) && m0.dot === m0.swatch && m0.font === 'IBM Plex Mono' && m0.edit === 'Edit the main colour|Edit the main colour|true'
+        && m1.want === 'team' && m1.role === 'team' && m1.swatch === rgbOf(m1.hex) && m1.dot === m1.swatch && m1.undo === 'Main colour' && m1.n === m0.n + 1 && picker1.title === 'glow',
+      JSON.stringify({ m0, m1, picker1 }));
+    ok('"Edit palette…" (the palette icon) opens the colour picker at its palette: the Palette section open, in view, with the keyboard focus on its title (the picker\'s tabs come in UI phase 7)',
+      picker2.title === 'glow' && picker2.open && picker2.focus && picker2.inView && picker2.chips > 10 && picker2.icon, JSON.stringify(picker2));
+
+    // Cost: closed at first; its header says the state in the status bar's words ("Not measured", muted) and has the Measure
+    // button, which works with the section closed and does not open it; the boxes show with Budgets on (remembered), and
+    // stay while a budget is set; the conditions are in the info icon's tooltip; the row names are whole, on one line.
+    const costNow = () => ep.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.inspector .costcard'), d = c.querySelector(':scope > details'), sum = c.querySelector('.cost-sum'), m = c.querySelector('.cost-measure');
+      const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+      const toggle = c.querySelector('.cost-budgets input');
+      return { open: d.open, heading: sum.textContent, colour: getComputedStyle(sum).color, bar: document.querySelector('.statusbar .sb-cost').textContent, measure: shown(m) && !d.querySelector('summary').contains(m) && !!m.querySelector('svg.icon-gauge'),
+        boxes: [...c.querySelectorAll('input.budget')].filter(shown).length, toggle: toggle ? `${toggle.checked ? 'on' : 'off'}${toggle.disabled ? ' (stays)' : ''}` : null, stored: localStorage.getItem('vfx-budgets'),
+        level: shown(c.querySelector('.cost-level')), info: shown(c.querySelector('.cost-info')) ? a.tipForChecks(c.querySelector('.cost-info'))?.lines[0] ?? null : null,
+        title: a.tipForChecks(d.querySelector('summary'))?.lines.join(' ') ?? '' };
+    });
+    const muted = await cssColour('var(--text-muted)'), bad = await cssColour('var(--bad)');
+    const c0 = await costNow();
+    await ep.locator('.inspector .cost-measure').click();
+    await ep.waitForFunction(() => !!window.__vfx.app.costReport() && !window.__vfx.app.costProgress(), null, { timeout: 60000 });
+    const c1 = await costNow();
+    await ep.locator('.inspector .costcard > details > summary').click();
+    const c2 = await costNow();
+    await ep.locator('.inspector .cost-budgets input').check();
+    const c3 = await costNow();
+    const draws = ep.locator('table.cost input.budget[aria-label="Budget: Draws, High"]');
+    await draws.fill('1');
+    await draws.press('Enter');
+    const c4 = await costNow();
+    await draws.fill('');
+    await draws.press('Enter');
+    await ep.locator('.inspector .cost-budgets input').uncheck();
+    const c5 = await costNow();
+    ok('Cost is closed at first: its header says "Not measured" in --text-muted (the status bar\'s words, without "Cost:") and has the Measure button (gauge icon), which works with the section closed and does not open it; then it says "Measured, no budgets", as the status bar does',
+      !c0.open && c0.heading === 'Not measured' && c0.colour === muted && c0.bar === 'Cost: not measured' && c0.measure && !c1.open && c1.heading === 'Measured, no budgets' && c1.bar === c1.heading,
+      JSON.stringify({ c0, c1 }));
+    ok('Cost\'s Budgets toggle: off at first (no budget boxes, no line about budgets), on shows the 15 boxes and is remembered (vfx-budgets); a budget typed turns the header to "1 over budget" in --bad and the toggle stays on while it is set; off again hides them',
+      c2.open && c2.toggle === 'off' && c2.boxes === 0 && !c2.level && c3.toggle === 'on' && c3.boxes === 15 && c3.level && c3.stored === '1'
+        && c4.heading === '1 over budget' && c4.colour === bad && c4.bar === '1 over budget' && c4.toggle === 'on (stays)' && c4.boxes === 15 && c5.toggle === 'off' && c5.boxes === 0 && c5.stored === '0',
+      JSON.stringify({ c2, c3, c4, c5 }));
+    const rowNames = await ep.evaluate(() => [...document.querySelectorAll('table.cost tbody th')].map((th) => {
+      const r = document.createRange();
+      r.selectNodeContents(th);
+      return { name: th.textContent, cut: th.scrollWidth > th.clientWidth + 1, lines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
+    }));
+    ok('Cost\'s long explanation is its title\'s tooltip, the measuring conditions the info icon\'s; the table\'s row names show whole, each on one line at 1920 x 1080',
+      c1.title.includes('fixed seed') && c2.info?.startsWith('Measured at a fresh game camera') && rowNames.length === 5 && rowNames.every((r) => !r.cut && r.lines === 1),
+      JSON.stringify({ title: c1.title.slice(0, 60), info: c2.info?.slice(0, 60), rowNames }));
+
+    // A select too narrow for its value (no ellipsis in a closed select): its tooltip gives the value whole, then its label's
+    // help text, by the pointer and by the keyboard; a select whose value fits has none of its own.
+    const cutTips = await ep.evaluate(() => {
+      const a = window.__vfx.app;
+      a.pickEffect('rifle_shot'); a.selectLayer('hit');
+      const sel = (label) => [...document.querySelectorAll('.inspector label.field')].find((f) => f.querySelector(':scope > .flab')?.textContent === label)?.querySelector('select');
+      const role = sel('Role'), sits = sel('Sits on');
+      return { role: a.tipForChecks(role)?.lines ?? null, value: role.selectedOptions[0].textContent, sits: a.tipForChecks(sits)?.lines ?? null, sitsValue: sits.selectedOptions[0].textContent };
+    });
+    const wantRole = help.helpFor('Role', { section: ['Colour'], layer: 'sprite' });
+    ok('a select too narrow for its value ("main (the effect\'s colour)") has a tooltip with the value whole, then its label\'s help text; one whose value fits has none of its own',
+      cutTips.role?.[0] === 'main (the effect\'s colour)' && cutTips.role?.[1] === wantRole && cutTips.sits === null, JSON.stringify({ cutTips, wantRole }));
+    ok('the effect\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await ep.close();
   }
 
   // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
@@ -1930,13 +2134,15 @@ if (webgpu) {
       const words = (el) => tipOf(el)?.lines.join(' ') ?? '';
       a.pickEffect('board_beam');
       const out = {
-        events: words(find('.inspector .flab', 'Game events it answers')), size: words(find('.inspector .flab', 'Size')),
+        // Since UI phase 6: "Game events" (the brief's words), and Cost and the effect's Colour are sections that fold (their
+        // titles are the folds' summaries).
+        events: words(find('.inspector .flab', 'Game events')), size: words(find('.inspector .flab', 'Size')),
         intensity: words(find('.inspector .flab', 'Intensity')), duration: words(find('.inspector .flab', 'Duration')),
         // The checker's five things: in the Checks section's title until UI phase 6; since, in the status bar's Checks (and the
         // problems banner, which shows only with problems: see the header and problems page).
-        cost: words(find('.inspector .costcard h2', 'Cost')), checks: words(document.querySelector('.statusbar .sb-checks')),
+        cost: words(document.querySelector('.inspector .costcard > details > summary')), checks: words(document.querySelector('.statusbar .sb-checks')),
         layers: tipOf(find('.layers-section h2', 'Layers'))?.lines ?? null,
-        colour: words(find('.inspector .colour-row .lab > span', 'Colour')),
+        colour: words(find('.inspector .bigcontrols details > summary', 'Colour')),
       };
       a.selectLayer('emitter_glow');
       out.gradient = words(find('.inspector .flab', 'Gradient, middle to rim'));
@@ -2175,14 +2381,18 @@ if (webgpu) {
     ok('with a problem the status bar says how many ("1 problem") in --bad with the warning icon, as the problems banner does; a click opens the banner\'s list right under the header, the focus on it, the layer still selected',
       sb2.problems >= 1 && sb2.checks === nProblems && sb2.checksIcon === 'icon icon-warning' && sb2.checksColour === sb2.bad && !!checksShown && checksShown.layer === 'flash' && checksShown.focus && checksShown.title === nProblems && sb3.checks === 'All good',
       JSON.stringify({ sb2: [sb2.checks, sb2.checksIcon], checksShown, after: sb3.checks }));
-    // The triangles: a click shows the effect's view at Cost, the focus on Measure.
+    // The triangles: a click shows the effect's view at Cost, opened (since UI phase 6 it is a section that folds, closed at
+    // first), the focus on Measure (its header's button, since then not the section's first button).
     await sp.evaluate(() => window.__vfx.app.selectLayer('hit'));
+    const costClosed = await sp.evaluate(() => { const a = window.__vfx.app; a.selectLayer(null); const d = document.querySelector('.inspector .costcard > details'); a.selectLayer('hit'); return d ? !d.open : null; });
     await sp.locator('.statusbar .sb-stats').click();
     const costShown = await sp.waitForFunction(() => {
       const c = document.querySelector('.inspector .costcard'), r = document.querySelector('.right').getBoundingClientRect(), b = c?.getBoundingClientRect();
-      return b && b.top >= r.top && b.top < r.bottom - 20 ? { layer: window.__vfx.app.layer()?.id ?? null, focus: document.activeElement === c.querySelector('button') } : null;
+      return b && b.top >= r.top && b.top < r.bottom - 20
+        ? { layer: window.__vfx.app.layer()?.id ?? null, focus: document.activeElement === c.querySelector('.cost-measure'), open: !!c.querySelector(':scope > details')?.open } : null;
     }, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
-    ok('a click on the triangles and draw calls shows the effect\'s settings (no layer selected) at Cost, the focus on Measure', !!costShown && costShown.layer === null && costShown.focus, JSON.stringify(costShown));
+    ok('a click on the triangles and draw calls shows the effect\'s settings (no layer selected) at Cost, which opens, the focus on Measure', costClosed === true && !!costShown && costShown.layer === null && costShown.focus && costShown.open,
+      JSON.stringify({ costClosed, costShown }));
     // The cost, from the card's own state: measured with no budget on, over budget (--bad), out of date (--warn).
     await sp.evaluate(() => window.__vfx.app.measureForChecks());
     const c1 = await bar();
@@ -2753,6 +2963,10 @@ if (webgpu) {
     });
     const openMenu = async () => { await hp.click('.topbar .logo'); await hp.waitForFunction(() => document.activeElement?.closest('#main-menu'), null, { timeout: 5000 }).catch(() => {}); };
     await hp.evaluate(async () => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('rifle_shot'); await a.showAt(20, 7); });
+    // Cost's lines that carry its state: since UI phase 6 Cost folds, closed at first, and its line on budgets shows with its
+    // Budgets toggle on (or a budget set). Open it and switch Budgets on, so those lines are on screen.
+    await hp.locator('.inspector .costcard > details > summary').click();
+    await hp.locator('.inspector .costcard .cost-budgets input').check();
     await openMenu();
     const atFirst = await hintsNow();
     await hp.keyboard.press('Escape');
@@ -4244,6 +4458,8 @@ if (webgpu) {
     await g.page.evaluate(() => window.__vfx.app.pickEffect('board_shell'));
     await g.page.waitForTimeout(150);
     const level = await g.page.evaluate(() => {
+      // Cost folds since UI phase 6, closed at first: open it to see the line drawn.
+      document.querySelector('.inspector .costcard > details').open = true;
       const el = document.querySelector('.costcard .cost-level');
       const r = document.createRange();
       r.selectNodeContents(el);

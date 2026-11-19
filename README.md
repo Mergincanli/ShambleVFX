@@ -75,7 +75,10 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    starts on a bar scrubs. A bar's label sits inside the bar, or beside it when the bar is too short. The ruler and the
    phase strip stay at the top while the rows scroll.
 6. The right panel shows what is selected. No layer: the effect's settings, under a header with a dot in its main colour,
-   its name and "Effect" (its name, the four **big controls**, the three **phase** lengths and its colours). Click a
+   its name and "Effect", in sections that fold: **Effect** (its name, its **Folder** and its game events), **Scale** (the
+   three **big controls**: Size, Intensity, Duration), **Phases** (a bar of the three **phase** lengths, then the lengths),
+   **Colour** (the **Main colour** and the effect's colours) and **Cost**, closed at first. The Folder select moves the
+   effect to another folder, out of one (No folder) or into a new one (New folder… asks for its name). Click a
    **layer** (in the Layers list, or its name or its bar on the timeline) and the panel shows that layer's settings, under
    a header with the effect's name, "›" and the layer's name: click the effect's name, or press Esc, to go back to the
    effect's settings. Each header has a **More** button (three dots) at its right end: the effect's has Duplicate effect,
@@ -103,14 +106,16 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    projectile; a sprite shows its own image (the first frame of a flipbook). See 20 and 21 for the two lists.
 8. The **Tier** chip (Low, Medium, High) in the bar above the preview draws one quality tier. Layers left out fade in the
    list and on the timeline. A layer's **Shows in** boxes set its tiers.
-9. **Game events it answers**, under the effect's name: the names the game starts it by, such as `rifle.shot`. A name another
+9. **Game events**, in the effect's Effect section: the names the game starts it by, such as `rifle.shot`. A name another
    effect already answers is named as you type.
-10. **Cost** (at the bottom of the effect's settings; the triangles and the cost in the status bar go there): press
-    **Measure** for draws, sprites alive, triangles, screen area and CPU ms, per tier. Type budgets under the numbers: they
-    are the project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
+10. **Cost**, the last section of the effect's settings, closed at first (the triangles and the cost in the status bar open
+    it): its header says how it stands, as the status bar does, and has **Measure**, for draws, sprites alive, triangles,
+    screen area and CPU ms, per tier. Switch on **Budgets** under the table to type budgets under the numbers: they are the
+    project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
 11. **Export…**, in the top bar and the main menu, writes the folder the game loads into `exports/`; **Import an export…** in the
     main menu (Projects, at its list of exports) makes a project from one (and keeps its colours as a palette profile).
-12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. The list under Colour shows the
+12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. In the effect's settings, the pencil
+    next to **Main colour** opens it on the main colour, and **Edit palette…** at its whole palette. The list under Colour shows the
     colours of what is selected: the effect's, or one layer's (with the ones it draws without naming them, such as the
     black ink outline); a projectile has none of its own and shows those of the layers riding it. **Show all** shows every
     colour, the selection's in bold. Change the colour, add colours, and under **Gradients** start from a ready-made
@@ -179,7 +184,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (563): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (567): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -204,7 +209,8 @@ kind, bursts and words; friend or foe; quality tiers; the item count behind "spr
 built from their data, no stroke thinner than the board's); the fire's layout; every example effect drawn all through;
 undo and redo; duplicating an effect ("… copy", its id from its own id and never from its name, within the 48 characters an
 id may have, one undo step); the effects list's folders from the names (" / ", nested, A to Z with numbers in order, the
-counts) and its search (name, folder, file and game events, every word typed); the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
+counts) and its search (name, folder, file and game events, every word typed); the rename and Move to folder rules the
+Effects list and the right panel share (the folder kept, an empty name, the 80 characters); the project file server; `project.json` version 2 and its upgrade from version 1 (the examples written
 back byte for byte; the tests' own version 1 files written as today's examples; a newer version refused); budgets at
 three levels (which one counts, every edit, only what differs written); `editor.json` version 2 and the older one; the
 export checker; export, import and export again giving the same files, byte for byte, on both examples, on a version 1
@@ -214,7 +220,8 @@ same colours, the two defaults, the folder made on first use, every route and st
 missing or empty listed with why and deleted like any other, import adding or finding a profile, an import refusing an
 export whose palette.json has such a part, loading a profile keeping what the effects use, and the default bed gradient
 drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
-on, within budget, how many numbers over, compared with the budgets that count); the window's grid (the sidebars within
+on, within budget, how many numbers over, compared with the budgets that count), and the same words in Cost's header;
+the window's grid (the sidebars within
 their limits, both giving way so the centre keeps 640 px, the effects list's and the timeline's limits, the sizes
 remembered); numbers typed with a decimal point or a comma, a drag in whole steps, a value kept within its limits and
 shown with its decimals or only those it needs (the Distance popover's and the right panel's number boxes), and the
@@ -225,7 +232,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (337 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (349 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -244,7 +251,12 @@ the headers' More menus, each row doing what the
 lists' menus do in one undo step, Move to folder… below the button and an effect's folder muted before its name; the
 problems banner only with problems, in both views, its count, its list, a path selecting its layer, "The preview waits until
 these are fixed." only for problems that stop the preview, the status bar's Checks opening it and "All good" saying so;
-no Cost or Checks under a layer), Fade
+no Cost or Checks under a layer; the effect's sections in order, Cost closed at first; the Folder select (New folder… with
+the dialog's OK, and cancelled; a move past 80 characters refused) and the Name field keeping the folder; the Phases bar in
+proportion, in the phase colours, and empty at 0, 0, 0; Main colour's swatch, one undo step and its edit button; Edit
+palette… opening the picker at its palette; Cost's header words and Measure working while it is closed, the Budgets
+toggle, the conditions in the info icon, the row names whole; a select too narrow for its value giving it in its
+tooltip), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
@@ -453,8 +465,8 @@ Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in sha
 layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
 (the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds
 and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
-an effect's own budgets in the editor (the files hold them, and the functions are there; the new Cost card comes with the new
-UI); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
+an effect's own budgets in the editor (the files hold them, and the functions are there; the Budgets place in Cost comes with
+UI phase 6's part B); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
 store and the load function are there; the buttons, and naming the profile in the project when one is loaded or saved, come
 with the new UI; today only an import names it).
 
@@ -520,8 +532,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - A class has an `id`, made from its first name and kept when it is renamed; an effect's entry names that `id`. A class
     name has 1 to 64 letters, no tabs or line breaks, and is unique without regard to upper and lower case (the rule planned
     for palette profile names). A file's class that an effect names but the list lacks is read as no class.
-  - Until the new Cost card: the boxes show and edit the project's budgets, and the colours compare with the level that
-    counts. Changing a number switches the project's budgets on; clearing one does not switch them off.
+  - Until the Budgets place in Cost (UI phase 6, part B): the boxes (shown with Cost's Budgets toggle on) show and edit the
+    project's budgets, and the colours compare with the level that counts. Changing a number switches the project's budgets
+    on; clearing one does not switch them off.
   - Saving leaves out of `project.json` the budgets of effects the project no longer has. The editor keeps them until you
     leave, so undoing a delete brings the effect back with its budgets, and the next save writes them again: `project.json`
     is written whenever the effects differ from the ones it was last read or written with, even with nothing else changed.
@@ -1052,14 +1065,14 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     has them.
 - **The inspector** (UI phase 6 of [docs/ui-redesign.md](docs/ui-redesign.md): the property rows, numbers you drag or type,
   rows of two or three numbers with prefixes, sliders, segmented choices, the colour roles' swatches and the folds are the
-  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first two's (the
-  rows and fields; the header's More menus, the problems banner, and Cost and Checks out of a layer's view):
+  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first three's (the
+  rows and fields; the header's More menus, the problems banner, and Cost and Checks out of a layer's view; the effect's
+  sections):
   - **Rows**: 28 px, with 4 px between them, as the brief's words say (a row 32 px from the next). The label column is at
     least 84 px and at most 38 % of the row, so 103 px at 1920 and 112 px at 2560. Every control fills its column, number
     boxes too, so the numbers, right-aligned, line up at the panel's right edge. A checkbox's words sit in the label column
     and its box in the control column, as the brief draws "Flipbook [on]". A hint under a row spans both columns.
-  - **Rows that keep their old shape until the next slices**: Shows in, the three Phases (each name over its box) and the
-    effect's colour list. The next slices rebuild them (tier chips, the Phases bar, the Colour section).
+  - **A row that keeps its old shape until the next slice**: Shows in (the next slice makes it tier chips).
   - **Numbers**: a slider's box shows all its decimals ("1.00 ×", "40 m/s"); every other box shows at most 3 decimals and no
     zeros at the end, as the boxes always did ("0.5", "350 ms"). A number typed or dragged is rounded to those decimals:
     before, a typed 0.12345 was kept whole while the box showed 0.123. A number in the file with more decimals than its box
@@ -1098,7 +1111,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     shows an empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2). A fire's
     tones (flames, the bed) stay boxes where you type a colour's name, as before: they have no swatch.
   - A value longer than its select's column ("fire.smoke.light") is cut short: the browser draws no ellipsis in a select.
-    The open list shows it whole.
+    The open list shows it whole, and so does the select's tooltip (see "A select too narrow for its value" below).
   - A star's tone: its colour and its scale, each a row, then Remove; Add a tone under the last. Remove and Add a tone line
     up with the controls.
   - **Folds**: the chevron is the icons' chevron (turned down when open), the title 13 px semibold and cut with an ellipsis.
@@ -1122,8 +1135,50 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     message that names what the checker looks at.
   - **The checker's five things** (the schema, colour roles, images, links between layers, lengths) are in the tooltips of
     the banner and of the status bar's Checks: the Checks section that held them in its title is gone.
-  - **Cost** stays at the bottom of the effect's settings for now (the next slice makes it a section that folds), and never
-    shows under a layer. The status bar's triangles and cost still go there.
+  - **Cost** never shows under a layer: it is the last section of the effect's settings (see "Cost" below), and the status
+    bar's triangles and cost open it there.
+  - **The effect's sections** (slice 3): Effect, Scale, Phases and Colour are open at first, Cost closed. Each section
+    remembers open or closed by its title, as every fold does, so the effect's Colour and a layer's Colour open and close
+    together. The line "Pick a layer on the left to see its details." that sat under the effect's settings is gone: the
+    effect's view ends with Cost, as the brief draws it.
+  - **Labels renamed** in the effect's view: "Effect name" is **Name** and "Game events it answers" is **Game events** (the
+    brief's words); the colour row's "Colour" is **Main colour**, and the colour list has its own name for screen readers,
+    "The effect's colours" (a layer's is "Colours this layer uses"); "Phases" is the section's title. The help texts follow.
+  - **Name and Folder**: the Name field shows the name without its folder and renames by the Effects list's rename rules,
+    through one function: the folder stays, " / " typed makes a folder inside it, an empty name keeps the old one (the box
+    shows it again), and its box takes at most the 80 characters less its folder. The Folder select lists No folder, the
+    folders in use (A to Z, a folder inside a folder as "Vehicles / Tank") and New folder…, which asks for a name in the
+    question dialog, as Move to folder… does. A move is one undo step; one that would pass 80 characters is refused with
+    the list's message, and the select goes back, as it does when New folder… is cancelled.
+  - **Scale**: the icons for Size, Intensity and Duration are new in icons.ts (two arrows out to the corners, a lightning
+    bolt, a clock), muted, before the label's words; the hints are as before.
+  - **Phases**: the bar is 6 px, its parts 2 px apart in the timeline's phase colours; a phase of 0 ms leaves the bar, and
+    with all three at 0 (Rifle shot (demo)) the bar is the field colour alone, its tooltip saying "No phases: all three
+    lengths are 0 ms" (otherwise its tooltip gives the three lengths). The three lengths share the whole row, with no label
+    column, each box with a prefix (W, P, F: their full names Wind-up, Peak, Fade are their tooltips and their names for
+    screen readers) and its unit inside, as the brief draws "[ 350 ms ]": three boxes with their units do not fit in the
+    control column.
+  - **Main colour**: a select of the palette's colours with the chosen one's swatch; choosing one is one undo step, as "Use
+    as this effect's main colour" in the picker is. Its edit button (the pencil) opens the colour picker on the main colour.
+  - **Edit palette…**, until the picker's tabs come (UI phase 7): it opens the picker on the main colour, scrolled to its
+    Palette section, opened, with the keyboard focus on that section's title.
+  - **Cost**: closed at first. Its header gives the status bar's words (one function; the header leaves out "Cost:", so
+    "Cost: not measured" there is "Not measured" here), coloured as in the status bar, and the Measure button, which always
+    says "Measure" (it said "Measure again" after a measurement: the header has no room for both). The button sits over the
+    right end of the header, outside the fold's summary: a control inside a summary would fold the section, and outside the
+    fold it shows while the section is closed. The long explanation is the title's tooltip; the measuring conditions are the
+    tooltip of an info icon after "Measured over …" (shown once measured). The hint is "Most at any moment, 60 frames a
+    second. The budgets are the project's." The table is the same, with 3 px above and under each number; the row names have
+    a 100 px column, so "CPU ms a frame" fits on one line at 1920, and in a narrower panel they wrap rather than end in an
+    ellipsis.
+  - **The Budgets toggle**: a checkbox row under the table, off at first and remembered in this browser (vfx-budgets). On,
+    a budget box shows under each number. While one of the project's budgets is set, the boxes stay: the toggle shows on and
+    cannot be switched off, and its tooltip says why. The line saying which budgets count shows with the boxes, or whenever
+    a level of budgets counts; with none on and no boxes it would ask for a number where no box shows. Part B's Budgets
+    place goes under this toggle.
+  - **A select too narrow for its value** (the browser draws no ellipsis in a closed select): its tooltip gives the chosen
+    value whole, then the help text of its row's label, by the pointer and, at once, by the keyboard's focus. A select whose
+    value fits has no tooltip of its own; the keyboard's focus on it shows its label's, as before.
 
 ## Claude skills
 
