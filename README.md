@@ -211,7 +211,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (298 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (300 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
 the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
@@ -254,14 +254,15 @@ waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; 
 a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
 keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box showing what the chip shows,
 the keys working from 14 m as before; a right-click menu staying inside the window, and a menu taller than the window
-scrolling inside it, with the row that takes the focus in view; tooltips at once when Tab brings the focus to a number
+scrolling inside it, with the row that takes the focus in view; a right-click menu opened while nothing had the focus
+letting go of it as Esc closes it, so Space right after opens no rename box; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
 and showing the hints and the drag hint over the preview, remembered after a reload; `?hints=off` and `?hints=on` for their
 page only; counts, ids and the cost card's lines staying, and the status bar's drag hint too), the effects list (on a
 throwaway project with folders, deleted after: folders from " / " in the names, nested, folders first, each A to Z with
 numbers in order, the counts, the indent of each level; a folder closed and opened, remembered per project after a reload and
 after another project; the search by name, folder, file and game event, the "1 of 9" count, the folders it opens closing
-again, Esc and a second Esc, / and not while typing, no match and Clear the search; the More button on hover and on the
+again but the selected effect's staying open, Esc and a second Esc, / and not while typing, no match and Clear the search; the More button on hover and on the
 selected row, its menu and a second click closing it, the button staying and looking open while its menu is, a right-click;
 renaming in place by a double-click and F2, Enter, Esc,
 an empty name and a click elsewhere, and another row's More clicked meanwhile, whose menu opens below it; Move to folder (a
@@ -891,7 +892,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Search.** Every word typed must be found, in any case, in the effect's name (its folder is part of it), its file
     (`rifle_shot.vfx.json`) or one of its game events. While a search is on, the header's count says "3 of 16"; folders with
     matches show open, and a click opens or closes them for that search only; when the search is cleared, the folders it
-    opened close again, as they were, and the selected effect's row scrolls into view. While the selected effect does not
+    opened close again, as they were, except the selected effect's own folders, which stay open so its row still shows and
+    scrolls into view. While the selected effect does not
     match, its row is not in the list (the right panel and the Layers list still show it). Something that selects an effect
     the search hides (New effect, Duplicate, F2 on it) clears the search, so its row shows. Esc in the box clears it; Esc in
     the empty box gives the keys back to the editor (the box lets go of the focus); neither leaves the layer. Opening

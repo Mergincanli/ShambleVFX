@@ -75,8 +75,13 @@ export function buildEffectsList(act: EffectsListActions): EffectsListView {
     const cleared = !!query.trim() && !q.trim();
     query = q;
     searchToggles.clear();
-    // Cleared: the folders the search opened close again, as they were, and the selected effect's row shows.
-    if (cleared) scrollToSelected = true;
+    // Cleared: the folders the search opened close again, as they were, but the selected effect's own folders stay open,
+    // so its row still shows.
+    if (cleared) {
+      scrollToSelected = true;
+      const sel = act.effects().find((e) => e.id === act.selected());
+      if (sel) openTo(sel);
+    }
     render();
   } });
   const setQuery = (q: string) => { query = q; search.set(q); searchToggles.clear(); };

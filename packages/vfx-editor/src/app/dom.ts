@@ -626,9 +626,12 @@ export function menu(o: {
   let shut: { button: HTMLElement; at: number } | null = null;
   // The focus goes back before the menu hides. Hidden with the focus still in it, the browser gives the focus back itself,
   // in the middle of hiding, where no popover can open: the tooltip that Tab shows at once threw there.
+  // With nowhere to give the focus back to (a right-click menu opened while nothing had the focus), it leaves the menu all
+  // the same: kept on a hidden row until the next frame, a key pressed at once still reached that row (Space renamed).
   const close = (returnFocus = false) => {
     const to = back();
     if (returnFocus && to?.isConnected) to.focus({ preventScroll: true });
+    if (document.activeElement instanceof HTMLElement && el.contains(document.activeElement)) document.activeElement.blur();
     if (isOpen()) el.hidePopover();
   };
   const open = () => { if (!isOpen()) el.showPopover(); };
