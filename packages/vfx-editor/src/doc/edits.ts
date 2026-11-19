@@ -151,6 +151,38 @@ export function addEffect(doc: EditorDoc, fx: EffectFile): EditorDoc {
   return { ...doc, effects: [...doc.effects, fx] };
 }
 
+/** The longest effect id the file allows (the schema's pattern: a letter, then up to 47 letters, digits or _). */
+export const EFFECT_ID_MAX = 48;
+const COPY = ' copy';
+
+/**
+ * Copy an effect, just after it in the project: named "<name> copy" (at most 80 characters), with a new id from
+ * freeEffectId made from the source's id, never from its name (a name can hold " / " for its folder): "rifle_shot" gives
+ * "rifle_shot_2", and "rifle_shot_2" gives "rifle_shot_3", always within the 48 characters an id may have. Everything in the
+ * file is copied. What lives outside the file (its game events, its scene, its budgets) is the editor's to give or not.
+ */
+export function duplicateEffect(doc: EditorDoc, effectId: string): { doc: EditorDoc; id?: string } {
+  const fx = effectById(doc, effectId);
+  if (!fx) return { doc };
+  const base = fx.id.replace(/_\d+$/, '') || fx.id;
+  let id = freeEffectId(doc, base);
+  if (id.length > EFFECT_ID_MAX) {
+    // A long id: its base gives way to the number, so the copy's id still fits.
+    const used = new Set(doc.effects.map((e) => e.id));
+    for (let n = 2; ; n++) {
+      const tail = `_${n}`;
+      id = `${base.slice(0, EFFECT_ID_MAX - tail.length)}${tail}`;
+      if (!used.has(id)) break;
+    }
+  }
+  // A name too long for " copy" gives way at its end, so the copy's name always says it is one.
+  const name = `${fx.name.length + COPY.length > 80 ? fx.name.slice(0, 80 - COPY.length).trimEnd() : fx.name}${COPY}`;
+  const copy: EffectFile = { ...structuredClone(fx), id, name };
+  const effects = [...doc.effects];
+  effects.splice(effects.indexOf(fx) + 1, 0, copy);
+  return { doc: { ...doc, effects }, id };
+}
+
 export function removeEffect(doc: EditorDoc, effectId: string): EditorDoc {
   return { ...doc, effects: doc.effects.filter((e) => e.id !== effectId) };
 }

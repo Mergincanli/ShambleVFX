@@ -520,6 +520,11 @@ export interface MenuView {
   open(): void;
   /** Open it at a point, such as where the pointer was right-clicked, inside the window; the focus goes back on Esc. */
   openAt(x: number, y: number): void;
+  /**
+   * Open it below another button, such as a row's More button (one menu serves every row): the button says it is open
+   * (aria-expanded), the focus goes back to it, and its second click closes the menu again.
+   */
+  openBelow(button: HTMLElement): void;
   /** Close it; with returnFocus, the keyboard focus goes back to the button that opens it (or to where it was). */
   close(returnFocus?: boolean): void;
 }
@@ -606,9 +611,19 @@ export function menu(o: {
   const isOpen = () => el.matches(':popover-open');
   /** Where it was opened at a point (and where the focus was then), or null when its button opened it. */
   let at: { x: number; y: number; back: HTMLElement | null } | null = null;
+  /** The caller's button it was opened below (openBelow), or null. */
+  let below: HTMLElement | null = null;
   /** The letters typed for type-ahead, and when the last came: a word while they come quickly, from the menu's opening. */
   let typed = '', typedAt = -Infinity;
-  const back = () => (at ? at.back : o.opener ?? null);
+  const back = () => (at ? at.back : below ?? o.opener ?? null);
+  /**
+   * A button of openBelow pressed while the menu was open below it: the press closes the menu (a click outside closes a
+   * popover), so the click that follows must not open it again. When the browser closed it (on the press or on its
+   * release), and the button and time of the last such close, tell it.
+   */
+  const wired = new WeakSet<HTMLElement>();
+  let pressedOpen: { button: HTMLElement; at: number } | null = null;
+  let shut: { button: HTMLElement; at: number } | null = null;
   // The focus goes back before the menu hides. Hidden with the focus still in it, the browser gives the focus back itself,
   // in the middle of hiding, where no popover can open: the tooltip that Tab shows at once threw there.
   const close = (returnFocus = false) => {
@@ -619,7 +634,25 @@ export function menu(o: {
   const open = () => { if (!isOpen()) el.showPopover(); };
   const openAt = (x: number, y: number) => {
     if (isOpen()) el.hidePopover();
+    below = null;
     at = { x, y, back: document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null };
+    el.showPopover();
+  };
+  const openBelow = (button: HTMLElement) => {
+    if (!wired.has(button)) {
+      wired.add(button);
+      button.addEventListener('pointerdown', () => {
+        const now = performance.now();
+        const open = (isOpen() && below === button) || (shut?.button === button && now - shut.at < 100);
+        pressedOpen = open ? { button, at: now } : null;
+      }, true);
+    }
+    // Its second click: the press closed the menu already, so it stays closed.
+    if (pressedOpen?.button === button && performance.now() - pressedOpen.at < 1500) { pressedOpen = null; return; }
+    pressedOpen = null;
+    if (isOpen()) el.hidePopover();
+    at = null;
+    below = button;
     el.showPopover();
   };
   if (o.opener) {
@@ -634,11 +667,16 @@ export function menu(o: {
   const focusIn = () => { if (isOpen() && !el.contains(document.activeElement)) first()?.focus({ preventScroll: true }); };
   el.addEventListener('beforetoggle', (e) => {
     const opening = (e as ToggleEvent).newState === 'open';
-    o.opener?.setAttribute('aria-expanded', String(opening && !at));
+    o.opener?.setAttribute('aria-expanded', String(opening && !at && !below));
+    below?.setAttribute('aria-expanded', String(opening));
     typed = '';
-    if (!opening) return;
+    if (!opening) {
+      if (below) shut = { button: below, at: performance.now() };
+      return;
+    }
     states();
     if (at) placeAt(el, at.x, at.y);
+    else if (below) placeBelow(el, below);
     else if (o.opener) placeBelow(el, o.opener);
     // It shows once this event is over; the toggle event comes only with the next frame.
     setTimeout(focusIn);
@@ -649,6 +687,7 @@ export function menu(o: {
       // Closed with the focus still in it (it went away under the focus): the button takes it back.
       if (el.contains(document.activeElement)) back()?.focus({ preventScroll: true });
       at = null;
+      below = null;
     }
   });
   // A key pressed on the button while its menu is open, before the focus went into the menu, is the menu's: from its
@@ -699,18 +738,21 @@ export function menu(o: {
     if (b && !b.disabled && document.activeElement !== b) b.focus({ preventScroll: true });
   });
   document.body.append(el);
-  return { el, isOpen, open, openAt, close };
+  return { el, isOpen, open, openAt, openBelow, close };
 }
 
 /**
- * A right-click on `target` (or its context-menu key) opens the menu at the pointer, inside the window. Phase 4 of the
- * redesign gives the rows of the lists theirs.
+ * A right-click on `target` (or its context-menu key) opens the menu at the pointer, inside the window. The rows of the
+ * lists share one menu each: `prepare` says which row was right-clicked (and gets the menu ready for it), or null where
+ * there is no row, which leaves the browser's own menu.
  */
-export function contextMenu(target: HTMLElement, view: MenuView): void {
+export function contextMenu(target: HTMLElement, view: MenuView, prepare?: (e: MouseEvent) => HTMLElement | null): void {
   target.addEventListener('contextmenu', (e) => {
+    const row = prepare ? prepare(e) : target;
+    if (!row) return;
     e.preventDefault();
-    // From the keyboard there is no pointer: at the element's lower left corner.
-    if (e.clientX === 0 && e.clientY === 0) { const r = target.getBoundingClientRect(); view.openAt(r.left + 8, r.bottom); return; }
+    // From the keyboard there is no pointer: at the row's lower left corner.
+    if (e.clientX === 0 && e.clientY === 0) { const r = row.getBoundingClientRect(); view.openAt(r.left + 8, r.bottom); return; }
     const x = e.clientX, y = e.clientY;
     // The button still down (Linux and macOS ask for the menu on the press): open it once the button is let go. Opened on the
     // press, the browser closes it again at once when the pointer is not over it (it is, moved in near a corner).
@@ -865,6 +907,87 @@ export function scrubNumber(o: {
   const set = (v: number) => { value = fitValue(v, o); shown = fitValue(v, { digits: o.digits }); show(); };
   show();
   return { el, set, input, dragFrom };
+}
+
+// ---------------------------------------------------------------- the lists' parts (docs/ui-redesign.md 6.2)
+
+/**
+ * A search box: the search icon inside, a placeholder, no edge at rest. onInput comes with each change. Esc clears it (and
+ * says so with onInput); Esc in an empty box gives the keyboard back to the editor (the box lets go of the focus). Keys
+ * typed in it are its own: the editor's shortcuts wait while you type.
+ */
+export function searchField(o: { label: string; placeholder: string; className?: string; onInput(q: string): void }): { el: HTMLElement; input: HTMLInputElement; set(q: string): void } {
+  const input = h('input', {
+    class: 'search-input',
+    attrs: { type: 'search', placeholder: o.placeholder, 'aria-label': o.label, 'data-help-label': o.label, spellcheck: 'false', autocomplete: 'off', enterkeyhint: 'search' },
+  });
+  input.addEventListener('input', () => o.onInput(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    // Only the innermost thing: clear the search, or else let go of the box. Never also the editor's Esc (leave the layer).
+    e.preventDefault();
+    e.stopPropagation();
+    if (input.value) { input.value = ''; o.onInput(''); } else input.blur();
+  });
+  const el = h('label', { class: o.className ? `search ${o.className}` : 'search' }, icon('search'), input);
+  const set = (q: string) => { if (input.value !== q) input.value = q; };
+  return { el, input, set };
+}
+
+/** The pointer is pressed now (a rename box that loses the focus to a press waits for its click). */
+let pointerIsDown = false;
+let pointerWatch = false;
+function watchPointer(): void {
+  if (pointerWatch) return;
+  pointerWatch = true;
+  document.addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
+  for (const t of ['pointerup', 'pointercancel'] as const) document.addEventListener(t, () => { pointerIsDown = false; }, true);
+}
+
+export interface RenameBox {
+  el: HTMLInputElement;
+  /** Forget it without an answer (its row is being built again; the new row gets a new box). */
+  dispose(): void;
+}
+
+/**
+ * A box to rename something in place, in its row: Enter keeps the name typed, Esc keeps the old one. A click elsewhere
+ * keeps the name typed too: it is kept when that click comes, before the click does what it does (the row clicked is
+ * selected, even though the list is built again for the new name). Tab keeps it as well; the window losing the focus does
+ * not end it. onEnd gets the text (or null for Esc) and how it ended ('key': Enter or Esc, so the focus can go back to the
+ * row; 'elsewhere': the focus went where the user put it). Space, Delete, Backspace and the arrow keys only type in it.
+ */
+export function renameBox(o: { value: string; label: string; maxLength: number; onEnd(text: string | null, how: 'key' | 'elsewhere'): void }): RenameBox {
+  watchPointer();
+  const input = h('input', { class: 'text rename', attrs: { type: 'text', 'aria-label': o.label, spellcheck: 'false', autocomplete: 'off', maxlength: String(Math.max(1, o.maxLength)) } });
+  input.value = o.value;
+  let done = false;
+  const end = (text: string | null, how: 'key' | 'elsewhere') => {
+    if (done) return;
+    done = true;
+    o.onEnd(text, how);
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(input.value, 'key'); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(null, 'key'); }
+  });
+  input.addEventListener('blur', () => {
+    // The window lost the focus (another program): the box keeps it, and gets it back with the window.
+    if (done || !document.hasFocus()) return;
+    if (!pointerIsDown) { end(input.value, 'elsewhere'); return; }
+    // A press elsewhere: keep the name when its click comes (before the click's own work), or once it is let go.
+    const keep = () => end(input.value, 'elsewhere');
+    document.addEventListener('click', keep, { capture: true, once: true });
+    document.addEventListener('pointerup', () => setTimeout(() => { document.removeEventListener('click', keep, true); keep(); }), { capture: true, once: true });
+  });
+  return { el: input, dispose: () => { done = true; } };
+}
+
+/** Scroll a list so that one of its rows shows, as little as needed (block: 'nearest'), and nothing round the list. */
+export function scrollNearest(list: HTMLElement, row: Element): void {
+  const c = list.getBoundingClientRect(), r = row.getBoundingClientRect();
+  if (r.top < c.top) list.scrollTop -= c.top - r.top;
+  else if (r.bottom > c.bottom) list.scrollTop += Math.min(r.bottom - c.bottom, r.top - c.top);
 }
 
 // ---------------------------------------------------------------- splitters (docs/ui-redesign.md 5.2)

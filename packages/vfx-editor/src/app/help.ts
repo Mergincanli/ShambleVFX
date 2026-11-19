@@ -758,16 +758,40 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Loop': 'On: Play starts again from the beginning after a short rest. Off: it stops at the end.',
 
   // ------------------------------------------------------------ the Effects and Layers lists
-  'Effects': 'The effects in this project, each saved as its own file. Click one to see and edit it.',
-  'New': 'Make a new, empty effect in this project.',
+  'Effects': 'The effects in this project, each saved as its own file. Click one to see and edit it. A name such as "Weapons / Rifle shot" puts the effect in the folder Weapons.',
+  'Add an effect': 'Make a new, empty effect, or copy a ready-made one from the presets.',
+  'New effect': 'Make a new, empty effect in this project.',
+  'Make an effect': 'Make a new, empty effect in this project.',
   'From preset…': 'Copy a ready-made effect from the example projects into this one, such as the drawing board\'s four and the comic hits. The preset itself stays as it is.',
+  'Search effects': 'Show only the effects whose name, folder, file or game events hold the words you type. Esc clears it.',
+  'Clear the search': 'Show every effect again.',
+  'More': {
+    text: 'This row\'s menu. A right-click on the row opens it too.',
+    when: [
+      { in: 'Effects', text: 'This effect\'s menu: Rename, Duplicate, Move to folder… and Delete. A right-click on the row opens it too.' },
+    ],
+  },
+  'Rename': {
+    text: 'Rename it here in the list: Enter keeps the new name, Esc keeps the old one.',
+    when: [
+      { in: 'Effects', text: 'Rename the effect here in the list: Enter keeps the new name, Esc keeps the old one. It stays in its folder.' },
+    ],
+  },
+  'Move to folder…': 'Put the effect in a folder, in another one or in none. A folder is the part of the name before " / ".',
+  'No folder': 'Take the effect out of its folder, to the top of the list.',
+  'New folder…': 'Put the effect in a new folder. It asks for the folder\'s name first.',
   'Delete effect': 'Delete this effect. Undo brings it back until you leave the editor.',
   // Its tooltip's first line, the title's own words, is "Top of the list draws on top." (App.ts).
   'Layers': 'The selected effect\'s layers. Click a layer to see its settings.',
   'Add a layer': 'Add a sprite (an image), a projectile (a path in flight), one of 14 shapes, a burst of pieces or a word. It goes above the selected layer.',
   'Move up': 'Move the selected layer up the list, so it draws over more.',
   'Move down': 'Move the selected layer down the list, so it draws under more.',
-  'Duplicate': 'Make a copy of the selected layer, just above it.',
+  'Duplicate': {
+    text: 'Make a copy of the selected layer, just above it.',
+    when: [
+      { in: 'Effects', text: 'Make a copy of the effect, named "… copy", with its scene and its own budgets but not its game events: one event plays one effect.' },
+    ],
+  },
   'Delete layer': 'Delete the selected layer. Undo brings it back.',
 };
 
@@ -807,6 +831,9 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   'Close-up': '3',
   'Delete layer': 'Delete',
   'Keyboard shortcuts': '?',
+  'Search effects': '/',
+  'Rename': 'F2',
+  'Duplicate': 'Ctrl+D',
 };
 
 /** The cost table's rows, for the budget boxes ("Budget: Draws, Low"). */

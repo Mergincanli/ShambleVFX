@@ -4,7 +4,7 @@
  * bottom. Splitters between the zones resize them (layout.ts). Effects play through vfx-runtime, the code the game ships.
  */
 import paletteJson from '@shamble/vfx-format/palette.json';
-import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer, upgradePalette } from '@shamble/vfx-format';
+import { EVENT_NAME, FACTION_IDS, TIER_NAMES, checkPalette, newBurstLayer, newEffect, newShapeLayer, newWordLayer, resolveRole, upgradePalette } from '@shamble/vfx-format';
 import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, ShapeKind, ShapeLayer, TierName, Vec3 } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import { roleNames } from '@shamble/vfx-format';
@@ -13,12 +13,12 @@ import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runti
 import type { Atlas, DrawParams, Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
 import { budgetThatCounts, defaultBudgets, dropMissingEffects, forgetEffect, setLevelOn, setLimit } from '../cost/budgets';
-import type { Budgets, CostMetric } from '../cost/budgets';
+import type { Budgets, CostMetric, EffectBudget } from '../cost/budgets';
 import { measureCost } from '../cost/measure';
 import type { CostConditions, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
 import {
-  ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, setGradient, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
+  ROLE_NAME, addEffect, addLayer, addRole, deriveAgain, restoreRoleEntry, setGradient, duplicateEffect, duplicateLayer, effectById, freeEffectId, freeLayerId, moveLayer, newProjectile, newSprite, removeEffect, removeLayer,
   replaceLayer as replaceLayerIn, setEffectValue, setLayerValue, setRoleColour,
 } from '../doc/edits';
 import type { Path } from '../doc/edits';
@@ -37,6 +37,8 @@ import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { costSummary } from './costcard';
+import { buildEffectsList } from './effects-list';
+import type { EffectsListView } from './effects-list';
 import { h, icon, iconButton, installTooltips, menu, segmented, tip, tipContent } from './dom';
 import { FADE_KEY, fadeOthers, keptLayers, sinkMarks } from './fade';
 import { NEW_THIS_ROUND } from './help';
@@ -163,6 +165,16 @@ export class App implements AppApi {
   private frameOnly = false;
   /** The moment showAt paused at (for pictures): the Look holds a moment from it. Null while the app runs as usual. */
   private lookStill: number | null = null;
+  /** The Effects section of the left sidebar: header, search, folders and rows (effects-list.ts). */
+  private effectsList!: EffectsListView;
+  /**
+   * What Duplicate gave each copy outside the effects (its scene, its own budgets), by the copy's id. Undo that takes a copy
+   * away takes them away too (and keeps them here); redo that brings it back brings them back. A new effect that takes the
+   * id forgets them.
+   */
+  private copies = new Map<string, { scene?: string; budget?: EffectBudget }>();
+  /** The effect ids of the document last shown, to see what an undo or a redo took away or brought back. */
+  private shownIds = new Set<string>();
 
   static async start(root: HTMLElement): Promise<App> {
     const app = new App();
@@ -285,6 +297,8 @@ export class App implements AppApi {
     this.toolbar.setFaction(f);
     this.inspector.refresh();
     this.picker?.refresh();
+    // Each effect's dot is its main colour for the faction shown.
+    this.renderEffects();
   }
 
   setColour(role: string, hex: string, opts: { faction?: FactionId; mergeKey?: string } = {}): void {
@@ -338,6 +352,8 @@ export class App implements AppApi {
     this.metaDirty = true;
     this.renderTopbar();
     this.inspector.refresh();
+    // The search looks in the game events too.
+    this.renderEffects();
   }
 
   eventProblems(): string[] {
@@ -566,7 +582,24 @@ export class App implements AppApi {
     ] });
 
     // ------------------------------------------------ the left sidebar: effects over layers
-    const effects = h('div', { class: 'list effects-list' });
+    this.effectsList = buildEffectsList({
+      effects: () => this.history.doc.effects,
+      selected: () => this.selEffect,
+      layerSelected: () => this.selLayer !== null,
+      colourOf: (fx) => resolveRole(this.palette, fx.controls.colour, this.faction),
+      eventsOf: (id) => this.eventsValue[id] ?? [],
+      projectId: () => this.project?.id ?? null,
+      select: (id) => this.selectEffect(id),
+      newEffect: () => this.newEffect(),
+      fromPreset: () => void this.presetDialog(),
+      duplicate: (id) => this.duplicateEffect(id),
+      rename: (id, name, label) => this.renameEffect(id, name, label),
+      askFolder: (name) => this.ask('New folder', `A name for the new folder. "${name}" moves into it. A " / " in the name makes a folder inside a folder.`, 'New folder'),
+      remove: (id) => this.deleteEffect(id),
+      say: (text, bad) => this.say(text, bad),
+    });
+    const effects = this.effectsList.list;
+    const effectsSection = this.effectsList.el;
     const layers = h('div', { class: 'list layers-list' });
     // The row under the mouse: the preview fades the other layers while it is there. Listened to on the list, which stays
     // when its rows are made again (a row taken away while under the mouse never says it was left).
@@ -580,9 +613,6 @@ export class App implements AppApi {
       h('option', { attrs: { value: 'burst' }, text: 'Burst (pieces thrown out)' }),
       h('option', { attrs: { value: 'word' }, text: 'Word (a comic sound)' }));
     addMenu.addEventListener('change', () => { const v = addMenu.value; addMenu.value = ''; if (v) this.addLayer(v); });
-    const effectsSection = h('section', { class: 'card effects-section', attrs: { 'data-help-section': 'Effects' } }, h('div', { class: 'card-head' }, h('h2', { text: 'Effects' }),
-      h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => this.newEffect() } }, icon('plus'), h('span', { text: 'New' })),
-      h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => void this.presetDialog() } }, icon('preset'), h('span', { text: 'From preset…' }))), effects);
     // The Layers title's tooltip starts with what its hint says (help.ts adds the rest).
     const layersSection = h('section', { class: 'card grow layers-section', attrs: { 'data-help-section': 'Layers' } },
       h('div', { class: 'card-head' }, h('h2', { text: 'Layers', attrs: { 'data-tip': 'Top of the list draws on top.' } }), h('span', { class: 'hint', text: 'top draws on top' })),
@@ -736,6 +766,7 @@ export class App implements AppApi {
     }
     this.effectsOnDisk = new Set(effects.map((e) => e.id));
     this.fileEffectIds = new Set(effects.map((e) => e.id));
+    this.copies.clear();
     this.history.reset({ effects, palette: projectPalette });
     this.preview.vfx.palette = projectPalette;
     this.player.clear();
@@ -920,6 +951,7 @@ export class App implements AppApi {
     // A preset's game events stay with the preset: one event plays one effect.
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
     this.forgetBudgetOf(id);
+    this.copies.delete(id);
     this.history.apply('New from preset', addEffect(this.history.doc, fx));
     if (scene && SCENES.some((x) => x.id === scene)) { this.previewScenes[id] = scene; this.metaDirty = true; }
     this.selectEffect(id);
@@ -1090,6 +1122,7 @@ export class App implements AppApi {
     const fx = newEffect(id, 'New effect');
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
     this.forgetBudgetOf(id);
+    this.copies.delete(id);
     this.history.apply('New effect', addEffect(this.history.doc, fx));
     this.selectEffect(id);
   }
@@ -1098,6 +1131,56 @@ export class App implements AppApi {
   private forgetBudgetOf(id: string): void {
     const b = forgetEffect(this.budgetsValue, id);
     if (b !== this.budgetsValue) { this.budgetsValue = b; this.metaDirty = true; }
+  }
+
+  /**
+   * Duplicate an effect (the Effects list's menu, Ctrl+D with no layer selected): "<name> copy", with its scene and its own
+   * budgets, without its game events (one event plays one effect), selected. One undo step takes away the copy, its scene
+   * and its budgets. project.json is written at the next save anyway, since the effects differ, so nothing else is unsaved.
+   */
+  private duplicateEffect(id: string): void {
+    const r = duplicateEffect(this.history.doc, id);
+    if (!r.id) return;
+    const copy = r.id;
+    // The copy's id may be a deleted effect's: it starts without that one's events and budgets (they were not in the file).
+    delete this.eventsValue[copy];
+    this.budgetsValue = forgetEffect(this.budgetsValue, copy);
+    this.copies.delete(copy);
+    const scene = this.previewScenes[id];
+    if (scene) this.previewScenes[copy] = scene; else delete this.previewScenes[copy];
+    const own = this.budgetsValue.effects[id];
+    if (own) this.budgetsValue = { ...this.budgetsValue, effects: { ...this.budgetsValue.effects, [copy]: structuredClone(own) } };
+    this.copies.set(copy, {});
+    this.history.apply('Duplicate effect', r.doc);
+    this.history.endGesture();
+    this.selectEffect(copy);
+  }
+
+  /** A new name for an effect, its folder included: renamed in place, or moved to a folder. One undo step. */
+  private renameEffect(id: string, name: string, label: string): void {
+    this.history.apply(label, setEffectValue(this.history.doc, id, ['name'], name));
+    this.history.endGesture();
+  }
+
+  /**
+   * Undo took a copy away: its scene and budgets go with it (kept, for redo). Redo brought it back: so do they. A copy
+   * deleted (an edit) keeps them, as every deleted effect does, so undoing the delete finds them.
+   */
+  private followCopies(why: 'edit' | 'undo' | 'redo' | 'reset'): void {
+    // A save says 'reset' too, and keeps the undo steps: only undo and redo move a copy's scene and budgets.
+    if (why !== 'undo' && why !== 'redo') return;
+    for (const [id, kept] of this.copies) {
+      const here = !!effectById(this.history.doc, id), was = this.shownIds.has(id);
+      if (was && !here && why === 'undo') {
+        kept.scene = this.previewScenes[id];
+        delete this.previewScenes[id];
+        kept.budget = this.budgetsValue.effects[id];
+        this.budgetsValue = forgetEffect(this.budgetsValue, id);
+      } else if (!was && here && why === 'redo') {
+        if (kept.scene) this.previewScenes[id] = kept.scene;
+        if (kept.budget) this.budgetsValue = { ...this.budgetsValue, effects: { ...this.budgetsValue.effects, [id]: kept.budget } };
+      }
+    }
   }
 
   /** Add a layer: 'sprite', 'projectile', 'shape:<kind>', 'burst' or 'word'. */
@@ -1123,6 +1206,21 @@ export class App implements AppApi {
     else layer = newWordLayer(freeLayerId(fx, 'word'), 'Word');
     this.history.apply(`Add ${layer.type}`, addLayer(this.history.doc, fx.id, layer, this.selLayer ?? undefined));
     this.selectLayer(layer.id);
+  }
+
+  /** F2: rename the effect in place, when no layer is selected. True when something is renamed. */
+  private renameSelection(): boolean {
+    if (this.selLayer || !this.selEffect) return false;
+    this.effectsList.startRename(this.selEffect);
+    return true;
+  }
+
+  /** Ctrl+D: duplicate the selected layer, or the effect when no layer is selected. True when something is duplicated. */
+  private duplicateSelection(): boolean {
+    if (!this.selEffect) return false;
+    if (this.selLayer) this.duplicateSelected();
+    else this.duplicateEffect(this.selEffect);
+    return true;
   }
 
   private moveSelected(delta: number): void {
@@ -1154,6 +1252,8 @@ export class App implements AppApi {
   }
 
   private onDocChange(why: 'edit' | 'undo' | 'redo' | 'reset'): void {
+    this.followCopies(why);
+    this.shownIds = new Set(this.history.doc.effects.map((e) => e.id));
     // Undo can bring back or take away the selected effect or layer.
     if (this.selEffect && !this.effect()) this.selEffect = this.history.doc.effects[0]?.id ?? null;
     if (this.selLayer && !this.layer()) this.selLayer = null;
@@ -1340,11 +1440,9 @@ export class App implements AppApi {
     tip(this.els.redo, this.history.canRedo ? `Redo ${this.history.redoLabel}` : 'Nothing to redo');
   }
 
+  /** The Effects section (effects-list.ts): folders, rows, the count, the search. */
   private renderEffects(): void {
-    const list = this.els.effects;
-    list.replaceChildren(...this.history.doc.effects.map((fx) => h('div', { class: fx.id === this.selEffect ? 'item sel' : 'item' },
-      h('button', { class: 'item-main', title: `${fx.name} (file ${fx.id}.vfx.json)`, attrs: { type: 'button' }, on: { click: () => this.selectEffect(fx.id) } }, h('span', { text: fx.name })),
-      h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': `Delete ${fx.name}` }, title: 'Delete effect', on: { click: () => this.deleteEffect(fx.id) } }, icon('trash')))));
+    this.effectsList?.render();
   }
 
   private renderLayers(): void {
@@ -1506,6 +1604,11 @@ export class App implements AppApi {
       // field, a select); a checkbox or a slider that keeps the focus after a click is not typing.
       const notTyping = !typing || (tag === 'INPUT' && ['checkbox', 'radio', 'range'].includes((e.target as HTMLInputElement).type));
       if (e.key === 'Escape' && notTyping && !mod && !this.els.dialog.open) { if (this.selLayer) { e.preventDefault(); this.inspector.backToEffect(); } return; }
+      // Ctrl+D duplicates the selected layer, or the effect (and never opens the browser's bookmark then). Not while typing.
+      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'd' && !typing && !this.els.dialog.open) {
+        if (this.duplicateSelection()) e.preventDefault();
+        return;
+      }
       if (typing || mod || this.els.dialog.open) return;
       if (tag === 'BUTTON' && e.key === 'Enter') return;
       if (e.key === ' ') {
@@ -1521,6 +1624,9 @@ export class App implements AppApi {
       else if (e.key === '1' || e.key === '2' || e.key === '3') this.setView((['whole', 'game', 'close'] as const)[+e.key - 1]!);
       else if (e.key === 'Delete' || e.key === 'Backspace') this.deleteSelected();
       else if (e.key === '?') { e.preventDefault(); this.keysDialog(); }
+      // / puts the focus in the effects search (without typing the /); F2 renames in place.
+      else if (e.key === '/') { e.preventDefault(); this.effectsList.focusSearch(); }
+      else if (e.key === 'F2') { if (this.renameSelection()) e.preventDefault(); }
     });
   }
 
@@ -1574,7 +1680,7 @@ export class App implements AppApi {
     if (!effectById(this.history.doc, o.effect)) return false;
     this.selectEffect(o.effect);
     if (o.scene) this.chooseScene(o.scene);
-    if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.toolbar.setFaction(o.faction); }
+    if (o.faction) { this.faction = o.faction; this.preview.setFaction(o.faction); this.toolbar.setFaction(o.faction); this.renderEffects(); }
     if (o.relation) { this.preview.setRelation(o.relation); this.toolbar.setRelation(o.relation); }
     if (o.distance !== undefined) { this.preview.setDistance(o.distance); this.toolbar.setDistance(this.preview.viewerDistanceM); }
     if (o.tier) this.setTier(o.tier);

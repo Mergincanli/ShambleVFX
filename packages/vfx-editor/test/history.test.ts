@@ -7,7 +7,7 @@ import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { checkEffect, problemLines } from '@shamble/vfx-format/validate';
 import { History } from '../src/doc/history';
 import type { EditorDoc } from '../src/doc/history';
-import { addLayer, addRole, deriveAgain, duplicateLayer, mixHex, moveLayer, newProjectile, newSprite, removeLayer, scaleHex, setEffectValue, setIn, setLayerValue, setRoleColour, wordsFromText } from '../src/doc/edits';
+import { EFFECT_ID_MAX, addLayer, addRole, deriveAgain, duplicateEffect, duplicateLayer, mixHex, moveLayer, newProjectile, newSprite, removeLayer, scaleHex, setEffectValue, setIn, setLayerValue, setRoleColour, wordsFromText } from '../src/doc/edits';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (f: string) => JSON.parse(readFileSync(join(here, '../../../examples/demo-project/effects', f), 'utf8')) as EffectFile;
@@ -105,6 +105,63 @@ describe('edits keep effects valid', () => {
     expect(id).toBe('flash_2');
     expect(ids.indexOf('flash_2')).toBe(ids.indexOf('flash') + 1);
     expect(checkEffect(doc.effects[0], { palette, images }).ok).toBe(true);
+  });
+});
+
+describe('duplicateEffect', () => {
+  const palette = paletteJson as Palette;
+  const ID = /^[a-z][a-z0-9_]{0,47}$/;
+
+  it('copies the whole effect just after it, named "<name> copy", with a new id from its own', () => {
+    const d0 = start();
+    const { doc, id } = duplicateEffect(d0, 'rifle_shot');
+    expect(id).toBe('rifle_shot_2');
+    expect(doc.effects.map((e) => e.id)).toEqual(['rifle_shot', 'rifle_shot_2', 'shell_flight']);
+    const src = d0.effects[0]!, copy = doc.effects[1]!;
+    expect(copy.name).toBe(`${src.name} copy`);
+    expect({ ...copy, id: src.id, name: src.name }).toEqual(src);
+    // A copy, not the same objects: the source is left as it was.
+    expect(copy.layers).not.toBe(src.layers);
+    expect(doc.effects[0]).toBe(src);
+    expect(checkEffect(copy, { palette, images }).ok).toBe(true);
+  });
+
+  it('takes the id from the source\'s id, never from its name: a name with a folder gives an id with no slash and no space', () => {
+    const d0 = setEffectValue(start(), 'rifle_shot', ['name'], 'Weapons / Rifle shot');
+    const { doc, id } = duplicateEffect(d0, 'rifle_shot');
+    expect(id).toBe('rifle_shot_2');
+    expect(id).toMatch(ID);
+    expect(id).not.toMatch(/[\s/]/);
+    expect(doc.effects[1]!.name).toBe('Weapons / Rifle shot copy');
+    // A copy of the copy goes on counting from the source's id.
+    const again = duplicateEffect(doc, 'rifle_shot_2');
+    expect(again.id).toBe('rifle_shot_3');
+  });
+
+  it('keeps a long id within the 48 characters an id may have, and a long name within 80', () => {
+    const long = 'a'.repeat(EFFECT_ID_MAX);
+    const fx = { ...start().effects[0]!, id: long, name: 'N'.repeat(80) };
+    const d0: EditorDoc = { palette, effects: [fx] };
+    const one = duplicateEffect(d0, long);
+    expect(one.id).toMatch(ID);
+    expect(one.id!.length).toBe(EFFECT_ID_MAX);
+    expect(one.id).not.toBe(long);
+    expect(one.doc.effects[1]!.name).toBe(`${'N'.repeat(75)} copy`);
+    const two = duplicateEffect(one.doc, long);
+    expect(two.id).toMatch(ID);
+    expect(new Set(two.doc.effects.map((e) => e.id)).size).toBe(3);
+  });
+
+  it('is one undo step; an effect that is not there changes nothing', () => {
+    const h = new History(start());
+    h.apply('Duplicate effect', duplicateEffect(h.doc, 'shell_flight').doc);
+    expect(h.doc.effects.map((e) => e.id)).toEqual(['rifle_shot', 'shell_flight', 'shell_flight_2']);
+    h.undo();
+    expect(h.doc.effects.map((e) => e.id)).toEqual(['rifle_shot', 'shell_flight']);
+    expect(h.canUndo).toBe(false);
+    const d0 = start();
+    expect(duplicateEffect(d0, 'no_such').doc).toBe(d0);
+    expect(duplicateEffect(d0, 'no_such').id).toBeUndefined();
   });
 });
 

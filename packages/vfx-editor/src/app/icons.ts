@@ -118,6 +118,12 @@ const ICONS = {
   question: [{ circle: [12, 12, 8.5] }, { d: 'M9.5 9.7a2.6 2.6 0 0 1 5 .8c0 1.8-2.5 2.2-2.5 3.8M12 16.9v.1' }],
   // UI phase 3: Show hints, a light bulb.
   hint: [{ d: 'M9.4 15.6A6.2 6.2 0 1 1 14.6 15.6c-.5.4-.8 1-.8 1.6v.4h-3.6v-.4c0-.6-.3-1.2-.8-1.6z' }, { d: 'M10.2 20.6h3.6' }],
+  // UI phase 4, the lists: a folder of effects, the search, a row's More (three dots), a folder's chevron, Rename (a pencil).
+  folder: [{ d: 'M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z' }],
+  search: [{ circle: [10.5, 10.5, 6.5] }, { d: 'M15.4 15.4l5.1 5.1' }],
+  more: [{ circle: [5.5, 12, 1.6], fill: true }, { circle: [12, 12, 1.6], fill: true }, { circle: [18.5, 12, 1.6], fill: true }],
+  'chevron-right': [{ d: 'M9.5 6l6 6-6 6' }],
+  edit: [{ d: 'M4.5 19.5l1-4.2L15.8 5a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6L8.7 18.5z' }, { d: 'M13.8 7l3.2 3.2' }],
   'faction-soviets': [{ d: star(12, 12.8, 9.5, 0.42), cls: 'insignia' }],
   'faction-allies': [{ d: chevron(12, 12, 19), cls: 'insignia' }],
   'faction-empire': [{ d: flower(12, 12, 9.6, 0.27), cls: 'insignia' }],

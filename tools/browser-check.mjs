@@ -89,6 +89,27 @@ async function chooseInMenu(page, chipSelector, label) {
   await page.locator(`#${id} .menu-item`, { has: page.locator('.menu-label', { hasText: new RegExp(`^${label.replace(/[()]/g, '\\$&')}$`) }) }).click();
 }
 
+/** A name as a whole-text pattern (brackets and the like taken as they are). */
+const exactly = (text) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+/** An effect's row in the Effects list, by the name it shows (without its folder). */
+const effectRow = (page, name) => page.locator('.effects-list .item', { has: page.locator('.item-name', { hasText: exactly(name) }) });
+/** A row of an open menu (on body), by its label. */
+const menuRow = (page, menuId, label) => page.locator(`#${menuId} .menu-item`, { has: page.locator('.menu-label', { hasText: exactly(label) }) });
+/** Open an effect's menu with its More button (shown on hover), and choose a row in it. */
+async function effectMenu(page, name, label) {
+  const row = effectRow(page, name);
+  await row.hover();
+  await row.locator('.more').click();
+  await page.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
+  if (label) await menuRow(page, 'effect-menu', label).click();
+}
+/** The + menu of the Effects header: New effect or From preset…. */
+async function addEffectMenu(page, label) {
+  await page.click('.effects-section .add-effect');
+  await page.waitForSelector('#add-effect-menu:popover-open', { timeout: 5000 });
+  await menuRow(page, 'add-effect-menu', label).click();
+}
+
 let webgpu = true;
 for (const backend of ['webgpu', 'webgl']) {
   const q = backend === 'webgl' ? '&backend=webgl' : '';
@@ -356,7 +377,7 @@ if (webgpu) {
   const st1 = (await p.evaluate(() => window.__vfx.app.layer().start));
   ok('a layer can start with a phase, and keeps it when its delay changes', st0.phase === 'peak' && st1.phase === 'peak' && st1.ms === 40, `${JSON.stringify(st0)} then ${JSON.stringify(st1)}`);
   await p.keyboard.press('Control+z'); await p.keyboard.press('Control+z'); await p.keyboard.press('Control+z');
-  await p.click('text=From preset…');
+  await addEffectMenu(p, 'From preset…');
   await p.waitForSelector('dialog[open] >> text=Heavy: big blast', { timeout: 15000 });
   const nFx = (await st()).effects.length;
   await p.click('dialog[open] >> text=Heavy: big blast');
@@ -1114,7 +1135,7 @@ if (webgpu) {
 
   // -- Save as, after deleting an effect: the copy must not bring it back; then open the copy again
   const kept = (await st()).effects.filter((id) => id !== 'shell_flight').sort();
-  await p.click('.effects-list .item:has-text("Tank shell flight") button[aria-label^="Delete"]');
+  await effectMenu(p, 'Tank shell flight (demo)', 'Delete');
   await p.waitForTimeout(100);
   const name = `browser-check-${Date.now()}`;
   await p.click('.topbar >> text=Save as…');
@@ -1458,7 +1479,8 @@ if (webgpu) {
         'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on',
           'Whole screen', 'Game size', 'Close-up', 'Close-up on the muzzle', 'Close-up on the target', 'Made by an enemy', 'Made by your team', 'Made by you', 'Fade other layers'],
         Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
-        Effects: ['Effects', 'New', 'From preset…'], Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
+        Effects: ['Effects', 'Add an effect', 'New effect', 'From preset…', 'Search effects', 'Rename', 'Duplicate', 'Move to folder…', 'Delete effect', 'No folder', 'New folder…'],
+        Layers: ['Layers', 'Add a layer', 'Move up', 'Move down', 'Duplicate', 'Delete layer'] };
       const bars = [];
       for (const [section, labels] of Object.entries(BAR)) {
         const regions = [...document.querySelectorAll(`[data-help-section="${section}"]`)];
@@ -2353,6 +2375,382 @@ if (webgpu) {
     ok('the Show hints pages have no errors', errors.length === 0 && q.errors.length === 0, [...errors, ...q.errors].slice(0, 2).join(' | '));
   }
 
+  // -- the Effects list (docs/ui-redesign.md 6.2, 6.10, 6.11): folders from the names (" / "), nested, folders first, each
+  // A to Z with numbers in order, counts of all inside; open or closed remembered per project; the search (name, folder,
+  // file, game events), Esc and /; the row's menu by its More button and by a right-click; renaming in place; Move to
+  // folder (a folder there is, No folder, New folder…), Duplicate and Delete, each one undo step; the keys /, F2 and
+  // Ctrl+D, none while typing or with a menu open; inside the rename and search boxes the editor's keys only type. On a
+  // throwaway project (projects/browser-check-folders-…), deleted after.
+  {
+    const fname = `browser-check-folders-${Date.now()}`;
+    const fdir = join(repo, 'projects', fname);
+    cpSync(join(repo, 'examples', 'demo-project'), fdir, { recursive: true });
+    const fxFile = (id) => join(fdir, 'effects', `${id}.vfx.json`);
+    const readFx = (id) => JSON.parse(readFileSync(fxFile(id), 'utf8'));
+    const writeFx = (fx) => writeFileSync(fxFile(fx.id), `${JSON.stringify(fx, null, 2)}\n`);
+    for (const [id, name] of Object.entries({ board_beam: 'Abilities / Hammer leech beam (board)', board_molotov: 'Weapons / Grenades / Molotov flame pit (board)',
+      board_muzzle: 'Weapons / Rifles / Rifle shot (board)', board_shell: 'Vehicles / Tank / Tank shell (board)' })) writeFx({ ...readFx(id), name });
+    writeFx({ ...readFx('rifle_shot'), id: 'shot_two', name: 'Weapons / Rifles / Shot 2' });
+    writeFx({ ...readFx('rifle_shot'), id: 'shot_ten', name: 'Weapons / Rifles / Shot 10' });
+    writeFx({ ...readFx('shell_flight'), id: 'arrow', name: 'Arrow' });
+    const fmeta = () => JSON.parse(readFileSync(join(fdir, 'project.json'), 'utf8'));
+    const ownBudget = { on: true, limits: { high: { draws: 9 } } };
+    writeFileSync(join(fdir, 'project.json'), `${JSON.stringify({ ...fmeta(), budgets: { effects: { board_muzzle: ownBudget } } }, null, 2)}\n`);
+    let g = null;
+    try {
+      g = await open(`${base}/?backend=webgl&project=projects/${fname}`, () => window.__vfx && window.__vfx.ready);
+      const lp = g.page;
+      let confirms = 0;
+      lp.on('dialog', (d) => { confirms++; d.accept(); });
+      await lp.evaluate(async () => { window.__vfxManual = true; await window.__vfx.app.showAt(250, 7); document.querySelector('.status')?.classList.remove('show'); });
+      /** The list as lines: "+ Folder (count)", "- Effect", two spaces a level; " *" marks the selected row, "closed" a closed folder. */
+      const listNow = () => lp.evaluate(() => {
+        const a = window.__vfx.app;
+        const rows = [...document.querySelectorAll('.effects-list > *')].map((r) => {
+          const pad = '  '.repeat(+(r.style.getPropertyValue('--depth') || 0));
+          if (r.matches('.folder')) return `${pad}+ ${r.querySelector('.folder-name').textContent} (${r.querySelector('.folder-count').textContent})${r.getAttribute('aria-expanded') === 'true' ? '' : ' closed'}`;
+          if (r.matches('.item')) return `${pad}- ${r.querySelector('.item-name')?.textContent ?? `[${r.querySelector('input.rename')?.value}]`}${r.classList.contains('sel') ? ' *' : ''}`;
+          return `(${r.querySelector('p')?.textContent ?? r.textContent.trim()})`;
+        });
+        const f = document.activeElement;
+        return { rows, count: document.querySelector('.effects-section .list-count').textContent, search: document.querySelector('.effects-search input').value,
+          focus: f?.matches('.effects-search input') ? 'search' : f?.matches('input.rename') ? 'rename' : f?.closest?.('.menu') ? 'menu' : f?.className || f?.tagName,
+          sel: a.effect()?.id ?? null, name: a.effect()?.name ?? null, layer: a.layer()?.id ?? null, n: a.debugState().effects.length,
+          undo: a.history.undoLabel ?? null, canUndo: a.history.canUndo, time: a.debugState().mainTime, playing: a.debugState().playing,
+          dirty: document.querySelector('.project-name').textContent.includes('•') };
+      });
+      const nameOf = (id) => lp.evaluate((id) => window.__vfx.app.history.doc.effects.find((e) => e.id === id)?.name ?? null, id);
+      const start = await listNow();
+      const want = ['+ Abilities (1)', '  - Hammer leech beam (board)', '+ Vehicles (1)', '  + Tank (1)', '    - Tank shell (board)', '+ Weapons (4)', '  + Grenades (1)',
+        '    - Molotov flame pit (board)', '  + Rifles (3)', '    - Rifle shot (board)', '    - Shot 2', '    - Shot 10', '- Arrow *', '- Rifle shot (demo)', '- Tank shell flight (demo)'];
+      // Each level is indented 20 px: an effect's dot sits under its folder's folder icon, and its name under the folder's name.
+      const lineUp = await lp.evaluate(() => {
+        const x = (el) => Math.round(el.getBoundingClientRect().left);
+        const folder = document.querySelector('.effects-list .folder[data-folder="Abilities"]'), child = document.querySelector('.effects-list .item[data-effect="board_beam"]');
+        const top = document.querySelector('.effects-list .item[data-effect="arrow"]');
+        const head = document.querySelector('.effects-section .card-head'), add = head.querySelector('.add-effect'), search = document.querySelector('.effects-search');
+        return { childDot: x(child.querySelector('.fx-dot')) - x(top.querySelector('.fx-dot')), underIcon: x(child.querySelector('.fx-dot')) - 3 === x(folder.querySelector('.icon-folder')),
+          underName: x(child.querySelector('.item-name')) === x(folder.querySelector('.folder-name')), headH: Math.round(head.getBoundingClientRect().height),
+          add: [Math.round(add.getBoundingClientRect().width), Math.round(add.getBoundingClientRect().height)], addLabel: add.getAttribute('aria-label'),
+          searchH: Math.round(search.getBoundingClientRect().height), placeholder: search.querySelector('input').placeholder, searchIcon: !!search.querySelector('svg.icon-search'),
+          rowH: Math.round(top.getBoundingClientRect().height), folderH: Math.round(folder.getBoundingClientRect().height), title: head.querySelector('h2').textContent };
+      });
+      ok('the Effects list puts effects in folders from their names (" / "), nested: folders first, then effects, each A to Z with numbers in order ("Shot 2" before "Shot 10"); a folder counts every effect inside it',
+        JSON.stringify(start.rows) === JSON.stringify(want) && start.count === '9', JSON.stringify(start.rows));
+      ok('its header is "Effects", the count and a 24 px + button in 32 px; the search box is 24 px with the search icon and "Search effects"; rows are 28 px, and each folder level is indented 20 px (a dot under its folder\'s icon, a name under its folder\'s name)',
+        lineUp.title === 'Effects' && lineUp.headH === 32 && lineUp.add.join() === '24,24' && lineUp.addLabel === 'Add an effect' && lineUp.searchH === 24 && lineUp.placeholder === 'Search effects'
+          && lineUp.searchIcon && lineUp.rowH === 28 && lineUp.folderH === 28 && lineUp.childDot === 20 && lineUp.underIcon && lineUp.underName, JSON.stringify(lineUp));
+
+      // Open and closed, remembered per project (localStorage, vfx-folders:<project>): after a reload, and after another project.
+      const key = `vfx-folders:projects/${fname}`;
+      await lp.locator('.effects-list .folder[data-folder="Weapons"]').click();
+      const closedNow = await listNow();
+      const stored = await lp.evaluate((k) => localStorage.getItem(k), key);
+      await lp.reload();
+      await lp.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
+      const afterReload = await listNow();
+      await lp.evaluate(async () => { await window.__vfx.app.openProject('examples/demo-project'); });
+      const demoRows = (await listNow()).rows;
+      await lp.evaluate(async (p) => { await window.__vfx.app.openProject(p); }, `projects/${fname}`);
+      const back = await listNow();
+      await lp.locator('.effects-list .folder[data-folder="Weapons"]').click();
+      const reopened = await listNow();
+      const storedOpen = await lp.evaluate((k) => localStorage.getItem(k), key);
+      const weaponsClosed = ['+ Abilities (1)', '  - Hammer leech beam (board)', '+ Vehicles (1)', '  + Tank (1)', '    - Tank shell (board)', '+ Weapons (4) closed', '- Arrow *', '- Rifle shot (demo)', '- Tank shell flight (demo)'];
+      ok('a click on a folder closes it (and opens it again), remembered per project: after a reload, and after opening another project and coming back',
+        JSON.stringify(closedNow.rows) === JSON.stringify(weaponsClosed) && stored === '["Weapons"]' && JSON.stringify(afterReload.rows) === JSON.stringify(weaponsClosed)
+          && !demoRows.some((r) => r.includes('+ ')) && JSON.stringify(back.rows) === JSON.stringify(weaponsClosed) && JSON.stringify(reopened.rows) === JSON.stringify(want) && storedOpen === '[]',
+        JSON.stringify({ closedNow: closedNow.rows, stored, afterReload: afterReload.rows.length, demoRows: demoRows.length, back: back.rows.length, storedOpen }));
+      await lp.evaluate(async () => { window.__vfxManual = true; await window.__vfx.app.showAt(250, 7); document.querySelector('.status')?.classList.remove('show'); });
+
+      // The search: by name, folder, file and game event; the count says "1 of 9"; matching effects keep their folders open,
+      // even a closed one, which closes again when the search is cleared. Esc clears it, Esc again lets go of the box; / puts
+      // the focus there from anywhere, but not while typing (the time readout's box takes the /).
+      await lp.locator('.effects-list .folder[data-folder="Weapons"]').click();
+      await lp.locator('.effects-list .item[data-effect="arrow"] .item-main').focus();
+      await lp.keyboard.press('/');
+      const slash = await listNow();
+      const searchFor = async (q) => { await lp.locator('.effects-search input').fill(q); return listNow(); };
+      const byName = await searchFor('pit');
+      const byFolder = await searchFor('grenades');
+      const byFile = await searchFor('shot_ten');
+      const byEvent = await searchFor('demo.tank');
+      const none = await searchFor('zzz');
+      await lp.locator('.effects-list .list-empty button', { hasText: 'Clear the search' }).click();
+      const clearedByButton = await listNow();
+      await searchFor('grenades');
+      await lp.keyboard.press('Escape');
+      const esc1 = await listNow();
+      await lp.keyboard.press('Escape');
+      const esc2 = await listNow();
+      await lp.locator('.transport .time-now').click();
+      await lp.keyboard.press('/');
+      const typedSlash = await lp.evaluate(() => ({ value: document.querySelector('.time-input').value, search: document.activeElement?.matches('.effects-search input') ?? false }));
+      await lp.keyboard.press('Escape');
+      ok('/ puts the keyboard focus in the effects search from anywhere, but not while typing in a field (the / is typed there)',
+        slash.focus === 'search' && typedSlash.value.endsWith('/') && !typedSlash.search, JSON.stringify({ slash: slash.focus, typedSlash }));
+      ok('the search finds effects by name, folder, file and game event, keeps their folders open (a closed one too), and the count says how many of all match ("1 of 9")',
+        byName.rows.join('|') === '+ Weapons (1)|  + Grenades (1)|    - Molotov flame pit (board)' && byName.count === '1 of 9'
+          && byFolder.rows.join('|') === '+ Weapons (1)|  + Grenades (1)|    - Molotov flame pit (board)' && byFile.rows.join('|') === '+ Weapons (1)|  + Rifles (1)|    - Shot 10'
+          && byEvent.rows.join('|') === '- Tank shell flight (demo)' && byEvent.count === '1 of 9', JSON.stringify({ byName, byFolder: byFolder.rows, byFile: byFile.rows, byEvent: byEvent.rows }));
+      ok('a search with no match says so and offers to clear it; Esc clears the search (the folders it opened close again, as they were), and Esc in the empty box lets go of it',
+        none.rows.join('|') === '(Nothing matches "zzz".)' && none.count === '0 of 9' && clearedByButton.search === '' && clearedByButton.rows.includes('+ Weapons (4) closed')
+          && esc1.search === '' && esc1.focus === 'search' && esc1.rows.includes('+ Weapons (4) closed') && esc1.count === '9' && esc2.focus !== 'search',
+        JSON.stringify({ none: none.rows, cleared: clearedByButton.rows.length, esc1: [esc1.search, esc1.focus, esc1.count], esc2: esc2.focus }));
+      await lp.locator('.effects-list .folder[data-folder="Weapons"]').click();
+
+      // The row's menu: its More button (shown on hover and on the selected row) opens it below, and a second click closes it;
+      // a right-click on a row opens the same menu at the pointer. Its rows: Rename (F2), Duplicate (Ctrl+D), Move to folder…,
+      // a line, Delete.
+      const menuNow = () => lp.evaluate(() => {
+        const m = document.getElementById('effect-menu');
+        const r = m.getBoundingClientRect();
+        return { open: m.matches(':popover-open'), x: Math.round(r.left), y: Math.round(r.top),
+          rows: [...m.children].map((c) => c.matches('.menu-divider') ? '—' : `${c.querySelector('.menu-label')?.textContent}${c.querySelector('.menu-key') ? `(${c.querySelector('.menu-key').textContent})` : ''}`),
+          focus: document.activeElement?.closest?.('#effect-menu') ? document.activeElement.querySelector('.menu-label').textContent : document.activeElement?.getAttribute('aria-label') ?? null };
+      });
+      const shotRow = effectRow(lp, 'Shot 2');
+      const hiddenMore = await shotRow.locator('.more').isVisible();
+      await shotRow.hover();
+      const hoverMore = await shotRow.locator('.more').isVisible();
+      const moreBox = await shotRow.locator('.more').boundingBox();
+      await shotRow.locator('.more').click();
+      await lp.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
+      await lp.waitForTimeout(100);
+      const byClick = await menuNow();
+      const expanded = await shotRow.locator('.more').getAttribute('aria-expanded');
+      await shotRow.locator('.more').click();
+      await lp.waitForTimeout(200);
+      const secondClick = await menuNow();
+      await effectRow(lp, 'Arrow').scrollIntoViewIfNeeded();
+      const arrowBox = await effectRow(lp, 'Arrow').boundingBox();
+      await lp.mouse.click(arrowBox.x + 60, arrowBox.y + 14, { button: 'right' });
+      await lp.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
+      const byRight = await menuNow();
+      await lp.keyboard.press('Escape');
+      const afterEsc = await menuNow();
+      const selMore = await lp.locator('.effects-list .item.sel .more').isVisible();
+      ok('an effect\'s row shows its More button on hover and on the selected row; it opens the row\'s menu below it (Rename F2, Duplicate Ctrl+D, Move to folder…, Delete), and a second click closes it',
+        !hiddenMore && hoverMore && selMore && byClick.open && Math.abs(byClick.y - (moreBox.y + moreBox.height + 4)) <= 1 && byClick.rows.join('|') === 'Rename(F2)|Duplicate(Ctrl+D)|Move to folder…|—|Delete'
+          && byClick.focus === 'Rename' && expanded === 'true' && !secondClick.open, JSON.stringify({ hiddenMore, hoverMore, selMore, byClick, expanded, secondClick: secondClick.open }));
+      ok('a right-click on an effect\'s row opens the same menu at the pointer; Esc closes it', byRight.open && byRight.x === Math.round(arrowBox.x + 60) && byRight.y === Math.round(arrowBox.y + 14)
+        && byRight.rows.join('|') === byClick.rows.join('|') && !afterEsc.open, JSON.stringify({ byRight, afterEsc: afterEsc.open }));
+
+      // Renaming in place: a double-click on the name gives a box with the name (its folder stays); Enter keeps the new name in
+      // one undo step, Esc keeps the old one, an empty name keeps the old one, a click elsewhere keeps it and still does what
+      // it does. F2 renames the selected effect.
+      await shotRow.dblclick();
+      const dbl = await listNow();
+      const selected = await lp.evaluate(() => { const i = document.activeElement; return i?.matches('input.rename') ? [i.selectionStart, i.selectionEnd, i.value.length] : null; });
+      await lp.keyboard.type('Shot 3');
+      await lp.keyboard.press('Enter');
+      const renamed = await listNow();
+      await lp.keyboard.press('Control+z');
+      const renameUndone = await nameOf('shot_two');
+      const undoBefore = (await listNow()).canUndo;
+      await shotRow.dblclick();
+      await lp.keyboard.type('xyz');
+      await lp.keyboard.press('Escape');
+      const escaped = await listNow();
+      await effectRow(lp, 'Arrow').click();
+      await lp.keyboard.press('F2');
+      const f2 = await listNow();
+      await lp.keyboard.press('Control+a');
+      await lp.keyboard.press('Backspace');
+      await lp.keyboard.press('Enter');
+      const emptyName = await nameOf('arrow');
+      await lp.keyboard.press('F2');
+      await lp.keyboard.type('Bolt');
+      await effectRow(lp, 'Rifle shot (demo)').click();
+      const clickedAway = await listNow();
+      const bolt = await nameOf('arrow');
+      await lp.keyboard.press('Control+z');
+      const boltUndone = await nameOf('arrow');
+      ok('a double-click on an effect\'s name renames it in place (its folder stays): Enter keeps the new name, in one undo step',
+        dbl.focus === 'rename' && dbl.rows.includes('    - [Shot 2] *') && JSON.stringify(selected) === '[0,6,6]' && renamed.name === 'Weapons / Rifles / Shot 3' && renamed.undo === 'Rename effect'
+          && renamed.focus === 'item-main' && renameUndone === 'Weapons / Rifles / Shot 2', JSON.stringify({ dbl: [dbl.focus, dbl.sel], selected, renamed: [renamed.name, renamed.undo, renamed.focus], renameUndone }));
+      ok('Esc in the rename box keeps the old name (no undo step), and so does an empty name; F2 renames the selected effect; a click on another row keeps the name typed and selects that row',
+        escaped.name === 'Weapons / Rifles / Shot 2' && escaped.focus === 'item-main' && f2.focus === 'rename' && f2.sel === 'arrow' && emptyName === 'Arrow'
+          && bolt === 'Bolt' && clickedAway.sel === 'rifle_shot' && boltUndone === 'Arrow' && undoBefore === escaped.canUndo,
+        JSON.stringify({ escaped: [escaped.name, escaped.focus], f2: [f2.focus, f2.sel], emptyName, bolt, clickedAway: clickedAway.sel, boltUndone }));
+
+      // Inside the rename box and the search box, Space, Delete, Backspace, ← and → only type: they never play, delete the
+      // selected layer or step the time. Esc there does only the innermost thing (cancel the rename, clear the search): the
+      // layer stays selected; only a third Esc, with nothing going on, leaves it.
+      const typingKeys = async () => {
+        const before = await listNow();
+        // From the end of the text: a space, two steps back, Delete takes the last letter, a step on, Backspace takes the space.
+        for (const k of ['Space', 'ArrowLeft', 'ArrowLeft', 'Delete', 'ArrowRight', 'Backspace']) await lp.keyboard.press(k);
+        const after = await listNow();
+        const layers = await lp.evaluate(() => window.__vfx.app.effect().layers.length);
+        return { playing: after.playing, time: after.time === before.time, layer: after.layer, layers, focus: after.focus };
+      };
+      await lp.evaluate(async () => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer('flash'); await a.showAt(250, 7); });
+      const layersBefore = await lp.evaluate(() => window.__vfx.app.effect().layers.length);
+      await effectRow(lp, 'Rifle shot (demo)').click({ button: 'right' });
+      await menuRow(lp, 'effect-menu', 'Rename').click();
+      await lp.keyboard.press('End');
+      const inRename = await typingKeys();
+      const renameValue = await lp.evaluate(() => document.querySelector('input.rename')?.value ?? null);
+      await lp.keyboard.press('Escape');
+      const renameEsc = await listNow();
+      await lp.keyboard.press('/');
+      await lp.keyboard.type('rifle');
+      const inSearch = await typingKeys();
+      const searchValue = await lp.locator('.effects-search input').inputValue();
+      await lp.keyboard.press('Escape');
+      const searchEsc1 = await listNow();
+      await lp.keyboard.press('Escape');
+      const searchEsc2 = await listNow();
+      await lp.keyboard.press('Escape');
+      const searchEsc3 = await listNow();
+      ok('inside the rename box Space, Delete, Backspace, ← and → only type (no play, no deleted layer, no step); Esc cancels the rename and the layer stays selected',
+        !inRename.playing && inRename.time && inRename.layer === 'flash' && inRename.layers === layersBefore && inRename.focus === 'rename' && renameValue === 'Rifle shot (demo' && renameEsc.name === 'Rifle shot (demo)' && renameEsc.layer === 'flash',
+        JSON.stringify({ inRename, renameValue, renameEsc: [renameEsc.name, renameEsc.layer] }));
+      ok('inside the search box the same keys only type; Esc clears the search, a second Esc lets go of the box, the layer still selected; a third Esc leaves the layer',
+        !inSearch.playing && inSearch.time && inSearch.layer === 'flash' && inSearch.layers === layersBefore && inSearch.focus === 'search' && searchValue === 'rifl'
+          && searchEsc1.search === '' && searchEsc1.layer === 'flash' && searchEsc2.focus !== 'search' && searchEsc2.layer === 'flash' && searchEsc3.layer === null,
+        JSON.stringify({ inSearch, searchValue, esc: [searchEsc1.search, searchEsc1.layer, searchEsc2.focus, searchEsc2.layer, searchEsc3.layer] }));
+
+      // Move to folder…: a menu of the folders there are, No folder and New folder… (the question dialog; its OK button is
+      // clicked, so this holds with or without the change to Enter that waits for Mustafa). Each move is one undo step.
+      const folderMenuNow = () => lp.evaluate(() => {
+        const m = document.getElementById('folder-menu');
+        return { open: !!m?.matches(':popover-open'), title: m?.querySelector('.menu-title')?.textContent ?? null,
+          rows: m ? [...m.querySelectorAll('.menu-item, .menu-divider')].map((c) => c.matches('.menu-divider') ? '—' : `${c.querySelector('.menu-label').textContent}${c.getAttribute('aria-checked') === 'true' ? ' •' : ''}`) : [] };
+      });
+      await effectMenu(lp, 'Arrow', 'Move to folder…');
+      await lp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+      const fm = await folderMenuNow();
+      await menuRow(lp, 'folder-menu', 'Vehicles / Tank').click();
+      const movedTank = await listNow();
+      const movedName = await nameOf('arrow');
+      await lp.keyboard.press('Control+z');
+      const moveUndone = await nameOf('arrow');
+      await effectMenu(lp, 'Shot 10', 'Move to folder…');
+      await lp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+      const fmShot = await folderMenuNow();
+      await menuRow(lp, 'folder-menu', 'No folder').click();
+      const noFolder = await nameOf('shot_ten');
+      const noFolderUndo = (await listNow()).undo;
+      await lp.keyboard.press('Control+z');
+      const noFolderUndone = await nameOf('shot_ten');
+      await effectMenu(lp, 'Arrow', 'Move to folder…');
+      await lp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+      await menuRow(lp, 'folder-menu', 'New folder…').click();
+      const askTitle = await lp.waitForFunction(() => document.querySelector('dialog[open] h2')?.textContent ?? null, null, { timeout: 5000 }).then((x) => x.jsonValue(), () => null);
+      await lp.locator('dialog[open] input.text').fill('Fresh');
+      await lp.locator('dialog[open] button', { hasText: 'OK' }).click();
+      const fresh = await listNow();
+      const freshName = await nameOf('arrow');
+      await lp.keyboard.press('Control+z');
+      const freshUndone = { ...(await listNow()), arrow: await nameOf('arrow') };
+      ok('Move to folder… lists the folders there are, No folder (chosen when it has none) and New folder…; choosing a folder moves the effect there in one undo step',
+        fm.open && fm.title === 'Move to folder' && fm.rows.join('|') === 'No folder •|Abilities|Vehicles|Vehicles / Tank|Weapons|Weapons / Grenades|Weapons / Rifles|—|New folder…'
+          && movedName === 'Vehicles / Tank / Arrow' && movedTank.undo === 'Move to folder' && movedTank.rows.some((r) => r.startsWith('    - Arrow')) && moveUndone === 'Arrow'
+          && fmShot.rows.includes('Weapons / Rifles •') && noFolder === 'Shot 10' && noFolderUndo === 'Move to folder' && noFolderUndone === 'Weapons / Rifles / Shot 10',
+        JSON.stringify({ fm, movedName, movedUndo: movedTank.undo, moveUndone, noFolder, noFolderUndone }));
+      ok('New folder… asks for the folder\'s name (the question dialog, its OK button clicked) and moves the effect into the new folder, which starts open, in one undo step',
+        askTitle === 'New folder' && freshName === 'Fresh / Arrow' && fresh.rows.includes('+ Fresh (1)') && fresh.rows.some((r) => r.startsWith('  - Arrow')) && fresh.undo === 'Move to folder'
+          && freshUndone.arrow === 'Arrow' && !freshUndone.rows.some((r) => r.includes('Fresh')), JSON.stringify({ askTitle, freshName, fresh: fresh.rows, freshUndone: freshUndone.arrow }));
+
+      // Duplicate: "<name> copy", in its folder, selected, with the source's scene and own budgets but no game events. One undo
+      // takes away the copy, its scene and its budgets (no unsaved dot left), and redo brings all back; project.json follows.
+      await lp.evaluate(() => window.__vfx.app.pickEffect('board_muzzle'));
+      const cleanBefore = await listNow();
+      await effectMenu(lp, 'Rifle shot (board)', 'Duplicate');
+      const dup = await listNow();
+      const dupInfo = await lp.evaluate(() => { const a = window.__vfx.app; return { id: a.effect()?.id, scene: a.previewForChecks.scene.id, events: a.events(), budget: a.budgets().effects[a.effect()?.id] ?? null, stored: a.previewScenes[a.effect()?.id] ?? null }; });
+      await lp.keyboard.press('Control+z');
+      const dupUndone = await listNow();
+      const undoneInfo = await lp.evaluate(() => { const a = window.__vfx.app; return { scene: a.previewScenes.board_muzzle_2 ?? null, budget: a.budgets().effects.board_muzzle_2 ?? null }; });
+      await lp.keyboard.press('Control+Shift+z');
+      const redoneInfo = await lp.evaluate(() => { const a = window.__vfx.app; return { ids: a.debugState().effects, scene: a.previewScenes.board_muzzle_2 ?? null, budget: a.budgets().effects.board_muzzle_2 ?? null }; });
+      const saveNow = async () => {
+        await lp.keyboard.press('Control+s');
+        await lp.waitForFunction(() => !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
+        await lp.waitForTimeout(200);
+      };
+      await saveNow();
+      const savedWith = fmeta();
+      await lp.keyboard.press('Control+z');
+      await saveNow();
+      const savedWithout = fmeta();
+      const copyFile = existsSync(fxFile('board_muzzle_2'));
+      ok('Duplicate makes "<name> copy" in the same folder, selected, with the source\'s scene and its own budgets and no game events; one undo takes the copy, its scene and budgets away and leaves nothing unsaved; redo brings them back',
+        !cleanBefore.dirty && dup.name === 'Weapons / Rifles / Rifle shot (board) copy' && dup.sel === 'board_muzzle_2' && dup.undo === 'Duplicate effect' && dup.rows.includes('    - Rifle shot (board) copy *')
+          && dupInfo.scene === 'board-muzzle' && dupInfo.stored === 'board-muzzle' && dupInfo.events.length === 0 && JSON.stringify(dupInfo.budget) === JSON.stringify(ownBudget)
+          && dupUndone.n === 9 && !dupUndone.dirty && undoneInfo.scene === null && undoneInfo.budget === null
+          && redoneInfo.ids.includes('board_muzzle_2') && redoneInfo.scene === 'board-muzzle' && JSON.stringify(redoneInfo.budget) === JSON.stringify(ownBudget),
+        JSON.stringify({ dup: [dup.name, dup.sel, dup.undo], dupInfo, dupUndone: [dupUndone.n, dupUndone.dirty], undoneInfo, redoneInfo }));
+      ok('saved, the copy\'s scene and budgets are in project.json and its game events are not; after undo and another save, nothing of the copy is left',
+        savedWith.preview?.board_muzzle_2?.scene === 'board-muzzle' && JSON.stringify(savedWith.budgets?.effects?.board_muzzle_2) === JSON.stringify(ownBudget) && !savedWith.events?.board_muzzle_2
+          && savedWith.events?.board_muzzle?.length > 0 && !savedWithout.preview?.board_muzzle_2 && !savedWithout.budgets?.effects?.board_muzzle_2 && !copyFile,
+        JSON.stringify({ withCopy: { preview: savedWith.preview?.board_muzzle_2, budget: savedWith.budgets?.effects?.board_muzzle_2, events: savedWith.events?.board_muzzle_2 ?? null }, without: { preview: savedWithout.preview?.board_muzzle_2 ?? null }, copyFile }));
+
+      // The keys: Ctrl+D duplicates the selected effect when no layer is selected; F2 and Ctrl+D do nothing while typing in
+      // a field (the search box) or with a menu open; / goes to the menu's type-ahead then.
+      await effectRow(lp, 'Shot 2').click();
+      await lp.keyboard.press('Control+d');
+      const ctrlD = await listNow();
+      await lp.keyboard.press('Control+z');
+      await lp.locator('.effects-search input').focus();
+      await lp.keyboard.press('F2');
+      await lp.keyboard.press('Control+d');
+      const whileTyping = await listNow();
+      await lp.keyboard.press('Escape');
+      await effectMenu(lp, 'Shot 2');
+      await lp.keyboard.press('F2');
+      await lp.keyboard.press('Control+d');
+      await lp.keyboard.press('/');
+      const withMenu = await listNow();
+      const menuStill = await menuNow();
+      await lp.keyboard.press('Escape');
+      ok('Ctrl+D duplicates the selected effect when no layer is selected; F2, Ctrl+D and / do nothing to the list while typing in a field or with a menu open',
+        ctrlD.name === 'Weapons / Rifles / Shot 2 copy' && ctrlD.n === 10 && whileTyping.n === 9 && !whileTyping.rows.some((r) => r.includes('[')) && whileTyping.focus === 'search'
+          && withMenu.n === 9 && !withMenu.rows.some((r) => r.includes('[')) && withMenu.focus === 'menu' && menuStill.open,
+        JSON.stringify({ ctrlD: [ctrlD.name, ctrlD.n], whileTyping: [whileTyping.n, whileTyping.focus], withMenu: [withMenu.n, withMenu.focus, menuStill.open] }));
+
+      // Delete keeps its confirmation and its undo.
+      const confirmsBefore = confirms;
+      await effectMenu(lp, 'Shot 10', 'Delete');
+      const deleted = await listNow();
+      await lp.keyboard.press('Control+z');
+      const deleteUndone = await listNow();
+      ok('Delete in an effect\'s menu asks first, deletes it, and undo brings it back',
+        confirms === confirmsBefore + 1 && deleted.n === 8 && !deleted.rows.some((r) => r.includes('Shot 10')) && deleteUndone.n === 9 && deleteUndone.rows.includes('    - Shot 10'),
+        JSON.stringify({ confirms: confirms - confirmsBefore, deleted: deleted.n, deleteUndone: deleteUndone.n }));
+
+      // Each row's dot: 10 px, the effect's main colour for the faction shown, with a 1 px edge in --text-faint (so a dark colour
+      // shows in Night); it follows the faction.
+      const dotOf = () => lp.evaluate(() => {
+        const a = window.__vfx.app;
+        const fx = a.history.doc.effects.find((e) => e.id === 'board_beam');
+        const d = document.querySelector('.effects-list .item[data-effect="board_beam"] .fx-dot');
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--text-faint)';
+        document.body.append(probe);
+        const faint = getComputedStyle(probe).color;
+        probe.style.color = (a.palette.factions[a.faction].roles[fx.controls.colour] ?? a.palette.roles[fx.controls.colour]).hex;
+        const want = getComputedStyle(probe).color;
+        probe.remove();
+        const r = d.getBoundingClientRect();
+        return { size: `${Math.round(r.width)}x${Math.round(r.height)}`, colour: getComputedStyle(d).backgroundColor, want, edge: getComputedStyle(d).boxShadow.includes(faint) && /1px/.test(getComputedStyle(d).boxShadow), faction: a.faction };
+      });
+      const dotSoviets = await dotOf();
+      await lp.evaluate(() => window.__vfx.app.setFaction('allies'));
+      const dotAllies = await dotOf();
+      await lp.evaluate(() => window.__vfx.app.setFaction('soviets'));
+      ok('each effect\'s row has a 10 px dot in its main colour for the faction shown, with a 1 px edge in --text-faint; it follows the faction',
+        dotSoviets.size === '10x10' && dotSoviets.colour === dotSoviets.want && dotSoviets.edge && dotAllies.colour === dotAllies.want && dotAllies.colour !== dotSoviets.colour,
+        JSON.stringify({ dotSoviets, dotAllies }));
+      ok('the Effects list page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    } finally {
+      await g?.page.close();
+      rmSync(fdir, { recursive: true, force: true });
+    }
+  }
+
   // -- typed game events count as unsaved: opening another project asks first, and so does leaving the page.
   // (This headless browser never shows the leave-page dialog, so the check sends the leave event itself and reads whether
   // the editor held it back.)
@@ -2430,7 +2828,7 @@ if (webgpu) {
     ok('the cost card names a class with a long name in one or two lines, the whole name in its tooltip', level.lines >= 1 && level.lines <= 2
       && level.text.startsWith('The budgets of its class "Big explosions') && level.title.includes(longClass), `${level.lines} line(s): "${level.text}"`);
     // Delete the rifle shot and save, with nothing else changed: project.json leaves out its budgets (and events).
-    await g.page.click('.effects-list .item:has-text("Rifle shot (demo)") button[aria-label^="Delete"]');
+    await effectMenu(g.page, 'Rifle shot (demo)', 'Delete');
     await g.page.waitForTimeout(150);
     await saved();
     const afterDelete = fileMeta();

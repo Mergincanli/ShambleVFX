@@ -33,6 +33,7 @@
   --w-popover: 248px;       /* the Distance popover */
   --w-chip-value: 200px;    /* the Scene chip's value: a longer name ends in an ellipsis */
   --dot: 10px;              /* an effect's main-colour dot */
+  --indent: 20px;           /* one folder level in the effects list: a folder's chevron and the gap after it */
   --h-section: 32px;
   --h-row: 28px;
   --h-control: 24px;
@@ -386,6 +387,9 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .card.grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .card-head, .card > h2 { display: flex; align-items: center; gap: 4px; min-height: var(--h-section); }
 .card-head > h2 { margin-right: auto; }
+/* A list's header (6.2): its title, the count in --text-muted, then on the right its + menu. */
+.card-head > h2:has(+ .list-count) { margin-right: 2px; }
+.list-count { margin-right: auto; color: var(--text-muted); font-size: var(--fs-small); line-height: var(--lh-body); white-space: nowrap; }
 /* A header's buttons give way in a narrow sidebar (it can be dragged down to 200 px): their words end in an ellipsis. */
 .card-head > .mini { flex: 0 1 auto; min-width: 0; }
 .card-head > .mini > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -448,7 +452,46 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .item-main { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; height: var(--h-row); padding: 0 4px 0 var(--pad-panel); border: 0; background: transparent; color: inherit; text-align: left; }
 .item-main span, .layer-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-main:focus-visible, .layer-item:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
-.effects-list .item > .icon-only { margin-right: 8px; }
+/* The effects (6.2): folders first, then effects, each level indented by a folder's chevron and its gap (--indent). */
+.effects-list .item-main { padding-left: calc(var(--pad-panel) + var(--depth, 0) * var(--indent)); }
+/* The effect's main colour, 10 px in a 16 px place, with a 1 px edge in --text-faint (as the faction menu's team dots), so a
+   dark colour still shows in Night. */
+.effects-list .fx-dot { margin: 0 3px; box-shadow: 0 0 0 1px var(--text-faint); }
+/* A row's buttons (More; a layer's Move up and Move down too) show on hover, on the selected row and with the keyboard focus
+   in the row. */
+.item > .more, .item-tools { display: none; }
+.item:hover > .more, .item.sel > .more, .item:focus-within > .more { display: inline-flex; }
+.effects-list .item > .more { margin-right: 6px; }
+/* A folder: its chevron (turned down when open), the folder icon, its name, and how many effects are inside. */
+.folder {
+  display: flex; align-items: center; gap: 4px; flex: none; width: 100%; height: var(--h-row);
+  padding: 0 var(--pad-panel) 0 calc(var(--pad-panel) + var(--depth, 0) * var(--indent)); border: 0; background: transparent; color: var(--text); text-align: left;
+}
+.folder:hover { background: var(--bg-hover); }
+.folder:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.folder .icon { color: var(--text-muted); }
+.folder[aria-expanded="true"] .icon-chevron-right { transform: rotate(90deg); }
+.folder .icon-folder { margin-right: 4px; }
+.folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-count { flex: none; margin-left: 8px; color: var(--text-muted); font-size: var(--fs-small); }
+/* A closed folder that holds the selected effect: its name in the selected row's weight (not yellow: it is not the selection). */
+.folder.has-sel .folder-name { font-weight: 500; }
+/* The search box (24 px): the field colour, the search icon inside, no edge at rest. */
+.search {
+  display: flex; align-items: center; gap: 6px; height: var(--h-control); margin: 0 0 6px; padding: 0 6px;
+  border: 1px solid transparent; border-radius: var(--r-control); background: var(--bg-field); color: var(--text-muted); cursor: text;
+}
+.search:hover { border-color: var(--line-strong); }
+.search:focus-within { border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus-ring); }
+.search-input { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); outline: none; }
+.search-input:focus-visible { outline: none; box-shadow: none; }
+.search-input::-webkit-search-cancel-button { display: none; }
+/* Renaming in place: the box takes the name's place in its row. */
+.item .rename { flex: 1 1 auto; min-width: 0; font-weight: 400; }
+.item.renaming > .item-main { padding-right: 8px; }
+/* A list with nothing to show: what to do, and its button. */
+.list-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 6px var(--pad-panel) 8px; }
+.list-empty .empty { padding: 0; }
 .layer-item { gap: 8px; padding: 0 var(--pad-panel); }
 /* A short tag keeps its width; a long one stops at half the row with an ellipsis, so the name always shows.
    Tags are Plex Sans (speeds, counts, kinds, words, "not in Low"); only a sprite's image name is Plex Mono: it is typed into files.
