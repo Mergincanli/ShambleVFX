@@ -774,7 +774,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     from the slider, closes the popover and gives the focus back to the chip, as Esc does. Enter in the box sets the number
     and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m with Shift). Past 14 m (the target dragged further in
     the tank shell's scene) the box shows the distance as the chip does, and the slider stays at its end. The keys still
-    work from 14 m, as before: ↓ goes to 13.9 m, and ↑ or Enter in the untouched box change nothing.
+    work from 14 m, as before: ↓ goes to 13.9 m, and ↑ or Enter in the untouched box change nothing. Typing 14 or more
+    changes nothing either (the box shows the distance again), and a drag on the chip goes to 14 m at once, either way.
   - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
     your team's: `core/draw.ts`), so its row says "broken edges, your own words show" (the brief: "your own words show").
     Each Tier row says "draws only the layers in this tier", as the brief does (a projectile has no tiers; the layers riding
