@@ -234,8 +234,8 @@ h2 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600;
 /* Keyboard focus: a 1 px edge and a 2 px ring round it. Always visible. */
 :focus-visible { outline: 1px solid var(--focus); outline-offset: 0; box-shadow: 0 0 0 3px var(--focus-ring); }
 
-/* Colour changes on controls take 120 ms. */
-button, input, select, summary, .item, .tl-row { transition: background-color var(--t-colour), border-color var(--t-colour), color var(--t-colour); }
+/* Colour changes on controls take 120 ms (a timeline row's too: see the timeline). */
+button, input, select, summary, .item { transition: background-color var(--t-colour), border-color var(--t-colour), color var(--t-colour); }
 
 /* ---------------------------------------------------------------- buttons */
 /* Secondary: filled, an edge on hover. */
@@ -654,8 +654,14 @@ summary:focus-visible { outline-offset: -1px; box-shadow: inset 0 0 0 3px var(--
 .tl-phase.peak { --tl-halo: var(--tl-peak); background: var(--tl-peak); }
 .tl-phase.fade { --tl-halo: var(--tl-fade); background: var(--tl-fade); }
 /* A row (24 px, its 1 px line included): the layer's icon and name, then its lane. Hovered (here or in the Layers list) and
-   selected as in the Layers list: the tint across the name and the lane. --tl-row-bg is the lane's colour under it. */
-.tl-row { --tl-row-bg: var(--tl-lane); position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line); }
+   selected as in the Layers list: the tint across the name and the lane. --tl-row-bg is the lane's colour under it, the
+   edge round a label beside its bar (and inside a bar left out of the tier): a registered colour, so it fades with the
+   row's own 120 ms colour change, and the edge stays the colour of the row while a hover comes or goes. */
+@property --tl-row-bg { syntax: '<color>'; inherits: true; initial-value: transparent; }
+.tl-row {
+  --tl-row-bg: var(--tl-lane); position: relative; display: grid; grid-template-columns: var(--tl-name) minmax(0, 1fr); height: var(--h-track); border-bottom: 1px solid var(--tl-row-line);
+  transition: background-color var(--t-colour), border-color var(--t-colour), color var(--t-colour), --tl-row-bg var(--t-colour);
+}
 .tl-row:not(.sel):hover, .tl-row.hovered:not(.sel) { --tl-row-bg: var(--tl-lane-hover); }
 .tl-row:not(.sel):hover { background: var(--bg-hover); }
 .tl-row.sel { --tl-row-bg: var(--tl-lane-selected); background: var(--bg-selected); }

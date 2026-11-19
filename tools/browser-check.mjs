@@ -14,8 +14,8 @@
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
 //    reorder, the sync with the timeline) with their keys, the timeline (its sizes, the bars' labels inside or beside their
 //    bars, the phases' names, the playhead and its head, the ruler staying at the top, clicks and scrubs, the selected, hovered
-//    and left-out rows), Save as into projects/, Export and Import, and the palette
-//    profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
+//    and left-out rows, the edge round a label while a hover fades), Save as into projects/, Export and Import, and the
+//    palette profiles Import adds (everything made is deleted again after). Palette profiles go to a temporary folder
 //    (VFX_PALETTES_DIR), so the real palettes/ is never touched.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
@@ -3254,8 +3254,8 @@ if (webgpu) {
   // narrower and back; the phases' names inside when they fit, their times in their tooltips, also with no layers; the
   // playhead (its line through the ruler and the lanes, its head, which drags) and no label hidden by it; the ruler and the
   // phase strip at the top while the rows scroll, and a selected row scrolled into view below them; scrubbing, and a click
-  // on a bar selecting; the selected row, the hovered one and a row left out of the tier. On a page of its own: the
-  // splitters' sizes are remembered.
+  // on a bar selecting; the selected row, the hovered one and a row left out of the tier; the edge round a label while a
+  // hover fades. On a page of its own: the splitters' sizes are remembered.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
     const tp = g.page;
@@ -3642,6 +3642,59 @@ if (webgpu) {
     const offWant = '#' + rgb(offLook.fill).map((f, i) => Math.round(0.35 * f + 0.65 * rgb(offLook.lane)[i]).toString(16).padStart(2, '0')).join('').toUpperCase();
     ok('a bar left out of the tier is at 35 % (its fill 0.35 of its colour over the lane, its label at 35 % too) and its name muted; selected, its name keeps --text and its outline is drawn at full strength',
       offLook.off && offLook.name && offLook.label && diff(offPx, offWant) <= 2 && offSel.name && diff(offSelPx, offSel.accent) <= 1, JSON.stringify({ offLook, offPx, offWant, offSel, offSelPx }));
+
+    // The edge round a label (its 1 px stroke in the colour behind it) fades with its row's 120 ms colour change. Caught
+    // 20 ms into a hover coming and into one going, in Day and Night, round the Bullet's label beside its bar and round the
+    // label inside a bar left out of the tier (the Molotov's Flames in Low), the edge is the colour drawn round it. For the
+    // picture the letters are made see-through and the bar's step marks taken off, so only the edge is drawn: it must not
+    // stand out from what is round it. (The hover is the Layers list's, so the transition starts in the same call.)
+    const edgeInFade = async (effect, ms, id, coming) => {
+      await showTl(effect, ms);
+      await tp.evaluate(([id, coming]) => window.__vfx.app.hoverLayer(coming ? null : id), [id, coming]);
+      await tp.waitForTimeout(250);
+      const caught = await tp.evaluate(([id, coming]) => {
+        window.__vfx.app.hoverLayer(coming ? id : null);
+        const row = document.querySelector(`.timeline .tl-row[data-layer="${id}"]`), bar = row.querySelector('.tl-bar'), label = bar.querySelector('.tl-label');
+        const anims = row.getAnimations();
+        for (const a of anims) { a.pause(); a.currentTime = 20; }
+        label.style.color = 'transparent';
+        bar.style.backgroundImage = 'none';
+        const l = label.getBoundingClientRect();
+        return { props: anims.map((a) => a.transitionProperty ?? '?'), hovered: row.classList.contains('hovered'), fit: bar.dataset.fit, off: row.classList.contains('off'), box: [l.left, l.top, l.width, l.height] };
+      }, [id, coming]);
+      await frames();
+      const [lx, ly, lw, lh] = caught.box;
+      const png = PNG.sync.read(await tp.screenshot({ clip: { x: Math.floor(lx) - 2, y: Math.ceil(ly), width: Math.ceil(lw) + 4, height: Math.floor(lh) } }));
+      await tp.evaluate((id) => {
+        const row = document.querySelector(`.timeline .tl-row[data-layer="${id}"]`), bar = row.querySelector('.tl-bar');
+        bar.style.backgroundImage = '';
+        bar.querySelector('.tl-label').style.color = '';
+        for (const a of row.getAnimations()) a.finish();
+        window.__vfx.app.hoverLayer(null);
+      }, id);
+      // What is round the edge: the commonest colour in the label's box. The edge may differ from it by rounding only.
+      const counts = new Map();
+      for (let i = 0; i < png.data.length; i += 4) { const k = `${png.data[i]},${png.data[i + 1]},${png.data[i + 2]}`; counts.set(k, (counts.get(k) ?? 0) + 1); }
+      const bg = [...counts.entries()].sort((p, q) => q[1] - p[1])[0][0].split(',').map(Number);
+      let most = 0;
+      for (let i = 0; i < png.data.length; i += 4) for (let k = 0; k < 3; k++) most = Math.max(most, Math.abs(png.data[i + k] - bg[k]));
+      return { id, coming, props: caught.props, hovered: caught.hovered, fit: caught.fit, off: caught.off, most };
+    };
+    const fades = [];
+    for (const theme of ['day', 'night']) {
+      if (theme === 'night') await tp.locator('.topbar .theme-toggle').click();
+      await tp.mouse.move(900, 300);
+      for (const coming of [true, false]) fades.push({ theme, ...(await edgeInFade('rifle_shot', 200, 'bullet', coming)) });
+      await tp.evaluate(() => window.__vfx.app.setTierForChecks('low'));
+      for (const coming of [true, false]) fades.push({ theme, ...(await edgeInFade('board_molotov', 1200, 'flames', coming)) });
+      await tp.evaluate(() => window.__vfx.app.setTierForChecks('high'));
+    }
+    await tp.locator('.topbar .theme-toggle').click();
+    await tp.mouse.move(900, 300);
+    ok('the edge round a label fades with its row\'s colour: 20 ms into a hover coming or going, in Day and Night, round the Bullet\'s label beside its bar and the label inside a bar left out of the tier, the edge is the colour round it',
+      fades.length === 8 && fades.every((f) => f.props.includes('background-color') && f.hovered === f.coming && f.most <= 3) && fades.filter((f) => f.id === 'bullet').every((f) => f.fit === 'right' && !f.off)
+        && fades.filter((f) => f.id === 'flames').every((f) => f.fit === 'inside' && f.off),
+      JSON.stringify(fades));
 
     // Neither hides the other: at 20 ms on the Hammer leech beam the playhead crosses the first digit of "3150 ms", the "w"
     // of "wind-up" and the ruler's 0; at 20 ms on the Rifle shot it crosses the Bullet's label beside its bar. Each label's
