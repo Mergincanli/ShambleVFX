@@ -670,7 +670,7 @@ export class App implements AppApi {
     const play = iconButton({ icon: 'play', label: 'Play', className: 'play', onClick: () => this.togglePlay() });
     this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
     this.speedCtl = segmented<number>({ label: 'Speed', options: SPEEDS.map((s) => ({ value: s, label: s === 1 ? '1×' : s === 0.5 ? '½×' : s === 0.25 ? '¼×' : '⅒×' })), value: 1,
-      onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true });
+      onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true, inline: true });
     // The time readout: the current time (click it to type one), the length, the step; while firing, how many plays run.
     const timeNow = h('button', { class: 'time-now', attrs: { type: 'button', 'aria-label': 'Go to a time', 'data-help-label': 'Time' }, on: { click: () => this.editTime() } });
     const timeInput = h('input', { class: 'num time-input', attrs: { type: 'text', inputmode: 'decimal', spellcheck: 'false', 'aria-label': 'Go to a time, in ms' } });

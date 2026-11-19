@@ -239,7 +239,8 @@ a grid of label and control, 28 px rows 4 px apart; a number dragged by its name
 once, with nothing written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
 one unit; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
-examples changing nothing; every segmented choice on one line at 1920; the headers' More menus, each row doing what the
+examples changing nothing; every segmented choice on one line at 1920, and the timeline header's Speed buttons on one row;
+the headers' More menus, each row doing what the
 lists' menus do in one undo step, Move to folder… below the button and an effect's folder muted before its name; the
 problems banner only with problems, in both views, its count, its list, a path selecting its layer, "The preview waits until
 these are fixed." only for problems that stop the preview, the status bar's Checks opening it and "All good" saying so;
@@ -422,10 +423,12 @@ These write pictures to `out/` (kept out of git):
   what they do and how to use them, in plain words written against the code (`src/app/help.ts`), true for what is shown.
   The browser's own tooltips are gone: every title shows in the same tooltip. **Show hints** (the light bulb in the top bar)
   shows or hides the one-line hints; their full words are always in the tooltips.
-- **The right panel shows what is selected**: the effect's settings, or one layer's, first, under a header that leads back
-  to the effect (its name, or Esc). Every layer says what draws it; a projectile lists the layers riding it, and they say
-  so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the selection's in
-  bold).
+- **The right panel shows what is selected**: the effect's settings, or one layer's only, under a header that leads back
+  to the effect (its name, or Esc) and has a More menu. Every layer says what draws it; a projectile lists the layers riding
+  it, and they say so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the
+  selection's in bold). Since UI phase 6 (its first slices, docs/ui-redesign.md 6.6), each setting is a row, numbers are
+  dragged or typed, two or three numbers share a row, a colour setting shows its swatch, and while the checker finds
+  problems a strip under the header lists them.
 - **Seeing what is selected**: a layer's settings start with its **Look**, a live picture of the layer alone drawn by the
   runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
   layers**, in the bar above the preview).

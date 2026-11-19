@@ -836,8 +836,15 @@ if (webgpu) {
     ok('Tab through every number box of every layer and effect of both examples: each takes the focus, and no undo step appears and nothing is marked unsaved',
       demoTab.boxes > 500 && demoTab.focused === demoTab.boxes && hitsTab.boxes > 500 && hitsTab.focused === hitsTab.boxes && tab1.n === tab0.n && !tab1.dirty && tab2.n === 0 && !tab2.dirty && !tab2.name.includes('•'),
       JSON.stringify({ demo: demoTab.views + ' views, ' + demoTab.focused + '/' + demoTab.boxes, hits: hitsTab.views + ' views, ' + hitsTab.focused + '/' + hitsTab.boxes, tab0, tab1, tab2 }));
-    ok('every segmented control in the right panel fits on one line at 1920 x 1080 (every layer of both examples)', demoTab.wrapped.length === 0 && hitsTab.wrapped.length === 0,
-      [...demoTab.wrapped, ...hitsTab.wrapped].slice(0, 4).join(', ') || 'none wraps');
+    // The timeline header's Speed is a segmented control too, but in a bar: its label and its four buttons on one row.
+    const speedRow = await rp.evaluate(() => {
+      const g = document.querySelector('.transport .seggroup');
+      const tops = new Set([...g.querySelectorAll('.seg')].map((b) => Math.round(b.getBoundingClientRect().top)));
+      return { rows: tops.size, h: Math.round(g.getBoundingClientRect().height), label: g.parentElement?.querySelector(':scope > .lab > span')?.textContent ?? null };
+    });
+    ok('every segmented control in the right panel fits on one line at 1920 x 1080 (every layer of both examples), and the timeline header\'s Speed keeps its buttons on one row beside its label',
+      demoTab.wrapped.length === 0 && hitsTab.wrapped.length === 0 && speedRow.rows === 1 && speedRow.h <= 24 && speedRow.label === 'Speed',
+      `${[...demoTab.wrapped, ...hitsTab.wrapped].slice(0, 4).join(', ') || 'none wraps'}; Speed: ${JSON.stringify(speedRow)}`);
     ok('the rows page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await rp.close();
   }
@@ -861,6 +868,14 @@ if (webgpu) {
     // A press on a menu's button less than 100 ms after the menu closed counts as the press that closed it (dom.ts, menu's
     // openBelow), so the check waits a little, as a person always does, before it opens the menu again.
     const openMore = async (id) => { await hp.waitForTimeout(150); await more().click(); await hp.waitForSelector(`#${id}:popover-open`, { timeout: 5000 }); };
+    // A button's colours change in 120 ms (a CSS transition). This browser's frames come slowly while another editor page
+    // draws, so before reading the open look, the pointer goes into the menu and the button's transitions are let finish.
+    const settledLook = async (id) => {
+      const box = await hp.locator(`#${id}`).boundingBox();
+      await hp.mouse.move(box.x + box.width / 2, box.y + box.height - 4);
+      await more().evaluate((b) => Promise.all(b.getAnimations().map((x) => x.finished)));
+      return openLook(hp, more(), id);
+    };
     const muted = await hp.evaluate(() => { const s = document.createElement('span'); s.style.color = 'var(--text-muted)'; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
     await hp.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('rifle_shot'); a.selectLayer(null); });
 
@@ -868,7 +883,7 @@ if (webgpu) {
     const fxMore = await more().evaluate((b) => ({ name: b.getAttribute('aria-label'), popup: b.getAttribute('aria-haspopup'), tip: window.__vfx.app.tipForChecks(b)?.lines[0] ?? null }));
     await openMore('insp-effect-menu');
     const fxMenu = await menuNow('insp-effect-menu');
-    const fxLook = await openLook(hp, more(), 'insp-effect-menu');
+    const fxLook = await settledLook('insp-effect-menu');
     await menuRow(hp, 'insp-effect-menu', 'Duplicate effect').click();
     const dup = await hp.evaluate(() => { const a = window.__vfx.app; return { id: a.effect()?.id, name: a.effect()?.name, undo: a.history.undoLabel }; });
     await hp.keyboard.press('Control+z');
@@ -910,7 +925,7 @@ if (webgpu) {
     const swap = (a, b) => { const o = [...order0]; [o[a], o[b]] = [o[b], o[a]]; return o.join(); };
     await openMore('insp-layer-menu');
     const layerMenu = await menuNow('insp-layer-menu');
-    const layerLook = await openLook(hp, more(), 'insp-layer-menu');
+    const layerLook = await settledLook('insp-layer-menu');
     await menuRow(hp, 'insp-layer-menu', 'Rename').click();
     const renameBox = await hp.waitForFunction(() => { const b = document.querySelector('.layers-list .layer-item[data-layer="flash"] input.rename'); return b && document.activeElement === b ? b.value : null; }, null, { timeout: 5000 })
       .then((x) => x.jsonValue(), () => null);

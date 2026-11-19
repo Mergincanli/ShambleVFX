@@ -150,9 +150,12 @@ export function slider(o: {
  */
 export interface SegmentOption<T> { value: T; label: string; short?: string; title?: string; icon?: IconName; style?: string }
 
-/** A row of buttons, one pressed. With a label, a property row. */
+/**
+ * A row of buttons, one pressed. With a label, a property row of the right panel; with `inline`, the label and the buttons
+ * side by side in a bar (the timeline header's Speed).
+ */
 export function segmented<T extends string | number>(o: {
-  label?: string; help?: string; options: SegmentOption<T>[]; value: T; onChange(v: T): void; small?: boolean;
+  label?: string; help?: string; options: SegmentOption<T>[]; value: T; onChange(v: T): void; small?: boolean; inline?: boolean;
 }): Control<T> {
   const buttons = o.options.map((opt) => {
     const tipText = opt.short ? (opt.title ? `${opt.label}: ${opt.title.charAt(0).toLowerCase()}${opt.title.slice(1)}` : opt.label) : opt.title;
@@ -165,7 +168,9 @@ export function segmented<T extends string | number>(o: {
   const set = (v: T) => buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(o.options[i]!.value === v)));
   set(o.value);
   const group = h('div', { class: o.small ? 'seggroup small' : 'seggroup', attrs: { role: 'group', 'aria-label': o.label ?? '' } }, ...buttons);
-  const el = o.label ? h('div', { class: 'field prop seg-row' }, rowLabel(o.label, o.help), group) : group;
+  const el = !o.label ? group
+    : o.inline ? h('div', { class: 'row' }, h('div', { class: 'lab' }, h('span', { text: o.label })), group)
+      : h('div', { class: 'field prop seg-row' }, rowLabel(o.label, o.help), group);
   return { el, set };
 }
 

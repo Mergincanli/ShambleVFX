@@ -76,7 +76,8 @@ const STATES = [
     await page.click('.inspector .problems-banner .banner-head');
   } },
   { name: 'effect-more', project: DEMO, effect: 'rifle_shot', ms: 20, menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-effect-menu') },
-  { name: 'layer-more', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'flash', menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-layer-menu') },
+  // (The Tracer, whose streak crosses the whole Look, so the part beside the menu still shows it drawn.)
+  { name: 'layer-more', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'first:sprite', menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-layer-menu') },
 ];
 /** Click a button and wait for what it opens (a menu, a popover). */
 async function openFrom(page, button, what) {
@@ -359,18 +360,26 @@ try {
     return isGround > n * 0.2 && other > n * 0.005 ? null : `the preview looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
   };
 
-  /** With a layer selected, the Look must be drawn: the ground colour, and the layer on it (its corners left out). */
+  /**
+   * With a layer selected, the Look must be drawn: the ground colour, and the layer on it (its corners left out, and what
+   * lies over it, such as a header's menu, as for the preview).
+   */
   const lookDrawn = (png, d) => {
     const b = d.look;
     if (!b) return 'no Look in the layer\'s panel';
     if (!d.lookState?.ready) return 'the Look did not get its renderer';
-    let n = 0, isGround = 0, other = 0;
+    const covered = (x, y) => d.covers.some((c) => x >= c.x - 2 && x <= c.x + c.w + 2 && y >= c.y - 2 && y <= c.y + c.h + 2);
+    let all = 0, n = 0, isGround = 0, other = 0;
     for (let y = Math.ceil(b.y + 4); y < Math.min(b.y + b.h - 4, png.height); y += 2) for (let x = Math.ceil(b.x + 4); x < Math.min(b.x + b.w - 4, png.width); x += 2) {
+      all++;
+      if (covered(x, y)) continue;
       const i = (y * png.width + x) * 4;
       const off = Math.max(...ground.map((g, k) => Math.abs(png.data[i + k] - g)));
       n++;
       if (off <= 2) isGround++; else if (off > 24) other++;
     }
+    // Mostly under a menu (a layer's More menu drops over it): the picture cannot show whether it is drawn.
+    if (n < all * 0.4) return null;
     return isGround > n * 0.2 && other >= 20 ? null : `the Look looks blank: ${isGround} of ${n} samples are ground, ${other} are something else`;
   };
 
