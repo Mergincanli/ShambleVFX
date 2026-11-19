@@ -961,7 +961,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     still says "No effect.".
   - **The hover highlight** is `--bg-hover`, as on a row under the mouse; a selected row keeps its own look. A new selection
     scrolls only the Layers list and the timeline's rows, as little as needed. A moved layer (Ctrl+], Ctrl+[, its row's
-    buttons or menu) does so too, so it never ends under the timeline's ruler or out of the list.
+    buttons or menu, or a drag) does so too, so it never ends under the timeline's ruler or out of the list.
   - **Keys.** / puts the focus in the search without typing the /. Ctrl+D, Ctrl+] and Ctrl+[ go by the character typed, so
     they follow the keyboard's layout; Ctrl+D stops the browser's bookmark only when it duplicates something, and does
     nothing while you type in a field. All of them, and F2, wait while a menu, the colour picker or a dialog is open, or
