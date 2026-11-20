@@ -848,6 +848,12 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 /* A segmented control fills its column; its segments share it by their words. */
 .prop > .seggroup { display: flex; min-width: 0; }
 .prop > .seggroup > .seg { flex: 1 1 auto; min-width: 0; }
+/* Its buttons stay on one row. In the narrowest panel (260 px) some need more room than the control column has (138 px):
+   Boxes show, a projectile's From, To and Flight. As a flipbook's Grid does, they then start left of the column, right of
+   the label's words; where the column has the room (1920, 2560) they keep to it, and they always end where it ends. */
+.prop.seg-row { display: flex; column-gap: 8px; }
+.prop.seg-row > .flab { flex: 1 1 auto; }
+.prop.seg-row > .seggroup { flex: none; flex-wrap: nowrap; width: calc(100% - max(84px, 38%) - 8px); min-width: max-content; }
 /* A colour role: its select, with a 14 px swatch of the role's colour (for the faction shown) at its left edge. Role names
    are typed into files: Plex Mono. A role the palette lacks: an empty swatch with a --bad edge. */
 .role-select { position: relative; display: flex; align-items: center; }

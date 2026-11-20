@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (387 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (388 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -271,7 +271,8 @@ written back on leaving it; two or three numbers on a row with their prefixes, f
 one unit; a flipbook's Grid with its numbers whole at 1920 and in the narrowest panel, where Cost's title stays whole
 too; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
-examples changing nothing; every segmented choice on one line at 1920, and the timeline header's Speed buttons on one row;
+examples changing nothing; every segmented choice on one line at 1920, and in the narrowest panel too, where it starts
+left of the column if it needs the room; the timeline header's Speed buttons on one row;
 the headers' More menus, each row doing what the
 lists' menus do in one undo step, Move to folder… below the button and an effect's folder muted before its name; the
 problems banner only with problems, in both views, its count, its list, a path selecting its layer, "The preview waits until
@@ -1165,6 +1166,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     name a screen reader says): a sprite's Colour, **Keep** and **Multiply** (the brief's words; the tooltip says "Multiply
     by a colour role", where the button said "Multiply by a role"); a sprite's Faces, **Camera** and **Path**; a projectile's
     Flight, **Speed**, **Time** and **Phase**. The others fit and keep their words.
+  - **Choices in the narrowest panel**: with the right panel dragged to its narrowest (260 px), four choices need more room
+    than the control column has there (138 px): Boxes show, a projectile's From and To, and its Flight. Their buttons broke
+    onto two lines, with "Own" or "Phase" alone on the second (found in the second check after phase 6). Now, as a
+    flipbook's Grid does, their buttons start left of the column there (15 to 19 px), right of the label's words, and they
+    always end where the column ends. Where the column has the room (1920, 2560) they keep to it, so nothing moves there.
   - **Colour roles**: every colour select of the generated forms (a star's tones too) and a sprite's Role show a 14 px
     swatch of the chosen colour for the faction shown; "main" shows the effect's main colour; a colour the palette lacks
     shows an empty swatch with a red edge. Role names in these selects are Plex Mono now (typed into files, 4.2). A fire's

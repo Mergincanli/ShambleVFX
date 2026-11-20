@@ -10,7 +10,8 @@
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
 //    the selection; its rows: numbers you drag or type, whole numbers in whole steps, groups of numbers (a flipbook's
-//    Grid in a narrow panel too, and Cost's title there), shortened segments, the colour roles' swatches, Tab through
+//    Grid in a narrow panel too, and Cost's title there), shortened segments (and every segmented choice on one row in the
+//    narrowest panel), the colour roles' swatches, Tab through
 //    every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer; the
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
 //    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
@@ -5102,6 +5103,38 @@ if (webgpu) {
         effects: { board_beam: { class: 'huge', limits: { low: { draws: 2 } } } } };
       ok('saved, project.json holds the budgets at their three levels: the project\'s (on, 5 draws in High), the classes (Big\'s 9000 triangles, Massive made here; class budgets off) and the effect\'s (in Massive, its own 2 draws in Low, off)',
         JSON.stringify(savedPlace) === JSON.stringify(wantPlace), JSON.stringify(savedPlace));
+      // In the narrowest right panel (260 px) every segmented row keeps one 28 px row: as a flipbook's Grid does, its buttons
+      // start left of the control column where they need the room, clear of the label's words, and end where the column ends;
+      // at 1920 they keep to the column. (Before, Boxes show, a projectile's From and To, and its Flight broke onto two lines
+      // there, with "Own" or "Phase" alone on the second.) The splitter is put back after.
+      const segRows = (fx, layer) => pg.evaluate(async ([fx, layer]) => {
+        const a = window.__vfx.app;
+        if (a.effect()?.id !== fx) a.pickEffect(fx);
+        a.selectLayer(layer);
+        for (const d of document.querySelectorAll('.inspector details')) d.open = true;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // The control column's ends: those of the first select, slider or row of numbers shown.
+        const col = [...document.querySelectorAll('.inspector .prop > select, .inspector .prop > .slide-ctl, .inspector .prop > .prop-boxes')].find((e) => e.getClientRects().length).getBoundingClientRect();
+        return [...document.querySelectorAll('.inspector .prop.seg-row')].filter((r) => r.getClientRects().length).map((r) => {
+          const g = r.querySelector(':scope > .seggroup').getBoundingClientRect(), words = document.createRange();
+          words.selectNodeContents(r.querySelector(':scope > .flab'));
+          return { label: r.querySelector(':scope > .flab').textContent, rows: new Set([...r.querySelectorAll('.seg')].map((b) => Math.round(b.getBoundingClientRect().top))).size,
+            h: Math.round(r.getBoundingClientRect().height), left: +(g.left - col.left).toFixed(1), right: +(g.right - col.right).toFixed(1), clear: g.left >= words.getBoundingClientRect().right + 7.5 };
+        });
+      }, [fx, layer]);
+      const segWide = [...await segRows('board_beam', null), ...await segRows('board_muzzle', 'tracer_flight')];
+      const rsp = await pg.locator('.split-right').boundingBox();
+      await pg.mouse.move(rsp.x + rsp.width / 2, rsp.y + rsp.height / 2);
+      await pg.mouse.down();
+      await pg.mouse.move(rsp.x + rsp.width / 2 + 600, rsp.y + rsp.height / 2, { steps: 6 });
+      await pg.mouse.up();
+      const segPanel = await pg.evaluate(() => Math.round(document.querySelector('.inspector').getBoundingClientRect().width));
+      const segNarrow = [...await segRows('board_beam', null), ...await segRows('board_muzzle', 'tracer_flight')];
+      await pg.locator('.split-right').dblclick();
+      ok('in the narrowest right panel (260 px) every segmented row keeps one 28 px row (Boxes show, a projectile\'s From, To and Flight): its buttons start left of the control column where they need the room, clear of the label\'s words, and end where the column ends; at 1920 they keep to the column',
+        ['Boxes show', 'From', 'To', 'Flight'].every((l) => segWide.some((r) => r.label === l)) && segWide.every((r) => r.rows === 1 && r.h === 28 && Math.abs(r.left) <= 0.5 && Math.abs(r.right) <= 0.5)
+          && segPanel < 262 && segNarrow.map((r) => r.label).join() === segWide.map((r) => r.label).join() && segNarrow.every((r) => r.rows === 1 && r.h === 28 && Math.abs(r.right) <= 0.5 && r.clear),
+        JSON.stringify({ segPanel, segWide, segNarrow }));
       // An image that did not load: the preview and the layer's panel say so.
       const broken = await pg.evaluate(async () => {
         const a = window.__vfx.app;
