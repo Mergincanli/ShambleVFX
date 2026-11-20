@@ -606,6 +606,10 @@ function spriteFields(app: AppApi, parts: Refresher[], colours: ColourListView):
     app.editLayer(['flipbook'], next, { mergeKey: `flipbook-${k}`, label: 'Flipbook grid' });
   };
   const fbBox = numberGroup({ label: 'Grid', boxes: [cols, rows, frames] });
+  // Its prefixes are long: its boxes may start left of the control column (wide-boxes, style.css), and Frames has room for
+  // three digits, so a frame count of 120 never shows as "12".
+  fbBox.classList.add('wide-boxes');
+  frames.el.classList.add('three-digits');
   const drawThumb = () => {
     const s = S();
     const url = app.imageUrl(s.image) ?? '';

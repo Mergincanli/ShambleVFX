@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (385 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (386 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -268,7 +268,7 @@ a grid of label and control, 28 px rows 4 px apart; a number dragged by its name
 ("0,45", Enter: one step), put back by Esc (none) and stepped by ↑ (one a press); a whole number (How many, Points)
 going in whole steps, so the checker never refuses it; an undo pressed in a box showing there at once, with nothing
 written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
-one unit; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
+one unit; a flipbook's Grid with its numbers whole at 1920 and in the narrowest panel; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
 examples changing nothing; every segmented choice on one line at 1920, and the timeline header's Speed buttons on one row;
 the headers' More menus, each row doing what the
@@ -1149,6 +1149,12 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - Their unit shows once, after the last box ("[R 0] [U 1.2] [F 0] m"): three boxes with a unit each do not fit in the
     296 px panel. A typed number with three decimals and a minus (-0.125) in a row of three can still be cut by a pixel or
     two at 1920.
+  - A flipbook's **Grid** has long prefixes (Cols, Rows, Frames): with a frame count of three digits its boxes need about
+    177 px, more than the control column has at 1920 (161 px) or in the narrowest panel (138 px). So, as the tier chips do,
+    its boxes start left of the column where they need to, right of the word "Grid"; where the column has the room (2560)
+    they keep to it, and they always end where the other controls end. Frames has room for three digits (999 frames, a
+    sheet of up to 31 × 32); a count of four digits is still cut. Before, 120 frames showed "12", and in the narrowest panel
+    the numbers ran under the next box (found in the check after phase 6).
   - New row labels: **Offset**, **Pivot**, **Grid** and **Nudge**, each with a help text. A generated row leaves out the words
     in brackets that its prefixes now say: "Size over life (start, peak, end)" shows "Size over life", as do "Drift (right,
     forward)", "Start area (half width, half height)" and "Width (start, end)"; their help texts stay keyed by the full

@@ -9,9 +9,9 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
-//    the selection; its rows: numbers you drag or type, whole numbers in whole steps, groups of numbers, shortened
-//    segments, the colour roles' swatches, Tab through every number box; the headers' More menus, the problems banner,
-//    no Cost or Checks under a layer; the
+//    the selection; its rows: numbers you drag or type, whole numbers in whole steps, groups of numbers (a flipbook's
+//    Grid in a narrow panel too), shortened segments, the colour roles' swatches, Tab through every number box; the
+//    headers' More menus, the problems banner, no Cost or Checks under a layer; the
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
 //    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
 //    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
@@ -790,6 +790,41 @@ if (webgpu) {
       offset.boxes[0].tip?.[1] === help.helpFor('Right', { section: ['Size and place'], layer: 'sprite' }) && life.boxes[1].tip?.[1] === help.helpFor('Life', { section: ['Pieces'], layer: 'burst' })
         && grow.boxes[1].tip?.[1] === help.helpFor('Size over life (start, peak, end)', { section: ['Shape: smoke'], kind: 'smoke' }),
       JSON.stringify([offset.boxes[0].tip, life.boxes[1].tip, grow.boxes[1].tip]));
+
+    // A flipbook's Grid (Cols, Rows, Frames: long prefixes) shows its numbers whole, a frame count of three digits too, at
+    // 1920 and in the narrowest panel (260 px), on one 28 px row whose boxes end where the Pivot's do; where the control column
+    // is too narrow they start left of it, clear of the label's words. (Before, 120 frames showed "12", and at 260 px the
+    // numbers ran under the next box.)
+    await select('rifle_shot', 'flash');
+    const gridFit = () => rp.evaluate(() => {
+      const g = document.querySelector('.inspector .prop-group[aria-label="Grid"]');
+      const lab = document.createRange();
+      lab.selectNodeContents(g.querySelector(':scope > .flab'));
+      const boxes = g.querySelector('.prop-boxes').getBoundingClientRect();
+      const pivot = document.querySelector('.inspector .prop-group[aria-label="Pivot"] .prop-boxes').getBoundingClientRect();
+      const whole = [...g.querySelectorAll('.scrub')].every((s) => {
+        const i = s.querySelector('input'), r = i.getBoundingClientRect(), b = s.getBoundingClientRect();
+        return i.scrollWidth <= i.clientWidth && r.left >= b.left && r.right <= b.right + 0.5;
+      });
+      return { values: [...g.querySelectorAll('input')].map((i) => i.value).join(), whole, h: Math.round(g.getBoundingClientRect().height), right: +(boxes.right - pivot.right).toFixed(1),
+        clear: boxes.left >= lab.getBoundingClientRect().right + 7.5, panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
+    });
+    const setGrid = (fb) => rp.evaluate((fb) => { const a = window.__vfx.app; a.editLayer(['flipbook'], { ...fb, loop: false }, { label: 'Flipbook grid' }); a.commit(); }, fb);
+    const fits = [await gridFit()];
+    await setGrid({ cols: 12, rows: 10, frames: 120 });
+    fits.push(await gridFit());
+    const rs = await rp.locator('.split-right').boundingBox();
+    await rp.mouse.move(rs.x + rs.width / 2, rs.y + rs.height / 2);
+    await rp.mouse.down();
+    await rp.mouse.move(rs.x + rs.width / 2 + 600, rs.y + rs.height / 2, { steps: 6 });
+    await rp.mouse.up();
+    fits.push(await gridFit());
+    await rp.keyboard.press('Control+z');
+    fits.push(await gridFit());
+    await rp.locator('.split-right').dblclick();
+    ok('a flipbook\'s Grid shows its numbers whole (2, 2, 4 and 12, 10, 120) at 1920 and in the narrowest panel (260 px): one 28 px row, the boxes ending where the Pivot\'s do and clear of the label\'s words',
+      fits.every((f) => f.whole && f.h === 28 && Math.abs(f.right) <= 0.5 && f.clear) && fits.map((f) => f.values).join(' | ') === '2,2,4 | 12,10,120 | 12,10,120 | 2,2,4'
+        && fits[0].panel > 290 && fits[2].panel < 262 && fits[3].panel < 262, JSON.stringify(fits));
 
     // A drag on a group's prefix: the nudge of a layer that has none. Its first step adds the nudge, which builds the panel
     // again under the pointer; the drag goes on, and it is one undo step.
