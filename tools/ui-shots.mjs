@@ -202,13 +202,14 @@ function readInventory() {
   const a = window.__vfx.app;
   window.__vfxManual = true;
   const inspector = document.querySelector('.inspector');
-  // How today's panel is made (src/app/inspector.ts, specform.ts, dom.ts, costcard.ts): sections are the cards and the
-  // folds; a setting is named by its property row's label (.flab: sliders, numbers, text, selects, segmented buttons),
-  // a heading row's name (the palette, Phases, Shows in) or a checkbox's label. A row of two or three numbers (a group,
-  // .prop-group) is named by its label, and each of its boxes by its full name (its aria-label: "Right", "Pivot x",
-  // "Life, min"), since a box shows only a short prefix ("R", "X", "Min"): a shorter label never hides a setting. Inputs
-  // with no label (the cost budgets) go by their aria-label. Every control must end up named, or the inventory stops:
-  // nothing is left out without notice.
+  // How today's panel is made (src/app/inspector.ts, specform.ts, dom.ts, costcard.ts): sections are the folds (and a
+  // card with a title of its own); a setting is named by its property row's label (.flab: sliders, numbers, text, selects,
+  // segmented buttons, Shows in) or a checkbox's label (a tier chip is one: "Shows in Low"). A row of two or three numbers
+  // (a group, .prop-group) is named by its label, and each of its boxes by its full name (its aria-label: "Right", "Pivot
+  // x", "Life, min"), since a box shows only a short prefix ("R", "X", "Min"): a shorter label never hides a setting; the
+  // effect's three phase lengths are such boxes with no label of their own ("Wind-up", "Peak", "Fade"). Inputs and lists
+  // with no label (the cost budgets, the colour lists) go by their aria-label. Every control must end up named, or the
+  // inventory stops: nothing is left out without notice.
   const SECTION = 'section.card, details';
   const LABEL = '.lab > label, .lab > span:first-child:not(.hint):not(.val), .flab, label.check';
   const CONTROL = 'input, select, textarea, .seggroup, .swatches';

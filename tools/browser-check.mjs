@@ -10,7 +10,9 @@
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
 //    the selection; its rows: numbers you drag or type, groups of numbers, shortened segments, the colour roles' swatches,
-//    Tab through every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer), the
+//    Tab through every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer; the
+//    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
+//    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920), the
 //    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to

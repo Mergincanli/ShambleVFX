@@ -4,8 +4,9 @@
  * changes (Save and Save as…, Play and Pause) or a label added later gets its text as soon as help.ts has one.
  *
  * Where a label is shown, as help.ts asks for it (the same names the settings inventory of tools/ui-shots.mjs uses):
- *   - in the right panel: the titles of the folding sections round it, from the outside in, or else the title of its card
- *     ("Effect", "Shape layer", "Cost"). A section's own title is asked for with title: true and the sections round it.
+ *   - in the right panel: the titles of the folding sections round it, from the outside in ("Effect", "Layer", "Shape:
+ *     ring > Rings closing in", "Cost"), or else the title of its card, where a card has one (since UI phase 6 every part of
+ *     the panel is a fold). A section's own title is asked for with title: true and the sections round it.
  *     The panel says which layer type and shape kind it shows (data-help-layer and data-help-kind, on [data-help-panel]);
  *   - in the bars and the lists: the region's name (data-help-section: Top bar, Preview bar, Transport, Effects, Layers).
  * Only the editor's own words are looked up: never names people give (the rows, the header's names, the riders, the colour

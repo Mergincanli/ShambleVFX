@@ -109,7 +109,8 @@ In the picker, **Gradients**:
   hard edges, as comic shading does); the **stops**, each a role or a fixed colour, its place (0 = the middle, 100 = the rim)
   and how solid it is; **Make a ramp between two colours** (even steps to the eye; the ends stay roles); and **Use on the
   selected glow**.
-- A glow's form has **Gradient, middle to rim**: pick one, or none for one flat colour.
+- A glow's form has **Gradient, middle to rim**: pick one, or none for one flat colour. The pencil next to it opens the
+  picker at **Gradients**, with the gradient chosen open in the editor.
 
 What the game can draw: a gradient is colours along one line, smooth or banded: rings from the middle out on a glow, bands
 from the middle out on the fire's bed, and colours over time on smoke and bursts. Blurred, mesh and image gradients (as in some

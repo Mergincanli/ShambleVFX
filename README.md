@@ -412,8 +412,8 @@ These write pictures to `out/` (kept out of git):
 - **Cost** per effect and tier ([docs/cost.md](docs/cost.md)): draws, sprites alive, triangles, screen area and CPU ms,
   against budgets you type. None is decided, so none is made up.
   - **Budgets at three levels**: the project's, classes (Small, Normal and Big to start with) and an effect's own, each off
-    until it is switched on. The closest level that is on counts, as a whole set. The card shows which one; today it edits
-    the project's.
+    until it is switched on. The closest level that is on counts, as a whole set. Cost shows which one; today it edits the
+    project's (its Budgets toggle shows the boxes).
   - **`project.json` version 2** (with `paletteProfile` and the new budgets), read and written by one reader shared by the
     local server, the command line and the editor. Version 1 projects still open; an export's `editor.json` is version 2,
     and import reads the older one too.
@@ -448,7 +448,9 @@ These write pictures to `out/` (kept out of git):
   it, and they say so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the
   selection's in bold). Since UI phase 6 (its first slices, docs/ui-redesign.md 6.6), each setting is a row, numbers are
   dragged or typed, two or three numbers share a row, a colour setting shows its swatch, and while the checker finds
-  problems a strip under the header lists them.
+  problems a strip under the header lists them. The effect's settings are sections that fold (Effect with a Folder select,
+  Scale, Phases with a bar of the three lengths, Colour with the main colour, and Cost, closed at first); a layer's start
+  with the Look and its Layer section (Shows in as three chips), and a sprite's picture fills the panel's width.
 - **Seeing what is selected**: a layer's settings start with its **Look**, a live picture of the layer alone drawn by the
   runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
   layers**, in the bar above the preview).
@@ -668,8 +670,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     asks for the name muted). Since phase 4 the Layers list's selected row shows its buttons in the tag's place (see "The
     lists").
   - In the Layers list a long tag stops at half the row, so the layer's name always shows.
-  - The effect's main colour in the palette grid (the grid goes in phase 6) is marked with `--bg-field`, a 1 px
-    `--line-strong` edge and weight 500, not the yellow selected look: it is a stored choice, not a selection.
+  - The effect's main colour in the colour list (it took the palette grid's place after phase 1) is marked with
+    `--bg-field`, a 1 px `--line-strong` edge and weight 500, not the yellow selected look: it is a stored choice, not a
+    selection.
   - In the colour picker the chosen colour's chip already has a 2 px outline in the focus colour, so keyboard focus on it
     draws a 1 px `--focus` line inside the chip, 2 px in from its edge, instead of the usual ring.
 - **The right panel after UI phase 1** (Mustafa's feedback of 2026-11-16: a layer's settings first, the colours of the
@@ -677,20 +680,21 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - With a layer selected the panel shows only that layer's settings. Its header (the brief's 40 px inspector header) stays
     at the top while the panel scrolls, so the way back always shows. Since UI phase 2 the effect's view has a header too (see
     the shell, below), with its Effect section under it. Cost and Checks stayed at the bottom of both views until phase 6;
-    since then Cost sits only at the bottom of the effect's settings, and the problems banner took the place of Checks (see
-    "The inspector").
+    since then Cost is the last section of the effect's settings, closed at first, and the problems banner took the place
+    of Checks (see "The inspector").
   - Another selection starts the panel at the top; a part switched on or off keeps its place. When the control you used
     goes with the old view (the effect's name, a rider, Esc pressed in the panel), the keyboard focus moves to the new
-    view's title.
+    view's title; since UI phase 6, when the same view is built again (a tier switched on or off), the control you used
+    keeps the focus.
   - Esc leaves the layer only when the colour picker and dialogs are closed and you are not typing: not in a text or
     number field or a select (as for every other key there). A checkbox or a slider that keeps the focus after a click is
     not typing, so Esc works from there.
-  - Where the colour list sits: in the effect's view it stays the Colour row of the Effect section, with Show all next to
-    its label. In a layer's view it is the layer's Colour section, with Show all on the section's title row (open by
-    default; one open or closed state for every layer, as sections remember it by title). A sprite keeps its one Colour
-    section: its tint first, then its colours, after Image and Size and place as before. A shape, a burst or a word gets
-    the section right after its name and tiers, before Place, so it shows without scrolling (their own settings can be
-    long); a projectile, after its riders.
+  - Where the colour list sits: in the effect's view, the Colour section (since UI phase 6; it was a row of the Effect
+    section), under Main colour. In a layer's view it is the layer's Colour section. Either way Show all is on the section's
+    title row (open by default; one open or closed state for every Colour section, the effect's too, as sections remember
+    it by title). A sprite keeps its one Colour section: its tint first, then its colours, after Image and Size and place as
+    before. A shape, a burst or a word gets the section right after its Layer section (its name and tiers), before Place,
+    so it shows without scrolling (their own settings can be long); a projectile, after its riders.
   - The list holds the selection's palette colours in the palette's order. A colour a layer names that the palette lacks
     (in red) and a gradient stop given as a hex come after them; they cannot be clicked, since the picker edits palette
     colours, and their tooltips say what to do. The effect's main colour keeps its mark in every view, and the hint names
@@ -1179,9 +1183,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     right end of the header, outside the fold's summary: a control inside a summary would fold the section, and outside the
     fold it shows while the section is closed. The long explanation is the title's tooltip; the measuring conditions are the
     tooltip of an info icon after "Measured over …" (shown once measured). The hint is "Most at any moment, 60 frames a
-    second. The budgets are the project's." The table is the same, with 3 px above and under each number; the row names have
-    a 100 px column, so "CPU ms a frame" fits on one line at 1920, and in a narrower panel they wrap rather than end in an
-    ellipsis.
+    second. The budgets are the project's." The table is the same, with 3 px above and under each number. The row names
+    have 37 % of the table, 100 px at 1920, wide enough for "CPU ms a frame", so they show whole: before, a table that takes
+    its column widths from its first row gave them a quarter of the table (about 68 px at 1920), and they ended in an
+    ellipsis. In a narrower panel (the right panel dragged to its 260 px) a long name wraps, and "Medium" over its column
+    ends in an ellipsis rather than running into "High".
   - **The Budgets toggle**: a checkbox row under the table, off at first and remembered in this browser (vfx-budgets). On,
     a budget box shows under each number. While one of the project's budgets is set, the boxes stay: the toggle shows on and
     cannot be switched off, and its tooltip says why. The line saying which budgets count shows with the boxes, or whenever

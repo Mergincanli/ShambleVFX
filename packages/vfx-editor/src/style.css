@@ -53,7 +53,7 @@
   --w-slider-num-wide: 72px; /* the same, for a number and unit as long as "-1440 °/s" */
   --h-phase-bar: 6px;     /* the effect's Phases bar */
   --w-measure: 96px;      /* room at the right end of Cost's header for its Measure button */
-  --w-cost-names: 100px;  /* the cost table's row names ("CPU ms a frame" on one line at 1920) */
+  --w-cost-names: 37%;    /* the cost table's row names: 100 px at 1920, "CPU ms a frame" on one line */
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   --h-thumb: 160px;  /* a sprite's image under Image: as wide as the panel allows, at most this tall */
@@ -922,11 +922,13 @@ select[aria-label="Image"] { font-family: var(--mono); }
 /* The measuring conditions: the tooltip of an info icon after the state line. */
 .cost-info { display: inline-flex; margin-left: 4px; vertical-align: -4px; border-radius: var(--r-control); color: var(--text-muted); cursor: help; }
 .cost-info:focus-visible { outline-offset: 0; }
-/* The table, compact: 3 px above and under each number. The row names keep one column (wide enough for "CPU ms a frame" at
-   1920) and wrap rather than end in an ellipsis in a narrower panel; their tooltips say what each counts. */
+/* The table, compact: 3 px above and under each number. The row names have a column of their own, 37 % of the table (a
+   fixed table takes its widths from its first row): 100 px at 1920, wide enough for "CPU ms a frame", so they show whole.
+   In a narrower panel it gives way with the number columns: a name then wraps, and a tier's name that still does not fit
+   ends in an ellipsis. The names' tooltips say what each counts. */
 table.cost { width: 100%; border-collapse: collapse; table-layout: fixed; }
 table.cost th { padding: 3px 6px 3px 0; text-align: left; vertical-align: top; font-weight: 500; }
-table.cost thead th { padding-top: 0; color: var(--text-muted); border-bottom: 1px solid var(--line); }
+table.cost thead th { padding-top: 0; color: var(--text-muted); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.cost thead th:first-child { width: var(--w-cost-names); }
 table.cost tbody th { color: var(--text-muted); font-weight: 400; cursor: help; text-decoration: underline dotted var(--text-faint); text-underline-offset: 3px; }
 table.cost tbody th, table.cost td { border-top: 1px solid var(--line); }
