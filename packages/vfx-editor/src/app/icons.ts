@@ -128,6 +128,8 @@ const ICONS = {
   size: [{ d: 'M5 19L19 5M13.5 5H19v5.5M10.5 19H5v-5.5' }],
   intensity: [{ d: 'M13.5 2.5l-8 11h6l-1 8 8-11h-6z' }],
   duration: [{ circle: [12, 12, 8.5] }, { d: 'M12 7.5V12l3 2' }],
+  // UI phase 6, Part B: New shot each loop, a die (each loop a new random shot).
+  dice: [{ d: 'M6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4z' }, { d: discs([[8.6, 8.6, 1.35], [12, 12, 1.35], [15.4, 15.4, 1.35]]), fill: true }],
   'faction-soviets': [{ d: star(12, 12.8, 9.5, 0.42), cls: 'insignia' }],
   'faction-allies': [{ d: chevron(12, 12, 19), cls: 'insignia' }],
   'faction-empire': [{ d: flower(12, 12, 9.6, 0.27), cls: 'insignia' }],

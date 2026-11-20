@@ -97,6 +97,8 @@ export class App implements AppApi {
   private player = new EffectPlayer();
   private playing = false;
   private loop = true;
+  /** New shot each loop: on at first, each loop of Play is a new shot (a new seed), as each shot in the game is. Off holds one shot. */
+  private newShot = true;
   private speed = 1;
   private mainTime = 0;
   private clock = 0;
@@ -146,6 +148,7 @@ export class App implements AppApi {
   private refusal: string | null = null;
   private speedCtl!: ReturnType<typeof segmented<number>>;
   private loopBtn!: HTMLButtonElement;
+  private newShotBtn!: HTMLButtonElement;
   /** The quality tier the preview draws. */
   private tier: TierName = 'high';
   /** The game events each effect answers (project.json "events"). Deleted effects keep theirs here, so undo brings them back. */
@@ -734,6 +737,10 @@ export class App implements AppApi {
     // ------------------------------------------------ the timeline's header: the transport (6.5)
     const play = iconButton({ icon: 'play', label: 'Play', className: 'play', onClick: () => this.togglePlay() });
     this.loopBtn = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'true' }, on: { click: () => this.setLoop(!this.loop) } }, icon('loop'), 'Loop');
+    // New shot each loop (UI phase 6, Part B), next to Loop: a toggle as Loop is, on at first. In a header too narrow for its
+    // words it says "New shot" (the stylesheet); its full name stays its name for screen readers and its tooltip's.
+    this.newShotBtn = h('button', { class: 'tb new-shot', attrs: { type: 'button', 'aria-pressed': 'true', 'aria-label': 'New shot each loop' }, on: { click: () => this.setNewShot(!this.newShot) } },
+      icon('dice'), h('span', {}, 'New shot', h('span', { class: 'new-shot-more', text: ' each loop' })));
     this.speedCtl = segmented<number>({ label: 'Speed', options: SPEEDS.map((s) => ({ value: s, label: s === 1 ? '1×' : s === 0.5 ? '½×' : s === 0.25 ? '¼×' : '⅒×' })), value: 1,
       onChange: (s) => { this.speed = s; this.speedCtl.set(s); }, small: true, inline: true });
     // The time readout: the current time (click it to type one), the length, the step; while firing, how many plays run.
@@ -753,7 +760,7 @@ export class App implements AppApi {
       iconButton({ icon: 'step-back', label: 'Step back', className: 'tb', onClick: () => this.step(-1) }),
       play,
       iconButton({ icon: 'step-fwd', label: 'Step forward', className: 'tb', onClick: () => this.step(1) }),
-      this.loopBtn, this.speedCtl.el, time);
+      this.loopBtn, this.newShotBtn, this.speedCtl.el, time);
     const timelinePane = h('section', { class: 'timeline-pane', attrs: { 'aria-label': 'Timeline' } }, transport, h('div', { class: 'timeline-slot' }));
     // The status bar shows the drag hint while the pointer is over the preview (data-status-hint).
     const viewportWrap = h('div', { class: 'viewport-wrap', attrs: { 'data-status-hint': DRAG_HINT } }, viewport, h('div', { class: 'vcorner' }, vnotes, hint));
@@ -1455,6 +1462,11 @@ export class App implements AppApi {
     this.loopBtn.setAttribute('aria-pressed', String(v));
   }
 
+  /** New shot each loop on or off (not remembered, as Loop is not). Off, Play loops the same shot; Fire still makes a new one. */
+  private setNewShot(v: boolean): void {
+    this.newShot = v;
+    this.newShotBtn.setAttribute('aria-pressed', String(v));
+  }
 
   /** Fade other layers on or off (remembered). The preview shows it in its next frame. */
   private setFade(on: boolean): void {
@@ -1497,7 +1509,7 @@ export class App implements AppApi {
     const fx = this.effect();
     if (!fx) return;
     this.lookStill = null;
-    this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+    this.seed = nextSeed(this.seed);
     this.player.start(fx.id, { seed: this.seed, inputs: this.inputs(), faction: this.faction, nowMs: this.clock, relation: this.preview.relation, viewerDistanceM: this.preview.viewerDistanceM });
     if (!this.playing) { this.playing = true; this.mainTime = Number.POSITIVE_INFINITY; }
     this.renderTransport();
@@ -1519,7 +1531,8 @@ export class App implements AppApi {
       if (Number.isFinite(this.mainTime)) {
         this.mainTime += dt * this.speed;
         if (this.mainTime >= len) {
-          if (this.loop) this.mainTime = -LOOP_REST_MS;
+          // Each loop starts after a short rest; with New shot each loop on, as a new shot (everything random changes).
+          if (this.loop) { this.mainTime = -LOOP_REST_MS; if (this.newShot) this.seed = nextSeed(this.seed); }
           else { this.mainTime = len; this.playing = this.player.count > 0; }
         }
       } else if (this.player.count === 0) {
@@ -1842,8 +1855,8 @@ export class App implements AppApi {
   }
 
   /** For the browser check: the playback state. */
-  debugState(): { playing: boolean; mainTime: number; speed: number; playingCount: number; effects: string[] } {
-    return { playing: this.playing, mainTime: this.mainTime, speed: this.speed, playingCount: this.player.count, effects: this.history.doc.effects.map((e) => e.id) };
+  debugState(): { playing: boolean; mainTime: number; speed: number; playingCount: number; effects: string[]; seed: number } {
+    return { playing: this.playing, mainTime: this.mainTime, speed: this.speed, playingCount: this.player.count, effects: this.history.doc.effects.map((e) => e.id), seed: this.seed };
   }
 
   /** For the browser check: pick an effect by id. */
@@ -1922,6 +1935,11 @@ function scrollBehaviour(): ScrollBehavior {
 }
 
 export { StoreError };
+
+/** The seed of the next shot (Fire, and a new loop with New shot each loop on). */
+function nextSeed(seed: number): number {
+  return (seed * 1664525 + 1013904223) >>> 0;
+}
 
 /** The level a set of numbers belongs to: a number typed in a class's switches the class level on. */
 function levelOf(where: LimitsRef): LevelRef {

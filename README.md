@@ -67,13 +67,15 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
      effect it is; a projectile keeps the layers riding it. Off, the preview shows the game's look. It is remembered.
 4. **Drag the ground** to move the target. **Shift + drag** moves the stand-in. The status bar says so while the pointer is
    over the preview.
-5. The timeline's header (**Play**, the steps, **Loop**, the **speed** buttons and the time) and the **timeline** work like a
-   video player. Click the time ("89 / 299 ms") to type one: Enter goes there, paused, and Esc leaves it. The strip under
-   the ruler shows the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second. On the timeline, press on the
-   ruler, the phase strip or an empty part of a lane to go to that moment, and drag to scrub; drag the playhead's head (on
-   the ruler) to move the time from where it is. Click a bar or a name to select its layer (the time stays); a drag that
-   starts on a bar scrubs. A bar's label sits inside the bar, or beside it when the bar is too short. The ruler and the
-   phase strip stay at the top while the rows scroll.
+5. The timeline's header (**Play**, the steps, **Loop**, **New shot each loop**, the **speed** buttons and the time) and the
+   **timeline** work like a video player. With **New shot each loop** on (as at first), each loop is a new shot: everything
+   random (sparks, smoke shapes) changes, as in the game; off, every loop shows the same shot, to compare while you change
+   a setting. Fire makes a new shot either way. Click the time ("89 / 299 ms") to type one: Enter goes there, paused, and
+   Esc leaves it. The strip under the ruler shows the phases: wind-up, peak, fade. The ← and → keys step 1/12 of a second.
+   On the timeline, press on the ruler, the phase strip or an empty part of a lane to go to that moment, and drag to
+   scrub; drag the playhead's head (on the ruler) to move the time from where it is. Click a bar or a name to select its
+   layer (the time stays); a drag that starts on a bar scrubs. A bar's label sits inside the bar, or beside it when the bar
+   is too short. The ruler and the phase strip stay at the top while the rows scroll.
 6. The right panel shows what is selected. No layer: the effect's settings, under a header with a dot in its main colour,
    its name and "Effect", in sections that fold: **Effect** (its name, its **Folder** and its game events), **Scale** (the
    three **big controls**: Size, Intensity, Duration), **Phases** (a bar of the three **phase** lengths, then the lengths),
@@ -251,8 +253,10 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (380 checks): palette colours read back exactly; the ground and walls cut
-what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
+A headless browser check on WebGPU and WebGL 2 (383 checks): palette colours read back exactly; the ground and walls cut
+what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
+on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
+centre, the header still one row), undo, Fire, dragging,
 the generated forms, the words' rows (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
@@ -497,13 +501,15 @@ These write pictures to `out/` (kept out of git):
   parts (a search box, a box to rename in place, a menu one list shares, drag to reorder) are in `src/app/dom.ts`.
 - **The timeline** (UI phase 5, docs/ui-redesign.md 6.5): a names column in the Layers list's order, with its selection and
   hover; the ruler and the phase strip, which stay at the top while the rows scroll; bars whose labels are never cut (inside
-  the bar, or beside it); a click on a bar selects its layer; a playhead whose head drags, drawn under every label.
+  the bar, or beside it); a click on a bar selects its layer; a playhead whose head drags, drawn under every label. Since
+  UI phase 6's Part B, New shot each loop next to Loop: each loop a new shot, as in the game.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
 layer (such as tones in a star), not only whole layers; renaming or removing colours and gradients; an image burst's
-image in the editor's form; the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
-store and the load function are there; the buttons, and naming the profile in the project when one is loaded or saved, come
-with the new UI; today only an import names it).
+image in the editor's form; the buttons for palette profiles (load, save, save as new, rename, delete, restore the
+defaults: the local server, the store and the load function are there; the buttons, and naming the profile in the project
+when one is loaded or saved, come with UI phase 7, the colour picker's Palette tab; today only an import names it). The
+rest of what Mustafa approved on 2026-11-15 is on screen since UI phase 6 (Part B).
 
 ## Assumptions
 
@@ -1274,7 +1280,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Gradients on smoke, the fire's bed and bursts**: each next to the colour it takes the place of: smoke's after its
     Colour, the bed's before its Tones, a burst's after its pieces' Look (a glow's stays at the end of its section, where it
     was). Smoke and a burst say "Gradient over life", a bed "Gradient, middle to rim", as a glow; no gradient is "None: its
-    Colour", "None: the tones" or "None: its Look". The pencil opens the colour picker at its gradients, on smoke's Colour,
+    Colour", "None: the tones" or "None: its Look" (a glow's said "None: one colour (the Colour above)", which its narrow
+    select cut short: it says "None: its Colour" now, as smoke's). The pencil opens the colour picker at its gradients, on smoke's Colour,
     the bed's middle tone (its last) or the pieces' colour (the effect's main colour for image pieces), with the gradient
     chosen open in the editor. The picker's "Use on the selected glow" stays a glow's (the picker is phase 7), so for these
     layers the gradient is picked in their own choice.
@@ -1296,6 +1303,13 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     The words are the runtime's notes' ("the image muzzle_flash.png did not load", "… is not in the project"), "the Low
     tier leaves it out: it shows in Medium and High" and "its effect has errors that stop the preview". Known from the
     atlas, it shows at any moment (and before the images have loaded, never); a projectile, which draws nothing, gets none.
+  - **New shot each loop** (slice 6), in the timeline's header right after Loop: a toggle as Loop is, with a die icon and
+    the plan's words; on at first and not remembered (Loop is not either). Each loop takes the next seed at its start, by
+    the same step Fire takes. It has no key. In a header narrower than 760 px (the sidebars dragged wide in a small window)
+    it says "New shot", its full name staying its name for screen readers and in its tooltip, and below 700 px Speed's
+    label steps aside, so the header keeps one row down to the narrowest centre (640 px). The Look takes the preview's
+    seed at the start of each of its own plays (a picture at once), so a new shot never changes a play half-way; before, a
+    Fire changed the Look's play at once.
 
 ## Claude skills
 

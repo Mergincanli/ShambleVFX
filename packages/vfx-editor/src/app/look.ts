@@ -3,6 +3,8 @@
  * (VfxRenderer, the code the game ships) with a second, small renderer on the preview's ground colour; framed on the layer
  * (its box on the game screen over its time, with a margin); playing its own time in a loop at the preview's seed,
  * faction, made-by and distance. A layer that rides a projectile is drawn riding it; a projectile shows its riders flying.
+ * It takes the preview's seed at the start of each of its own plays (and at once for a picture), so a new shot (Fire, or
+ * New shot each loop) never changes a play half-way.
  *
  * The renderer (WebGL 2) exists only while a layer's panel shows the Look: it is made on the next task after the panel
  * opens, so many selections in a row make none, and disposed with its WebGL context when the panel closes or the Look is
@@ -177,6 +179,9 @@ export class LookView {
   /** The game camera on the whole 1920 x 1080 screen, for finding the layer's box. */
   private readonly fitCam = makeGameCamera();
   private clock = 0;
+  /** The seed it draws with, taken from the preview's at the start of each of its plays (`round`: which play). */
+  private seedShown: number | null = null;
+  private round = -1;
   private layerKey = '';
   private atlasShown: Atlas | null = null;
   private alone: { fx: EffectFile; layer: Layer; out: EffectFile } | null = null;
@@ -221,6 +226,7 @@ export class LookView {
       // Another layer starts its loop from its beginning, framed anew.
       this.layerKey = key;
       this.clock = 0;
+      this.seedShown = null;
       this.fit = null;
       this.box.setAttribute('aria-label', `${f.layer.name} alone, in a loop`);
     } else if (f.still === null) this.clock += dtMs;
@@ -325,8 +331,11 @@ export class LookView {
     const vfx = this.vfx;
     vfx.palette = f.palette;
     if (f.atlas && f.atlas !== this.atlasShown) { vfx.setAtlas(f.atlas); this.atlasShown = f.atlas; }
-    const p: Omit<DrawParams, 'timeMs'> = { seed: f.seed, faction: f.faction, relation: f.relation, viewerDistanceM: f.viewerDistanceM, inputs: f.inputs };
     const span = loopSpan(f.effect, f.timeline, f.layer);
+    // The preview's seed, taken at the start of each play of the loop (a picture takes it at once).
+    const round = span ? Math.floor(this.clock / (span.end - span.start + f.restMs)) : -1;
+    if (f.still !== null || this.seedShown === null || !span || round !== this.round) { this.seedShown = f.seed; this.round = round; }
+    const p: Omit<DrawParams, 'timeMs'> = { seed: this.seedShown, faction: f.faction, relation: f.relation, viewerDistanceM: f.viewerDistanceM, inputs: f.inputs };
     let alone: EffectFile | undefined, at: number | undefined, text: string;
     this.zoom = null;
     if (f.waits) text = 'The picture waits until the effect\'s problems are fixed (see the top of the right panel).';

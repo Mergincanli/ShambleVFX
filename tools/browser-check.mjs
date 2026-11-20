@@ -1399,12 +1399,13 @@ if (webgpu) {
     await lp.close();
   }
 
-  // -- Part B in the right panel (UI phase 6, slice 5: the plan Mustafa approved on 2026-11-15): a
+  // -- Part B in the right panel and the transport (UI phase 6, slices 5 and 6: the plan Mustafa approved on 2026-11-15): a
   // word layer's words with their chances (a % box per word, Remove, Add word, "No word: 40 %", the red note over 100 %, the
   // 1,000-shot line counted with the game's own pick, capitals, one undo step per change); a gradient picked on smoke, a
   // fire's bed and a burst (drawn by the runtime, one undo step, with a glow's edit button); the "not drawn" warning over the
   // preview and next to what draws the layer (a layer the tier leaves out, a file with errors; an image that did not load is
-  // on a throwaway project below). On a page of its own; nothing is saved.
+  // on a throwaway project below); New shot each loop next to Loop (on at first, a new seed each loop, off holds one shot,
+  // Fire still makes a new one). On a page of its own; nothing is saved.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
     const bp = g.page;
@@ -1590,6 +1591,43 @@ if (webgpu) {
       nd3.notes.join() === 'Rifle shot (demo) is not drawn: its file has errors (listed at the top of the right panel).' && nd3.panel.join() === 'Not drawn: its effect has errors that stop the preview.',
       JSON.stringify({ notes: nd3.notes, panel: nd3.panel }));
 
+    // ---- New shot each loop, next to Loop in the timeline's header: on at first, each loop a new seed; off, the same shot
+    // again; Fire still makes a new one. The clock is driven by the check (tickForChecks), so the loop is certain.
+    const shot0 = await bp.evaluate(() => {
+      const b = document.querySelector('.transport button.new-shot'), loop = document.querySelector('.transport .tb[aria-pressed]');
+      const probe = document.createElement('i'); probe.style.color = 'var(--accent-ink)'; document.body.append(probe); const accent = getComputedStyle(probe).color; probe.remove();
+      return { text: b.textContent, pressed: b.getAttribute('aria-pressed'), afterLoop: b.previousElementSibling === loop && loop.textContent === 'Loop', icon: !!b.querySelector('svg.icon-dice'),
+        yellow: getComputedStyle(b.querySelector('svg')).color === accent, tip: window.__vfx.app.tipForChecks(b)?.lines ?? null, oneRow: Math.round(document.querySelector('.transport').getBoundingClientRect().height) };
+    });
+    const loopOnce = () => bp.evaluate(async () => {
+      const a = window.__vfx.app;
+      a.pickEffect('rifle_shot');
+      const len = a.timeline().lengthMs;
+      await a.showAt(len - 20, 5);
+      document.querySelector('.transport .play').click();
+      await a.tickForChecks(600);
+      const d = a.debugState();
+      document.querySelector('.transport .play').click();
+      a.resumeForChecks();
+      return { seed: d.seed, time: d.mainTime, len };
+    });
+    const nextSeed = (s) => ((s * 1664525 + 1013904223) >>> 0);
+    const looped = await loopOnce();
+    await bp.locator('.transport button.new-shot').click();
+    const offPressed = await bp.locator('.transport button.new-shot').getAttribute('aria-pressed');
+    const held = await loopOnce();
+    await bp.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; return a.showAt(20, 5); });
+    await bp.locator('.timeline').click({ position: { x: 60, y: 8 } });
+    await bp.keyboard.press('f');
+    const firedSeed = await bp.evaluate(() => window.__vfx.app.debugState().seed);
+    await bp.evaluate(() => window.__vfx.app.resumeForChecks());
+    await bp.locator('.transport button.new-shot').click();
+    ok('New shot each loop sits right after Loop in the timeline\'s header: the dice icon and its words, on at first (its icon in the accent, as an active toggle), its help text in its tooltip; the header stays one 32 px row',
+      shot0.text === 'New shot each loop' && shot0.pressed === 'true' && shot0.afterLoop && shot0.icon && shot0.yellow && shot0.tip?.includes(help.HELP['New shot each loop']) && shot0.oneRow === 32,
+      JSON.stringify(shot0));
+    ok('on, a loop of Play is a new shot (the next seed: everything random changes); off, the loop shows the same shot again; Fire makes a new shot either way',
+      looped.time < looped.len - 20 && looped.seed === nextSeed(5) && offPressed === 'false' && held.time < held.len - 20 && held.seed === 5 && firedSeed === nextSeed(5),
+      JSON.stringify({ looped, offPressed, held, firedSeed, want: nextSeed(5) }));
     ok('the Part B page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await bp.close();
   }
@@ -2464,7 +2502,7 @@ if (webgpu) {
         'Main menu': ['Projects…', 'New project…', 'Save', 'Save as…', 'Export…', 'Import an export…', 'Show hints', 'Night mode', 'Keyboard shortcuts'],
         'Preview bar': ['Fire', 'Scene', 'Faction that fired', 'Made by', 'Distance from you', 'Tier', 'Low', 'Medium', 'High', 'View', 'Close-up on',
           'Whole screen', 'Game size', 'Close-up', 'Close-up on the muzzle', 'Close-up on the target', 'Made by an enemy', 'Made by your team', 'Made by you', 'Fade other layers'],
-        Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
+        Transport: ['Step back', 'Play', 'Step forward', 'Loop', 'New shot each loop', 'Speed', 'Time'], 'Status bar': ['Checks', 'Triangles and draw calls', 'Cost', 'Renderer', 'Keyboard shortcuts'],
         Effects: ['Effects', 'Add an effect', 'New effect', 'From preset…', 'Search effects', 'Rename', 'Duplicate', 'Move to folder…', 'Delete effect', 'No folder', 'New folder…'],
         Layers: ['Layers', 'Add a layer', 'Sprite layer', 'Projectile layer', 'Shape layer', 'Shape: ring', 'Shape: bed', 'Burst layer', 'Word layer', 'Rename', 'Duplicate', 'Move up', 'Move down', 'Delete layer'] };
       const bars = [];
@@ -4372,6 +4410,14 @@ if (webgpu) {
       const ticks = [...document.querySelectorAll('.timeline .tl-tick')].map((t) => ({ text: t.textContent, right: t.querySelector('span').getBoundingClientRect().right, shown: getComputedStyle(t.querySelector('span')).visibility === 'visible' }));
       return { hidden: ticks.filter((t) => !t.shown).map((t) => t.text), clear: ticks.every((t) => !t.shown || t.right <= unit.left - 1) };
     });
+    // There, the timeline's header (with New shot each loop since UI phase 6, Part B) keeps one row: the toggle says "New
+    // shot" (its full name stays its name for screen readers), Speed's buttons stay on one row, nothing runs past the end.
+    const narrowHead = await tp.evaluate(() => {
+      const t = document.querySelector('.transport'), r = t.getBoundingClientRect(), b = t.querySelector('button.new-shot');
+      const segs = [...t.querySelectorAll('.seggroup .seg')];
+      return { h: Math.round(r.height), inside: [...t.querySelectorAll('button, .time')].every((k) => k.getBoundingClientRect().right <= r.right + 0.5),
+        speedRows: new Set(segs.map((x) => Math.round(x.getBoundingClientRect().top))).size, shot: b.innerText.trim(), name: b.getAttribute('aria-label'), time: t.querySelector('.time').innerText.trim() };
+    });
     await showTl('rifle_shot', 20);
     await tp.setViewportSize({ width: 1920, height: 1080 });
     await frames();
@@ -4393,6 +4439,9 @@ if (webgpu) {
       labelsRight(narrowMolotov) && ign(narrowMolotov).where === 'right' && labelsRight([narrowLate]) && narrowLate.where === 'left' && labelsRight(wideMolotov) && ign(wideMolotov).where === 'inside'
         && narrowest === 640 && narrowTicks.clear && narrowTicks.hidden.join() === '5000,5500' && lateBack === '[{"ms":0},80]',
       JSON.stringify({ lanes, narrowest, narrow: ign(narrowMolotov), late: narrowLate, ticks: narrowTicks, wide: ign(wideMolotov), lateBack }));
+    ok('in the narrowest centre (640 px) the timeline\'s header keeps one 32 px row: New shot each loop says "New shot" (its full name for screen readers), Speed\'s buttons stay on one row, and nothing runs past its end (the Molotov\'s four-figure time too)',
+      narrowHead.h === 32 && narrowHead.inside && narrowHead.speedRows === 1 && narrowHead.shot === 'New shot' && narrowHead.name === 'New shot each loop' && /\/ 5050 ms/.test(narrowHead.time),
+      JSON.stringify(narrowHead));
 
     // The phases: each name inside its phase when it fits (Hammer leech beam), hidden when it does not (the Molotov's
     // 250 ms wind-up in the narrow lanes); the times in the tooltip either way.

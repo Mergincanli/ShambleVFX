@@ -333,7 +333,7 @@ interface GradientSpot {
 }
 const EDIT_HINT = 'The edit button opens the colour picker at its gradients, to make or change one.';
 const GRADIENTS: Readonly<Record<string, GradientSpot>> = {
-  glow: { label: 'Gradient, middle to rim', none: 'None: one colour (the Colour above)', hint: EDIT_HINT, role: (get) => get(['role']) as string | undefined },
+  glow: { label: 'Gradient, middle to rim', none: 'None: its Colour', hint: EDIT_HINT, role: (get) => get(['role']) as string | undefined },
   smoke: { label: 'Gradient over life', none: 'None: its Colour', after: 'role', hint: EDIT_HINT, role: (get) => get(['role']) as string | undefined },
   bed: { label: 'Gradient, middle to rim', none: 'None: the tones', before: 'tones', hint: 'In place of the tones. Give the lumps and the detail the same one.', role: (get) => (get(['tones']) as string[] | undefined)?.at(-1) },
   burst: { label: 'Gradient over life', none: 'None: its Look', after: 'look', hint: EDIT_HINT, role: (get) => get(['look', 'role']) as string | undefined },

@@ -645,7 +645,12 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .fire:hover { background: var(--accent-hover); }
 /* The timeline with its header (6.5): the transport, then the tracks, which scroll. */
 .timeline-pane { display: grid; grid-template-rows: var(--h-timeline-head) minmax(0, 1fr); min-height: 0; border-top: 1px solid var(--line); }
-.transport { display: flex; align-items: center; gap: 8px; height: var(--h-timeline-head); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.transport { display: flex; align-items: center; gap: 8px; height: var(--h-timeline-head); padding: 0 var(--pad-panel); background: var(--bg-panel); border-bottom: 1px solid var(--line); white-space: nowrap; container-type: inline-size; }
+/* A header narrower than its controls need (the centre at its narrowest is 640 px): New shot each loop says "New shot" (its
+   full name stays its name for screen readers and its tooltip's), then Speed's label leaves its buttons (the group keeps
+   the name), so the buttons stay on one row. */
+@container (max-width: 760px) { .new-shot-more { display: none; } }
+@container (max-width: 700px) { .transport .row > .lab { display: none; } }
 /* A row scrolled into view (a new selection) stops below the ruler and the phase strip, which stay at the top of the
    rows' scroll: scroll padding as tall as they are (scrollNearest in dom.ts reads it). */
 .timeline-slot { min-height: 0; overflow: auto; background: var(--tl-lane); scroll-padding-top: var(--h-ruler); }

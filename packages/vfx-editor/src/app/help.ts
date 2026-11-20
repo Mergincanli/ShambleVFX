@@ -804,6 +804,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Play': 'Play the effect on the timeline, or pause it. Unlike Fire, you can pause, step and loop.',
   'Step forward': 'Go one step forward (1/12 s) and pause.',
   'Loop': 'On: Play starts again from the beginning after a short rest. Off: it stops at the end.',
+  'New shot each loop': 'On: each loop is a new shot, with a new seed, so the sparks, the smoke and everything else that is random change, as in the game. Off: every loop is the same shot, to compare while you change a setting. Fire makes a new shot either way.',
 
   // ------------------------------------------------------------ the Effects and Layers lists
   'Effects': 'The effects in this project, each saved as its own file. Click one to see and edit it. A name such as "Weapons / Rifle shot" puts the effect in the folder Weapons.',
