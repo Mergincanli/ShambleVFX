@@ -992,6 +992,9 @@ table.cost .cs:empty { display: none; }
    296 px panel "budget" would not fit. */
 table.cost input.budget { width: 100%; margin-top: 4px; padding: 0 4px; text-align: right; -moz-appearance: textfield; appearance: textfield; }
 table.cost input.budget::-webkit-inner-spin-button, table.cost input.budget::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* An empty box's word ("budget") ends in an ellipsis where the box is too narrow for it (the narrowest panel). A number in
+   it is cut as in the panel's other number boxes. */
+table.cost input.budget:placeholder-shown { text-overflow: ellipsis; }
 table.cost td.over { background: var(--bad-bg); }
 table.cost td.over .cv { color: var(--bad); }
 table.cost td.within { background: var(--good-bg); }

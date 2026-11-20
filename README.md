@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (388 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (389 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -312,7 +312,8 @@ it explains; the Game events hint in its tooltip's words), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on its level, and the card
 says which level counts, in one or two lines even for a class with a long name), the Budgets place on a throwaway project
 (each level on and off, numbers at each level, a class picked, made with New class…, renamed and deleted, which level
-counts, every change one undo step, saved in project.json), saving after deleting an effect (its
+counts, every change one undo step, saved in project.json; in the narrowest panel an empty budget box's word ending in an
+ellipsis), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
 shell (the window's grid at 1920 × 1080 and 2560 × 1440, with at least 8 track rows and 14 layer rows showing at 1920; the four
 splitters: a drag, their limits (with the effects list at its largest, the Layers header and its + staying in the column, and a
@@ -1243,7 +1244,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     ellipsis. In a narrower panel (the right panel dragged to its 260 px) a long name wraps, and "Medium" over its column
     ends in an ellipsis rather than running into "High". There the header's words also end in an ellipsis before its title
     does, so "Measured, no budgets" is cut and "Cost" stays whole; before, the title was cut to "C…" (found in the check
-    after phase 6).
+    after phase 6). An empty budget box's word ends in an ellipsis there too ("bud…"; it was cut to "budge", found in the
+    second check). A budget of five digits there (six at 1920) does not fit its box either: it is cut, as numbers are in
+    the panel's other number boxes.
   - **The Budgets toggle**: a checkbox row under the table, off at first and remembered in this browser (vfx-budgets). On,
     a budget box shows under each number, and the Budgets place under the toggle (Part B, below). While a budget is set
     for the effect at any of its three levels (the project's, its class's, its own), the boxes stay: the toggle shows on

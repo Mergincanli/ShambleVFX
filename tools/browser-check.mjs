@@ -5122,7 +5122,21 @@ if (webgpu) {
             h: Math.round(r.getBoundingClientRect().height), left: +(g.left - col.left).toFixed(1), right: +(g.right - col.right).toFixed(1), clear: g.left >= words.getBoundingClientRect().right + 7.5 };
         });
       }, [fx, layer]);
+      // An empty budget box's placeholder ("budget"): the room it needs (measured as the tooltips measure a cut value) and
+      // the room the box has, and how the box ends words that do not fit.
+      const budgetPlaceholder = () => pg.evaluate(async () => {
+        const a = window.__vfx.app;
+        a.pickEffect('board_beam');
+        a.selectLayer(null);
+        document.querySelector('.inspector .costcard > details').open = true;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const b = document.querySelector('.inspector table.cost input.budget:placeholder-shown'), s = getComputedStyle(b);
+        const c = document.createElement('canvas').getContext('2d');
+        c.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+        return { text: b.placeholder, need: +c.measureText(b.placeholder).width.toFixed(1), room: b.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight), ends: s.textOverflow };
+      });
       const segWide = [...await segRows('board_beam', null), ...await segRows('board_muzzle', 'tracer_flight')];
+      const phWide = await budgetPlaceholder();
       const rsp = await pg.locator('.split-right').boundingBox();
       await pg.mouse.move(rsp.x + rsp.width / 2, rsp.y + rsp.height / 2);
       await pg.mouse.down();
@@ -5130,11 +5144,15 @@ if (webgpu) {
       await pg.mouse.up();
       const segPanel = await pg.evaluate(() => Math.round(document.querySelector('.inspector').getBoundingClientRect().width));
       const segNarrow = [...await segRows('board_beam', null), ...await segRows('board_muzzle', 'tracer_flight')];
+      const phNarrow = await budgetPlaceholder();
       await pg.locator('.split-right').dblclick();
       ok('in the narrowest right panel (260 px) every segmented row keeps one 28 px row (Boxes show, a projectile\'s From, To and Flight): its buttons start left of the control column where they need the room, clear of the label\'s words, and end where the column ends; at 1920 they keep to the column',
         ['Boxes show', 'From', 'To', 'Flight'].every((l) => segWide.some((r) => r.label === l)) && segWide.every((r) => r.rows === 1 && r.h === 28 && Math.abs(r.left) <= 0.5 && Math.abs(r.right) <= 0.5)
           && segPanel < 262 && segNarrow.map((r) => r.label).join() === segWide.map((r) => r.label).join() && segNarrow.every((r) => r.rows === 1 && r.h === 28 && Math.abs(r.right) <= 0.5 && r.clear),
         JSON.stringify({ segPanel, segWide, segNarrow }));
+      ok('an empty budget box shows "budget" whole at 1920; in the narrowest panel, where the word does not fit, it ends in an ellipsis (it was cut to "budge")',
+        phWide.text === 'budget' && phWide.need <= phWide.room && phNarrow.text === 'budget' && phNarrow.need > phNarrow.room && phNarrow.ends === 'ellipsis',
+        JSON.stringify({ phWide, phNarrow }));
       // An image that did not load: the preview and the layer's panel say so.
       const broken = await pg.evaluate(async () => {
         const a = window.__vfx.app;
