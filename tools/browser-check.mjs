@@ -10,8 +10,8 @@
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
 //    the selection; its rows: numbers you drag or type, whole numbers in whole steps, groups of numbers (a flipbook's
-//    Grid in a narrow panel too), shortened segments, the colour roles' swatches, Tab through every number box; the
-//    headers' More menus, the problems banner, no Cost or Checks under a layer; the
+//    Grid in a narrow panel too, and Cost's title there), shortened segments, the colour roles' swatches, Tab through
+//    every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer; the
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
 //    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
 //    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
@@ -821,10 +821,18 @@ if (webgpu) {
     fits.push(await gridFit());
     await rp.keyboard.press('Control+z');
     fits.push(await gridFit());
+    // Still in the narrowest panel: Cost's header words ("Measured, no budgets") end in an ellipsis before its title does.
+    await rp.evaluate(async () => { const a = window.__vfx.app; a.pickEffect('board_beam'); a.selectLayer(null); await a.measureForChecks(); });
+    const costHead = await rp.evaluate(() => {
+      const t = document.querySelector('.inspector .cost-fold > summary .fold-title'), s = document.querySelector('.inspector .cost-fold > summary .cost-sum');
+      return { title: t.textContent, whole: t.scrollWidth <= t.clientWidth, sum: s.textContent, cut: s.scrollWidth > s.clientWidth, panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
+    });
     await rp.locator('.split-right').dblclick();
     ok('a flipbook\'s Grid shows its numbers whole (2, 2, 4 and 12, 10, 120) at 1920 and in the narrowest panel (260 px): one 28 px row, the boxes ending where the Pivot\'s do and clear of the label\'s words',
       fits.every((f) => f.whole && f.h === 28 && Math.abs(f.right) <= 0.5 && f.clear) && fits.map((f) => f.values).join(' | ') === '2,2,4 | 12,10,120 | 12,10,120 | 2,2,4'
         && fits[0].panel > 290 && fits[2].panel < 262 && fits[3].panel < 262, JSON.stringify(fits));
+    ok('in the narrowest panel (260 px) Cost\'s header words end in an ellipsis before its title does: "Measured, no budgets" is cut, "Cost" stays whole',
+      costHead.title === 'Cost' && costHead.whole && costHead.sum === 'Measured, no budgets' && costHead.cut && costHead.panel < 262, JSON.stringify(costHead));
 
     // A drag on a group's prefix: the nudge of a layer that has none. Its first step adds the nudge, which builds the panel
     // again under the pointer; the drag goes on, and it is one undo step.

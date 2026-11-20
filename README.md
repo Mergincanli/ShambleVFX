@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (386 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (387 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -268,7 +268,8 @@ a grid of label and control, 28 px rows 4 px apart; a number dragged by its name
 ("0,45", Enter: one step), put back by Esc (none) and stepped by ↑ (one a press); a whole number (How many, Points)
 going in whole steps, so the checker never refuses it; an undo pressed in a box showing there at once, with nothing
 written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
-one unit; a flipbook's Grid with its numbers whole at 1920 and in the narrowest panel; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
+one unit; a flipbook's Grid with its numbers whole at 1920 and in the narrowest panel, where Cost's title stays whole
+too; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
 examples changing nothing; every segmented choice on one line at 1920, and the timeline header's Speed buttons on one row;
 the headers' More menus, each row doing what the
@@ -1233,7 +1234,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     have 37 % of the table, 100 px at 1920, wide enough for "CPU ms a frame", so they show whole: before, a table that takes
     its column widths from its first row gave them a quarter of the table (about 68 px at 1920), and they ended in an
     ellipsis. In a narrower panel (the right panel dragged to its 260 px) a long name wraps, and "Medium" over its column
-    ends in an ellipsis rather than running into "High".
+    ends in an ellipsis rather than running into "High". There the header's words also end in an ellipsis before its title
+    does, so "Measured, no budgets" is cut and "Cost" stays whole; before, the title was cut to "C…" (found in the check
+    after phase 6).
   - **The Budgets toggle**: a checkbox row under the table, off at first and remembered in this browser (vfx-budgets). On,
     a budget box shows under each number, and the Budgets place under the toggle (Part B, below). While a budget is set
     for the effect at any of its three levels (the project's, its class's, its own), the boxes stay: the toggle shows on

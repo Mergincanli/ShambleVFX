@@ -952,6 +952,8 @@ select[aria-label="Image"] { font-family: var(--mono); }
 .inspector > .costcard { position: relative; padding-bottom: 0; border-top: 0; }
 .costcard > .fold > summary { padding-right: var(--w-measure); }
 .cost-sum { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
+/* In a narrow panel the header's words end in an ellipsis before its title does: "Cost" stays whole. */
+.cost-fold > summary > .fold-title { flex: none; }
 .cost-sum[data-state="good"] { color: var(--good); }
 .cost-sum[data-state="bad"] { color: var(--bad); }
 .cost-sum[data-state="warn"] { color: var(--warn); }
