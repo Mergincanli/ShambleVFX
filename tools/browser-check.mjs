@@ -737,7 +737,9 @@ if (webgpu) {
     // A whole number of the file (the schema's whole numbers: How many, Points, Teeth, Seed…) goes in whole steps: a drag on
     // its name, ↑ and a typed decimal keep it whole, so the checker never refuses it (with a step of 0.01, a drag gave 6.04
     // and the preview waited).
+    // (Each select waits until the colour list stops moving: 150 ms, and it moves the rows under it.)
     await select('board_molotov', 'sparks');
+    await rp.waitForTimeout(400);
     const c0 = await layerNow(['count']);
     const uc = await undoNow();
     await dragBy(row('Pieces', 'How many').locator('.flab'), 16);
@@ -753,6 +755,7 @@ if (webgpu) {
     for (let k = 0; k < 3; k++) await rp.keyboard.press('Control+z');
     const cBack = await layerNow(['count']);
     await select('board_muzzle', 'hit');
+    await rp.waitForTimeout(400);
     const p0 = await layerNow(['shape', 'points']);
     await dragBy(row('Shape: shards', 'Points').locator('.flab'), 8);
     const points = { value: await layerNow(['shape', 'points']), problems: await rp.evaluate(() => window.__vfx.app.problems().length) };
@@ -833,6 +836,11 @@ if (webgpu) {
       return { title: t.textContent, whole: t.scrollWidth <= t.clientWidth, sum: s.textContent, cut: s.scrollWidth > s.clientWidth, panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
     });
     await rp.locator('.split-right').dblclick();
+    // Back to the layer the checks before these had selected (the Molotov's smoke), its colour list settled (it moves for
+    // 150 ms): the next check selects another layer and drags at once, and from the effect's view the list moved its rows
+    // under the pointer.
+    await select('board_molotov', 'smoke');
+    await rp.waitForTimeout(400);
     ok('a flipbook\'s Grid shows its numbers whole (2, 2, 4 and 12, 10, 120) at 1920 and in the narrowest panel (260 px): one 28 px row, the boxes ending where the Pivot\'s do and clear of the label\'s words; at 2560 they also start where the Pivot\'s do',
       fits.every((f) => f.whole && f.h === 28 && Math.abs(f.right) <= 0.5 && f.clear) && fits.map((f) => f.values).join(' | ') === '2,2,4 | 12,10,120 | 12,10,120 | 2,2,4'
         && fits[0].panel > 290 && fits[2].panel < 262 && fits[3].panel < 262 && gridWide.whole && gridWide.h === 28 && Math.abs(gridWide.left) <= 0.5 && Math.abs(gridWide.right) <= 0.5
