@@ -484,6 +484,10 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 /* Muted words at the right end of a section's header: a layer's kind. */
 .fold-meta { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
 .draws code, .rider-what code { color: var(--text); overflow-wrap: anywhere; }
+/* Under it, when the preview does not draw the layer now: why, in --bad with the warning icon. Empty, it takes no room. */
+.not-drawn:empty { display: none; }
+.not-drawn-line { display: flex; align-items: flex-start; gap: 4px; margin-top: 2px; color: var(--bad); overflow-wrap: anywhere; }
+.not-drawn-line .icon { width: var(--check); height: var(--check); margin-top: 1px; }
 /* A projectile's riders: rows edge to edge, each a button that selects the layer, with what draws it under its name. */
 .riders { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--pad-panel)); }
 .rider {
@@ -620,7 +624,14 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 /* The preview fills its area edge to edge. No yellow over it (the browser check counts the flash's orange in it). */
 .viewport-wrap { position: relative; min-height: 0; background: var(--ground); overflow: hidden; }
 .viewport { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
-.vhint { position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); pointer-events: none; }
+/* The lower left corner over the preview: what it does not draw and why (a state: it shows with Show hints off too), then
+   the drag hint (Show hints only). Neither takes the pointer. */
+.vcorner { position: absolute; left: 8px; bottom: 8px; right: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
+.vnotes { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.vnotes:empty { display: none; }
+.vnote { display: flex; align-items: flex-start; gap: 4px; max-width: 100%; margin: 0; padding: 2px 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-body); }
+.vnote .icon { width: var(--check); height: var(--check); margin-top: 1px; color: var(--bad); }
+.vhint { padding: 2px 6px; border-radius: var(--r-control); background: var(--bg-overlay); color: var(--text); font-size: var(--fs-small); pointer-events: none; }
 .preview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .preview-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 /* The 1920 x 1080 game frame: the scene outside it dimmed, a 1 px outline, its label inside the top-left corner. */
@@ -906,6 +917,22 @@ select[aria-label="Image"] { font-family: var(--mono); }
 .prop-actions { display: flex; gap: 4px; margin: 0 0 4px calc(max(84px, 38%) + 8px); }
 .prop-actions > .mini { margin-left: -6px; }
 .gradient-field .hint { margin-top: 0; }
+/* A word layer's words (UI phase 6, Part B): the label over the rows; each row the word (Plex Mono: typed into files), its
+   chance in a % box (an empty box shows, faint, the share it gets) and Remove; Add word under them, lined up with the rows;
+   then the lines the chances give (an empty line takes no room; the note over 100 % in --bad). */
+.prop.word-list { display: block; }
+.word-list > .flab { display: block; margin-bottom: 4px; }
+.word-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px var(--h-control); align-items: center; gap: 4px; min-height: var(--h-row); margin: var(--prop-gap) 0; }
+.word-row input.text { font-family: var(--mono); }
+.word-row > .optional-num { width: 100%; }
+.word-row > .optional-num input.num { flex: 1 1 0; width: 0; min-width: 2ch; }
+.optional-num input.num::placeholder { color: var(--text-faint); opacity: 1; }
+.word-row > .icon-only { margin-right: -4px; }
+.word-foot { margin: 0 0 0 -6px; }
+.add-word .icon { color: var(--text-muted); }
+.word-list > .state-line { margin: 4px 0 0; }
+.word-list > .state-line:empty { display: none; }
+.word-list > .word-over { color: var(--bad); }
 
 /* Cost (6.6): a section that folds, closed at first, the last of the effect's settings. Its header: the chevron, "Cost",
    the state in a few words on the right (coloured as the status bar's), and the Measure button, which sits over the
@@ -950,6 +977,9 @@ table.cost td.within .cv { color: var(--good); }
 /* Out of date: the numbers stay readable, in --warn. Not measured yet: only dashes, faint. */
 table.cost.stale .cv, table.cost.stale .cs { color: var(--warn); }
 table.cost.unmeasured .cv { color: var(--text-faint); }
+/* The Budgets place (UI phase 6, Part B), under the Budgets toggle: property rows like the panel's others. The Class
+   select's buttons (rename, delete) follow it, as an edit button follows a select. */
+.class-tools { display: flex; align-items: center; flex: none; margin-right: -4px; }
 
 /* ---------------------------------------------------------------- dialogs and the message */
 /* Popovers and dialogs: their own background, a 1 px --line-strong edge (README, Assumptions), the raised shadow, 8 px corners. */
@@ -1165,7 +1195,7 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
    menus or popovers, no scale. */
 .frame-only #app { grid-template-rows: minmax(0, 1fr); min-width: 0; }
 .frame-only .topbar, .frame-only .left, .frame-only .right, .frame-only .vbar, .frame-only .timeline-pane, .frame-only .statusbar,
-.frame-only .splitter, .frame-only .menu, .frame-only .popover, .frame-only .hints-toggle, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
+.frame-only .splitter, .frame-only .menu, .frame-only .popover, .frame-only .hints-toggle, .frame-only .vcorner, .frame-only .vhint, .frame-only .status, .frame-only .frame-label, .frame-only .scale-text,
 .frame-only .tooltip { display: none !important; }
 .frame-only .workspace { grid-template-columns: minmax(0, 1fr); }
 .frame-only .centre { grid-area: 1 / 1; grid-template-rows: minmax(0, 1fr); }

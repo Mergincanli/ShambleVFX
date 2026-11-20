@@ -7,12 +7,19 @@
  * into one command, so one drag is one undo step.
  */
 import type { EffectFile, Palette } from '@shamble/vfx-format';
+import type { Budgets } from '../cost/budgets';
 
 export interface EditorDoc {
   /** The project's effects, in the order shown. */
   effects: readonly EffectFile[];
   /** The project's colours (its palette.json, or a copy of the built-in palette). Colour edits are undone like any edit. */
   palette: Palette;
+  /**
+   * The project's budgets at three levels (project.json "budgets"): budget edits are undone like any edit. The editor always
+   * sets them; a document without them (the tests') has the defaults. Entries of deleted effects stay, so undoing a delete
+   * brings an effect back with its budgets; saving leaves them out.
+   */
+  budgets?: Budgets;
 }
 
 interface Command {

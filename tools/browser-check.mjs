@@ -12,7 +12,9 @@
 //    the selection; its rows: numbers you drag or type, groups of numbers, shortened segments, the colour roles' swatches,
 //    Tab through every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer; the
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
-//    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920), the
+//    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
+//    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
+//    drawn" warning), the
 //    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
@@ -242,9 +244,9 @@ for (const backend of ['webgpu', 'webgl']) {
     const popupShown = popups.filter((m) => { m.showPopover(); const v = visible(m); m.hidePopover(); return v; }).map((m) => m.id);
     const v = document.querySelector('.viewport').getBoundingClientRect();
     return { viewport: [v.x, v.y, v.width, v.height].join(), popups: popups.length, popupShown,
-      shown: ['.topbar', '.hints-toggle', '.statusbar', '.splitter', '.menu', '.popover', '.scale-text', '.vbar', '.chip-btn', '.fire', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label'].filter(shown) };
+      shown: ['.topbar', '.hints-toggle', '.statusbar', '.splitter', '.menu', '.popover', '.scale-text', '.vbar', '.chip-btn', '.fire', '.transport', '.timeline-pane', '.left', '.right', '.vhint', '.frame-label', '.vcorner', '.vnotes'].filter(shown) };
   });
-  ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, chip, status bar, splitter, menu, popover or scale round it`,
+  ok(`[${label}] ?frame=1 shows only the game screen: the preview fills the 1920 x 1080 window, with no bar, chip, status bar, splitter, menu, popover, scale or note over it ("not drawn") round it`,
     frameOnly.viewport === '0,0,1920,1080' && frameOnly.shown.length === 0 && frameOnly.popups >= 7 && frameOnly.popupShown.length === 0, JSON.stringify(frameOnly));
   await fr.page.close();
 }
@@ -341,22 +343,23 @@ if (webgpu) {
   await p.keyboard.press('Control+z');
   const r0 = (await L('burst')).shape.radiusM;
   ok('a shape\'s generated field edits the effect, and undo puts it back', r1 === 1.5 && r0 === 1.1, `radius ${r1}, after undo ${r0}`);
-  // The words box: the words as a comma list; a word typed again keeps its chance, a new one gets none.
+  // The words (since UI phase 6, Part B, one row per word under the label "Words (one picked per play)", where a comma list
+  // was): a word typed again keeps its chance, a new word gets none, and undo puts them back. Typed into the rows: the first
+  // becomes WHAM, the second is typed again (with its chance), the third becomes ZAP; three undo steps (the chance and two
+  // words) put them back, where the comma list took one for the whole list.
   await p.evaluate(() => { const a = window.__vfx.app; a.selectLayer('word'); a.editLayer(['words', 1, 'chance'], 30); a.commit(); });
   await p.waitForTimeout(150);
-  const wordsBox = () => p.locator('.inspector label.field', { has: p.locator('.flab', { hasText: /^Words \(one picked per play\)$/ }) }).locator('input');
-  const shownWords = await wordsBox().inputValue();
-  await wordsBox().fill('wham, krakoom, zap');
-  await wordsBox().press('Enter');
+  const wordBox = (n) => p.locator(`.inspector .word-list input[aria-label="Word ${n}"]`);
+  const shownWords = await p.evaluate(() => [...document.querySelectorAll('.inspector .word-list input.word-text')].map((x) => x.value).join(', '));
+  for (const [n, typed] of [[1, 'wham'], [2, 'krakoom'], [3, 'zap']]) { await wordBox(n).fill(typed); await wordBox(n).press('Enter'); }
   await p.locator('.timeline').click({ position: { x: 60, y: 8 } });
   const typedWords = (await L('word')).words;
-  await p.keyboard.press('Control+z');
-  await p.keyboard.press('Control+z');
+  for (let k = 0; k < 3; k++) await p.keyboard.press('Control+z');
   const wordsBack = (await L('word')).words;
-  ok('the words box shows the words as a comma list; a word typed again keeps its chance, and undo puts them back',
-    shownWords === 'KABOOM, KRAKOOM, BADOOM, WHAM' && JSON.stringify(typedWords) === JSON.stringify([{ text: 'WHAM' }, { text: 'KRAKOOM', chance: 30 }, { text: 'ZAP' }])
+  ok('the words show one row each (capitals); a word typed again in its row keeps its chance, a new word gets none, and undo puts them back',
+    shownWords === 'KABOOM, KRAKOOM, BADOOM, WHAM' && JSON.stringify(typedWords) === JSON.stringify([{ text: 'WHAM' }, { text: 'KRAKOOM', chance: 30 }, { text: 'ZAP' }, { text: 'WHAM' }])
       && JSON.stringify(wordsBack) === JSON.stringify([{ text: 'KABOOM' }, { text: 'KRAKOOM' }, { text: 'BADOOM' }, { text: 'WHAM' }]),
-    `"${shownWords}" -> ${JSON.stringify(typedWords)}, after two undos ${JSON.stringify(wordsBack)}`);
+    `"${shownWords}" -> ${JSON.stringify(typedWords)}, after three undos ${JSON.stringify(wordsBack)}`);
   // Layers that cannot draw at the moment shown, and why (from the runtime's note on the frame): an image that did not
   // load (in the project, not in the atlas), an image not in the project. A layer the tier leaves out gets no note.
   const notDrawn = await p.evaluate(async () => {
@@ -1394,6 +1397,201 @@ if (webgpu) {
       JSON.stringify({ gradInfo, gp0, gp1, gradLayer }));
     ok('the layer\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await lp.close();
+  }
+
+  // -- Part B in the right panel (UI phase 6, slice 5: the plan Mustafa approved on 2026-11-15): a
+  // word layer's words with their chances (a % box per word, Remove, Add word, "No word: 40 %", the red note over 100 %, the
+  // 1,000-shot line counted with the game's own pick, capitals, one undo step per change); a gradient picked on smoke, a
+  // fire's bed and a burst (drawn by the runtime, one undo step, with a glow's edit button); the "not drawn" warning over the
+  // preview and next to what draws the layer (a layer the tier leaves out, a file with errors; an image that did not load is
+  // on a throwaway project below). On a page of its own; nothing is saved.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const bp = g.page;
+    bp.on('dialog', (d) => d.accept());
+    const odds = await server.ssrLoadModule('/src/doc/odds.ts');
+    const help = await server.ssrLoadModule('/src/app/help.ts');
+    const undoNow = () => bp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null }; });
+    const cssColour = (value, prop = 'color') => bp.evaluate(({ value, prop }) => { const s = document.createElement('span'); s.style[prop] = value; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; }, { value, prop });
+    const bad = await cssColour('var(--bad)'), faint = await cssColour('var(--text-faint)');
+
+    // ---- the words with their chances: the tank shell's sound word (four words, no chances at first)
+    await bp.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_shell'); a.selectLayer('word'); });
+    const wordsNow = () => bp.evaluate(() => {
+      const a = window.__vfx.app, list = document.querySelector('.inspector .word-list');
+      const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+      const line = (c) => { const e = list.querySelector(c); return shown(e) ? e.textContent : ''; };
+      const rows = [...list.querySelectorAll('.word-row')].map((r) => {
+        const box = r.querySelector('input.num');
+        return { text: r.querySelector('input.word-text').value, font: getComputedStyle(r.querySelector('input.word-text')).fontFamily.split(',')[0].replace(/"/g, ''), chance: box.value, placeholder: box.placeholder,
+          placeholderColour: getComputedStyle(box, '::placeholder').color, unit: r.querySelector('.unit')?.textContent ?? null, remove: !r.querySelector('button.word-remove').disabled, h: Math.round(r.getBoundingClientRect().height) };
+      });
+      return { label: list.querySelector(':scope > .flab').textContent, inField: list.matches('.field'), rows, none: line('.word-none'), over: line('.word-over'), overColour: getComputedStyle(list.querySelector('.word-over')).color,
+        odds: line('.word-odds'), add: !list.querySelector('button.add-word').disabled, layer: a.layer(), n: a.history.past.length, undo: a.history.undoLabel ?? null,
+        focus: document.activeElement?.getAttribute('aria-label') ?? null, unsaved: document.querySelector('.project-name').textContent.includes('•') };
+    });
+    /** The 1,000-shot line as the game's own pick gives it, counted here (src/doc/odds.ts, the runtime's pickWord). */
+    const wantOdds = (layer) => {
+      const o = odds.wordOdds(layer, 1000);
+      const n = (x) => x.toLocaleString('en-US');
+      return `In 1,000 shots: ${[...layer.words.map((w, i) => `${w.text} ${n(o.words[i])}`), ...(o.none ? [`no word ${n(o.none)}`] : [])].join(', ')}`;
+    };
+    const chanceBox = (k) => bp.locator(`.inspector .word-list .word-row:nth-child(${k}) input.num`);
+    const typeChance = async (k, text) => { await chanceBox(k).fill(text); await chanceBox(k).press('Enter'); };
+    const w0 = await wordsNow();
+    await typeChance(1, '30');
+    const w1 = await wordsNow();
+    await typeChance(2, '20');
+    await typeChance(3, '5');
+    await typeChance(4, '5');
+    const w2 = await wordsNow();
+    await typeChance(3, '5,5');
+    const w3 = await wordsNow();
+    await typeChance(1, '90');
+    const w4 = await wordsNow();
+    await typeChance(4, '');
+    const w5 = await wordsNow();
+    // Tab through a box that is empty, and Enter on one that shows its number: nothing changes.
+    await chanceBox(4).focus();
+    await bp.keyboard.press('Tab');
+    await chanceBox(1).focus();
+    await bp.keyboard.press('Enter');
+    const w6 = await wordsNow();
+    ok('a word layer\'s words: one row per word (the word in Plex Mono, its chance in a % box, Remove) under the label "Words (one picked per play)"; an empty box shows, faint, the share it gets (25 % each with no chances)',
+      w0.label === 'Words (one picked per play)' && w0.inField && w0.rows.map((r) => r.text).join() === 'KABOOM,KRAKOOM,BADOOM,WHAM' && w0.rows.every((r) => r.chance === '' && r.placeholder === '25' && r.unit === '%' && r.remove && r.font === 'IBM Plex Mono' && r.h === 28)
+        && w0.rows[0].placeholderColour === faint && w0.none === '' && w0.over === '' && w0.add,
+      JSON.stringify(w0.rows));
+    ok('a chance typed is one undo step ("Word chance"); the empty boxes share what is left (70 % in three: 23.3 each); every word with a chance and 60 % in all: "No word: 40 %"; "5,5" takes the comma as the decimal point',
+      w1.layer.words[0].chance === 30 && w1.n === w0.n + 1 && w1.undo === 'Word chance' && w1.rows.slice(1).every((r) => r.placeholder === '23.3')
+        && w2.layer.words.map((w) => w.chance).join() === '30,20,5,5' && w2.n === w0.n + 4 && w2.none === 'No word: 40 %' && w2.rows.every((r) => r.placeholder === '')
+        && w3.layer.words[2].chance === 5.5 && w3.none === 'No word: 39.5 %',
+      JSON.stringify({ w1: [w1.layer.words, w1.undo, w1.rows.map((r) => r.placeholder)], w2: [w2.none, w2.n - w0.n], w3: w3.none }));
+    ok('over 100 % a red note (--bad) says they still play, scaled down to 100 %, and "No word" goes; a box cleared takes the chance away (one undo step); Tab through an empty box and Enter on a shown number change nothing',
+      w4.over === 'The chances add up to 120.5 %: they still play, scaled down to 100 %.' && w4.overColour === bad && w4.none === ''
+        && w5.layer.words[3].chance === undefined && w5.n === w4.n + 1 && w5.over.startsWith('The chances add up to 115.5 %') && w6.n === w5.n && JSON.stringify(w6.layer.words) === JSON.stringify(w5.layer.words),
+      JSON.stringify({ w4: [w4.over, w4.overColour], w5: [w5.layer.words, w5.over], w6: w6.n - w5.n }));
+    ok('the 1,000-shot line is the game\'s own pick, counted for seeds 1 to 1,000 (src/doc/odds.ts: the runtime\'s pickWord): with no chances, with "No word: 40 %", and over 100 %',
+      w0.odds === wantOdds(w0.layer) && w2.odds === wantOdds(w2.layer) && w2.odds.includes(', no word ') && w4.odds === wantOdds(w4.layer) && /^In 1,000 shots: KABOOM \d/.test(w0.odds),
+      JSON.stringify({ w0: w0.odds, w2: w2.odds, w4: w4.odds }));
+    // Remove, Add word (its box takes the focus, its text chosen: typed words go in capitals), an empty word.
+    await bp.locator('.inspector .word-list .word-row:nth-child(4) button.word-remove').click();
+    const w7 = await wordsNow();
+    await bp.locator('.inspector .word-list button.add-word').click();
+    const w8 = await wordsNow();
+    await bp.keyboard.type('pow');
+    const typedNow = await bp.evaluate(() => document.activeElement?.value ?? null);
+    await bp.keyboard.press('Enter');
+    const w9 = await wordsNow();
+    await bp.locator('.inspector .word-list input[aria-label="Word 4"]').fill('');
+    await bp.locator('.inspector .word-list input[aria-label="Word 4"]').press('Enter');
+    const w10 = await wordsNow();
+    // One word left: it cannot be removed; sixteen: no more can be added.
+    await bp.evaluate(() => { const a = window.__vfx.app; a.editLayer(['words'], [{ text: 'BOOM' }], { label: 'x' }); a.commit(); });
+    const one = await wordsNow();
+    await bp.evaluate(() => { const a = window.__vfx.app; a.editLayer(['words'], Array.from({ length: 16 }, (_, i) => ({ text: `W${i}` })), { label: 'x' }); a.commit(); });
+    const sixteen = await wordsNow();
+    for (let k = 0; k < 2; k++) await bp.keyboard.press('Control+z');
+    ok('Remove takes a word away with its chance, Add word adds BOOM with no chance and its box takes the focus with its text chosen; typed words are capitals ("pow" shows POW); each is one undo step; an empty word puts the old one back',
+      w7.layer.words.map((w) => w.text).join() === 'KABOOM,KRAKOOM,BADOOM' && w7.n === w6.n + 1 && w7.undo === 'Remove word'
+        && w8.layer.words.length === 4 && JSON.stringify(w8.layer.words[3]) === '{"text":"BOOM"}' && w8.focus === 'Word 4' && w8.undo === 'Add word'
+        && typedNow === 'POW' && w9.layer.words[3].text === 'POW' && w9.undo === 'Word' && w9.n === w8.n + 1 && w10.rows[3].text === 'POW' && w10.n === w9.n,
+      JSON.stringify({ w7: w7.layer.words, w8: [w8.layer.words[3], w8.focus], typedNow, w9: w9.layer.words[3], w10: [w10.rows[3].text, w10.n - w9.n] }));
+    ok('a word layer keeps at least one word (its Remove is off) and has at most sixteen (Add word is off)',
+      one.rows.length === 1 && !one.rows[0].remove && one.add && sixteen.rows.length === 16 && !sixteen.add, JSON.stringify({ one: one.rows.length, sixteen: [sixteen.rows.length, sixteen.add] }));
+    for (let k = 0; k < w10.n - w0.n; k++) await bp.keyboard.press('Control+z');
+    const wBack = await wordsNow();
+    ok('undo puts the words back as they were, one step at a time, and leaves nothing unsaved', JSON.stringify(wBack.layer.words) === JSON.stringify(w0.layer.words) && wBack.n === w0.n && !wBack.unsaved,
+      JSON.stringify({ words: wBack.layer.words, n: wBack.n - w0.n }));
+
+    // ---- gradients on smoke, a fire's bed and a burst: a banded green-to-blue gradient made in the page (the examples'
+    // palette has none), picked in each layer's own select; drawn, read in the runtime's own buffers.
+    await bp.evaluate(() => { const a = window.__vfx.app; a.setGradient('check.green', { kind: 'banded', from: 'mustafa', stops: [{ at: 0, hex: '#00FF00' }, { at: 0.5, hex: '#0000FF' }] }); a.commit(); });
+    const gradNow = (layer) => bp.evaluate(async (layer) => {
+      const a = window.__vfx.app;
+      if (a.effect()?.id !== 'board_molotov') a.pickEffect('board_molotov');
+      a.selectLayer(layer);
+      const span = a.timeline().byId.get(layer);
+      await a.showAt(span.startMs + (span.endMs - span.startMs) * 0.4, 7);
+      const i = a.effect().layers.findIndex((l) => l.id === layer);
+      let own = 0, banded = 0;
+      const is = (v, k) => Math.abs(v - k) < 0.002;
+      for (const b of Object.values(a.previewForChecks.vfx.sink.groups)) {
+        for (let v = 0; v < b.vcount; v++) {
+          if (b.layer[v] !== i) continue;
+          own++;
+          const r = b.col[v * 4], gg = b.col[v * 4 + 1], bb = b.col[v * 4 + 2];
+          if (is(r, 0) && ((is(gg, 1) && is(bb, 0)) || (is(gg, 0) && is(bb, 1)))) banded++;
+        }
+      }
+      const l = a.layer();
+      const f = [...document.querySelectorAll('.inspector .gradient-field label.field')][0];
+      return { own, banded, gradient: (l.type === 'burst' ? l.gradient : l.shape.gradient) ?? null, label: f?.querySelector('.flab').textContent ?? null, value: f?.querySelector('select').value ?? null,
+        none: f?.querySelector('select').options[0].textContent ?? null, edit: !!f?.querySelector('button.edit-gradient svg.icon-edit'), n: a.history.past.length, undo: a.history.undoLabel ?? null };
+    }, layer);
+    const pick = async (label) => bp.locator('.inspector .gradient-field label.field', { has: bp.locator('.flab', { hasText: exactly(label) }) }).locator('select').selectOption('check.green');
+    const grads = {};
+    for (const [layer, label] of [['smoke', 'Gradient over life'], ['bed', 'Gradient, middle to rim'], ['sparks', 'Gradient over life']]) {
+      const before = await gradNow(layer);
+      await pick(label);
+      grads[layer] = { before, after: await gradNow(layer) };
+    }
+    ok('smoke, a fire\'s bed and a burst have a gradient field like a glow\'s (smoke and a burst: "Gradient over life"; a bed: "Gradient, middle to rim"), with no gradient at first and its edit button',
+      grads.smoke.before.label === 'Gradient over life' && grads.bed.before.label === 'Gradient, middle to rim' && grads.sparks.before.label === 'Gradient over life'
+        && Object.values(grads).every((x) => x.before.gradient === null && x.before.value === '' && x.before.edit && /^None: /.test(x.before.none)),
+      JSON.stringify(Object.fromEntries(Object.entries(grads).map(([k, x]) => [k, [x.before.label, x.before.none, x.before.edit]]))));
+    ok('a gradient picked on smoke, the bed and a burst goes into the file in one undo step each, and the runtime draws it: their vertices take its two colours (none did before)',
+      Object.values(grads).every((x) => x.after.gradient === 'check.green' && x.after.value === 'check.green' && x.after.n === x.before.n + 1 && x.after.undo === 'Gradient' && x.before.own > 0 && x.before.banded === 0 && x.after.banded > 0),
+      JSON.stringify(Object.fromEntries(Object.entries(grads).map(([k, x]) => [k, { own: x.after.own, banded: [x.before.banded, x.after.banded], undo: x.after.undo }]))));
+    // The smoke's edit button: the colour picker at its gradients, with the gradient chosen open in the editor.
+    await bp.evaluate(() => window.__vfx.app.selectLayer('smoke'));
+    await bp.locator('.inspector .gradient-field button.edit-gradient').click();
+    await bp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    await bp.waitForTimeout(200);
+    const smokePicker = await bp.evaluate(() => { const c = document.querySelector('.cpick'), sec = c.querySelector('details.gr'); return { role: c.querySelector('.cp-title').textContent, open: sec.open, editor: c.querySelector('.gr-editor').open ? c.querySelector('.gr-title').textContent : null }; });
+    await bp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+    ok('the smoke\'s gradient edit button opens the colour picker at its gradients, on the smoke\'s colour, with its gradient open in the editor',
+      smokePicker.role === 'fire.smoke' && smokePicker.open && smokePicker.editor === 'check.green', JSON.stringify(smokePicker));
+    for (let k = 0; k < 4; k++) await bp.keyboard.press('Control+z');
+    const gradsBack = await bp.evaluate(() => { const a = window.__vfx.app, fx = a.effect(); return { names: Object.keys(a.palette.gradients ?? {}), any: fx.layers.some((l) => l.gradient || l.shape?.gradient) }; });
+    ok('undo takes the three gradients and the gradient made for the check away again', gradsBack.names.length === 0 && !gradsBack.any, JSON.stringify(gradsBack));
+
+    // ---- the "not drawn" warning: over the preview (lower left, above the drag hint) and next to what draws the layer
+    const notesNow = () => bp.evaluate(async () => {
+      const a = window.__vfx.app;
+      await a.showAt(60, 7);
+      const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+      const notes = [...document.querySelectorAll('.vnotes .vnote')].filter(shown);
+      const v = document.querySelector('.viewport').getBoundingClientRect(), h = document.querySelector('.vhint').getBoundingClientRect(), n = notes[0]?.getBoundingClientRect();
+      return { notes: notes.map((x) => x.textContent), panel: [...document.querySelectorAll('.inspector .draws .not-drawn-line')].filter(shown).map((x) => x.textContent),
+        icon: notes[0] ? getComputedStyle(notes[0].querySelector('svg')).color : null, hint: shown(document.querySelector('.vhint')),
+        place: n ? { left: n.left - v.left, aboveHint: !shown(document.querySelector('.vhint')) || n.bottom <= h.top, inside: n.bottom <= v.bottom && n.left >= v.left } : null,
+        drawsTip: a.tipForChecks(document.querySelector('.inspector .draws .not-drawn'))?.lines[0] ?? null };
+    });
+    await bp.evaluate(() => { const a = window.__vfx.app; a.pickEffect('rifle_shot'); a.selectLayer('hit'); });
+    const nd0 = await notesNow();
+    await bp.evaluate(() => { const a = window.__vfx.app; a.editLayer(['tiers'], ['high'], { label: 'Tiers' }); a.commit(); a.setTierForChecks('low'); });
+    const nd1 = await notesNow();
+    await bp.locator('.topbar .hints-toggle').click();
+    const nd2 = await notesNow();
+    await bp.locator('.topbar .hints-toggle').click();
+    await bp.evaluate(() => { const a = window.__vfx.app; a.setTierForChecks('high'); a.editEffect(['controls', 'size'], 99, { label: 'Size' }); a.commit(); });
+    const nd3 = await notesNow();
+    await bp.keyboard.press('Control+z');
+    await bp.keyboard.press('Control+z');
+    const nd4 = await notesNow();
+    ok('a healthy layer gets no "not drawn" warning, over the preview or in its panel',
+      nd0.notes.length === 0 && nd0.panel.length === 0 && nd4.notes.length === 0 && nd4.panel.length === 0, JSON.stringify({ nd0, nd4 }));
+    ok('a layer the tier leaves out: the preview says "Hit spark is not drawn: the Low tier leaves it out: it shows in High." (lower left, above the drag hint, the warning icon in --bad) and its panel says it under what draws it',
+      nd1.notes.join() === 'Hit spark is not drawn: the Low tier leaves it out: it shows in High.' && nd1.panel.join() === 'Not drawn: the Low tier leaves it out: it shows in High.'
+        && nd1.icon === bad && nd1.place?.inside && nd1.place.aboveHint && nd1.place.left <= 12 && nd1.drawsTip === help.NEW_THIS_ROUND.notDrawn,
+      JSON.stringify(nd1));
+    ok('the warning is a state, not a hint: with Show hints off the drag hint goes and the warning stays', !nd2.hint && nd2.notes.join() === nd1.notes.join(), JSON.stringify({ hint: nd2.hint, notes: nd2.notes }));
+    ok('a file with errors that stop the preview: "Rifle shot (demo) is not drawn: its file has errors …" over the preview, and the layer\'s panel says its effect has errors',
+      nd3.notes.join() === 'Rifle shot (demo) is not drawn: its file has errors (listed at the top of the right panel).' && nd3.panel.join() === 'Not drawn: its effect has errors that stop the preview.',
+      JSON.stringify({ notes: nd3.notes, panel: nd3.panel }));
+
+    ok('the Part B page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await bp.close();
   }
 
   // -- one icon per kind of layer (src/app/layer-icons.ts), in the Layers list, the timeline's names column, the panel's
@@ -4647,6 +4845,128 @@ if (webgpu) {
       && back.effects.includes('rifle_shot') && back.budget?.on === true
       && JSON.stringify(afterUndo.budgets?.effects?.rifle_shot) === JSON.stringify(budgets.effects.rifle_shot) && afterUndo.events?.rifle_shot?.length > 0,
       JSON.stringify({ afterDelete: afterDelete.budgets?.effects, afterUndo: afterUndo.budgets?.effects, events: afterUndo.events?.rifle_shot }));
+  }
+
+  // -- the Budgets place in Cost (UI phase 6, Part B: the plan Mustafa approved on 2026-11-15), on a throwaway project
+  // (projects/browser-check-budget-place-…, deleted after): under Cost's Budgets toggle, whose numbers the boxes show
+  // (Project, Class, Own), each level switched on and off, the effect's class picked, a class made with New class… (the
+  // question dialog's OK clicked), renamed and deleted; numbers typed at each level; which level counts (the closest that is
+  // on); every change one undo step; saved in project.json. On the same project, whose muzzle_flash.png does not decode, the
+  // "not drawn" warning for an image that did not load.
+  {
+    const bpn = `browser-check-budget-place-${Date.now()}`;
+    const bdir = join(repo, 'projects', bpn);
+    cpSync(join(repo, 'examples', 'demo-project'), bdir, { recursive: true });
+    // In the project, but not a PNG: it cannot load.
+    writeFileSync(join(bdir, 'images', 'muzzle_flash.png'), 'not a png');
+    let g = null;
+    try {
+      g = await open(`${base}/?backend=webgl&project=projects/${bpn}`, () => window.__vfx && window.__vfx.ready);
+      const pg = g.page;
+      pg.on('dialog', (d) => d.accept());
+      await pg.evaluate(() => { const a = window.__vfx.app; window.__vfxManual = true; a.pickEffect('board_beam'); });
+      await pg.locator('.inspector .costcard > details > summary').click();
+      await pg.locator('.inspector .costcard .cost-budgets input').check();
+      const placeNow = () => pg.evaluate(() => {
+        const a = window.__vfx.app, c = document.querySelector('.inspector .costcard'), place = c.querySelector('.budget-place');
+        const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+        const segs = [...place.querySelectorAll('.budget-shows .seg')];
+        const sw = Object.fromEntries([...place.querySelectorAll('label.check')].map((l) => [l.querySelector('.check-text').textContent, l.querySelector('input').checked]));
+        const sel = place.querySelector('.budget-class select');
+        const box = (m, t) => c.querySelector(`input.budget[aria-label="Budget: ${m}, ${t}"]`).value;
+        return { shown: shown(place), rows: [...place.children].map((r) => r.querySelector('.flab, .check-text')?.textContent ?? r.className),
+          shows: segs.find((s) => s.getAttribute('aria-pressed') === 'true')?.textContent ?? null, classSeg: !segs[1].disabled, segH: Math.round(place.querySelector('.budget-shows .seggroup').getBoundingClientRect().height),
+          sw, cls: sel.value, options: [...sel.options].map((o) => o.textContent), tools: shown(place.querySelector('.class-rename')) && shown(place.querySelector('.class-delete')),
+          level: c.querySelector('.cost-level').textContent, boxes: { drawsHigh: box('Draws', 'High'), drawsLow: box('Draws', 'Low'), trisHigh: box('Triangles', 'High') },
+          budgets: a.budgets(), n: a.history.past.length, undo: a.history.undoLabel ?? null };
+      });
+      const typeBudget = async (metric, tier, value) => { const b = pg.locator(`table.cost input.budget[aria-label="Budget: ${metric}, ${tier}"]`); await b.fill(value); await b.press('Enter'); };
+      const flip = (words) => pg.locator('.inspector .budget-place label.check', { has: pg.locator('.check-text', { hasText: exactly(words) }) }).click();
+      const answer = async (text) => {
+        await pg.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+        await pg.locator('dialog[open] input.text').fill(text);
+        await pg.locator('dialog[open] button', { hasText: 'OK' }).click();
+        await pg.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 5000 });
+        await pg.waitForTimeout(150);
+      };
+      const p0 = await placeNow();
+      await typeBudget('Draws', 'High', '5');
+      const p1 = await placeNow();
+      await pg.locator('.inspector .budget-class select').selectOption({ label: 'Big' });
+      const p2 = await placeNow();
+      await flip('Class budgets');
+      const p3 = await placeNow();
+      await typeBudget('Triangles', 'High', '9000');
+      const p4 = await placeNow();
+      await pg.locator('.inspector .budget-class select').selectOption({ label: 'New class…' });
+      await answer('Huge');
+      const p5 = await placeNow();
+      await pg.locator('.inspector .budget-place .class-rename').click();
+      await answer('Massive');
+      const p6 = await placeNow();
+      await flip('Its own budgets');
+      const p7 = await placeNow();
+      await typeBudget('Draws', 'Low', '2');
+      const p8 = await placeNow();
+      await pg.locator('.inspector .budget-shows button.seg[aria-label="The project\'s budgets"]').click();
+      const p9 = await placeNow();
+      await flip('Its own budgets');
+      const p10 = await placeNow();
+      await flip('Class budgets');
+      const p11 = await placeNow();
+      await pg.locator('.inspector .budget-place .class-delete').click();
+      const p12 = await placeNow();
+      await pg.keyboard.press('Control+z');
+      const p13 = await placeNow();
+      ok('Cost\'s Budgets toggle shows the Budgets place: Boxes show (Project, Class, Own: Project at first, Class off while the effect has no class, on one line), Project budgets, Class budgets, Class (No class, the classes, New class…) and Its own budgets, all off at first',
+        p0.shown && p0.rows.join() === 'Boxes show,Project budgets,Class budgets,Class,Its own budgets' && p0.shows === 'Project' && !p0.classSeg && p0.segH <= 24
+          && Object.values(p0.sw).every((v) => v === false) && p0.cls === '' && p0.options.join() === 'No class,Small,Normal,Big,New class…' && !p0.tools
+          && p0.level === 'No budgets are on. Type a number to switch on the project\'s budgets.',
+        JSON.stringify(p0));
+      ok('a number typed in a box goes to the level the boxes show and switches it on (the project\'s), one undo step; picking the effect\'s class is one; Class budgets on is one, and then its class counts, and the boxes show its numbers',
+        p1.budgets.project.on && p1.budgets.project.limits.high.draws === 5 && p1.sw['Project budgets'] && p1.undo === 'Budget' && p1.n === p0.n + 1 && p1.level === 'The project\'s budgets count for this effect.'
+          && p2.budgets.effects.board_beam.class === 'big' && p2.cls === 'big' && p2.classSeg && p2.tools && p2.undo === 'Budget class' && p2.n === p1.n + 1
+          && p3.budgets.classes.on && p3.undo === 'Class budgets on' && p3.n === p2.n + 1 && p3.level === 'The budgets of its class "Big" count.' && p3.shows === 'Class' && p3.boxes.drawsHigh === ''
+          && p4.budgets.classes.list.find((c) => c.id === 'big').limits.high.triangles === 9000 && p4.n === p3.n + 1 && p4.boxes.trisHigh === '9000',
+        JSON.stringify({ p1: [p1.budgets.project, p1.undo, p1.level], p2: [p2.cls, p2.undo], p3: [p3.level, p3.shows, p3.undo], p4: p4.budgets.classes.list.find((c) => c.id === 'big') }));
+      ok('New class… asks for a name (OK clicked), makes the class and puts the effect in it, in one undo step; the pencil renames it (its id stays, the effect stays in it), in one',
+        p5.budgets.classes.list.at(-1)?.id === 'huge' && p5.budgets.classes.list.at(-1)?.name === 'Huge' && p5.cls === 'huge' && p5.undo === 'New class' && p5.n === p4.n + 1 && p5.options.includes('Huge')
+          && p6.budgets.classes.list.at(-1)?.id === 'huge' && p6.budgets.classes.list.at(-1)?.name === 'Massive' && p6.cls === 'huge' && p6.undo === 'Rename class' && p6.n === p5.n + 1 && p6.level === 'The budgets of its class "Massive" count.',
+        JSON.stringify({ p5: [p5.budgets.classes.list, p5.cls, p5.undo], p6: [p6.budgets.classes.list.at(-1), p6.level] }));
+      ok('the closest level that is on counts: its own when on (the boxes then show its own numbers, typed there), its class when its own is off, the project\'s when class budgets are off too; Boxes show picks whose numbers the boxes show',
+        p7.budgets.effects.board_beam.on && p7.level === 'This effect\'s own budgets count.' && p7.shows === 'Own' && p7.undo === 'Own budgets on'
+          && p8.budgets.effects.board_beam.limits.low.draws === 2 && p8.boxes.drawsLow === '2' && p8.n === p7.n + 1
+          && p9.shows === 'Project' && p9.boxes.drawsHigh === '5' && p9.n === p8.n
+          && p10.level === 'The budgets of its class "Massive" count.' && p10.undo === 'Own budgets off' && p11.level === 'The project\'s budgets count for this effect.' && p11.undo === 'Class budgets off',
+        JSON.stringify({ p7: [p7.level, p7.shows], p8: p8.budgets.effects.board_beam, p9: [p9.shows, p9.boxes], p10: p10.level, p11: p11.level }));
+      ok('the bin deletes the effect\'s class after asking (the effect is then in none), one undo step; undo brings the class back with the effect in it',
+        !p12.budgets.classes.list.some((c) => c.id === 'huge') && p12.cls === '' && !p12.budgets.effects.board_beam.class && p12.undo === 'Delete class' && p12.n === p11.n + 1
+          && p13.budgets.classes.list.at(-1)?.name === 'Massive' && p13.cls === 'huge' && p13.n === p11.n,
+        JSON.stringify({ p12: [p12.budgets.classes.list.map((c) => c.id), p12.cls], p13: [p13.budgets.classes.list.at(-1), p13.cls] }));
+      // Saved: project.json holds the three levels, only what differs from the defaults.
+      await pg.keyboard.press('Control+s');
+      await pg.waitForFunction(() => !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
+      await pg.waitForTimeout(300);
+      const savedPlace = JSON.parse(readFileSync(join(bdir, 'project.json'), 'utf8')).budgets;
+      const wantPlace = { project: { on: true, limits: { high: { draws: 5 } } },
+        classes: { list: [{ id: 'small', name: 'Small' }, { id: 'normal', name: 'Normal' }, { id: 'big', name: 'Big', limits: { high: { triangles: 9000 } } }, { id: 'huge', name: 'Massive' }] },
+        effects: { board_beam: { class: 'huge', limits: { low: { draws: 2 } } } } };
+      ok('saved, project.json holds the budgets at their three levels: the project\'s (on, 5 draws in High), the classes (Big\'s 9000 triangles, Massive made here; class budgets off) and the effect\'s (in Massive, its own 2 draws in Low, off)',
+        JSON.stringify(savedPlace) === JSON.stringify(wantPlace), JSON.stringify(savedPlace));
+      // An image that did not load: the preview and the layer's panel say so.
+      const broken = await pg.evaluate(async () => {
+        const a = window.__vfx.app;
+        a.pickEffect('rifle_shot'); a.selectLayer('flash');
+        await a.showAt(20, 7);
+        const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+        return { notes: [...document.querySelectorAll('.vnotes .vnote')].filter(shown).map((x) => x.textContent), panel: [...document.querySelectorAll('.inspector .draws .not-drawn-line')].filter(shown).map((x) => x.textContent) };
+      });
+      ok('an image in the project that does not load: the preview says "Muzzle flash is not drawn: the image muzzle_flash.png did not load." and the layer\'s panel says it under what draws it',
+        broken.notes.includes('Muzzle flash is not drawn: the image muzzle_flash.png did not load.') && broken.panel.join() === 'Not drawn: the image muzzle_flash.png did not load.', JSON.stringify(broken));
+    } finally {
+      await g?.page.close();
+      rmSync(bdir, { recursive: true, force: true });
+    }
   }
 
   // -- a project whose project.json is a newer version is not opened, so it is never written over; the editor says why,

@@ -97,9 +97,16 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    sprite shows its image under **Image**, as wide as the panel allows: click the picture to put the pivot there. Each
    layer says what draws it: an image ("Image: muzzle_flash.png") or code ("Drawn in code, no image"). A projectile is an
    invisible path: its panel lists the layers riding it (click one to select it), and those say "rides Bullet" in the
-   Layers list. Shapes, bursts and words show the settings the file has, with optional parts behind a switch, except two
-   that come with the new UI: a word's chance (the words box keeps it when you type the words again) and an image burst's
-   image.
+   Layers list. When the preview does not draw a layer, a red line under what draws it says why ("Not drawn: the image
+   muzzle_flash.png did not load.", "Not drawn: the Low tier leaves it out: it shows in High."), and so does the preview
+   itself, in its lower left corner ("Muzzle flash is not drawn: …"); while an effect's errors stop the preview, the preview
+   says so. Shapes, bursts and words show the settings the file has, with optional parts behind a switch, except an image
+   burst's image, which comes later. A word layer lists its **words**, one row each, in capitals: the word, its chance in a
+   **%** box and Remove (the bin), and **Add word** under them. An empty box shares what is left with the other empty
+   ones (its faint number says how much); all empty, every word has the same chance. Under 100 %, a line says how often no
+   word shows ("No word: 40 %"); over 100 %, a red note says they still play, scaled down to 100 %. A last line counts
+   1,000 shots with the game's own pick ("In 1,000 shots: BOOM 498, BANG 502"). Smoke, the fire's bed and bursts have a
+   **gradient** choice, as a glow has (see 12).
 7. The **+** in the Layers header adds a layer of any kind, just above the selected one: Sprite, Projectile, one of the 14
    shapes (its plain name, and on the right, muted, the name in the file, which the list's tag shows), Burst or Word. The
    **+** in the Effects header makes a **New effect**, or copies one of the ready-made effects into your project (**From
@@ -112,8 +119,13 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    effect already answers is named as you type.
 10. **Cost**, the last section of the effect's settings, closed at first (the triangles and the cost in the status bar open
     it): its header says how it stands, as the status bar does, and has **Measure**, for draws, sprites alive, triangles,
-    screen area and CPU ms, per tier. Switch on **Budgets** under the table to type budgets under the numbers: they are the
-    project's budgets, and typing one switches them on. See [docs/cost.md](docs/cost.md).
+    screen area and CPU ms, per tier. Switch on **Budgets** under the table for a budget box under each number, and the
+    place for the budgets' three levels: **Boxes show** says whose numbers the boxes show and edit (the project's, the
+    effect's class's or its own); **Project budgets**, **Class budgets** and **Its own budgets** switch each level on or
+    off; **Class** puts the effect in a class (Small, Normal, Big, or one you make with New class…; the pencil renames it,
+    the bin deletes it). Typing a number switches its level on. The closest level that is on counts, and the line under
+    them says which. Every change is one undo step, and the budgets are saved in project.json. See
+    [docs/cost.md](docs/cost.md).
 11. **Export…**, in the top bar and the main menu, writes the folder the game loads into `exports/`; **Import an export…** in the
     main menu (Projects, at its list of exports) makes a project from one (and keeps its colours as a palette profile).
 12. **Click a colour swatch** (under Colour in the right panel): a colour picker opens. In the effect's settings, the pencil
@@ -121,9 +133,9 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     colours of what is selected: the effect's, or one layer's (with the ones it draws without naming them, such as the
     black ink outline); a projectile has none of its own and shows those of the layers riding it. **Show all** shows every
     colour, the selection's in bold. Change the colour, add colours, and under **Gradients** start from a ready-made
-    gradient or make your own; a glow can use one (the pencil next to its gradient opens the picker at the gradients), and
-    smoke, the fire's bed and bursts draw one named in their file. See
-    [docs/colours.md](docs/colours.md).
+    gradient or make your own. A glow, smoke, the fire's bed and bursts can use one: pick it in the layer's own gradient
+    choice ("Gradient, middle to rim" for a glow and a bed, "Gradient over life" for smoke and bursts); the pencil next to
+    it opens the picker at the gradients. See [docs/colours.md](docs/colours.md).
 13. **Night mode**, the sun or moon button in the top bar, or in the main menu: dark panels (the preview keeps the game's
     colours). It is remembered.
 14. **Show hints**, the light bulb left of Night mode, or in the main menu: the one-line hints under the settings, and the
@@ -187,17 +199,20 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (567): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (575): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
-plays, near the four rules' shares; the words box keeping chances;
+plays, near the four rules' shares; the words box keeping chances; the words' rows saying a share, a total over 100 % and
+the 1,000-shot line;
 a space in a word drawn as a gap; the colours each layer can use, checked against the real runtime (every example drawn
 at 60 frames a second for every made-by and faction, each layer in a tier it shows in, and made-up layers of every kind,
 edge and gradient: the list holds every colour the runtime asks the palette for; a test holds the runtime to drawing a
 layer the same in each tier it shows in), and the checker naming one the palette lacks; the layers the runtime cannot
 draw, and why; palettes with gradients and their upgrade, and palettes with a part missing or empty named in plain
-words, never a crash; colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and
+words, never a crash; every reason a layer is not drawn in the preview now (an image the atlas lacks, at any moment; the
+runtime's note on the frame; the tier shown, with the tiers it shows in; an effect's errors, first; a projectile none);
+colour edits and their undo; glows drawn from gradients; gradients on smoke, the fire's bed and
 bursts (colours at given ages and places, each burst piece over its own life, banded edges at the stops, a smooth
 gradient keeping the bed's own bands, alpha, a banded stop's alpha in its band and in the detail, faction roles, both
 bed parts on the same band edges, every band still reaching past the bed's middle, the white-hot spots on the middle
@@ -223,7 +238,8 @@ same colours, the two defaults, the folder made on first use, every route and st
 missing or empty listed with why and deleted like any other, import adding or finding a profile, an import refusing an
 export whose palette.json has such a part, loading a profile keeping what the effects use, and the default bed gradient
 drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
-on, within budget, how many numbers over, compared with the budgets that count), and the same words in Cost's header;
+on, within budget, how many numbers over, compared with the budgets that count), and the same words in Cost's header; the
+line saying which budgets count, and with none on how to switch on the level the boxes show or that its numbers are kept;
 the window's grid (the sidebars within
 their limits, both giving way so the centre keeps 640 px, the effects list's and the timeline's limits, the sizes
 remembered); numbers typed with a decimal point or a comma, a drag in whole steps, a value kept within its limits and
@@ -235,9 +251,9 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (357 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (380 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport, undo, Fire, dragging,
-the generated forms, the words box (a word typed again keeps its chance), the layers that cannot draw (an image that did
+the generated forms, the words' rows (a word typed again keeps its chance), the layers that cannot draw (an image that did
 not load, one not in the project), the right panel (a layer's settings first, under a header whose effect name, like
 Esc, leads back to the effect's settings, but Esc not while typing; what draws each layer; a projectile's riders and the
 "rides" tag in the Layers list; the colours of the selection, Show all, and their short animation, none with reduced
@@ -264,7 +280,12 @@ their see-through checkboxes over them taking Tab and Space (one undo step each)
 rows in the brief's order, its picture as wide as the panel allows and at most 160 px tall, a click on it moving the pivot
 (one undo step); readouts at the end of their sections; a glow's gradient's edit button opening the picker at its
 gradients, with the gradient chosen in the editor; and phase 6's done-when at 1920 × 1080: a sprite's Look, Layer, Image
-and Size and place, and the effect's Effect, Scale, Phases and Colour, without scrolling), Fade
+and Size and place, and the effect's Effect, Scale, Phases and Colour, without scrolling; and Part B: a word layer's words
+with their chances, a % box per word, Remove, Add word, "No word: 40 %", the red note over 100 %, the 1,000-shot line as the
+game's own pick counts it, capitals, one undo step per change and Tab through an empty box changing nothing; a gradient
+picked on smoke, a fire's bed and a burst, drawn in the runtime's buffers and one undo step each, with a glow's edit button;
+the "not drawn" warning over the preview and under what draws a layer, for a layer the tier leaves out, an effect whose
+errors stop the preview and, on a throwaway project, an image that does not decode, also with Show hints off), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a
@@ -280,8 +301,10 @@ tag and the line saying what draws a layer explaining themselves; every
 label and section title of every layer of both examples, and every control of the bars, with a help text; every hint in
 the right panel one line, two at most, at the default width; the full words of each rewritten hint in the tooltip of what
 it explains; the Game events hint in its tooltip's words), the add menu,
-phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on the project's budgets, and the card
-says which level counts, in one or two lines even for a class with a long name), saving after deleting an effect (its
+phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on its level, and the card
+says which level counts, in one or two lines even for a class with a long name), the Budgets place on a throwaway project
+(each level on and off, numbers at each level, a class picked, made with New class…, renamed and deleted, which level
+counts, every change one undo step, saved in project.json), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
 shell (the window's grid at 1920 × 1080 and 2560 × 1440, with at least 8 track rows and 14 layer rows showing at 1920; the four
 splitters: a drag, their limits (with the effects list at its largest, the Layers header and its + staying in the column, and a
@@ -392,9 +415,9 @@ These write pictures to `out/` (kept out of git):
     draws as a gap, so one layer can show two words, such as KA BOOM).
   - **Words with chances** (version 5): each word of a word layer can have a chance in percent; words without one share what
     is left, and when every word has one and they add up to less than 100, the rest of the plays show no word. A word layer
-    with no chances shows the same word for every seed as before. Setting chances in the editor comes with the new UI; the
-    words box keeps them when you type the list again. The odds are counted over 1,000 plays with the runtime's own pick,
-    ready for the new UI to show.
+    with no chances shows the same word for every seed as before. In the editor (UI phase 6, Part B) each word is a row with
+    its chance in %; the panel says what is left for no word, warns over 100 %, and counts 1,000 shots with the runtime's
+    own pick.
   - **The letters J, Q, V, X and Y**: drawn by Shamble VFX in the drawing board's style, so a word can use every letter from A
     to Z. They wait for the Art lead's review (see Assumptions).
   - **Phases**: wind-up, peak and fade. Layers start with a phase, last until one ends, or break up during one.
@@ -412,8 +435,9 @@ These write pictures to `out/` (kept out of git):
 - **Cost** per effect and tier ([docs/cost.md](docs/cost.md)): draws, sprites alive, triangles, screen area and CPU ms,
   against budgets you type. None is decided, so none is made up.
   - **Budgets at three levels**: the project's, classes (Small, Normal and Big to start with) and an effect's own, each off
-    until it is switched on. The closest level that is on counts, as a whole set. Cost shows which one; today it edits the
-    project's (its Budgets toggle shows the boxes).
+    until it is switched on. The closest level that is on counts, as a whole set. Cost shows which one, and its Budgets
+    place (under its Budgets toggle) switches each level on or off, edits each level's numbers, makes, renames and deletes
+    classes and picks each effect's class.
   - **`project.json` version 2** (with `paletteProfile` and the new budgets), read and written by one reader shared by the
     local server, the command line and the editor. Version 1 projects still open; an export's `editor.json` is version 2,
     and import reads the older one too.
@@ -427,7 +451,8 @@ These write pictures to `out/` (kept out of git):
   names any the palette lacks, and what the layer needs it for ([docs/colours.md](docs/colours.md)).
 - **Layers that cannot draw**: the runtime notes, frame by frame, each layer it skips because its image is not in the atlas.
   The editor turns that into plain words ("the image muzzle_flash.png did not load", "the image … is not in the
-  project"), ready for the new UI. A layer the tier leaves out is not a fault and gets no note.
+  project"). A layer the tier leaves out is not a fault and gets no note. Since UI phase 6's Part B the preview and the
+  layer's panel say when a layer is not drawn and why: its image, the tier shown, or errors in its effect.
 - **The export** ([docs/export.md](docs/export.md)): one folder with a manifest (effect names, versions and the game events
   each answers), one JSON file per effect, one packed atlas with its map. A checker names missing images, unknown roles and
   schema errors. Importing an export gives back the same effects.
@@ -446,11 +471,14 @@ These write pictures to `out/` (kept out of git):
 - **The right panel shows what is selected**: the effect's settings, or one layer's only, under a header that leads back
   to the effect (its name, or Esc) and has a More menu. Every layer says what draws it; a projectile lists the layers riding
   it, and they say so in the Layers list. The colour list shows the colours of the selection (Show all: every colour, the
-  selection's in bold). Since UI phase 6 (its first slices, docs/ui-redesign.md 6.6), each setting is a row, numbers are
+  selection's in bold). Since UI phase 6 (docs/ui-redesign.md 6.6), each setting is a row, numbers are
   dragged or typed, two or three numbers share a row, a colour setting shows its swatch, and while the checker finds
   problems a strip under the header lists them. The effect's settings are sections that fold (Effect with a Folder select,
-  Scale, Phases with a bar of the three lengths, Colour with the main colour, and Cost, closed at first); a layer's start
-  with the Look and its Layer section (Shows in as three chips), and a sprite's picture fills the panel's width.
+  Scale, Phases with a bar of the three lengths, Colour with the main colour, and Cost, closed at first, with the Budgets
+  place); a layer's start with the Look and its Layer section (Shows in as three chips; a line when the preview does not
+  draw it, and why), and a sprite's picture fills the panel's width. Phase 6's Part B, the on-screen part of what Mustafa
+  approved on 2026-11-15: a word's chances, gradients on smoke, the fire's bed and bursts, budgets at three levels, the
+  "not drawn" warning.
 - **Seeing what is selected**: a layer's settings start with its **Look**, a live picture of the layer alone drawn by the
   runtime, and the other layers fade in the preview while a layer is selected or its row is under the mouse (**Fade other
   layers**, in the bar above the preview).
@@ -472,11 +500,8 @@ These write pictures to `out/` (kept out of git):
   the bar, or beside it); a click on a bar selects its layer; a playhead whose head drags, drawn under every label.
 
 Not yet: sound, camera shake and hit-stop; a shade input so smoke darkens in shadow; a way for tiers to drop parts of one
-layer (such as tones in a star), not only whole layers; a gradient choice for smoke, the bed and bursts in the editor's form
-(the runtime draws them; the choice comes with the new UI); renaming or removing colours and gradients; showing the word odds
-and the layers that cannot draw (the functions are there; the new UI shows them); setting classes and
-an effect's own budgets in the editor (the files hold them, and the functions are there; the Budgets place in Cost comes with
-UI phase 6's part B); the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
+layer (such as tones in a star), not only whole layers; renaming or removing colours and gradients; an image burst's
+image in the editor's form; the buttons for palette profiles (load, save, save as new, rename, delete, restore the defaults: the local server, the
 store and the load function are there; the buttons, and naming the profile in the project when one is loaded or saved, come
 with the new UI; today only an import names it).
 
@@ -520,10 +545,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **Colours after milestone 3** (proposals): one palette per project; the nine ready-made gradients; `team.dark` and
   `glow.hot` worked out again only when asked; the icons.
 - **Word chances** (the rules themselves are the approved plan, and "the rest shows no word" is Mustafa's choice): a chance may
-  have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. In the
-  words box, a word typed again keeps its chance when its text is the same, capitals or not (words are drawn in capitals)
-  and with or without spaces at either end (they add nothing to the drawing); a word typed twice is matched in order (the
-  first BOOM takes the first old BOOM's chance).
+  have decimals (12.5 %); chances that add up to 100 within a billionth (33.3 + 33.3 + 33.4) count as exactly 100. A list of
+  words typed again (`wordsFromText`, which the words box used until UI phase 6 made each word a row) keeps a word's chance
+  when its text is the same, capitals or not (words are drawn in capitals) and with or without spaces at either end (they
+  add nothing to the drawing); a word typed twice is matched in order (the first BOOM takes the first old BOOM's chance).
+  The rows keep a chance with its row (see "The inspector", Part B).
 - **The colours a layer can use** (the plan says which ones; how far the list reaches is ours):
   - The list holds every colour the runtime looks up for the layer, which is a little more than it can show: a burst's ink
     when its pieces have no ink edge (and an image burst's), a dashed or closing ring's ink, a burst's own colour when a
@@ -536,15 +562,17 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     draws the same in each tier it shows in). In the examples the runtime asks for every colour on the list. The made-up
     layers name the roles it never asks for, and why.
 - **Layers that cannot draw**: a note is about the moment shown (the runtime's note on the last frame), so a layer that is
-  not on at that moment gets none. Both notes name the image ("the image dust_puff.png is not in the project").
+  not on at that moment gets none. Both notes name the image ("the image dust_puff.png is not in the project"). The "not
+  drawn" warning of UI phase 6 does not wait for that moment: the atlas already says the layer cannot draw, so the warning
+  shows at any moment (see "The inspector", Part B).
 - **Budgets at three levels and `project.json` version 2** (the levels, "off until switched on", which one counts, the three
   starting classes and "old budgets become the project's, switched off" are the approved plan; these details are ours):
   - A class has an `id`, made from its first name and kept when it is renamed; an effect's entry names that `id`. A class
     name has 1 to 64 letters, no tabs or line breaks, and is unique without regard to upper and lower case (the rule planned
     for palette profile names). A file's class that an effect names but the list lacks is read as no class.
-  - Until the Budgets place in Cost (UI phase 6, part B): the boxes (shown with Cost's Budgets toggle on) show and edit the
-    project's budgets, and the colours compare with the level that counts. Changing a number switches the project's budgets
-    on; clearing one does not switch them off.
+  - In Cost's Budgets place (UI phase 6, Part B), a number typed switches its level on (the project's, class budgets for the
+    whole project, or the effect's own), as the boxes did for the project's before; clearing one does not switch it off.
+    The colours compare with the level that counts.
   - Saving leaves out of `project.json` the budgets of effects the project no longer has. The editor keeps them until you
     leave, so undoing a delete brings the effect back with its budgets, and the next save writes them again: `project.json`
     is written whenever the effects differ from the ones it was last read or written with, even with nothing else changed.
@@ -936,9 +964,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     labels' tooltips too (Intensity's tooltip now also says it never makes anything see-through). Where a short line did
     not quite say what the code does, it does now: Size also scales shapes, words and pieces (the brief's example named
     sprites and offsets only); Duration stretches a flight with a fixed time and leaves a flight by speed to distance ÷
-    speed; the cost card's boxes are the project's budgets, while a class's or the effect's own budgets can count instead
-    (the line under the table says which), so the line says "The boxes are the project's budgets" (the brief's example:
-    "Budgets are shared by the project").
+    speed; the cost card's budgets come at three levels, so its line says "Budgets: the project's, a class's or its own."
+    (UI phase 6, Part B; before, when the boxes were the project's only, "The budgets are the project's"; the brief's
+    example: "Budgets are shared by the project").
   - Game events' line says the game **starts** an effect by its names ("Names the game starts this effect by, separated by
     commas."), as its tooltip and What to click say. The brief's example says "plays"; one name for one thing.
   - The Layers title's tooltip starts with "Top of the list draws on top." (6.2); its hint, "top draws on top", stays.
@@ -1077,9 +1105,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     has them.
 - **The inspector** (UI phase 6 of [docs/ui-redesign.md](docs/ui-redesign.md): the property rows, numbers you drag or type,
   rows of two or three numbers with prefixes, sliders, segmented choices, the colour roles' swatches and the folds are the
-  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 comes in slices; these are the first four's (the
-  rows and fields; the header's More menus, the problems banner, and Cost and Checks out of a layer's view; the effect's
-  sections; a layer's view):
+  brief's; these choices are ours, not Mustafa's or the brief's). Phase 6 came in six slices: the rows and fields; the
+  header's More menus, the problems banner, and Cost and Checks out of a layer's view; the effect's sections; a layer's
+  view; then Part B on screen (the last items):
   - **Rows**: 28 px, with 4 px between them, as the brief's words say (a row 32 px from the next). The label column is at
     least 84 px and at most 38 % of the row, so 103 px at 1920 and 112 px at 2560. Every control fills its column, number
     boxes too, so the numbers, right-aligned, line up at the panel's right edge. A checkbox's words sit in the label column
@@ -1183,16 +1211,17 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     right end of the header, outside the fold's summary: a control inside a summary would fold the section, and outside the
     fold it shows while the section is closed. The long explanation is the title's tooltip; the measuring conditions are the
     tooltip of an info icon after "Measured over …" (shown once measured). The hint is "Most at any moment, 60 frames a
-    second. The budgets are the project's." The table is the same, with 3 px above and under each number. The row names
+    second. Budgets: the project's, a class's or its own." The table is the same, with 3 px above and under each number. The row names
     have 37 % of the table, 100 px at 1920, wide enough for "CPU ms a frame", so they show whole: before, a table that takes
     its column widths from its first row gave them a quarter of the table (about 68 px at 1920), and they ended in an
     ellipsis. In a narrower panel (the right panel dragged to its 260 px) a long name wraps, and "Medium" over its column
     ends in an ellipsis rather than running into "High".
   - **The Budgets toggle**: a checkbox row under the table, off at first and remembered in this browser (vfx-budgets). On,
-    a budget box shows under each number. While one of the project's budgets is set, the boxes stay: the toggle shows on and
-    cannot be switched off, and its tooltip says why. The line saying which budgets count shows with the boxes, or whenever
-    a level of budgets counts; with none on and no boxes it would ask for a number where no box shows. Part B's Budgets
-    place goes under this toggle.
+    a budget box shows under each number, and the Budgets place under the toggle (Part B, below). While a budget is set
+    for the effect at any of its three levels (the project's, its class's, its own), the boxes stay: the toggle shows on
+    and cannot be switched off, and its tooltip says why. The line saying which budgets count shows with the boxes, or
+    whenever a level of budgets counts; with none on and no boxes it would ask for a number where no box shows (it is then
+    emptied, not hidden with words in it).
   - **A select or a text box too narrow for its value** (the browser draws no ellipsis in a closed select; a text box now
     ends in one while it does not have the focus, as a long effect name does at 1920): its tooltip gives the value whole,
     then the help text of its row's label, by the pointer and, at once, by the keyboard's focus. One whose value fits has no
@@ -1200,7 +1229,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **A layer's view** (slice 4): the Look, then **Layer**, a section that folds like the others, with the layer's kind
     muted on the right of its title ("Sprite", "Shape"…): what draws the layer, its Name and Shows in. Folding Layer hides
     the line that says what draws the layer with the name and the tiers, as folding the Look hides the Look; Part B's "not
-    drawn" warning can sit next to that line. A projectile's Layer has its name only (it has no tiers).
+    drawn" warning sits under that line, in the same element. A projectile's Layer has its name only (it has no tiers).
   - **Shows in, as chips**: three chips, each its tier's icon (tier-low, tier-medium, tier-high) and word; on: the field
     colour with the icon in --accent-ink (a toggle that is on); off: only a 1 px edge. The chips with their words need about
     190 px and the control column has 161 at 1920, so this row lets them start left of the column, on the right of its
@@ -1221,6 +1250,52 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **A glow's gradient** has an edit button (the pencil) after its select: until the picker's tabs come (UI phase 7), it
     opens the picker on the glow's colour, scrolled to its Gradients section, opened, with the keyboard focus on its title,
     and the gradient chosen open in the gradient editor (none chosen: the editor as it was). Its hint says so.
+  - **Part B on screen** (slices 5 and 6: the plan Mustafa approved on 2026-11-15 says what each part does; these details
+    are ours):
+  - **Budgets are undone like any edit.** Before, a budget typed in Cost was not an undo step (game events and a scene
+    still are not: they live in project.json too). This round's brief asks for one undo step per budget change, so every
+    budget change is now one at every level, the project's boxes too, which had none: the budgets are part of the editor's
+    document. A save writes
+    project.json whenever they differ from the ones it last read or wrote; undoing past a save marks the project unsaved
+    again, as for any edit. A duplicate's own budgets, and a new effect forgetting the budgets of a deleted effect with its
+    id, are in the same undo step as the effect.
+  - **A word's chance**: the words are rows, one per word: the word (Plex Mono, typed into the file, in capitals as you
+    type), its chance in a % box, and Remove (the bin). They keep the label "Words (one picked per play)", so the settings
+    inventory lists them as before. A row keeps its chance when its word is typed again or spelled another way (the words
+    box kept a chance only when the text stayed the same). Add word adds BOOM (a new word layer's word) with no chance under
+    the last one; its box takes the focus with its text chosen, to type over. An empty word puts the old one back; a comma
+    stays in a word (the checker warns that it is not drawn). The file's limits hold in the rows: 1 to 16 words, 24
+    characters each, a chance from 0 to 100 % with up to three decimals; the last word has no Remove and the 16th no Add
+    word, their tooltips say why. ↑ and ↓ step a chance by 1 (an empty box starts from the share it shows). The faint number
+    in an empty box is the share it gets now (one decimal). "No word: 40 %", the red note over 100 % and the 1,000-shot line
+    carry a state: Show hints off keeps them. The note's total has two decimals at most, more only when it takes them to
+    show it passes 100, as the checker's warning. The line counts seeds 1 to 1,000 with the runtime's own pick
+    (src/doc/odds.ts), "no word" last; with Changes every play off every shot shows the same word, and its tooltip says so.
+  - **Gradients on smoke, the fire's bed and bursts**: each next to the colour it takes the place of: smoke's after its
+    Colour, the bed's before its Tones, a burst's after its pieces' Look (a glow's stays at the end of its section, where it
+    was). Smoke and a burst say "Gradient over life", a bed "Gradient, middle to rim", as a glow; no gradient is "None: its
+    Colour", "None: the tones" or "None: its Look". The pencil opens the colour picker at its gradients, on smoke's Colour,
+    the bed's middle tone (its last) or the pieces' colour (the effect's main colour for image pieces), with the gradient
+    chosen open in the editor. The picker's "Use on the selected glow" stays a glow's (the picker is phase 7), so for these
+    layers the gradient is picked in their own choice.
+  - **The Budgets place**, under Cost's Budgets toggle: Boxes show (Project, Class, Own; the full words in their tooltips),
+    Project budgets, Class budgets (class budgets for the whole project), Class (No class, the classes in their order, New
+    class…), and Its own budgets. The boxes show the numbers of the level that counts at first (the project's when none
+    does); a choice made in Boxes show is kept for that effect while the editor runs, not after a reload. Class is off in
+    Boxes show while the effect has no class. The pencil after Class renames the effect's class and the bin deletes it
+    (after asking; undo brings it back); New class… asks for a name in the question dialog, as New folder… does (a third
+    way into the dialog's Enter question that waits for Mustafa), and puts the effect in the new class. A class name is 1
+    to 64 characters, unique whatever its capitals; the dialog takes 60. With no level on, the line under the place says how
+    to switch on the level the boxes show ("Type a number to switch on class budgets.") or that its numbers are kept but
+    off.
+  - **"Not drawn"**: over the preview, in its lower left corner above the drag hint, on the labels' background with the
+    warning icon in --bad; a state, so Show hints off keeps it. It names every layer of the effect shown whose image is not
+    there and that the tier shown draws; the selected layer, for any reason (a layer the tier leaves out is named only when
+    it is selected: the Layers list fades those already); and the effect once, while its errors stop the preview. At most
+    three lines ("And 2 more layers are not drawn."). In a layer's panel, a red line under what draws it, one per reason.
+    The words are the runtime's notes' ("the image muzzle_flash.png did not load", "… is not in the project"), "the Low
+    tier leaves it out: it shows in Medium and High" and "its effect has errors that stop the preview". Known from the
+    atlas, it shows at any moment (and before the images have loaded, never); a projectile, which draws nothing, gets none.
 
 ## Claude skills
 

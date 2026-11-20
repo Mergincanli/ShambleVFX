@@ -4,7 +4,7 @@ import paletteJson from '@shamble/vfx-format/palette.json';
 import { newBurstLayer, newEffect, newSpriteLayer } from '@shamble/vfx-format';
 import type { EffectFile, Palette, Vec3 } from '@shamble/vfx-format';
 import { VfxRenderer } from '@shamble/vfx-runtime';
-import { notDrawnNotes } from '../src/doc/not-drawn';
+import { notDrawnNotes, notDrawnReasons } from '../src/doc/not-drawn';
 
 const palette = paletteJson as Palette;
 
@@ -59,5 +59,53 @@ describe('the layers that cannot draw, in plain words', () => {
     // At 400 ms the sprites are over; the chips still fly.
     expect(frame('high', 400)).toEqual(['Chips: the image chip.png is not in the project']);
     vfx.dispose();
+  });
+});
+
+describe('why each layer is not drawn in the preview now (the "not drawn" warning)', () => {
+  const words = (rs: ReturnType<typeof notDrawnReasons>) => rs.map((r) => `${r.name} (${r.why}): ${r.text}`);
+  const atlas = new Set(['flash.png', 'glint.png', '__white']);
+
+  it('names an image the atlas does not have at any moment, as notDrawnNotes words it', () => {
+    const fx = effect();
+    expect(words(notDrawnReasons(fx, { atlasImages: atlas, projectImages, notDrawn: [], tier: 'high', waits: false }))).toEqual([
+      'Dust puff (not-loaded): the image puff.png did not load',
+      'Chips (missing): the image chip.png is not in the project',
+    ]);
+    // No atlas yet (the images are still loading): nothing is said about them.
+    expect(notDrawnReasons(fx, { atlasImages: null, projectImages, notDrawn: [], tier: 'high', waits: false })).toEqual([]);
+  });
+
+  it('takes what the runtime noted on the frame too, once per layer', () => {
+    const fx = effect();
+    const noted = [{ effect: 'shot', layer: 'flash', index: 0, image: 'flash.png' }, { effect: 'shot', layer: 'puff', index: 1, image: 'puff.png' }];
+    expect(words(notDrawnReasons(fx, { atlasImages: atlas, projectImages, notDrawn: noted, tier: 'high', waits: false }))).toEqual([
+      'Flash (not-loaded): the image flash.png did not load',
+      'Dust puff (not-loaded): the image puff.png did not load',
+      'Chips (missing): the image chip.png is not in the project',
+    ]);
+  });
+
+  it('names a layer the tier leaves out, with the tiers it shows in, before its image', () => {
+    const fx = effect();
+    fx.layers[1] = { ...fx.layers[1]!, tiers: ['medium', 'high'] } as typeof fx.layers[1];
+    expect(words(notDrawnReasons(fx, { atlasImages: new Set(['flash.png', 'puff.png', 'glint.png', 'chip.png']), projectImages, notDrawn: [], tier: 'low', waits: false }))).toEqual([
+      'Dust puff (tier): the Low tier leaves it out: it shows in Medium and High',
+      'Glint (tier): the Low tier leaves it out: it shows in High',
+    ]);
+    expect(words(notDrawnReasons(fx, { atlasImages: atlas, projectImages, notDrawn: [], tier: 'low', waits: false }))).toEqual([
+      'Dust puff (tier): the Low tier leaves it out: it shows in Medium and High',
+      'Dust puff (not-loaded): the image puff.png did not load',
+      'Chips (missing): the image chip.png is not in the project',
+      'Glint (tier): the Low tier leaves it out: it shows in High',
+    ]);
+  });
+
+  it('says every layer waits while the effect has errors that stop the preview, first; a projectile gets nothing', () => {
+    const fx = effect();
+    fx.layers.push({ ...fx.layers[0]!, id: 'p', name: 'Path', type: 'projectile' } as unknown as typeof fx.layers[0]);
+    const r = notDrawnReasons(fx, { atlasImages: atlas, projectImages, notDrawn: [], tier: 'high', waits: true });
+    expect(words(r).slice(0, 4)).toEqual(['Flash', 'Dust puff', 'Chips', 'Glint'].map((n) => `${n} (errors): its effect has errors that stop the preview`));
+    expect(r.some((x) => x.layer === 'p')).toBe(false);
   });
 });

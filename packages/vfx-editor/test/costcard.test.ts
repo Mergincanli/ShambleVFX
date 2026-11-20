@@ -1,6 +1,6 @@
 /**
- * The cost card's level line (src/app/costcard.ts): which level of budgets counts, in one short hint line, with where they
- * are set and what the boxes show in its tooltip. The browser check measures the line as drawn.
+ * The cost card's level line (src/app/costcard.ts): which level of budgets counts, in one short line, with why in its
+ * tooltip; with none on, how to switch on the level the boxes show. The browser check measures the line as drawn.
  */
 import { describe, expect, it } from 'vitest';
 import { LEVEL_CLASS_SHOWN, costSummary, levelText } from '../src/app/costcard';
@@ -19,7 +19,7 @@ describe('the level line', () => {
     expect(line.text).toBe('The budgets of its class "Big explosions that…" count.');
     expect([...line.text.split('"')[1]!]).toHaveLength(LEVEL_CLASS_SHOWN);
     expect(line.title).toContain(`"${LONG}"`);
-    expect(line.title).toContain('project.json');
+    expect(line.title).toContain('class budgets are on');
     // A short name is shown whole.
     const short = budgets({ classes: { on: true, list: [{ id: 'big', name: 'Big' }] }, effects: { board_shell: { class: 'big' } } });
     expect(levelText(budgetThatCounts(short, 'board_shell'), short).text).toBe('The budgets of its class "Big" count.');
@@ -29,7 +29,7 @@ describe('the level line', () => {
     const own = budgets({ effects: { rifle_shot: { on: true, limits: { high: { draws: 1 } } } } });
     expect(levelText(budgetThatCounts(own, 'rifle_shot'), own)).toEqual({
       text: 'This effect\'s own budgets count.',
-      title: 'This effect\'s own budgets are on, so they count for it. They are set in project.json for now; the boxes show and edit the project\'s budgets.',
+      title: 'This effect\'s own budgets are on, so they count for it, whatever its class\'s and the project\'s say.',
     });
     const project = budgets({ project: { on: true, limits: { high: { draws: 1 } } } });
     expect(levelText(budgetThatCounts(project, 'rifle_shot'), project).text).toBe('The project\'s budgets count for this effect.');
@@ -39,6 +39,20 @@ describe('the level line', () => {
     expect(levelText(budgetThatCounts(kept, 'rifle_shot'), kept).text).toBe('No budgets are on. The project\'s numbers are kept but off: change one to switch them on.');
     const longest = budgets({ classes: { on: true, list: [{ id: 'big', name: 'W'.repeat(64) }] }, effects: { board_shell: { class: 'big' } } });
     expect([...levelText(budgetThatCounts(longest, 'board_shell'), longest).text].length).toBeLessThan(60);
+  });
+
+  it('with no level on, says how to switch on the level the boxes show, or that its numbers are kept but off', () => {
+    const none = budgets({});
+    const c = budgetThatCounts(none, 'rifle_shot');
+    expect(levelText(c, none, 'class', {}).text).toBe('No budgets are on. Type a number to switch on class budgets.');
+    expect(levelText(c, none, 'own', {}).text).toBe('No budgets are on. Type a number to switch on its own budgets.');
+    const keptClass = budgets({ classes: { list: [{ id: 'big', name: 'Big', limits: { high: { draws: 3 } } }] }, effects: { rifle_shot: { class: 'big' } } });
+    const big = keptClass.classes.list[0]!.limits;
+    expect(levelText(budgetThatCounts(keptClass, 'rifle_shot'), keptClass, 'class', big).text).toBe('No budgets are on. Its class\'s numbers are kept but off: change one to switch them on.');
+    const keptOwn = budgets({ effects: { rifle_shot: { limits: { low: { triangles: 10 } } } } });
+    expect(levelText(budgetThatCounts(keptOwn, 'rifle_shot'), keptOwn, 'own', keptOwn.effects.rifle_shot!.limits).text).toBe('No budgets are on. Its own numbers are kept but off: change one to switch them on.');
+    // Every line stays short: one line in the panel, two at most.
+    for (const [b, shows] of [[keptClass, 'class'], [keptOwn, 'own'], [none, 'project']] as const) expect([...levelText(budgetThatCounts(b, 'rifle_shot'), b, shows).text].length).toBeLessThan(90);
   });
 });
 

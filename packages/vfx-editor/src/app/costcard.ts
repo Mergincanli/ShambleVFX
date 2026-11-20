@@ -2,19 +2,20 @@
  * The cost card: an effect's cost per quality tier, next to budgets Mustafa types. No budget is decided yet, so the boxes
  * start empty and nothing is coloured until a number is typed.
  *
- * Budgets come at three levels (the project's, a class's, the effect's own: see ../cost/budgets.ts). For now (until the
- * Budgets place of UI phase 6's Part B), the boxes show and edit the project's budgets, a number typed switches them on, the
- * colours compare with the level that counts for the effect, and one short line says which level that is (more in its
- * tooltip). The card's lines that carry its state are not hints: Show hints off keeps them (the class state-line).
+ * Budgets come at three levels (the project's, a class's, the effect's own: see ../cost/budgets.ts). The Budgets toggle
+ * shows the boxes under the numbers and the Budgets place under it (UI phase 6, Part B): which level's numbers the boxes
+ * show, each level switched on or off, and the effect's class (New class…, rename, delete). A number typed switches its level
+ * on. The colours compare with the level that counts for the effect, and one short line says which level that is (more in
+ * its tooltip). The card's lines that carry its state are not hints: Show hints off keeps them (the class state-line).
  */
 import { TIER_NAMES } from '@shamble/vfx-format';
 import type { TierName } from '@shamble/vfx-format';
-import { budgetOf, budgetThatCounts, COST_METRICS, hasLimits } from '../cost/budgets';
-import type { Budgets, CostMetric, CountingBudget } from '../cost/budgets';
+import { budgetOf, budgetThatCounts, COST_METRICS, hasLimits, setEffectClass, setLevelOn } from '../cost/budgets';
+import type { BudgetClass, Budgets, CostMetric, CountingBudget, Limits, LimitsRef } from '../cost/budgets';
 import { FRAMES_PER_SECOND, measuredOf } from '../cost/measure';
 import type { CostReport, TierCost } from '../cost/measure';
 import type { AppApi } from './api';
-import { checkField, fold, h, icon, tip } from './dom';
+import { checkField, fold, h, icon, iconButton, segmented, selectField, tip } from './dom';
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 /** The rows' names. What each counts is its tooltip: the help text for the name (help.ts), as for every label. */
@@ -32,25 +33,35 @@ function shownName(name: string): string {
   return chars.length > LEVEL_CLASS_SHOWN ? `${chars.slice(0, LEVEL_CLASS_SHOWN - 1).join('').trimEnd()}…` : name;
 }
 
+/** Whose numbers the budget boxes show and edit: the project's, the effect's class's, or the effect's own. */
+export type BoxLevel = 'project' | 'class' | 'own';
+
+/** The words for a level of budgets, as the level line says them: "the project's budgets", "its class's", "its own". */
+const LEVEL_WORDS: Record<BoxLevel, { switchOn: string; kept: string }> = {
+  project: { switchOn: 'the project\'s budgets', kept: 'The project\'s numbers are' },
+  class: { switchOn: 'class budgets', kept: 'Its class\'s numbers are' },
+  own: { switchOn: 'its own budgets', kept: 'Its own numbers are' },
+};
+
 /**
  * The level line: whose budgets the colours compare with, in one short line (`text`), and the rest in its tooltip
- * (`title`): where those budgets are set, and what the boxes show.
+ * (`title`). With no level on, it says how to switch on the level the boxes show (`shows`), or that its numbers are kept.
  */
-export function levelText(c: CountingBudget, b: Budgets): { text: string; title: string } {
-  const elsewhere = 'They are set in project.json for now; the boxes show and edit the project\'s budgets.';
+export function levelText(c: CountingBudget, b: Budgets, shows: BoxLevel = 'project', shownLimits: Limits = b.project.limits): { text: string; title: string } {
   switch (c.level) {
-    case 'effect': return { text: 'This effect\'s own budgets count.', title: `This effect's own budgets are on, so they count for it. ${elsewhere}` };
+    case 'effect': return { text: 'This effect\'s own budgets count.', title: 'This effect\'s own budgets are on, so they count for it, whatever its class\'s and the project\'s say.' };
     case 'class': {
       const name = c.class?.name ?? '';
-      return { text: `The budgets of its class "${shownName(name)}" count.`, title: `The effect is in the class "${name}", and the class level is on, so the class's budgets count for it. ${elsewhere}` };
+      return { text: `The budgets of its class "${shownName(name)}" count.`, title: `The effect is in the class "${name}", and class budgets are on, so the class's budgets count for it. Its own budgets are off.` };
     }
-    case 'project': return { text: 'The project\'s budgets count for this effect.', title: '' };
-    case 'none': return {
-      text: hasLimits(b.project.limits)
-        ? 'No budgets are on. The project\'s numbers are kept but off: change one to switch them on.'
-        : 'No budgets are on. Type a number to switch on the project\'s budgets.',
-      title: '',
-    };
+    case 'project': return { text: 'The project\'s budgets count for this effect.', title: 'Its own budgets are off, and no class budgets count for it, so the project\'s count.' };
+    case 'none': {
+      const w = LEVEL_WORDS[shows];
+      return {
+        text: hasLimits(shownLimits) ? `No budgets are on. ${w.kept} kept but off: change one to switch them on.` : `No budgets are on. Type a number to switch on ${w.switchOn}.`,
+        title: '',
+      };
+    }
   }
 }
 
@@ -112,6 +123,28 @@ function readBudgetsOn(): boolean {
 }
 
 /**
+ * Which level's numbers the boxes show, per effect, while the editor runs (the card is built again for every selection).
+ * An effect not in here shows the level that counts for it, or the project's when none does.
+ */
+const boxLevels = new Map<string, BoxLevel>();
+
+/** The Class select's last choice: a value no class id can have (ids are lowercase letters, digits, - and _). */
+const NEW_CLASS = ' new class';
+
+/** The effect's class, when it has one that is in the list. */
+function classOf(b: Budgets, effectId: string): BudgetClass | undefined {
+  const id = b.effects[effectId]?.class;
+  return id ? b.classes.list.find((c) => c.id === id) : undefined;
+}
+
+/** The numbers at a level for an effect (a class's: its class's; none when it has no class), and where they are set. */
+function levelLimits(b: Budgets, effectId: string, level: BoxLevel): { limits: Limits; where: LimitsRef | null } {
+  if (level === 'project') return { limits: b.project.limits, where: 'project' };
+  if (level === 'class') { const c = classOf(b, effectId); return c ? { limits: c.limits, where: { class: c.id } } : { limits: {}, where: null }; }
+  return { limits: b.effects[effectId]?.limits ?? {}, where: { effect: effectId } };
+}
+
+/**
  * The Cost section (docs/ui-redesign.md 6.6): a fold, closed at first, at the end of the effect's settings. Its header says
  * the state in a few words (costSummary: the status bar's words) and has the Measure button, which shows open or closed:
  * it sits outside the fold's summary, over its right end, as a control inside a summary would fold the section. The body:
@@ -128,7 +161,16 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   const heading = h('span', { class: 'cost-sum' });
   const measure = h('button', { class: 'tb cost-measure', attrs: { type: 'button', 'data-help-label': 'Measure' }, on: { click: () => app.measureCost() } },
     icon('gauge'), h('span', { text: 'Measure' }));
-  const cells = new Map<string, { main: HTMLElement; sub: HTMLElement; cell: HTMLElement; box: HTMLInputElement }>();
+  const fxId = () => app.effect()?.id ?? '';
+  /** Which level's numbers the boxes show: the one chosen for this effect, else the level that counts, else the project's. */
+  const shows = (): BoxLevel => {
+    const b = app.budgets(), id = fxId();
+    const chosen = boxLevels.get(id);
+    const level = chosen ?? (({ effect: 'own', class: 'class', project: 'project', none: 'project' } as const)[budgetThatCounts(b, id).level]);
+    // A class's numbers need a class: with none, the project's show.
+    return level === 'class' && !classOf(b, id) ? 'project' : level;
+  };
+  const cells = new Map<string, { main: HTMLElement; sub: HTMLElement; cell: HTMLElement; box: HTMLInputElement; written: string }>();
   const rows = COST_METRICS.map((m) => h('tr', {},
     h('th', { attrs: { scope: 'row' }, text: METRIC_LABEL[m] }),
     ...TIER_NAMES.map((t) => {
@@ -136,13 +178,17 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
       const box = h('input', { class: 'budget', attrs: { type: 'number', min: '0', step: m === 'ms' ? '0.1' : m === 'area' ? '0.5' : '1', placeholder: 'budget',
         'aria-label': `Budget: ${METRIC_LABEL[m]}, ${TIER_LABEL[t]}` } });
       box.addEventListener('change', () => {
+        const c = cells.get(`${m}:${t}`)!;
+        const at = levelLimits(app.budgets(), fxId(), shows());
         const s = box.value.trim();
         const v = s === '' ? undefined : Number(s);
-        if (v !== undefined && !(Number.isFinite(v) && v >= 0)) { box.value = String(budgetOf(app.budgets().project.limits, t, m) ?? ''); return; }
-        app.setBudget(t, m, v);
+        if (!at.where || (v !== undefined && !(Number.isFinite(v) && v >= 0))) { box.value = c.written = String(budgetOf(at.limits, t, m) ?? ''); return; }
+        // What is in the box now is what the card wrote: an undo pressed in it then shows at once (see refresh).
+        c.written = box.value;
+        app.setBudget(t, m, v, at.where);
       });
       const cell = h('td', {}, main, sub, box);
-      cells.set(`${m}:${t}`, { main, sub, cell, box });
+      cells.set(`${m}:${t}`, { main, sub, cell, box, written: '' });
       return cell;
     })));
   const table = h('table', { class: 'cost' },
@@ -150,7 +196,8 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     h('tbody', {}, ...rows));
   const heavy = h('p', { class: 'state-line cost-heavy' });
   const level = h('p', { class: 'state-line cost-level' });
-  // The Budgets toggle: the budget boxes under the numbers show while it is on, or while a budget is set (then it stays on).
+  // The Budgets toggle: the budget boxes under the numbers, and the Budgets place under it, show while it is on, or while
+  // a budget is set (then it stays on).
   let budgetsOn = readBudgetsOn();
   const budgetsBox = checkField({ label: 'Budgets', value: budgetsOn, onChange: (v) => {
     budgetsOn = v;
@@ -158,10 +205,11 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     refresh();
   } });
   budgetsBox.el.classList.add('cost-budgets');
+  const place = budgetPlace(app, fxId, shows, () => refresh());
   const body = [status, table, heavy,
     // One line; the full words are the tooltip of the section's title (help.ts, "Cost").
-    h('p', { class: 'hint', text: `Most at any moment, ${FRAMES_PER_SECOND} frames a second. The budgets are the project's.` }),
-    budgetsBox.el, level];
+    h('p', { class: 'hint', text: `Most at any moment, ${FRAMES_PER_SECOND} frames a second. Budgets: the project's, a class's or its own.` }),
+    budgetsBox.el, place.el, level];
   const details = fold('Cost', body, false, [], { meta: heading, className: 'cost-fold' });
   const el = h('section', { class: 'card costcard' }, details, h('div', { class: 'cost-tools' }, measure));
 
@@ -179,23 +227,30 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     const budgets = app.budgets();
     const fx = app.effect();
     const counting = fx ? budgetThatCounts(budgets, fx.id) : undefined;
+    const level0 = shows();
+    const shown = levelLimits(budgets, fxId(), level0);
     // The header's words: the status bar's (one function), coloured by the state.
     const sum = costSummary(r, { stale, busy, counting });
     if (heading.textContent !== sum.heading) heading.textContent = sum.heading;
     heading.dataset.state = sum.state;
     tip(heading, sum.detail || null);
-    // The boxes show while Budgets is on, or while one of the project's budgets is set: then the toggle stays on.
-    const set = hasLimits(budgets.project.limits);
+    // The boxes show while Budgets is on, or while a budget is set for this effect (the project's, its class's, its own):
+    // then the toggle stays on.
+    const set = [levelLimits(budgets, fxId(), 'project'), levelLimits(budgets, fxId(), 'class'), levelLimits(budgets, fxId(), 'own')].some((x) => hasLimits(x.limits));
     const showBoxes = budgetsOn || set;
     budgetsBox.set(showBoxes);
     budgetsBox.box.disabled = set;
     tip(budgetsBox.el, set ? 'A budget is set, so the boxes stay. Clear the numbers to hide them.' : null);
     table.classList.toggle('with-budgets', showBoxes);
-    const line = counting ? levelText(counting, budgets) : { text: '', title: '' };
-    level.textContent = line.text;
-    level.title = line.title;
-    // With no budget on and no boxes, the line has nothing to say (it would ask for a number where no box shows).
-    level.hidden = !showBoxes && counting?.level === 'none';
+    place.el.hidden = !showBoxes;
+    place.refresh();
+    const line = counting ? levelText(counting, budgets, level0, shown.limits) : { text: '', title: '' };
+    // With no budget on and no boxes, the line has nothing to say (it would ask for a number where no box shows). A line
+    // that carries a state is never hidden with words in it: it is emptied instead.
+    const quiet = !showBoxes && counting?.level === 'none';
+    level.textContent = quiet ? '' : line.text;
+    level.title = quiet ? '' : line.title;
+    level.hidden = quiet;
     for (const m of COST_METRICS) {
       for (const t of TIER_NAMES) {
         const c = cells.get(`${m}:${t}`)!;
@@ -203,9 +258,12 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
         const v = cost ? valueText(cost, m) : { main: '–', sub: '' };
         c.main.textContent = v.main;
         c.sub.textContent = v.sub;
-        // The box shows the project's budget; the colour compares with the budget that counts.
-        const shown = budgetOf(budgets.project.limits, t, m);
-        if (document.activeElement !== c.box) c.box.value = shown === undefined ? '' : String(shown);
+        // The box shows the budget of the level chosen ("Boxes show"); the colour compares with the budget that counts. A box
+        // with the focus is written too unless something was typed in it, so an undo pressed in it shows at once.
+        const own = budgetOf(shown.limits, t, m);
+        const text = own === undefined ? '' : String(own);
+        if (document.activeElement !== c.box || c.box.value === c.written) { c.box.value = text; c.written = text; }
+        c.box.disabled = !shown.where;
         const b = counting ? budgetOf(counting.limits, t, m) : undefined;
         const over = cost && b !== undefined && !stale ? measuredOf(cost, m) > b : undefined;
         c.cell.classList.toggle('over', over === true);
@@ -221,6 +279,58 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
   };
   refresh();
   return { el, refresh };
+}
+
+/**
+ * The Budgets place (UI phase 6, Part B), under the Budgets toggle: whose numbers the boxes show (Boxes show: Project,
+ * Class, Own), each level switched on or off (Project budgets, Class budgets: the class level for the whole project; Its
+ * own budgets), and the effect's class (No class, the classes, New class…), with buttons to rename and delete it. Each
+ * change is one undo step (app.editBudgets); New class…, Rename and Delete ask first.
+ */
+function budgetPlace(app: AppApi, fxId: () => string, shows: () => BoxLevel, redraw: () => void): { el: HTMLElement; refresh(): void } {
+  const b = () => app.budgets();
+  const boxes = segmented<BoxLevel>({ label: 'Boxes show', small: true, value: shows(), options: [
+    { value: 'project', label: 'The project\'s budgets', short: 'Project' },
+    { value: 'class', label: 'Its class\'s budgets', short: 'Class' },
+    { value: 'own', label: 'Its own budgets', short: 'Own' },
+  ], onChange: (v) => { if (v === 'class' && !classOf(b(), fxId())) return; boxLevels.set(fxId(), v); redraw(); } });
+  boxes.el.classList.add('budget-shows');
+  const classSeg = boxes.el.querySelectorAll<HTMLButtonElement>('.seg')[1]!;
+  const switchOf = (label: string, level: () => 'project' | 'classes' | { effect: string }, words: string) => checkField({ label, value: false, onChange: (v) => {
+    app.editBudgets(setLevelOn(b(), level(), v), `${words} ${v ? 'on' : 'off'}`);
+  } });
+  const projectOn = switchOf('Project budgets', () => 'project', 'Project budgets');
+  const classesOn = switchOf('Class budgets', () => 'classes', 'Class budgets');
+  const ownOn = switchOf('Its own budgets', () => ({ effect: fxId() }), 'Own budgets');
+  const options = () => [{ value: '', label: 'No class' }, ...b().classes.list.map((c) => ({ value: c.id, label: c.name })), { value: NEW_CLASS, label: 'New class…' }];
+  const current = () => classOf(b(), fxId())?.id ?? '';
+  const rename: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Rename class…', className: 'mini class-rename', onClick: () => { const c = current(); if (c) void app.renameBudgetClass(c); } });
+  const remove: HTMLButtonElement = iconButton({ icon: 'trash', label: 'Delete class', className: 'mini class-delete', onClick: () => { const c = current(); if (c) app.deleteBudgetClass(c); } });
+  rename.setAttribute('data-help-label', 'Rename class…');
+  remove.setAttribute('data-help-label', 'Delete class');
+  const cls = selectField({ label: 'Class', options: options(), value: current(), extra: h('span', { class: 'class-tools' }, rename, remove), onChange: (v) => {
+    const id = fxId();
+    if (v === NEW_CLASS) void app.newBudgetClass(id).finally(() => { if (fxId() === id) cls.set(current()); });
+    else app.editBudgets(setEffectClass(b(), id, v || undefined), 'Budget class');
+    cls.set(current());
+  } });
+  cls.el.classList.add('budget-class');
+  const refresh = () => {
+    const budgets = b(), id = fxId();
+    const c = classOf(budgets, id);
+    boxes.set(shows());
+    classSeg.disabled = !c;
+    tip(classSeg, c ? 'Its class\'s budgets' : 'Its class\'s budgets: pick a class for this effect first (Class, below)');
+    projectOn.set(budgets.project.on);
+    classesOn.set(budgets.classes.on);
+    ownOn.set(!!budgets.effects[id]?.on);
+    cls.setOptions(options());
+    cls.set(current());
+    rename.hidden = remove.hidden = !c;
+    if (c) { tip(rename, `Rename the class "${c.name}"`); tip(remove, `Delete the class "${c.name}"`); }
+  };
+  refresh();
+  return { el: h('div', { class: 'budget-place' }, boxes.el, projectOn.el, classesOn.el, cls.el, ownOn.el), refresh };
 }
 
 /** How a report was measured, in a few sentences: the info icon's tooltip. */

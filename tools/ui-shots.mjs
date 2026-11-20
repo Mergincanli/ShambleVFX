@@ -90,7 +90,48 @@ const STATES = [
   } },
   // (The Tracer, whose streak crosses the whole Look, so the part beside the menu still shows it drawn.)
   { name: 'layer-more', project: DEMO, effect: 'rifle_shot', ms: 20, layer: 'first:sprite', menu: true, act: (page) => openFrom(page, '.inspector .insp-more', '#insp-layer-menu') },
+  // Part B (UI phase 6, slices 5 and 6), each made in the page and never saved: the tank shell's sound word with chances
+  // (60 % in all, so "No word: 40 %" shows, and the 1,000-shot line); the Molotov's smoke with a gradient picked (one made in
+  // the page: the examples' palette has none); the Budgets place with the effect in a class and class budgets on; and a
+  // layer the tier leaves out, which the preview and its panel say is not drawn.
+  { name: 'words', project: DEMO, effect: 'board_shell', ms: 1300, layer: 'word', act: async (page) => {
+    await page.evaluate(() => {
+      const a = window.__vfx.app;
+      a.editLayer(['words'], [{ text: 'KABOOM', chance: 30 }, { text: 'KRAKOOM', chance: 20 }, { text: 'BADOOM', chance: 5 }, { text: 'WHAM', chance: 5 }], { label: 'Words' });
+      a.commit();
+    });
+    await showSection(page, 'Word');
+  } },
+  { name: 'gradient', project: DEMO, effect: 'board_molotov', ms: 1200, layer: 'smoke', act: async (page) => {
+    await page.evaluate(() => {
+      const a = window.__vfx.app;
+      a.setGradient('smoke.cool', { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'fire.smoke' }, { at: 0.4, role: 'fire.smoke' }, { at: 1, role: 'fire.smoke.light', alpha: 0.4 }] });
+      a.commit();
+    });
+    await page.locator('.inspector .gradient-field select').selectOption('smoke.cool');
+    await showSection(page, 'Shape: smoke');
+  } },
+  { name: 'budget-place', project: DEMO, effect: 'board_beam', ms: 1000, act: async (page) => {
+    await page.click('.inspector .costcard > details > summary');
+    await page.locator('.inspector .costcard .cost-budgets input').check();
+    await page.locator('.inspector .budget-class select').selectOption({ label: 'Big' });
+    await page.locator('.inspector .budget-place label.check', { hasText: 'Class budgets' }).click();
+    await page.evaluate(() => { window.__vfx.app.setBudget('high', 'triangles', 900, { class: 'big' }); document.querySelector('.inspector .costcard').scrollIntoView({ block: 'start' }); });
+  } },
+  { name: 'not-drawn', project: DEMO, effect: 'rifle_shot', ms: 60, layer: 'hit', act: async (page) => {
+    await page.evaluate(() => { const a = window.__vfx.app; a.editLayer(['tiers'], ['high'], { label: 'Tiers' }); a.commit(); a.setTierForChecks('low'); });
+  } },
 ];
+/** Open a section of the panel and scroll it to the top of the panel (under the header). */
+async function showSection(page, title) {
+  await page.evaluate((title) => {
+    const d = [...document.querySelectorAll('.inspector details')].find((x) => x.querySelector(':scope > summary > .fold-title')?.textContent === title);
+    if (!d) return;
+    d.open = true;
+    const right = document.querySelector('.right'), head = document.querySelector('.inspector .insp-head');
+    right.scrollTop += d.getBoundingClientRect().top - right.getBoundingClientRect().top - (head?.getBoundingClientRect().height ?? 0);
+  }, title);
+}
 /** Click a button and wait for what it opens (a menu, a popover). */
 async function openFrom(page, button, what) {
   await page.click(button);
@@ -185,9 +226,16 @@ function describe() {
     // For the check that the preview is drawn: the game frame, and what lies over it.
     frame: box(document.querySelector('.frame-guide')) ?? box(document.querySelector('.viewport')),
     viewport: box(document.querySelector('.viewport')),
-    covers: ['.frame-label', '.vhint', '.cpick:popover-open', '.menu:popover-open', '.popover:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
-    // With a layer selected: the Look, the live picture at the top of its panel (held at a moment from the one shown).
+    covers: ['.frame-label', '.vhint', '.vnotes', '.cpick:popover-open', '.menu:popover-open', '.popover:popover-open', '.tooltip:popover-open'].map((s) => box(document.querySelector(s))).filter(Boolean),
+    // With a layer selected: the Look, the live picture at the top of its panel (held at a moment from the one shown), and
+    // whether it is on screen (a state that shows a section further down scrolls it away, under the panel's header).
     look: box(document.querySelector('.inspector .look-box')),
+    lookOnScreen: (() => {
+      const l = document.querySelector('.inspector .look-box'), r = document.querySelector('.right'), head = document.querySelector('.inspector .insp-head');
+      if (!l || !r) return false;
+      const a = l.getBoundingClientRect(), b = r.getBoundingClientRect();
+      return a.top >= (head ? head.getBoundingClientRect().bottom : b.top) - 1 && a.bottom <= b.bottom + 1;
+    })(),
     lookState: a.lookForChecks?.() ?? null,
   };
 }
@@ -310,6 +358,7 @@ const ABOUT = 'The settings inventory of the editor\'s right panel (the inspecto
   + 'Sections are the cards and folds, in panel order (a card that only holds folds, as since UI phase 6, is not listed); a fold inside a fold is called "Outer > Inner". A layer\'s card starts with the Look, its live picture, which holds no settings. '
   + '"fields" are the names of the settings in a section, in order: sliders, number, text and colour fields, selects, segmented buttons, the colour list, checkboxes (by the name a screen reader says), and inputs and lists that have only that name (the cost budgets, the colour lists: a layer\'s, and since UI phase 6 the effect\'s too, which was named by its row\'s label "Colour" before). '
   + 'A row of two or three numbers (since UI phase 6) lists its label, then each box by its full name, the name a screen reader says (the box itself shows a short prefix): "Offset", "Right", "Up", "Forward"; "Life", "Life, min", "Life, max". '
+  + 'Since UI phase 6\'s Part B: a word layer\'s words are rows (each word, its chance in %, Remove), listed once by their label "Words (one picked per play)", as the comma list was; smoke, a fire\'s bed and a burst have a gradient field ("Gradient over life", or "Gradient, middle to rim" for a bed); and Cost holds the Budgets place under its Budgets toggle (Boxes show, Project budgets, Class budgets, Class, Its own budgets), read with Budgets on. '
   + 'Before UI phase 6, the second and third box of a generated pair or group of three were named after the first, with (2) and (3). '
   + '"hidden" lists the fields that exist but are hidden in that layer\'s current state (they show after another choice, such as Flipbook on). '
   + 'Buttons (actions such as Measure or Add PNG images, and a projectile\'s riders) are not listed. Effects are in id order; layers in the order of the effect file.';
@@ -393,6 +442,8 @@ try {
     const b = d.look;
     if (!b) return 'no Look in the layer\'s panel';
     if (!d.lookState?.ready) return 'the Look did not get its renderer';
+    // Scrolled away to show a section further down (the words, a gradient): the picture cannot show whether it is drawn.
+    if (!d.lookOnScreen) return null;
     const covered = (x, y) => d.covers.some((c) => x >= c.x - 2 && x <= c.x + c.w + 2 && y >= c.y - 2 && y <= c.y + c.h + 2);
     let all = 0, n = 0, isGround = 0, other = 0;
     for (let y = Math.ceil(b.y + 4); y < Math.min(b.y + b.h - 4, png.height); y += 2) for (let x = Math.ceil(b.x + 4); x < Math.min(b.x + b.w - 4, png.width); x += 2) {

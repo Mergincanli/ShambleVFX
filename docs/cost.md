@@ -56,13 +56,21 @@ off").
 effect has a class); else the project's. Nothing is mixed: an empty box in the set that counts means no limit for that
 number, even when another level has one. When no level is on, nothing is compared and nothing turns red or green.
 
-### In Cost today
+### In Cost
 
-Switch on **Budgets** under the table to show a box under each number: the boxes show and edit **the project's budgets**,
-and typing a number switches them on. While one of the project's budgets is set, the boxes stay (the toggle stays on); the
-toggle is remembered in your browser. A line under it says which level counts for the effect shown, and the colours compare
-with that level's numbers. Classes and an effect's own budgets can be set only in `project.json` until the Budgets place
-comes (UI phase 6, part B).
+Switch on **Budgets** under the table to show a box under each number, and the Budgets place under the toggle:
+
+- **Boxes show**: whose numbers the boxes show and edit: the project's, the effect's class's, or the effect's own. At first
+  they show the level that counts for the effect (the project's when none does); Class needs the effect to be in a class.
+- **Project budgets**, **Class budgets** and **Its own budgets**: each level switched on or off. Class budgets are switched
+  on or off for the whole project; an effect's own, for that effect.
+- **Class**: the effect's class: No class, the classes, or **New class…**, which asks for a name and puts the effect in the
+  new class. The pencil next to it renames the class (the effects in it stay in it), and the bin deletes it after asking
+  (the effects in it are then in none).
+
+Typing a number switches its level on; clearing one does not switch it off. While a budget is set for the effect at any of
+its levels, the boxes stay (the toggle stays on); the toggle is remembered in your browser. A line under the place says which
+level counts for the effect shown, and the colours compare with that level's numbers. Every change is one undo step.
 
 ### In the files
 
@@ -84,7 +92,8 @@ Here the tank shell (in Big, with the class level on) is compared with 9000 tria
 2 draws in Low and nothing else, and every other effect with the project's 5000 triangles in High.
 
 A project made before (`project.json` version 1) had one set of budgets for the whole project. It becomes the project's
-budgets, **switched off**, with its numbers kept (the approved plan). In Cost today, change one of them to switch them on.
+budgets, **switched off**, with its numbers kept (the approved plan). In Cost, change one of them, or switch on Project
+budgets, to use them.
 
 When the project is saved, `project.json` leaves out the budgets of effects the project no longer has (and their game events
 and scenes). The editor keeps them until you leave: undoing the delete brings the effect back with its budgets, and the next

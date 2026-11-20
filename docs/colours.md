@@ -144,8 +144,10 @@ lumps and the halftone stay solid. So a gradient that fades out at the rim, such
 leaves outlined, empty lumps on a bed: for a bed, a darker rim works better than a see-through one
 ([format.md](format.md) has the details).
 
-In the editor, only a glow has a gradient choice so far. For smoke, the bed and bursts, a gradient already named in the file
-shows as a plain text box; the choice comes with the new UI. Without a gradient each layer uses its own colours, as before.
+In the editor, a glow, smoke, the fire's bed and bursts each have a gradient choice in the layer's panel: "Gradient, middle
+to rim" for a glow and a bed, "Gradient over life" for smoke and bursts. It lists the palette's gradients; the pencil next to
+it opens the colour picker at its gradients, with the one chosen open in the gradient editor. Without a gradient each layer
+uses its own colours, as before.
 The exact rules are in [format.md](format.md).
 
 ## The colours an effect uses

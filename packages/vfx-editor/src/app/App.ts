@@ -12,8 +12,8 @@ import type { Problem } from '@shamble/vfx-format/validate';
 import { EffectPlayer, applyControls, resolveTimeline } from '@shamble/vfx-runtime';
 import type { Atlas, DrawParams, Relation, Timeline } from '@shamble/vfx-runtime';
 import { drawAtlas } from '../atlas/pack';
-import { budgetThatCounts, defaultBudgets, dropMissingEffects, forgetEffect, setLevelOn, setLimit } from '../cost/budgets';
-import type { Budgets, CostMetric, EffectBudget } from '../cost/budgets';
+import { addClass, budgetThatCounts, budgetsJson, defaultBudgets, deleteClass, dropMissingEffects, forgetEffect, renameClass, setEffectClass, setLevelOn, setLimit } from '../cost/budgets';
+import type { Budgets, CostMetric, LevelRef, LimitsRef } from '../cost/budgets';
 import { measureCost } from '../cost/measure';
 import type { CostConditions, CostReport } from '../cost/measure';
 import type { AtlasImage } from '../atlas/pack';
@@ -24,9 +24,10 @@ import {
 import type { Path } from '../doc/edits';
 import { allFolders } from '../doc/folders';
 import { History } from '../doc/history';
+import type { EditorDoc } from '../doc/history';
 import { SHAPE_TEXT } from '../doc/layer-info';
-import { notDrawnNotes } from '../doc/not-drawn';
-import type { NotDrawnNote } from '../doc/not-drawn';
+import { notDrawnNotes, notDrawnReasons } from '../doc/not-drawn';
+import type { NotDrawnNote, NotDrawnReason } from '../doc/not-drawn';
 import { newProjectFile } from '../io/project-file';
 import type { ProjectFile } from '../io/project-file';
 import { DevServerStore, StoreError, effectPath, imagePath, readJson, readProject, writeJson, writeProject } from '../io/store';
@@ -56,6 +57,8 @@ import type { ToolbarView } from './toolbar';
 
 /** The built-in palette: a project without its own palette.json uses it (the examples do). */
 const builtInPalette = paletteJson as Palette;
+/** The budgets of a project that has none set (every level off, the three starting classes with no numbers). */
+const NO_BUDGETS: Budgets = defaultBudgets();
 const SPEEDS = [1, 0.5, 0.25, 0.1];
 const LOOP_REST_MS = 300;
 const LAST_PROJECT = 'vfx-last-project';
@@ -80,7 +83,7 @@ const hintsOn = () => document.documentElement.dataset.hints !== 'off';
 export class App implements AppApi {
   faction: FactionId = 'soviets';
   private store: ProjectStore = new DevServerStore();
-  private history = new History({ effects: [], palette: builtInPalette });
+  private history = new History({ effects: [], palette: builtInPalette, budgets: NO_BUDGETS });
   /** The palette as last read from or written to the project's palette.json (or the built-in one). */
   private paletteOnDisk: Palette = builtInPalette;
   private project: ProjectContents | null = null;
@@ -109,12 +112,15 @@ export class App implements AppApi {
     timeNow: HTMLButtonElement; timeInput: HTMLInputElement; timeLen: HTMLElement; timeStep: HTMLElement; timeFiring: HTMLElement;
     status: HTMLElement; dialog: HTMLDialogElement;
     sbChecks: HTMLButtonElement; sbTris: HTMLElement; sbDraws: HTMLElement; sbCost: HTMLButtonElement; sbHint: HTMLElement; sbRenderer: HTMLElement;
+    vnotes: HTMLElement;
   };
   private grid!: GridSizes;
   /** The time readout is being typed in (its current time became a box). */
   private timeEditing = false;
   /** What the status bar shows now, so a frame changes only what changed. */
   private statusShown = { checks: '', cost: '' };
+  /** The "not drawn" lines over the preview now, so a frame changes them only when they change. */
+  private notDrawnShown = '';
   /** A frame is being drawn (offscreen, the copy is awaited): a redraw for a new size waits for the next frame. */
   private drawing = false;
   /** Start-up is done: the project is open and the frames run. */
@@ -145,10 +151,10 @@ export class App implements AppApi {
   /** The game events each effect answers (project.json "events"). Deleted effects keep theirs here, so undo brings them back. */
   private eventsValue: Record<string, string[]> = {};
   /**
-   * The budgets at three levels (project.json "budgets"). Entries of deleted effects stay here, so undo brings them back;
-   * saving leaves them out.
+   * The budgets project.json was last read or written with. The budgets themselves are in the document (history.doc), so a
+   * budget edit is undone like any edit; a save writes project.json again whenever they are not these.
    */
-  private budgetsValue: Budgets = defaultBudgets();
+  private budgetsOnDisk: Budgets = NO_BUDGETS;
   private costReports = new Map<string, CostReport>();
   /** While measuring: what is being measured (the preview waits). */
   private measuring: string | null = null;
@@ -170,11 +176,11 @@ export class App implements AppApi {
   /** The Layers section: header with the add menu, rows, their menu, drag to reorder (layers-list.ts). */
   private layersList!: LayersListView;
   /**
-   * What Duplicate gave each copy outside the effects (its scene, its own budgets), by the copy's id. Undo that takes a copy
-   * away takes them away too (and keeps them here); redo that brings it back brings them back. A new effect that takes the
-   * id forgets them.
+   * What Duplicate gave each copy outside the document (its scene), by the copy's id. Undo that takes a copy away takes it
+   * away too (and keeps it here); redo that brings it back brings it back. A new effect that takes the id forgets it. (The
+   * copy's own budgets are in the document, in the same undo step as the copy.)
    */
-  private copies = new Map<string, { scene?: string; budget?: EffectBudget }>();
+  private copies = new Map<string, { scene?: string }>();
   /** The effect ids of the document last shown, to see what an undo or a redo took away or brought back. */
   private shownIds = new Set<string>();
 
@@ -272,6 +278,15 @@ export class App implements AppApi {
     const fx = this.effect();
     if (!fx) return [];
     return notDrawnNotes(fx, this.preview.vfx.stats.notDrawn, (this.project?.images ?? []).map((im) => im.name));
+  }
+
+  notDrawnReasons(): NotDrawnReason[] {
+    const fx = this.effect();
+    if (!fx) return [];
+    return notDrawnReasons(fx, {
+      atlasImages: this.atlas ? new Set(Object.keys(this.atlas.rects)) : null, projectImages: (this.project?.images ?? []).map((im) => im.name),
+      notDrawn: this.preview.vfx.stats.notDrawn, tier: this.tier, waits: this.previewWaits(),
+    });
   }
 
   problems(): Problem[] {
@@ -427,18 +442,48 @@ export class App implements AppApi {
   }
 
   budgets(): Budgets {
-    return this.budgetsValue;
+    return this.history.doc.budgets ?? NO_BUDGETS;
   }
 
-  setBudget(tier: TierName, metric: CostMetric, value: number | undefined): void {
-    let b = setLimit(this.budgetsValue, 'project', tier, metric, value);
-    // Until the new Cost card (UI redesign, phase 6), the card edits the project's budgets: a number typed switches them on.
-    if (value !== undefined) b = setLevelOn(b, 'project', true);
-    this.budgetsValue = b;
-    this.metaDirty = true;
-    this.renderTopbar();
-    this.inspector.refresh();
-    this.renderStatus();
+  setBudget(tier: TierName, metric: CostMetric, value: number | undefined, where: LimitsRef = 'project'): void {
+    let b = setLimit(this.budgets(), where, tier, metric, value);
+    // A number typed switches its level on (the project's, the class level, or the effect's own); clearing one does not
+    // switch it off.
+    if (value !== undefined) b = setLevelOn(b, levelOf(where), true);
+    this.editBudgets(b, 'Budget');
+  }
+
+  editBudgets(next: Budgets, label: string): void {
+    // Nothing changed (the same number typed again, a level switched to what it was): no undo step, nothing unsaved.
+    if (sameBudgets(next, this.budgets())) return;
+    this.history.apply(label, { ...this.history.doc, budgets: next });
+    this.history.endGesture();
+  }
+
+  async newBudgetClass(effectId: string): Promise<boolean> {
+    const name = await this.ask('New class', 'A name for the new class of budgets, such as Huge. This effect goes into it; type its numbers in Cost.', 'New class');
+    if (!name) return false;
+    const r = addClass(this.budgets(), name);
+    if ('error' in r) { this.say(r.error, true); return false; }
+    this.editBudgets(setEffectClass(r.budgets, effectId, r.id), 'New class');
+    return true;
+  }
+
+  async renameBudgetClass(classId: string): Promise<boolean> {
+    const c = this.budgets().classes.list.find((x) => x.id === classId);
+    if (!c) return false;
+    const name = await this.ask('Rename class', `A new name for the class "${c.name}". The effects in it stay in it.`, c.name);
+    if (!name || name === c.name) return false;
+    const r = renameClass(this.budgets(), classId, name);
+    if ('error' in r) { this.say(r.error, true); return false; }
+    this.editBudgets(r.budgets, 'Rename class');
+    return true;
+  }
+
+  deleteBudgetClass(classId: string): void {
+    const c = this.budgets().classes.list.find((x) => x.id === classId);
+    if (!c || !confirm(`Delete the class "${c.name}"? Its numbers go with it, and the effects in it are in no class. Undo brings it back.`)) return;
+    this.editBudgets(deleteClass(this.budgets(), classId), 'Delete class');
   }
 
   private costConditions(): CostConditions {
@@ -507,6 +552,9 @@ export class App implements AppApi {
     this.toolbar.setTier(t);
     this.renderLayers();
     this.timelineView.refresh();
+    // A layer's panel says when the tier leaves it out (next to what draws it), and so does the preview.
+    this.inspector.refresh();
+    this.renderNotDrawn();
   }
 
   // ---------------------------------------------------------------- start up
@@ -679,6 +727,9 @@ export class App implements AppApi {
     const viewport = h('div', { class: 'viewport' });
     const vbar = this.toolbar.el;
     const hint = h('div', { class: 'vhint', text: DRAG_HINT });
+    // What the preview does not draw, and why (UI phase 6, Part B): over the preview, above the drag hint, in the lower left
+    // corner. A state, not a hint: Show hints off keeps it.
+    const vnotes = h('div', { class: 'vnotes', attrs: { 'aria-live': 'polite' } });
 
     // ------------------------------------------------ the timeline's header: the transport (6.5)
     const play = iconButton({ icon: 'play', label: 'Play', className: 'play', onClick: () => this.togglePlay() });
@@ -705,7 +756,7 @@ export class App implements AppApi {
       this.loopBtn, this.speedCtl.el, time);
     const timelinePane = h('section', { class: 'timeline-pane', attrs: { 'aria-label': 'Timeline' } }, transport, h('div', { class: 'timeline-slot' }));
     // The status bar shows the drag hint while the pointer is over the preview (data-status-hint).
-    const viewportWrap = h('div', { class: 'viewport-wrap', attrs: { 'data-status-hint': DRAG_HINT } }, viewport, hint);
+    const viewportWrap = h('div', { class: 'viewport-wrap', attrs: { 'data-status-hint': DRAG_HINT } }, viewport, h('div', { class: 'vcorner' }, vnotes, hint));
     const centre = h('main', { class: 'centre' }, vbar, viewportWrap, timelinePane);
     const right = h('div', { class: 'right' });
 
@@ -734,7 +785,7 @@ export class App implements AppApi {
     document.addEventListener('pointerout', (e) => { if (e.relatedTarget === null) this.setStatusHint(''); });
     this.els = {
       root, projectName, project, lock, save, undo, redo, hints, night, effects, layers, viewport, play, time, timeNow, timeInput, timeLen, timeStep, timeFiring, status, dialog,
-      sbChecks, sbTris, sbDraws, sbCost, sbHint, sbRenderer,
+      sbChecks, sbTris, sbDraws, sbCost, sbHint, sbRenderer, vnotes,
     };
   }
 
@@ -799,7 +850,7 @@ export class App implements AppApi {
     this.effectsOnDisk = new Set(effects.map((e) => e.id));
     this.fileEffectIds = new Set(effects.map((e) => e.id));
     this.copies.clear();
-    this.history.reset({ effects, palette: projectPalette });
+    this.history.reset({ effects, palette: projectPalette, budgets: this.budgetsOnDisk });
     this.preview.vfx.palette = projectPalette;
     this.player.clear();
     this.selEffect = effects[0]?.id ?? null;
@@ -828,7 +879,8 @@ export class App implements AppApi {
       if (typeof scene === 'string' && SCENES.some((x) => x.id === scene)) this.previewScenes[fx] = scene;
     }
     this.eventsValue = readEvents(p.events);
-    this.budgetsValue = p.budgets;
+    // They go into the document when the project's effects do (openProject).
+    this.budgetsOnDisk = p.budgets;
     this.costReports.clear();
     this.metaDirty = false;
   }
@@ -897,7 +949,8 @@ export class App implements AppApi {
       }
       const ids = doc.effects.map((e) => e.id);
       const effectsChanged = ids.length !== this.fileEffectIds.size || ids.some((id) => !this.fileEffectIds.has(id));
-      if (this.metaDirty || this.projectFileOld || effectsChanged || projectId !== this.project?.id) {
+      const budgets = doc.budgets ?? NO_BUDGETS;
+      if (this.metaDirty || this.projectFileOld || effectsChanged || budgets !== this.budgetsOnDisk || projectId !== this.project?.id) {
         const preview: Record<string, { scene: string }> = {};
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
         const events: Record<string, string[]> = {};
@@ -912,9 +965,9 @@ export class App implements AppApi {
         const name = projectId === this.project?.id ? (this.projectFile.name ?? this.project?.name) : base.name;
         // The events, scenes and budgets of effects that are gone are left out of the file. They stay here: undoing the
         // delete brings the effect back with them, and the next save writes them again (the effects differ once more).
-        const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(this.budgetsValue, ids) };
+        const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(budgets, ids) };
         await writeProject(this.store, projectId, file);
-        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; this.fileEffectIds = new Set(ids); }
+        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; this.fileEffectIds = new Set(ids); this.budgetsOnDisk = budgets; }
         this.metaDirty = false;
       }
       this.history.markSaved();
@@ -982,9 +1035,8 @@ export class App implements AppApi {
     const fx: EffectFile = { ...structuredClone(preset), id, name: id === preset.id ? preset.name : `${preset.name} (copy)` };
     // A preset's game events stay with the preset: one event plays one effect.
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
-    this.forgetBudgetOf(id);
     this.copies.delete(id);
-    this.history.apply('New from preset', addEffect(this.history.doc, fx));
+    this.history.apply('New from preset', this.withoutBudgetOf(addEffect(this.history.doc, fx), id));
     if (scene && SCENES.some((x) => x.id === scene)) { this.previewScenes[id] = scene; this.metaDirty = true; }
     this.selectEffect(id);
     this.say(`Added "${fx.name}" from the presets.`);
@@ -1156,16 +1208,19 @@ export class App implements AppApi {
     const id = freeEffectId(this.history.doc, 'new_effect');
     const fx = newEffect(id, 'New effect');
     if (this.eventsValue[id]) { delete this.eventsValue[id]; this.metaDirty = true; }
-    this.forgetBudgetOf(id);
     this.copies.delete(id);
-    this.history.apply('New effect', addEffect(this.history.doc, fx));
+    this.history.apply('New effect', this.withoutBudgetOf(addEffect(this.history.doc, fx), id));
     this.selectEffect(id);
   }
 
-  /** A new effect that takes the id of a deleted one starts without that one's budgets and class. */
-  private forgetBudgetOf(id: string): void {
-    const b = forgetEffect(this.budgetsValue, id);
-    if (b !== this.budgetsValue) { this.budgetsValue = b; this.metaDirty = true; }
+  /**
+   * A new effect that takes the id of a deleted one starts without that one's budgets and class: in the same undo step, so
+   * undoing the new effect brings them back for the deleted one.
+   */
+  private withoutBudgetOf(doc: EditorDoc, id: string): EditorDoc {
+    const b = doc.budgets ?? NO_BUDGETS;
+    const next = forgetEffect(b, id);
+    return next === b ? doc : { ...doc, budgets: next };
   }
 
   /**
@@ -1179,14 +1234,15 @@ export class App implements AppApi {
     const copy = r.id;
     // The copy's id may be a deleted effect's: it starts without that one's events and budgets (they were not in the file).
     delete this.eventsValue[copy];
-    this.budgetsValue = forgetEffect(this.budgetsValue, copy);
     this.copies.delete(copy);
     const scene = this.previewScenes[id];
     if (scene) this.previewScenes[copy] = scene; else delete this.previewScenes[copy];
-    const own = this.budgetsValue.effects[id];
-    if (own) this.budgetsValue = { ...this.budgetsValue, effects: { ...this.budgetsValue.effects, [copy]: structuredClone(own) } };
+    // Its own budgets, in the document, in the copy's undo step.
+    let budgets = forgetEffect(this.budgets(), copy);
+    const own = budgets.effects[id];
+    if (own) budgets = { ...budgets, effects: { ...budgets.effects, [copy]: structuredClone(own) } };
     this.copies.set(copy, {});
-    this.history.apply('Duplicate effect', r.doc);
+    this.history.apply('Duplicate effect', { ...r.doc, budgets });
     this.history.endGesture();
     this.selectEffect(copy);
   }
@@ -1198,22 +1254,20 @@ export class App implements AppApi {
   }
 
   /**
-   * Undo took a copy away: its scene and budgets go with it (kept, for redo). Redo brought it back: so do they. A copy
-   * deleted (an edit) keeps them, as every deleted effect does, so undoing the delete finds them.
+   * Undo took a copy away: its scene goes with it (kept, for redo). Redo brought it back: so does its scene. A copy deleted
+   * (an edit) keeps it, as every deleted effect does, so undoing the delete finds it. (Its budgets are in the document, so
+   * undo and redo move them with the copy.)
    */
   private followCopies(why: 'edit' | 'undo' | 'redo' | 'reset'): void {
-    // A save says 'reset' too, and keeps the undo steps: only undo and redo move a copy's scene and budgets.
+    // A save says 'reset' too, and keeps the undo steps: only undo and redo move a copy's scene.
     if (why !== 'undo' && why !== 'redo') return;
     for (const [id, kept] of this.copies) {
       const here = !!effectById(this.history.doc, id), was = this.shownIds.has(id);
       if (was && !here && why === 'undo') {
         kept.scene = this.previewScenes[id];
         delete this.previewScenes[id];
-        kept.budget = this.budgetsValue.effects[id];
-        this.budgetsValue = forgetEffect(this.budgetsValue, id);
       } else if (!was && here && why === 'redo') {
         if (kept.scene) this.previewScenes[id] = kept.scene;
-        if (kept.budget) this.budgetsValue = { ...this.budgetsValue, effects: { ...this.budgetsValue.effects, [id]: kept.budget } };
       }
     }
   }
@@ -1401,6 +1455,7 @@ export class App implements AppApi {
     this.loopBtn.setAttribute('aria-pressed', String(v));
   }
 
+
   /** Fade other layers on or off (remembered). The preview shows it in its next frame. */
   private setFade(on: boolean): void {
     this.fadeOn = on;
@@ -1509,8 +1564,36 @@ export class App implements AppApi {
       waits: !drawable, still: this.lookStill, restMs: LOOP_REST_MS,
     } : null);
     this.renderStatus();
+    this.renderNotDrawn();
     this.renderTime(len);
     this.askFrame();
+  }
+
+  /**
+   * Over the preview, what it does not draw, and why, in plain words (UI phase 6, Part B): "Muzzle flash is not drawn: the
+   * image muzzle_flash.png did not load." Every layer of the effect shown whose image is not there, in the tier shown; the
+   * selected layer's every reason (the tier leaves it out); or the effect itself, while its errors stop the preview. At most
+   * three lines. The selected layer's panel says the same next to what draws it.
+   */
+  private renderNotDrawn(): void {
+    const fx = this.effect();
+    const lines: string[] = [];
+    if (fx && this.booted && !this.frameOnly) {
+      if (this.previewWaits()) lines.push(`${fx.name} is not drawn: its file has errors (listed at the top of the right panel).`);
+      else {
+        const inTier = (id: string) => { const l = fx.layers.find((x) => x.id === id); return !!l && l.type !== 'projectile' && l.tiers.includes(this.tier); };
+        for (const r of this.notDrawnReasons()) {
+          if (r.layer === this.selLayer || (r.why !== 'tier' && inTier(r.layer))) lines.push(`${r.name} is not drawn: ${r.text}.`);
+        }
+      }
+    }
+    const shown = lines.length > 3 ? [...lines.slice(0, 2), `And ${lines.length - 2} more layers are not drawn.`] : lines;
+    const key = shown.join('\n');
+    if (key === this.notDrawnShown) return;
+    this.notDrawnShown = key;
+    this.els.vnotes.replaceChildren(...shown.map((t) => h('p', { class: 'vnote' }, icon('warning'), h('span', { text: t }))));
+    // The panel's line next to what draws the layer follows (a note the runtime made for this frame can come and go).
+    this.inspector.refresh();
   }
 
   // ---------------------------------------------------------------- drawing the panels
@@ -1643,7 +1726,7 @@ export class App implements AppApi {
       setText(e.sbDraws, `${s.drawCalls} draw call${s.drawCalls === 1 ? '' : 's'}`);
     }
     const fx = this.effect();
-    const c = costSummary(this.costReport(), { stale: this.costStale(), busy: this.measuring, counting: fx ? budgetThatCounts(this.budgetsValue, fx.id) : undefined });
+    const c = costSummary(this.costReport(), { stale: this.costStale(), busy: this.measuring, counting: fx ? budgetThatCounts(this.budgets(), fx.id) : undefined });
     const cost = `${c.state}|${c.text}|${c.detail}`;
     if (this.statusShown.cost !== cost) {
       this.statusShown.cost = cost;
@@ -1839,6 +1922,16 @@ function scrollBehaviour(): ScrollBehavior {
 }
 
 export { StoreError };
+
+/** The level a set of numbers belongs to: a number typed in a class's switches the class level on. */
+function levelOf(where: LimitsRef): LevelRef {
+  return where === 'project' ? 'project' : 'class' in where ? 'classes' : { effect: where.effect };
+}
+
+/** Two sets of budgets that say the same (as project.json would hold them). */
+function sameBudgets(a: Budgets, b: Budgets): boolean {
+  return a === b || JSON.stringify(budgetsJson(a)) === JSON.stringify(budgetsJson(b));
+}
 
 /** The game events from project.json: effect id to a list of event names (anything else is left out). */
 function readEvents(v: unknown): Record<string, string[]> {

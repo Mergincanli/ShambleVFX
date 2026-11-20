@@ -4,11 +4,10 @@
  * folds optional parts behind an on/off switch. Field names carry their units (radiusM, widthPx, growMs, tiltDeg).
  */
 import { MAIN_ROLE, PHASE_NAMES, resolveRole, roleNames } from '@shamble/vfx-format';
-import type { SoundWord } from '@shamble/vfx-format';
 import type { AppApi } from './api';
-import { wordsFromText } from '../doc/edits';
 import type { Path } from '../doc/edits';
 import { checkField, fold, h, iconButton, numberBox, numberField, numberGroup, selectField, textField } from './dom';
+import { wordList } from './wordlist';
 
 interface Refresher { refresh(): void }
 
@@ -205,15 +204,10 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
         parts.push({ refresh: () => c.set(text(get(p))) });
         return c.el;
       }
-      // A word layer's words: typed as a comma list. A word typed again keeps its chance; new words get none.
+      // A word layer's words: one row per word with its chance in %, Remove, Add word, and what the chances give (UI phase
+      // 6, Part B: wordlist.ts). It replaces the comma list, under the same label.
       if (key === 'words' && v.every((x) => !!x && typeof x === 'object' && typeof (x as { text?: unknown }).text === 'string')) {
-        const text = (list: unknown) => (list as SoundWord[]).map((w) => w.text).join(', ');
-        const c = textField({ label, value: text(v), onChange: (s) => {
-          const words = wordsFromText(get(p) as SoundWord[], s);
-          if (words.length) edit(p, words, label);
-        } });
-        parts.push({ refresh: () => c.set(text(get(p))) });
-        return c.el;
+        return wordList(app, parts, label);
       }
       // Words, or a fire's list of tone roles.
       if (v.every((x) => typeof x === 'string')) {
@@ -284,34 +278,66 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
     return field(key, p, parent);
   };
 
-  // A glow's gradient: a choice of the palette's gradients, and an edit button that opens the colour picker at its gradients
-  // (on the glow's colour), with the gradient chosen open in the gradient editor.
-  const gradientField = (): HTMLElement => {
+  // A gradient from the palette (a glow's, smoke's, a bed's, a burst's: GRADIENTS): a choice of the palette's gradients, or
+  // none (the layer's own colours), and an edit button that opens the colour picker at its gradients (on a colour of the
+  // layer), with the gradient chosen open in the gradient editor. The runtime draws them all; the field picks one by name.
+  const gradientField = (g: GradientSpot): HTMLElement => {
     const current = () => (get(['gradient']) as string | undefined) ?? '';
     const opts = () => {
       const names = Object.keys(app.palette.gradients ?? {}).sort();
-      const list = [{ value: '', label: 'None: one colour (the Colour above)' }, ...names.map((g) => ({ value: g, label: g }))];
+      const list = [{ value: '', label: g.none }, ...names.map((n) => ({ value: n, label: n }))];
       if (current() && !names.includes(current())) list.push({ value: current(), label: `${current()} (not in the palette)` });
       return list;
     };
-    const role = () => { const r = (get(['role']) as string | undefined) ?? MAIN_ROLE; return r === MAIN_ROLE ? app.effect()?.controls.colour ?? r : r; };
+    // The colour the picker opens on: the one the gradient takes the place of ("main": the effect's main colour).
+    const role = () => { const r = g.role((k) => get(k)) ?? MAIN_ROLE; return r === MAIN_ROLE ? app.effect()?.controls.colour ?? r : r; };
     const editBtn: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Edit the gradients', className: 'mini edit-gradient', onClick: () => app.openGradients(role(), editBtn, current() || undefined) });
     editBtn.setAttribute('aria-haspopup', 'dialog');
-    const c = selectField({ label: 'Gradient, middle to rim', options: opts(), value: current(), extra: editBtn, onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
+    const c = selectField({ label: g.label, options: opts(), value: current(), extra: editBtn, onChange: (x) => edit(['gradient'], x || undefined, 'Gradient') });
     parts.push({ refresh: () => { c.setOptions(opts()); c.set(current()); } });
-    return h('div', { class: 'gradient-field' }, c.el,
-      h('p', { class: 'hint', text: 'The edit button opens the colour picker at its gradients, to make or change one.' }));
+    return h('div', { class: 'gradient-field' }, c.el, h('p', { class: 'hint', text: g.hint }));
   };
 
   const obj = get([]) as Record<string, unknown> | undefined;
   if (!obj) return [];
-  const keys = Object.keys(obj).filter((k) => !skip.includes(k) && !(kind === 'glow' && k === 'gradient'));
+  const spot = skip.includes('gradient') ? undefined : GRADIENTS[kind];
+  const keys = Object.keys(obj).filter((k) => !skip.includes(k) && !(spot && k === 'gradient'));
   // Optional parts the object does not have yet still get their switch, so they can be added.
   const optional = optionalKeysFor(kind).filter((k) => !keys.includes(k) && !skip.includes(k));
-  const out = [...keys, ...optional].map((k) => row(k, [k], '')).filter(Boolean) as HTMLElement[];
-  if (kind === 'glow' && !skip.includes('gradient')) out.push(gradientField());
+  const out: HTMLElement[] = [];
+  let placed = false;
+  for (const k of [...keys, ...optional]) {
+    if (spot && !placed && spot.before === k) { out.push(gradientField(spot)); placed = true; }
+    const r = row(k, [k], '');
+    if (r) out.push(r);
+    if (spot && !placed && spot.after === k) { out.push(gradientField(spot)); placed = true; }
+  }
+  // At the end of its section (a glow's), or where its neighbour would be when the layer lacks it.
+  if (spot && !placed) out.push(gradientField(spot));
   return out;
 }
+
+/**
+ * Where a kind's gradient goes in its section, next to the colour it takes the place of, and its words: smoke's after its
+ * Colour (each puff's body over its life), a bed's before its Tones (from the middle to the rim, in their place), a burst's
+ * after its pieces' Look (each piece over its life), a glow's at the end of its section, where it always was. `role`: the
+ * colour the edit button opens the colour picker on.
+ */
+interface GradientSpot {
+  label: string;
+  none: string;
+  hint: string;
+  before?: string;
+  after?: string;
+  role(get: (p: Path) => unknown): string | undefined;
+}
+const EDIT_HINT = 'The edit button opens the colour picker at its gradients, to make or change one.';
+const GRADIENTS: Readonly<Record<string, GradientSpot>> = {
+  glow: { label: 'Gradient, middle to rim', none: 'None: one colour (the Colour above)', hint: EDIT_HINT, role: (get) => get(['role']) as string | undefined },
+  smoke: { label: 'Gradient over life', none: 'None: its Colour', after: 'role', hint: EDIT_HINT, role: (get) => get(['role']) as string | undefined },
+  bed: { label: 'Gradient, middle to rim', none: 'None: the tones', before: 'tones', hint: 'In place of the tones. Give the lumps and the detail the same one.', role: (get) => (get(['tones']) as string[] | undefined)?.at(-1) },
+  burst: { label: 'Gradient over life', none: 'None: its Look', after: 'look', hint: EDIT_HINT, role: (get) => get(['look', 'role']) as string | undefined },
+};
 
 /** The optional parts each kind of thing may have (shown as switches even when off). */
 function optionalKeysFor(kind: string): string[] {

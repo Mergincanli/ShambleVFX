@@ -390,18 +390,32 @@ function effectColourFold(app: AppApi, parts: Refresher[], colours: ColourListVi
   return fold('Colour', [main.el, colours.note, colours.el, colours.hint, h('div', { class: 'fold-foot' }, palette)], true, [colours.toggle]);
 }
 
-/** What draws the layer, in one line: its image, or code (a projectile draws nothing). Not a hint: it always shows. */
+/**
+ * What draws the layer, in one line: its image, or code (a projectile draws nothing). Not a hint: it always shows. Under it,
+ * in the same element, when the preview does not draw the layer now, why (UI phase 6, Part B: the "not drawn" warning, as
+ * the preview says it): "Not drawn: the image muzzle_flash.png did not load.", "Not drawn: the Low tier leaves it out: …",
+ * "Not drawn: its effect has errors that stop the preview." Empty, it takes no room.
+ */
 function drawsLine(app: AppApi, parts: Refresher[]): HTMLElement {
-  const p = h('p', { class: 'draws' });
-  let shown = '';
+  const what = h('span', { class: 'draws-what' });
+  const warn = h('span', { class: 'not-drawn' });
+  const p = h('p', { class: 'draws' }, what, warn);
+  let shown = '', warned = '';
   const draw = () => {
     const l = app.layer() as Layer;
     const d = whatDraws(l);
-    if (`${d.text}|${d.image}` === shown) return;
-    shown = `${d.text}|${d.image}`;
-    p.replaceChildren(...drawsParts(d));
-    // What that means, in its tooltip (help.ts's texts for these lines).
-    tip(p, d.image ? NEW_THIS_ROUND.drawnFromImage(d.image) : l.type === 'projectile' ? NEW_THIS_ROUND.invisiblePath : NEW_THIS_ROUND.drawnInCode);
+    if (`${d.text}|${d.image}` !== shown) {
+      shown = `${d.text}|${d.image}`;
+      what.replaceChildren(...drawsParts(d));
+      // What that means, in its tooltip (help.ts's texts for these lines).
+      tip(p, d.image ? NEW_THIS_ROUND.drawnFromImage(d.image) : l.type === 'projectile' ? NEW_THIS_ROUND.invisiblePath : NEW_THIS_ROUND.drawnInCode);
+    }
+    const reasons = l.type === 'projectile' ? [] : app.notDrawnReasons().filter((r) => r.layer === l.id);
+    const words = reasons.map((r) => `Not drawn: ${r.text}.`);
+    if (words.join('\n') === warned) return;
+    warned = words.join('\n');
+    warn.replaceChildren(...words.map((w) => h('span', { class: 'not-drawn-line' }, icon('warning'), h('span', { text: w }))));
+    tip(warn, words.length ? NEW_THIS_ROUND.notDrawn : null);
   };
   draw();
   parts.push({ refresh: draw });

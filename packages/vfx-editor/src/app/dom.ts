@@ -1128,6 +1128,66 @@ export function scrubNumber(o: {
   return { el, set, input, dragFrom };
 }
 
+/**
+ * A number that may be left empty (a word's chance: an empty box shares what is left). Type it ("12,5" or "12.5"), or step
+ * it with ↑ and ↓ (Shift: ten steps; from an empty box, from the number its placeholder shows); Enter or leaving the box sets
+ * what was typed, an empty box clears the number, Esc puts back what it was. Each change is told once (`onChange`): Tab
+ * through the box, or Enter on what it shows, tells nothing, so a number with more decimals than the box shows is kept.
+ * Rounded to `digits` (shown without the zeros at the end) and kept within min and max. The input keeps the num class;
+ * the unit sits inside the box, muted, as a number box's does. An undo while the box has the focus shows in it at once,
+ * unless something was typed in it.
+ */
+export function optionalNumber(o: {
+  label: string; value: number | undefined; step: number; digits: number; min?: number; max?: number; unit?: string; onChange(v: number | undefined): void;
+}): { el: HTMLElement; input: HTMLInputElement; set(v: number | undefined, placeholder?: string): void } {
+  const input = h('input', { class: 'num', attrs: { type: 'text', inputmode: 'decimal', spellcheck: 'false', autocomplete: 'off', 'aria-label': o.label,
+    ...(o.min !== undefined ? { 'aria-valuemin': String(o.min) } : {}), ...(o.max !== undefined ? { 'aria-valuemax': String(o.max) } : {}) } });
+  let value = o.value;
+  /** What code last wrote in the box. While the box still holds it, nothing was typed since. */
+  let written = '';
+  const text = () => (value === undefined ? '' : formatNumber(value, o.digits, true));
+  const write = () => {
+    input.value = written = text();
+    if (value === undefined) input.removeAttribute('aria-valuenow'); else input.setAttribute('aria-valuenow', String(value));
+  };
+  const show = () => { if (document.activeElement !== input || input.value === written) write(); };
+  /** What was typed: the number (undefined for an empty box), the number as it is when nothing was typed, or null for words. */
+  const typed = (): { v: number | undefined } | null => {
+    if (input.value === written) return { v: value };
+    const s = input.value.trim();
+    if (!s) return { v: undefined };
+    const n = parseDecimal(s);
+    return n === null ? null : { v: n };
+  };
+  const commit = (v: number | undefined) => {
+    const next = v === undefined ? undefined : fitValue(v, { min: o.min, max: o.max, digits: o.digits });
+    if (next === value) { write(); return; }
+    value = next;
+    write();
+    o.onChange(value);
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); const t = typed(); if (t) commit(t.v); else write(); input.select(); }
+    else if (e.key === 'Escape' && input.value !== written) { e.preventDefault(); e.stopPropagation(); write(); input.select(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const from = typed()?.v ?? value ?? parseDecimal(input.placeholder) ?? 0;
+      commit(from + (e.key === 'ArrowUp' ? 1 : -1) * o.step * (e.shiftKey ? 10 : 1));
+      input.select();
+    }
+  });
+  input.addEventListener('change', () => { const t = typed(); if (t) commit(t.v); else write(); });
+  input.addEventListener('focus', () => input.select());
+  const set = (v: number | undefined, placeholder?: string) => {
+    value = v;
+    if (placeholder !== undefined && input.placeholder !== placeholder) input.placeholder = placeholder;
+    show();
+  };
+  write();
+  const el = h('span', { class: 'scrub optional-num' }, input, o.unit ? h('span', { class: 'unit', attrs: { 'aria-hidden': 'true' }, text: o.unit }) : null);
+  return { el, input, set };
+}
+
 // ---------------------------------------------------------------- the lists' parts (docs/ui-redesign.md 6.2)
 
 /**

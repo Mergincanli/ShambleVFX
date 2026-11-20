@@ -135,13 +135,21 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
 
   // ------------------------------------------------------------ cost
   'Cost': {
-    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; switch on Budgets and type budgets to see red (over) or green (within). Each number is the most at any moment of the effect, at 60 frames a second with a fixed seed; hover a row\'s name for what it counts, and the info icon for how it was measured. No budget is decided yet, so type your own: the boxes are the project\'s budgets, saved in project.json.',
+    text: 'What the effect costs the game in each quality tier, measured with the game\'s own code. Press Measure; switch on Budgets and type budgets to see red (over) or green (within). Each number is the most at any moment of the effect, at 60 frames a second with a fixed seed; hover a row\'s name for what it counts, and the info icon for how it was measured. No budget is decided yet, so type your own, at three levels (the project\'s, a class\'s, the effect\'s own), saved in project.json.',
     when: [
       { in: 'Status bar', text: 'The last Measure against the budgets that count: not measured yet, within budget, how many numbers are over, or out of date when the effect or the scene changed since. Click for Cost.' },
     ],
   },
   'Measure': 'Play the effect through once per tier at 60 frames a second, at the game camera, and count what it costs. The preview waits meanwhile. Press it again after a change.',
-  'Budgets': 'Show the budget boxes under the numbers: type a number to set the project\'s budget for that row and tier, and the number turns red (over) or green (within). The boxes stay while a budget is set.',
+  'Budgets': 'Show the budgets: a box under each number, and under this the place where you choose whose numbers the boxes show, switch each level on or off, and pick the effect\'s class. A number over its budget turns red, within it green. The boxes stay while a budget is set.',
+  // The Budgets place, under the Budgets toggle (UI phase 6, Part B).
+  'Boxes show': 'Whose numbers the boxes under the table show and edit: the project\'s, those of the effect\'s class, or the effect\'s own. A number typed switches its level on. The colours always compare with the budgets that count (the line below says which).',
+  'Project budgets': 'The project\'s budgets on or off: one set of numbers for every effect. They count for an effect whose own budgets are off and whose class budgets do not count.',
+  'Class budgets': 'Class budgets on or off, for the whole project: an effect in a class (Class, below) is compared with its class\'s numbers, unless its own budgets are on.',
+  'Class': 'The class of budgets this effect is in: Small, Normal, Big, or one you make with New class…. The pencil renames the class and the bin deletes it; the effects in a deleted class are then in none.',
+  'Its own budgets': 'This effect\'s own budgets on or off. On, they count for it, whatever its class\'s and the project\'s say.',
+  'Rename class…': 'Give this class another name. The effects in it stay in it.',
+  'Delete class': 'Delete this class and its numbers, after asking. The effects in it are then in no class. Undo brings it back.',
   'Draws': 'Draw calls at the busiest moment: one per group in use (stains, light on the ground, the rest on the ground, over the scene). All effects playing share them, at most 4.',
   'Sprites alive': 'Items alive at the busiest moment: each sprite, piece, dot, letter, flame tongue, smoke puff, line, bead and shape counts once, however many outlines it has.',
   'Triangles': 'The most triangles drawn at any moment of the effect. The layers with the most in High are named under the table.',
@@ -468,7 +476,8 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
 
   // ------------------------------------------------------------ word
   'Word': 'The words and how they are drawn: letter size, tilt, bounce, pop-in, how they shrink away and who sees them.',
-  'Words (one picked per play)': 'The words, with commas between: each play shows one, or none when every word has a chance and they add up to under 100 %. Letters A to Z and !; a space makes a gap.',
+  'Words (one picked per play)': 'The words this layer can show, one row each, in capitals: each play shows one, picked by its chance. Empty % boxes share what is left; all empty, every word has the same chance; when every word has a chance and they add up to under 100 %, the rest of the plays show no word. Letters A to Z and !; a space makes a gap.',
+  'Chance': 'How often this word shows, in % of the plays (12,5 or 12.5 work). Empty: it shares what is left with the other empty boxes; the faint number says how much. Over 100 % in all, every chance is scaled down to 100.',
   'Letter height': `How tall the letters are, in ${PX}, at full size, such as 32. Distance from you shrinks them; the Size control grows them.`,
   'Tilt': 'How far the whole word leans, in degrees, picked per play between the two numbers; negative leans it the other way.',
   'Size varies by': 'How much the word\'s size changes from play to play, as a share up or down: 0.1 is up to 10 % bigger or smaller.',
@@ -692,7 +701,19 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Dark middle': 'A darker middle, as a share of the stain\'s size: 0.6 covers 60 %; 0 = none.',
   'Middle colour': 'The colour of the stain\'s darker middle, from the palette.',
   'Gone after (share of life)': 'The lines shorten and are gone after this share of the layer\'s life: 0.5 is halfway.',
-  'Gradient, middle to rim': 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.',
+  'Gradient, middle to rim': {
+    text: 'A gradient from the palette, from the middle to the rim; with one, the glow takes its colours from it, not from Colour. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.',
+    when: [
+      { kind: 'bed', text: 'A gradient from the palette, from the middle to the rim, in place of the tones: banded, one band of lumps per stop; smooth, the bed\'s own bands with its colours blended over them. Give the lumps and the detail the same one. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.' },
+    ],
+  },
+  'Gradient over life': {
+    text: 'A gradient from the palette that colours this layer over its life, in place of its colour. The edit button next to it opens the colour picker at its gradients.',
+    when: [
+      { kind: 'smoke', text: 'A gradient from the palette for each puff\'s body colour, from its start to its end, in place of Colour; the light top and the rim keep their colours, and its alpha fades the whole puff. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.' },
+      { layer: 'burst', text: 'A gradient from the palette for each piece\'s colour over its own life, from its birth to its end, in place of the look\'s colour; an image piece is tinted by it. The speed streak and the ink edge keep their colours. Make or change one in the colour picker: the edit button next to it opens the picker at its gradients.' },
+    ],
+  },
   'Length (share of path)': 'How much of the path behind the projectile the streak covers, as a share of the whole path: 0.1 is a tenth.',
   'Hot head': 'The front part of the streak in another colour, like a shell\'s hot head. Set its colour and its share of the streak.',
   'Share': 'How much of the streak, from the front, is the hot head: 0.4 is 40 %.',
@@ -724,16 +745,10 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Add PNG images…': 'Copy PNG files from your computer into the project\'s images folder, so layers can use them. An example cannot change: Save as first.',
   'Add a tone': 'Add a tone inside the last one: the same colour at 60 % of its size.',
   'Remove': 'Remove this tone. A shape keeps at least one.',
+  'Remove word': 'Remove this word, with its chance. A word layer keeps at least one word.',
+  'Add word': 'Add a word under the last one, with no chance of its own: it shares what is left. Type over it. A word layer has at most 16 words.',
 
   // ------------------------------------------------------------ shown only when a file has them (not in the examples)
-  'gradient': {
-    text: 'The name of a palette gradient that colours this layer in place of its colour.',
-    when: [
-      { kind: 'smoke', text: 'The name of a palette gradient for the smoke\'s body colour over the life of each puff or billow, in place of Colour.' },
-      { kind: 'bed', text: 'The name of a palette gradient that colours the bed from the middle to the rim, in place of the tones. Give the lumps and the detail the same one.' },
-      { layer: 'burst', text: 'The name of a palette gradient that colours each piece over its own life, in place of the look\'s colour.' },
-    ],
-  },
   'tint': 'How the image pieces are coloured: kept as they are, or multiplied by a palette colour.',
   'mode': 'How the image pieces are coloured: keep, their own colours, or multiply, tinted by the Colour (draw such images in white and greys).',
   'Goes at': 'When this tone drops away during the break-up, as a share of it from 0 to 1.',
@@ -881,7 +896,7 @@ const BUDGET_TEXT: Readonly<Record<string, (tier: string) => string>> = {
   'Screen area': (t) => `Budget: the largest share of the screen allowed in the ${t} tier, in %.`,
   'CPU ms a frame': (t) => `Budget: the most CPU ms a frame allowed in the ${t} tier, compared with the slow frame.`,
 };
-const BUDGET_TAIL = ' Over it the value turns red, within it green; typing a number switches the project\'s budgets on.';
+const BUDGET_TAIL = ' The box holds the number of the level Boxes show says (the project\'s, its class\'s or its own). Over it the value turns red, within it green; typing a number switches that level on.';
 
 /** What `pickHelp` found: the table's key, which variant (null: the default), and the text. */
 export interface HelpPick {
@@ -982,4 +997,6 @@ export const NEW_THIS_ROUND = {
   drawnFromImage: (file: string): string => `This layer shows the image ${file} from the project's images folder.`,
   /** F7: "An invisible path: it draws nothing itself" (a projectile). */
   invisiblePath: 'A projectile draws nothing itself: it is the path that the layers riding it follow.',
+  /** UI phase 6, Part B: "Not drawn: …", under what draws a layer, and over the preview. */
+  notDrawn: 'The preview does not draw this layer now, for the reason given. The preview says so too, in its lower left corner.',
 } as const;

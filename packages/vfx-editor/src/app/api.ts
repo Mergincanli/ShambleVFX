@@ -2,10 +2,10 @@
 import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
-import type { Budgets, CostMetric } from '../cost/budgets';
+import type { Budgets, CostMetric, LimitsRef } from '../cost/budgets';
 import type { CostReport } from '../cost/measure';
 import type { Path } from '../doc/edits';
-import type { NotDrawnNote } from '../doc/not-drawn';
+import type { NotDrawnNote, NotDrawnReason } from '../doc/not-drawn';
 
 export interface EditOptions {
   label?: string;
@@ -70,6 +70,11 @@ export interface AppApi {
    * words: an image that did not load, or one that is not in the project. A layer the tier leaves out gets no note.
    */
   layersNotDrawn(): NotDrawnNote[];
+  /**
+   * Why each layer of the current effect is not drawn in the preview now, in plain words (the "not drawn" warning): its
+   * effect's errors stop the preview, the tier shown leaves it out, or its image is not there (at any moment).
+   */
+  notDrawnReasons(): NotDrawnReason[];
   importImages(): void;
 
   /** Show the preview (and the colours) for another faction. */
@@ -117,8 +122,16 @@ export interface AppApi {
   /** The project's budgets at three levels: the project's, the classes' and each effect's own (project.json "budgets"). */
   budgets(): Budgets;
   /**
-   * Set or clear one of the project's budgets (the project level). A number switches the project level on. Until the new
-   * Cost card comes (UI redesign, phase 6), this is all the card edits.
+   * Set or clear one budget at a level (the project's at first; a class's; an effect's own). A number switches its level on;
+   * clearing one does not switch it off. One undo step.
    */
-  setBudget(tier: TierName, metric: CostMetric, value: number | undefined): void;
+  setBudget(tier: TierName, metric: CostMetric, value: number | undefined, where?: LimitsRef): void;
+  /** Any other change to the budgets (a level switched on or off, an effect's class): one undo step; none when nothing changed. */
+  editBudgets(next: Budgets, label: string): void;
+  /** Cost's New class…: ask for a name (the question dialog), add the class and put the effect in it, in one undo step. */
+  newBudgetClass(effectId: string): Promise<boolean>;
+  /** Rename a class of budgets: ask for its new name; one undo step. The effects in it stay in it. */
+  renameBudgetClass(classId: string): Promise<boolean>;
+  /** Delete a class of budgets, after asking: the effects in it are in no class. One undo step. */
+  deleteBudgetClass(classId: string): void;
 }
