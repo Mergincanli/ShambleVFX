@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (384 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (385 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -265,8 +265,9 @@ motion; the hint about clicking a colour only when there is one to click; one ic
 on the timeline and in the header, a ring showing the ring, a sprite its own image (a long thin one, such as a tracer, as
 a slice from its middle) or, when the image is missing, the image icon, and an image burst's tag in Plex Sans; its rows:
 a grid of label and control, 28 px rows 4 px apart; a number dragged by its name (one undo step), typed with a comma
-("0,45", Enter: one step), put back by Esc (none) and stepped by ↑ (one a press); an undo pressed in a box showing there at
-once, with nothing written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
+("0,45", Enter: one step), put back by Esc (none) and stepped by ↑ (one a press); a whole number (How many, Points)
+going in whole steps, so the checker never refuses it; an undo pressed in a box showing there at once, with nothing
+written back on leaving it; two or three numbers on a row with their prefixes, full names, tooltips and
 one unit; a drag on a prefix going on while the panel is built again under it; the shortened choices with their full
 words; a colour role's swatch following the faction and the picker; Tab through every number box of every layer of both
 examples changing nothing; every segmented choice on one line at 1920, and the timeline header's Speed buttons on one row;
@@ -1123,7 +1124,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     zeros at the end, as the boxes always did ("0.5", "350 ms"). A number typed or dragged is rounded to those decimals:
     before, a typed 0.12345 was kept whole while the box showed 0.123. A number in the file with more decimals than its box
     shows is kept as it is until you change it: Tab through the box, or Enter on what it shows, changes nothing.
-  - Each box keeps the step and the limits it had. A slider's box still takes any number typed, as before (the file may go
+  - Each box keeps the step and the limits it had, but one: a setting the file keeps as a whole number (the checker's whole
+    numbers: How many, Points, Teeth, Lobes, Dashes, Lumps, Boil every, Shrinks in steps, a pop's Steps and a Seed) goes
+    in steps of 1 and shows no decimals, and a typed 7,5 is kept as 8. Their step was 0.01, as for any number with no unit,
+    so a drag on the name, or ↑, gave 6.04, which the checker refuses, and the preview stopped until it was undone (found
+    in the check after phase 6). A slider's box still takes any number typed, as before (the file may go
     past the slider's ends: Size up to 20, Speed up to 10000 m/s); a drag on the slider's name stays within the slider's
     ends, as the slider does. A drag is a step for every 4 px, ten with Shift, as Distance's. A press on a number's own name
     that does not move is a click, which puts the focus in its box; a slider's name and a prefix ("R") take no focus. Each

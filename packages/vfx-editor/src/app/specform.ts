@@ -82,6 +82,14 @@ function stepOf(key: string): number {
   return 0.01;
 }
 
+/**
+ * Settings the file keeps as whole numbers (the schema's z.int(), in vfx-format's validate/schema.ts): how many, points,
+ * teeth, lobes, dashes, lumps, boil every, shrinks in steps, a pop's steps and a seed. Their boxes go in steps of 1 and keep
+ * no decimals: with the 0.01 of a number with no unit, a drag on the name or ↑ gave 6.04, which the checker refuses, and
+ * the preview then waited. (A scale's "steps" is a list, never a number box.)
+ */
+const WHOLE = new Set(['count', 'points', 'teeth', 'lobes', 'dashes', 'lumps', 'boilSteps', 'breakSteps', 'steps', 'seed']);
+
 const isRoleKey = (key: string, parent: string) => key === 'role' || key.endsWith('Role') || key === 'separation' || parent === 'colours';
 
 /** A colour role's hex for the faction shown, for a role select's swatch; "main" is the effect's main colour. */
@@ -146,8 +154,10 @@ export function specForm(app: AppApi, parts: Refresher[], basePath: Path, kind: 
       return c.el;
     }
     if (typeof v === 'number') {
-      // A drag on its label is one undo step: the edits merge by path until the commit.
-      const c = numberField({ label, value: v, step: stepOf(key), unit: unitOf(key), onInput: (x) => edit(p, x, label, true), onCommit: () => app.commit() });
+      // A drag on its label is one undo step: the edits merge by path until the commit. A whole number goes in whole steps.
+      const whole = WHOLE.has(key);
+      const c = numberField({ label, value: v, step: whole ? 1 : stepOf(key), digits: whole ? 0 : undefined, unit: unitOf(key),
+        onInput: (x) => edit(p, x, label, true), onCommit: () => app.commit() });
       parts.push({ refresh: () => { const x = get(p); if (typeof x === 'number') c.set(x); } });
       return c.el;
     }

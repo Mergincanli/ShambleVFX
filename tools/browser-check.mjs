@@ -9,8 +9,9 @@
 //      1920 x 1080 screenshots to out/screenshots/.
 // 3. On WebGL 2, drives the editor: an edit and its undo, Fire, quality tiers, game events, the cost panel and budgets, the
 //    right panel (a layer's settings first and the way back, what draws each layer, a projectile's riders, the colours of
-//    the selection; its rows: numbers you drag or type, groups of numbers, shortened segments, the colour roles' swatches,
-//    Tab through every number box; the headers' More menus, the problems banner, no Cost or Checks under a layer; the
+//    the selection; its rows: numbers you drag or type, whole numbers in whole steps, groups of numbers, shortened
+//    segments, the colour roles' swatches, Tab through every number box; the headers' More menus, the problems banner,
+//    no Cost or Checks under a layer; the
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
 //    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
 //    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
@@ -732,6 +733,35 @@ if (webgpu) {
         && esc.value === 0.45 && esc.shown === '0.45' && esc.u.n === typed.u.n && esc.layer === 'flash' && arrows.ms === d0 + 20 && arrows.u.n === ud.n + 2 && d1 === d0
         && undoneInBox.value === 0.5 && undoneInBox.shown === '0.5' && undoneInBox.u.n === u0.n && leftBox.value === 0.5 && leftBox.u.n === u0.n,
       JSON.stringify({ w: [w0, w1, w2], drag: u1, typed, esc, undoneInBox, leftBox, arrows, delay: [d0, d1] }));
+
+    // A whole number of the file (the schema's whole numbers: How many, Points, Teeth, Seed…) goes in whole steps: a drag on
+    // its name, ↑ and a typed decimal keep it whole, so the checker never refuses it (with a step of 0.01, a drag gave 6.04
+    // and the preview waited).
+    await select('board_molotov', 'sparks');
+    const c0 = await layerNow(['count']);
+    const uc = await undoNow();
+    await dragBy(row('Pieces', 'How many').locator('.flab'), 16);
+    const dragged = { count: await layerNow(['count']), u: await undoNow(), problems: await rp.evaluate(() => window.__vfx.app.problems().length) };
+    const howMany = row('Pieces', 'How many').locator('input.num');
+    await howMany.focus();
+    await rp.keyboard.press('ArrowUp');
+    const stepped = await layerNow(['count']);
+    await howMany.fill('7,5');
+    await howMany.press('Enter');
+    const typedWhole = { count: await layerNow(['count']), shown: await howMany.inputValue() };
+    await rp.keyboard.press('Tab');
+    for (let k = 0; k < 3; k++) await rp.keyboard.press('Control+z');
+    const cBack = await layerNow(['count']);
+    await select('board_muzzle', 'hit');
+    const p0 = await layerNow(['shape', 'points']);
+    await dragBy(row('Shape: shards', 'Points').locator('.flab'), 8);
+    const points = { value: await layerNow(['shape', 'points']), problems: await rp.evaluate(() => window.__vfx.app.problems().length) };
+    await rp.keyboard.press('Control+z');
+    ok('a whole number of the file (How many, Points, Teeth, Seed…) goes in whole steps: a 16 px drag on its name adds 4 (one undo step), ↑ adds 1, a typed 7,5 keeps 8; the checker finds no problem',
+      dragged.count === c0 + 4 && dragged.u.n === uc.n + 1 && dragged.problems === 0 && stepped === c0 + 5 && typedWhole.count === 8 && typedWhole.shown === '8' && cBack === c0
+        && points.value === p0 + 2 && points.problems === 0 && (await layerNow(['shape', 'points'])) === p0,
+      JSON.stringify({ c0, dragged, stepped, typedWhole, cBack, p0, points }));
+    await select('rifle_shot', 'flash');
 
     // Groups: each box's prefix, its full name (aria-label) and its tooltip (the full name, then the help text).
     const groupOf = (label) => rp.evaluate((label) => {
