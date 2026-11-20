@@ -1151,9 +1151,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     296 px panel. A typed number with three decimals and a minus (-0.125) in a row of three can still be cut by a pixel or
     two at 1920.
   - A flipbook's **Grid** has long prefixes (Cols, Rows, Frames): with a frame count of three digits its boxes need about
-    177 px, more than the control column has at 1920 (161 px) or in the narrowest panel (138 px). So, as the tier chips do,
-    its boxes start left of the column where they need to, right of the word "Grid"; where the column has the room (2560)
-    they keep to it, and they always end where the other controls end. Frames has room for three digits (999 frames, a
+    172 px (with 2 px inside their ends, where other boxes have 3), more than the control column has at 1920 (161 px) or in
+    the narrowest panel (138 px). So, as the tier chips do, its boxes start left of the column where they need to (11 px
+    at 1920), right of the word "Grid"; where the column has the room (175 px at 2560) they keep to it, and they always end
+    where the other controls end. Frames has room for three digits (999 frames, a
     sheet of up to 31 × 32); a count of four digits is still cut. Before, 120 frames showed "12", and in the narrowest panel
     the numbers ran under the next box (found in the check after phase 6).
   - New row labels: **Offset**, **Pivot**, **Grid** and **Nudge**, each with a help text. A generated row leaves out the words

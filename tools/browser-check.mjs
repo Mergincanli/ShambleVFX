@@ -807,12 +807,17 @@ if (webgpu) {
         return i.scrollWidth <= i.clientWidth && r.left >= b.left && r.right <= b.right + 0.5;
       });
       return { values: [...g.querySelectorAll('input')].map((i) => i.value).join(), whole, h: Math.round(g.getBoundingClientRect().height), right: +(boxes.right - pivot.right).toFixed(1),
-        clear: boxes.left >= lab.getBoundingClientRect().right + 7.5, panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
+        left: +(boxes.left - pivot.left).toFixed(1), clear: boxes.left >= lab.getBoundingClientRect().right + 7.5,
+        panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
     });
     const setGrid = (fb) => rp.evaluate((fb) => { const a = window.__vfx.app; a.editLayer(['flipbook'], { ...fb, loop: false }, { label: 'Flipbook grid' }); a.commit(); }, fb);
     const fits = [await gridFit()];
     await setGrid({ cols: 12, rows: 10, frames: 120 });
     fits.push(await gridFit());
+    // At 2560 x 1440 the control column has the room: the boxes start where the Pivot's do.
+    await rp.setViewportSize({ width: 2560, height: 1440 });
+    const gridWide = await gridFit();
+    await rp.setViewportSize({ width: 1920, height: 1080 });
     const rs = await rp.locator('.split-right').boundingBox();
     await rp.mouse.move(rs.x + rs.width / 2, rs.y + rs.height / 2);
     await rp.mouse.down();
@@ -828,9 +833,10 @@ if (webgpu) {
       return { title: t.textContent, whole: t.scrollWidth <= t.clientWidth, sum: s.textContent, cut: s.scrollWidth > s.clientWidth, panel: Math.round(document.querySelector('.inspector').getBoundingClientRect().width) };
     });
     await rp.locator('.split-right').dblclick();
-    ok('a flipbook\'s Grid shows its numbers whole (2, 2, 4 and 12, 10, 120) at 1920 and in the narrowest panel (260 px): one 28 px row, the boxes ending where the Pivot\'s do and clear of the label\'s words',
+    ok('a flipbook\'s Grid shows its numbers whole (2, 2, 4 and 12, 10, 120) at 1920 and in the narrowest panel (260 px): one 28 px row, the boxes ending where the Pivot\'s do and clear of the label\'s words; at 2560 they also start where the Pivot\'s do',
       fits.every((f) => f.whole && f.h === 28 && Math.abs(f.right) <= 0.5 && f.clear) && fits.map((f) => f.values).join(' | ') === '2,2,4 | 12,10,120 | 12,10,120 | 2,2,4'
-        && fits[0].panel > 290 && fits[2].panel < 262 && fits[3].panel < 262, JSON.stringify(fits));
+        && fits[0].panel > 290 && fits[2].panel < 262 && fits[3].panel < 262 && gridWide.whole && gridWide.h === 28 && Math.abs(gridWide.left) <= 0.5 && Math.abs(gridWide.right) <= 0.5
+        && gridWide.panel > 310, JSON.stringify({ fits, gridWide }));
     ok('in the narrowest panel (260 px) Cost\'s header words end in an ellipsis before its title does: "Measured, no budgets" is cut, "Cost" stays whole',
       costHead.title === 'Cost' && costHead.whole && costHead.sum === 'Measured, no budgets' && costHead.cut && costHead.panel < 262, JSON.stringify(costHead));
 

@@ -831,12 +831,14 @@ button.banner-path:hover { text-decoration-color: currentColor; }
 .prop-group.bare .prop-boxes > .scrub { display: flex; flex: 1 1 0; gap: 4px; padding: 0 6px; }
 .prop-group.bare .scrub input.num, .prop-group.bare .scrub input.num:hover, .prop-group.bare .scrub input.num:focus-visible { flex: 1 1 0; width: 0; min-width: 2ch; }
 .prop-group.bare .scrub .unit, .prop-group.bare .scrub-prefix { flex: none; }
-/* A flipbook's Grid: its prefixes are long, so with a frame count of three digits its boxes need about 177 px, more than the
-   control column has at 1920 (161 px) or in the narrowest panel (138 px). As the tier chips do, they start left of the
-   column where they need to, right of the label's words; where the column has the room (2560), they keep to it. */
+/* A flipbook's Grid: its prefixes are long, so with a frame count of three digits its boxes need about 172 px (with 2 px
+   inside their ends, not 3), more than the control column has at 1920 (161 px) or in the narrowest panel (138 px). As the
+   tier chips do, they start left of the column where they need to, right of the label's words; where the column has the
+   room (175 px at 2560), they keep to it. */
 .prop.prop-group.wide-boxes { display: flex; column-gap: 8px; }
 .prop.prop-group.wide-boxes > .flab { flex: 1 1 auto; }
 .prop.prop-group.wide-boxes > .prop-boxes { flex: none; width: calc(100% - max(84px, 38%) - 8px); min-width: max-content; }
+.prop.prop-group.wide-boxes .prop-boxes > .scrub { padding: 0 2px; }
 .prop .prop-boxes > .scrub.three-digits input.num { min-width: 3ch; }
 /* A slider: a 2 px track and a 12 px thumb, then its number in a 56 px box (72 px for a long number and unit). */
 .slide-ctl { display: flex; align-items: center; gap: 8px; }
