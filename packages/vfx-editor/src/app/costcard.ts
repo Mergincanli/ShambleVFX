@@ -15,7 +15,7 @@ import type { BudgetClass, Budgets, CostMetric, CountingBudget, Limits, LimitsRe
 import { FRAMES_PER_SECOND, measuredOf } from '../cost/measure';
 import type { CostReport, TierCost } from '../cost/measure';
 import type { AppApi } from './api';
-import { checkField, fold, h, icon, iconButton, segmented, selectField, tip } from './dom';
+import { checkField, fold, h, icon, iconButton, parseDecimal, segmented, selectField, tip } from './dom';
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 /** The rows' names. What each counts is its tooltip: the help text for the name (help.ts), as for every label. */
@@ -175,17 +175,28 @@ export function costCard(app: AppApi): { el: HTMLElement; refresh(): void } {
     h('th', { attrs: { scope: 'row' }, text: METRIC_LABEL[m] }),
     ...TIER_NAMES.map((t) => {
       const main = h('div', { class: 'cv' }), sub = h('div', { class: 'cs' });
-      const box = h('input', { class: 'budget', attrs: { type: 'number', min: '0', step: m === 'ms' ? '0.1' : m === 'area' ? '0.5' : '1', placeholder: 'budget',
+      // A text box, as the panel's other number boxes: "0,5" and "0.5" are both a half (a number box read the comma as a
+      // thousands mark, so "0,5" became 5). ↑ and ↓ step it as the number box did, each press one undo step.
+      const step = m === 'ms' ? 0.1 : m === 'area' ? 0.5 : 1;
+      const box = h('input', { class: 'budget', attrs: { type: 'text', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false', placeholder: 'budget',
         'aria-label': `Budget: ${METRIC_LABEL[m]}, ${TIER_LABEL[t]}` } });
-      box.addEventListener('change', () => {
+      const commit = () => {
         const c = cells.get(`${m}:${t}`)!;
         const at = levelLimits(app.budgets(), fxId(), shows());
         const s = box.value.trim();
-        const v = s === '' ? undefined : Number(s);
+        const v = s === '' ? undefined : parseDecimal(s) ?? NaN;
         if (!at.where || (v !== undefined && !(Number.isFinite(v) && v >= 0))) { box.value = c.written = String(budgetOf(at.limits, t, m) ?? ''); return; }
         // What is in the box now is what the card wrote: an undo pressed in it then shows at once (see refresh).
         c.written = box.value;
         app.setBudget(t, m, v, at.where);
+      };
+      box.addEventListener('change', commit);
+      box.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        const next = Math.max(0, (parseDecimal(box.value) ?? 0) + (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1));
+        box.value = String(Number(next.toFixed(step < 1 ? 1 : 0)));
+        commit();
       });
       const cell = h('td', {}, main, sub, box);
       cells.set(`${m}:${t}`, { main, sub, cell, box, written: '' });

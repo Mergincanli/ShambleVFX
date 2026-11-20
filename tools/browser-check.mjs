@@ -5048,6 +5048,22 @@ if (webgpu) {
       const p3 = await placeNow();
       await typeBudget('Triangles', 'High', '9000');
       const p4 = await placeNow();
+      // A budget box takes a comma or a point ("0,5" is a half; a number box read the comma as a thousands mark, so it
+      // became 5), and ↑ steps it (0.1 for CPU ms), each one undo step. Then undone, back to the state above.
+      const msBox = pg.locator('table.cost input.budget[aria-label="Budget: CPU ms a frame, High"]');
+      const bigMs = (p) => p.budgets.classes.list.find((c) => c.id === 'big')?.limits?.high?.ms;
+      await typeBudget('CPU ms a frame', 'High', '0,5');
+      const comma = await placeNow();
+      await msBox.focus();
+      await msBox.press('ArrowUp');
+      const stepped = { ...(await placeNow()), text: await msBox.inputValue() };
+      await pg.evaluate(() => document.activeElement?.blur?.());
+      for (let i = 0; i < 4 && (await pg.evaluate(() => window.__vfx.app.history.past.length)) > p4.n; i++) await pg.keyboard.press('Control+z');
+      const msUndone = await placeNow();
+      ok('a budget box takes "0,5" as a half (not 5) and ↑ steps it by 0.1 for CPU ms, each one undo step; undo takes them away',
+        p4.shows === 'Class' && bigMs(comma) === 0.5 && comma.n === p4.n + 1 && comma.undo === 'Budget' && bigMs(stepped) === 0.6 && stepped.text === '0.6' && stepped.n === p4.n + 2
+          && bigMs(msUndone) === undefined && msUndone.n === p4.n,
+        JSON.stringify({ shows: p4.shows, comma: [bigMs(comma), comma.n - p4.n, comma.undo], stepped: [bigMs(stepped), stepped.text, stepped.n - p4.n], undone: [bigMs(msUndone), msUndone.n - p4.n] }));
       await pg.locator('.inspector .budget-class select').selectOption({ label: 'New class…' });
       await answer('Huge');
       const p5 = await placeNow();

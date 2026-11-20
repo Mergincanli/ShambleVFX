@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (389 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (390 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -312,8 +312,8 @@ it explains; the Game events hint in its tooltip's words), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on its level, and the card
 says which level counts, in one or two lines even for a class with a long name), the Budgets place on a throwaway project
 (each level on and off, numbers at each level, a class picked, made with New class…, renamed and deleted, which level
-counts, every change one undo step, saved in project.json; in the narrowest panel an empty budget box's word ending in an
-ellipsis), saving after deleting an effect (its
+counts, every change one undo step, saved in project.json; a budget box taking "0,5" as a half and ↑ stepping it; in
+the narrowest panel an empty budget box's word ending in an ellipsis), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
 shell (the window's grid at 1920 × 1080 and 2560 × 1440, with at least 8 track rows and 14 layer rows showing at 1920; the four
 splitters: a drag, their limits (with the effects list at its largest, the Layers header and its + staying in the column, and a
@@ -892,8 +892,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     reaches 2 px past the time on the right (4 px on the left) and gives those 2 px back with its margin: the text keeps
     its spacing ("89 / 299 ms"), and the ring ends before the slash.
   - The frame's label reads "1920 × 1080" (it said "1920 × 1080 game screen").
-  - In the 296 px panel the cost table's budget boxes have no spin arrows (Chrome keeps their room even while they are
-    hidden, and "budget" did not fit; the arrow keys still step the number). The row names that do not fit (Sprites alive,
+  - In the 296 px panel the cost table's budget boxes have no spin arrows. Since UI phase 6 they are text boxes, as the
+    panel's other number boxes: "0,5" and "0.5" are both a half (as number boxes they read the comma as a thousands mark,
+    so "0,5" became 5), and ↑ and ↓ still step the number (Shift: 10 steps), each press one undo step. The row names that do not fit (Sprites alive,
     CPU ms a frame) end in an ellipsis, with the full name in their tooltip, until phase 6 remakes the card.
   - A message (the toast) shows 12 px above the status bar.
   - The right panel stays the column that scrolls, with the cards straight inside it: its 40 px header is sticky at the top
