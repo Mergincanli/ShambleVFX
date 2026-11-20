@@ -1486,6 +1486,19 @@ if (webgpu) {
     await bp.locator('.inspector .word-list input[aria-label="Word 4"]').fill('');
     await bp.locator('.inspector .word-list input[aria-label="Word 4"]').press('Enter');
     const w10 = await wordsNow();
+    // A word typed again in another spelling, then given its first chance, which builds the panel again: the focus stays in
+    // its % box, named after the word shown. A word removed with the keyboard: the focus goes to the bin that takes its place.
+    await bp.locator('.inspector .word-list input[aria-label="Word 4"]').fill('blam');
+    await bp.locator('.inspector .word-list input[aria-label="Word 4"]').press('Enter');
+    await typeChance(4, '10');
+    const kept = await bp.evaluate(() => ({ focus: document.activeElement?.getAttribute('aria-label') ?? null, box: document.activeElement?.matches('.word-list input.num') ?? false, word: window.__vfx.app.layer().words[3] }));
+    await bp.locator('.inspector .word-list .word-row:nth-child(4) button.word-remove').focus();
+    await bp.keyboard.press('Enter');
+    const afterRemove = await bp.evaluate(() => ({ focus: document.activeElement?.getAttribute('aria-label') ?? null, n: window.__vfx.app.layer().words.length }));
+    for (let k = 0; k < 3; k++) await bp.keyboard.press('Control+z');
+    ok('a word typed again in another spelling keeps the focus in its % box through its first chance (the panel is built again; the box is named after the word shown); after Remove with the keyboard the focus goes to the bin that takes its place',
+      kept.focus === 'Chance of BLAM' && kept.box && JSON.stringify(kept.word) === '{"text":"BLAM","chance":10}' && afterRemove.focus === 'Remove BADOOM' && afterRemove.n === 3,
+      JSON.stringify({ kept, afterRemove }));
     // One word left: it cannot be removed; sixteen: no more can be added.
     await bp.evaluate(() => { const a = window.__vfx.app; a.editLayer(['words'], [{ text: 'BOOM' }], { label: 'x' }); a.commit(); });
     const one = await wordsNow();

@@ -927,7 +927,7 @@ select[aria-label="Image"] { font-family: var(--mono); }
    then the lines the chances give (an empty line takes no room; the note over 100 % in --bad). */
 .prop.word-list { display: block; }
 .word-list > .flab { display: block; margin-bottom: 4px; }
-.word-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px var(--h-control); align-items: center; gap: 4px; min-height: var(--h-row); margin: var(--prop-gap) 0; }
+.word-row { display: grid; grid-template-columns: minmax(0, 1fr) var(--w-slider-num-wide) var(--h-control); align-items: center; gap: 4px; min-height: var(--h-row); margin: var(--prop-gap) 0; }
 .word-row input.text { font-family: var(--mono); }
 .word-row > .optional-num { width: 100%; }
 .word-row > .optional-num input.num { flex: 1 1 0; width: 0; min-width: 2ch; }

@@ -108,6 +108,12 @@ export function wordList(app: AppApi, parts: Refresher[], label: string): HTMLEl
       const list = words();
       if (list.length <= 1) return;
       edit(list.filter((_, k) => k !== i), 'Remove word');
+      // The panel was built again without this row: the focus goes to the bin of the row that took its place (the last
+      // row's, after the last), or to Add word when one word is left (its bin is off), so the keyboard carries on.
+      const left = list.length - 1;
+      const next = left > 1 ? document.querySelector<HTMLElement>(`.inspector .word-list .word-row:nth-child(${Math.min(i + 1, left)}) button.word-remove`)
+        : document.querySelector<HTMLElement>('.inspector .word-list button.add-word');
+      next?.focus();
     } });
     remove.setAttribute('data-help-label', 'Remove word');
     return { text, chance, remove, el: h('div', { class: 'word-row' }, text, chance.el, remove) };
@@ -126,6 +132,10 @@ export function wordList(app: AppApi, parts: Refresher[], label: string): HTMLEl
       if (document.activeElement !== r.text) r.text.value = w.text;
       // An empty box shows, faint, the share it gets now.
       r.chance.set(w.chance, w.chance === undefined ? percentText(shares.words[i] ?? 0) : '');
+      // Their names follow the word (typed again, it builds no new row): a screen reader says the word shown, and the
+      // panel built again (a first chance, a word added) finds the control that had the focus by its name.
+      r.chance.input.setAttribute('aria-label', `Chance of ${w.text}`);
+      r.remove.setAttribute('aria-label', `Remove ${w.text}`);
       r.chance.input.setAttribute('data-tip', `Chance of ${w.text}, in % (empty: it shares what is left)`);
       r.remove.disabled = list.length <= 1;
       tip(r.remove, list.length <= 1 ? 'A word layer keeps at least one word' : `Remove ${w.text}`);

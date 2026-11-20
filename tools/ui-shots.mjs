@@ -31,6 +31,8 @@ const SEED = 7;
 //   query             more of the address, such as 'hints=off' (Show hints off for the picture; the picture is checked for it)
 //   act(page)         optional, in Node, after the selection and the picker and before the effect is drawn: for clicks
 //                     and keys with Playwright's real mouse and keyboard
+//   scrolls           true: act scrolls the panel to a section further down (showSection), which may take the Look out of
+//                     sight; the picture then cannot show whether the Look is drawn, so that is not checked
 //   hover(page)       optional: a Playwright locator to rest the pointer on until its tooltip opens, after the effect is
 //                     drawn and just before the picture (drawing can move the panel: the Look's line comes in), so the
 //                     picture has that tooltip open
@@ -94,7 +96,7 @@ const STATES = [
   // (60 % in all, so "No word: 40 %" shows, and the 1,000-shot line); the Molotov's smoke with a gradient picked (one made in
   // the page: the examples' palette has none); the Budgets place with the effect in a class and class budgets on; and a
   // layer the tier leaves out, which the preview and its panel say is not drawn.
-  { name: 'words', project: DEMO, effect: 'board_shell', ms: 1300, layer: 'word', act: async (page) => {
+  { name: 'words', project: DEMO, effect: 'board_shell', ms: 1300, layer: 'word', scrolls: true, act: async (page) => {
     await page.evaluate(() => {
       const a = window.__vfx.app;
       a.editLayer(['words'], [{ text: 'KABOOM', chance: 30 }, { text: 'KRAKOOM', chance: 20 }, { text: 'BADOOM', chance: 5 }, { text: 'WHAM', chance: 5 }], { label: 'Words' });
@@ -102,7 +104,7 @@ const STATES = [
     });
     await showSection(page, 'Word');
   } },
-  { name: 'gradient', project: DEMO, effect: 'board_molotov', ms: 1200, layer: 'smoke', act: async (page) => {
+  { name: 'gradient', project: DEMO, effect: 'board_molotov', ms: 1200, layer: 'smoke', scrolls: true, act: async (page) => {
     await page.evaluate(() => {
       const a = window.__vfx.app;
       a.setGradient('smoke.cool', { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'fire.smoke' }, { at: 0.4, role: 'fire.smoke' }, { at: 1, role: 'fire.smoke.light', alpha: 0.4 }] });
@@ -442,8 +444,6 @@ try {
     const b = d.look;
     if (!b) return 'no Look in the layer\'s panel';
     if (!d.lookState?.ready) return 'the Look did not get its renderer';
-    // Scrolled away to show a section further down (the words, a gradient): the picture cannot show whether it is drawn.
-    if (!d.lookOnScreen) return null;
     const covered = (x, y) => d.covers.some((c) => x >= c.x - 2 && x <= c.x + c.w + 2 && y >= c.y - 2 && y <= c.y + c.h + 2);
     let all = 0, n = 0, isGround = 0, other = 0;
     for (let y = Math.ceil(b.y + 4); y < Math.min(b.y + b.h - 4, png.height); y += 2) for (let x = Math.ceil(b.x + 4); x < Math.min(b.x + b.w - 4, png.width); x += 2) {
@@ -495,7 +495,8 @@ try {
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);
-          if (state.layer) { const look = lookDrawn(png, got); if (look) wrong.push(look); }
+          // A state that scrolls the panel to a section further down may take the Look out of sight: only then is it not checked.
+          if (state.layer && !(state.scrolls && !got.lookOnScreen)) { const look = lookDrawn(png, got); if (look) wrong.push(look); }
           if (png.width !== size.width || png.height !== size.height) wrong.push(`the picture is ${png.width} x ${png.height}`);
           if (!told) {
             console.log(`${state.name}: ${got.effectName}${got.layer ? `, layer "${got.layerName}" (${got.layer})` : ', no layer'}${state.picker ? `, colour picker on ${got.role}` : ''}; ${state.ms} ms, seed ${SEED}`);

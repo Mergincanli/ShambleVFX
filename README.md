@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (383 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (384 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -286,7 +286,8 @@ rows in the brief's order, its picture as wide as the panel allows and at most 1
 gradients, with the gradient chosen in the editor; and phase 6's done-when at 1920 × 1080: a sprite's Look, Layer, Image
 and Size and place, and the effect's Effect, Scale, Phases and Colour, without scrolling; and Part B: a word layer's words
 with their chances, a % box per word, Remove, Add word, "No word: 40 %", the red note over 100 %, the 1,000-shot line as the
-game's own pick counts it, capitals, one undo step per change and Tab through an empty box changing nothing; a gradient
+game's own pick counts it, capitals, one undo step per change, Tab through an empty box changing nothing, the focus kept
+in a renamed word's box through its first chance and moved to the next bin after Remove; a gradient
 picked on smoke, a fire's bed and a burst, drawn in the runtime's buffers and one undo step each, with a glow's edit button;
 the "not drawn" warning over the preview and under what draws a layer, for a layer the tier leaves out, an effect whose
 errors stop the preview and, on a throwaway project, an image that does not decode, also with Show hints off), Fade
@@ -1272,8 +1273,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the last one; its box takes the focus with its text chosen, to type over. An empty word puts the old one back; a comma
     stays in a word (the checker warns that it is not drawn). The file's limits hold in the rows: 1 to 16 words, 24
     characters each, a chance from 0 to 100 % with up to three decimals; the last word has no Remove and the 16th no Add
-    word, their tooltips say why. ↑ and ↓ step a chance by 1 (an empty box starts from the share it shows). The faint number
-    in an empty box is the share it gets now (one decimal). "No word: 40 %", the red note over 100 % and the 1,000-shot line
+    word, their tooltips say why. A % box and a bin are named after the word shown ("Chance of BOOM"), so the panel built
+    again (a first chance, a word added) gives the focus back to the same box; after Remove the focus goes to the bin of
+    the row that takes its place (Add word when one word is left). ↑ and ↓ step a chance by 1 (an empty box starts from
+    the share it shows). The faint number in an empty box is the share it gets now (one decimal). "No word: 40 %", the red note over 100 % and the 1,000-shot line
     carry a state: Show hints off keeps them. The note's total has two decimals at most, more only when it takes them to
     show it passes 100, as the checker's warning. The line counts seeds 1 to 1,000 with the runtime's own pick
     (src/doc/odds.ts), "no word" last; with Changes every play off every shot shows the same word, and its tooltip says so.
@@ -1281,9 +1284,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     Colour, the bed's before its Tones, a burst's after its pieces' Look (a glow's stays at the end of its section, where it
     was). Smoke and a burst say "Gradient over life", a bed "Gradient, middle to rim", as a glow; no gradient is "None: its
     Colour", "None: the tones" or "None: its Look" (a glow's said "None: one colour (the Colour above)", which its narrow
-    select cut short: it says "None: its Colour" now, as smoke's). The pencil opens the colour picker at its gradients, on smoke's Colour,
-    the bed's middle tone (its last) or the pieces' colour (the effect's main colour for image pieces), with the gradient
-    chosen open in the editor. The picker's "Use on the selected glow" stays a glow's (the picker is phase 7), so for these
+    select cut short: it says "None: its Colour" now, as smoke's). The pencil opens the colour picker at its gradients, on
+    smoke's Colour, the bed's middle tone (its last) or the pieces' colour (the effect's main colour for image pieces), with
+    the gradient chosen open in the editor. The picker's "Use on the selected glow" stays a glow's (the picker is phase 7), so for these
     layers the gradient is picked in their own choice.
   - **The Budgets place**, under Cost's Budgets toggle: Boxes show (Project, Class, Own; the full words in their tooltips),
     Project budgets, Class budgets (class budgets for the whole project), Class (No class, the classes in their order, New
