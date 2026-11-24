@@ -314,6 +314,8 @@ export class ColourPicker {
     for (const input of [r, g, b]) {
       input.addEventListener('change', () => {
         const c = [r, g, b].map((x) => Math.min(255, Math.max(0, Math.round(Number(x.value) || 0)))) as [number, number, number];
+        // The boxes show the numbers used, also when that is the colour already and nothing is drawn again.
+        [r, g, b].forEach((x, i) => { x.value = String(c[i]); });
         this.useHex(rgbToHex(c));
       });
     }
@@ -564,16 +566,23 @@ export class ColourPicker {
     this.drawAll(hex);
   }
 
-  /** A finished colour (typed, or a swatch): one undo step. */
+  /**
+   * A finished colour (typed, or a swatch): one undo step. When it is the colour already, nothing is drawn again: after
+   * Enter, the hex box's change event comes once more as it loses the focus, and a redraw then built the buttons under the
+   * pointer again and lost the click that took the focus (the faction switch, Work it out again, a Darker colour).
+   */
   private useHex(hex: string): void {
+    const before = this.app.palette;
     this.app.setColour(this.role, hex, { faction: this.faction });
     this.app.commit();
-    this.refresh();
+    if (this.app.palette !== before) this.refresh();
   }
 
   private typedHex(): void {
     const v = parseHexInput(this.parts.hex.value);
     if (!v) { this.say('That is not a colour: use #RRGGBB, such as #F47A1C.'); this.parts.hex.value = this.currentHex() ?? ''; return; }
+    // As the picker writes it (#RRGGBB), also when it is the colour already and nothing is drawn again.
+    this.parts.hex.value = v;
     this.useHex(v);
   }
 

@@ -1791,6 +1791,29 @@ if (webgpu) {
         && /^Copied/.test(said.soviets.text) && said.newValue.text === '' && /^Copied/.test(said.beforeClose.text) && said.reopened.text === '' && said.reopened.role === 'glow'
         && said.hotAfter.text === '' && said.hotAfter.h < 640, JSON.stringify(said));
 
+    // A click right after a colour typed in the hex box with Enter (the keyboard and the mouse, for real) does what it says:
+    // the box's change event comes again as it loses the focus, and the picker drew itself again then, between the press and
+    // the release, so the faction switch and Work it out again did nothing. The typed colour is one undo step.
+    const typedThenClick = {};
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow'));
+    const t0 = (await undoNow()).n;
+    await cp.locator('.cpick .cp-hex').fill('#22aa22');
+    await cp.locator('.cpick .cp-hex').press('Enter');
+    await cp.locator('.cpick .cp-faction[aria-label^="Allies:"]').click();
+    typedThenClick.faction = await cp.evaluate(() => ({ faction: window.__vfx.app.faction, pressed: document.querySelector('.cpick .cp-faction[aria-pressed="true"]').getAttribute('aria-label').split(':')[0], glow: window.__vfx.app.palette.factions.soviets.roles.glow.hex }));
+    typedThenClick.steps = (await undoNow()).n - t0;
+    await cp.locator('.cpick .cp-faction[aria-label^="Soviets:"]').click();
+    await cp.evaluate(() => window.__vfx.app.picker.show('team.dark'));
+    await cp.locator('.cpick .cp-hex').fill('123456');
+    await cp.locator('.cpick .cp-hex').press('Enter');
+    typedThenClick.box = await cp.evaluate(() => document.querySelector('.cpick .cp-hex').value);
+    await cp.locator('.cpick .cp-derived button').click();
+    typedThenClick.derived = await cp.evaluate(() => ({ from: window.__vfx.app.palette.factions.soviets.roles['team.dark'].from, words: document.querySelector('.cpick .cp-derived span').textContent }));
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow'));
+    ok('a click right after a colour typed in the hex box with Enter does what it says: the faction switch switches and Work it out again works it out; the typed colour is one undo step, and the box shows it as #RRGGBB',
+      typedThenClick.faction.faction === 'allies' && typedThenClick.faction.pressed === 'Allies' && typedThenClick.faction.glow === '#22AA22' && typedThenClick.steps === 1
+        && typedThenClick.box === '#123456' && typedThenClick.derived.from === 'derived' && typedThenClick.derived.words === 'Worked out from team: team × 0.7.', JSON.stringify(typedThenClick));
+
     // The Palette tab: 22 px chips (the team colours of the faction shown, then the shared ones), the main colour's with its
     // dot, the chosen one outlined, the names in their tooltips; New colour folded at the bottom.
     await cp.locator('.cp-tab[data-tab="palette"]').click();
