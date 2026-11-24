@@ -53,6 +53,8 @@ export class ColourPicker {
   private shownHex = '';
   /** Each colour as it was when the picker first showed it (for Revert). */
   private openedWith = new Map<string, PaletteEntry>();
+  /** The role, faction and colour the status line's words were said for ("Copied #FF2E63."): they go when another shows. */
+  private saidFor = '';
   private dragging: 'hue' | 'sv' | null = null;
   private gesture = 0;
   private harmonyKind: Harmony = 'analogous';
@@ -319,8 +321,8 @@ export class ColourPicker {
     window.addEventListener('resize', () => { if (this.isOpen) this.place(); });
     // When a tab or a section opens or closes, keep the whole picker inside the window.
     new ResizeObserver(() => { if (this.isOpen) this.place(); }).observe(el);
-    // Revert goes back to the colours as they were when the picker opened this time.
-    el.addEventListener('toggle', (e) => { if ((e as ToggleEvent).newState === 'closed') { this.openedWith.clear(); this.dragging = null; } });
+    // Revert goes back to the colours as they were when the picker opened this time; the status line's words go with it.
+    el.addEventListener('toggle', (e) => { if ((e as ToggleEvent).newState === 'closed') { this.openedWith.clear(); this.dragging = null; this.say(''); } });
     return el;
   }
 
@@ -340,6 +342,9 @@ export class ColourPicker {
     const p = this.parts, pal = this.app.palette;
     const faction = isFactionRole(pal, this.role);
     const entry = roleEntry(pal, this.role, this.faction);
+    // The status line speaks of the colour it was said for: another role, another faction's colour or a new value takes its
+    // words away (they stayed for good, under every colour shown after, and kept the tab a line or two taller).
+    if (this.saidFor && this.saidFor !== `${this.role}|${this.faction}|${hex}`) this.say('');
     p.chip.style.background = hex;
     p.title.textContent = this.role;
     p.scope.textContent = faction ? `Changes with the faction: ${pal.factions[this.faction].name}` : 'One colour for every faction';
@@ -602,11 +607,14 @@ export class ColourPicker {
     if (err) { this.parts.newError.textContent = err; return; }
     this.parts.newName.value = '';
     this.parts.newError.textContent = '';
-    this.say(`Added ${name}. Effects can use it now; Save keeps it in the project's palette.json.`);
+    // The new colour first: the words are about it.
     this.show(name);
+    this.say(`Added ${name}. Effects can use it now; Save keeps it in the project's palette.json.`);
   }
 
+  /** The status line, under the source line: words about the colour shown (empty words clear it). */
   private say(text: string): void {
     this.parts.status.textContent = text;
+    this.saidFor = text ? `${this.role}|${this.faction}|${this.currentHex() ?? ''}` : '';
   }
 }

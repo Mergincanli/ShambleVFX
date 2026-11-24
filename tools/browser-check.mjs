@@ -1744,6 +1744,37 @@ if (webgpu) {
       derived.at === 'Worked out from team: team × 0.7.' && derived.source === 'Worked out from another colour by a formula.' && derived.byHand === 'Usually worked out from team (team × 0.7); now set by hand.'
         && derived.again === derived.at && derived.now.from === 'derived' && derived.now.hex === derived.was && derived.none === null, JSON.stringify(derived));
 
+    // The status line speaks of the colour it was said for ("Copied #…"): another colour, another faction's colour or a new
+    // value takes its words away, and so does closing the picker. (They stayed for good, and kept glow.hot over 640 px.)
+    const statusNow = () => cp.evaluate(() => { const c = document.querySelector('.cpick'); return { text: c.querySelector('.cp-status').textContent, h: Math.round(c.getBoundingClientRect().height) }; });
+    const copyNow = async () => { await cp.locator('.cpick .cp-hexrow button[aria-label="Copy the hex value"]').click(); await cp.waitForFunction(() => document.querySelector('.cpick .cp-status').textContent !== '', null, { timeout: 5000 }).catch(() => {}); return statusNow(); };
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow.hot'));
+    const said = { hot: await copyNow() };
+    await cp.evaluate(() => window.__vfx.app.picker.show('dust'));
+    said.otherColour = await statusNow();
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow.hot'));
+    said.back = await statusNow();
+    said.again = await copyNow();
+    await cp.locator('.cpick .cp-faction[aria-label^="Allies:"]').click();
+    said.otherFaction = await statusNow();
+    await cp.locator('.cpick .cp-faction[aria-label^="Soviets:"]').click();
+    said.soviets = await copyNow();
+    await cp.locator('.cpick .cp-row[aria-label="Lighter"] .cp-swatch').nth(1).click();
+    said.newValue = await statusNow();
+    await cp.keyboard.press('Control+z');
+    said.beforeClose = await copyNow();
+    await closeIt();
+    await cp.locator('.inspector .main-colour button.edit-colour').click();
+    await opened();
+    said.reopened = { ...(await statusNow()), role: await cp.evaluate(() => document.querySelector('.cpick .cp-title').textContent) };
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow.hot'));
+    said.hotAfter = await statusNow();
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow'));
+    ok('the status line speaks of the colour it was said for: "Copied #…" goes when another colour, another faction\'s colour or a new value shows, and when the picker closes; then glow.hot is under 640 px again',
+      /^Copied #[0-9A-F]{6}\.$/.test(said.hot.text) && said.otherColour.text === '' && said.back.text === '' && /^Copied/.test(said.again.text) && said.otherFaction.text === ''
+        && /^Copied/.test(said.soviets.text) && said.newValue.text === '' && /^Copied/.test(said.beforeClose.text) && said.reopened.text === '' && said.reopened.role === 'glow'
+        && said.hotAfter.text === '' && said.hotAfter.h < 640, JSON.stringify(said));
+
     // The Palette tab: 22 px chips (the team colours of the faction shown, then the shared ones), the main colour's with its
     // dot, the chosen one outlined, the names in their tooltips; New colour folded at the bottom.
     await cp.locator('.cp-tab[data-tab="palette"]').click();

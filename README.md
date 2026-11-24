@@ -270,7 +270,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (421 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (422 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -315,7 +315,8 @@ colour picker (UI phase 7: 272 px wide, left of the right panel, its top level w
 window; its header and its three tabs as a segmented control; each way in opening its tab, the tab used last remembered
 until a reload, the keys on the tabs staying in the picker and Esc closing it; the Colour tab under 640 px for every
 colour, its parts in order, the faction switch, Copy, the exact values, Darker, Lighter, Goes with it and its scheme,
-Revert and whose value it is, the main colour and the worked-out colour, each change one undo step; the Palette tab's
+Revert and whose value it is, the main colour and the worked-out colour, each change one undo step, and the status
+line's words ("Copied #…") going when another colour, faction or value shows and when the picker closes; the Palette tab's
 22 px chips, the main colour's dot, names in the tooltips and New colour folded; the palette profiles there, in the
 temporary palettes folder and a throwaway project: the list with the defaults locked, the rows of a profile's menu with no
 tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
@@ -1403,7 +1404,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the strips. "Use as this effect's main colour" and Revert share a row (both fit with either of the first one's
     words, with 6 px inside the buttons, so the row keeps its height). The parts are 8 px apart. The tallest Colour tab
     is a colour worked out from another, with the faction switch and a note of two lines: glow.hot, 629 px (the brief's
-    limit: 640). The status line under the source line ("Copied #FF2E63.") adds a line while it shows.
+    limit: 640). The status line under the source line ("Copied #FF2E63.") adds a line while it shows (glow.hot is then
+    653 px, or 669 px with a message of two lines: over 640 for that time). Its words are about the colour they were said
+    for: another colour, another faction's colour or a new value takes them away, and so does closing the picker (they
+    used to stay for good, under every colour shown after).
   - **The Palette tab**: the chips are 22 px, ten a row. The palette profiles sit between the colours and New colour, so
     New colour stays at the bottom, folded. Both are sections that fold, as the right panel's do, but not remembered:
     each time the page opens, the profiles start open and New colour closed.
