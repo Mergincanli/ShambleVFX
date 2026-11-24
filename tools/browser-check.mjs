@@ -1824,9 +1824,14 @@ if (webgpu) {
 
     // The defaults are locked: their menu has Load, Duplicate and Save as file, not Save over, Rename or Delete.
     const defMenu = await menuOf('Built-in');
+    // The menu sits on body, outside the picker: its rows have no help text, and never the lists' (its Duplicate is not a
+    // layer's, "Make a copy of the layer, just above it…" with Ctrl+D).
+    const defTips = await pp.evaluate(() => [...document.querySelectorAll('#profile-menu .menu-item')].map((b) => window.__vfx.app.tipForChecks(b)));
     await pp.keyboard.press('Escape');
     ok('a default profile can be loaded, duplicated or saved as a file, but its menu offers no Save over, Rename or Delete (they are off)',
       defMenu.join('|') === 'Load into this project|Save over… (off)|Rename… (off)|Duplicate|Save as file…|Delete… (off)', defMenu.join('|'));
+    ok('the profile menu\'s rows have no tooltip of the lists\' rows: its Duplicate does not say what a layer\'s Duplicate does, with Ctrl+D',
+      defTips.length === 6 && defTips.every((t) => t === null), JSON.stringify(defTips));
 
     // Save as profile…: a new profile with the project's colours; a taken name is asked for again; the project names it.
     const u0 = await undoNow();

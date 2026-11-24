@@ -270,7 +270,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (420 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (421 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -317,7 +317,8 @@ until a reload, the keys on the tabs staying in the picker and Esc closing it; t
 colour, its parts in order, the faction switch, Copy, the exact values, Darker, Lighter, Goes with it and its scheme,
 Revert and whose value it is, the main colour and the worked-out colour, each change one undo step; the Palette tab's
 22 px chips, the main colour's dot, names in the tooltips and New colour folded; the palette profiles there, in the
-temporary palettes folder and a throwaway project: the list with the defaults locked, Save as profile… with a taken name
+temporary palettes folder and a throwaway project: the list with the defaults locked, the rows of a profile's menu with no
+tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
 asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
 that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
 as file, Import profile… numbering a taken name, Restore the default profiles, and Esc in a name box cancelling with

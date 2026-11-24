@@ -59,14 +59,16 @@ export class ProfilePanel {
     this.el = fold('Palette profiles', [from, list, problems, restore, h('div', { class: 'pf-buttons' }, saveAs, importBtn), status], true, [], { className: 'cp-profiles', remember: false });
     this.el.querySelector(':scope > summary')!.setAttribute('data-tip',
       'Named sets of colours, kept on this computer: load one into this project, keep this project\'s colours as one, or send one as a file. A project keeps its own copy of the colours.');
+    // The menu sits on body, outside the picker, so the help texts would look its rows up as the lists' rows (Duplicate would
+    // say "Make a copy of the layer…", Ctrl+D): an empty helpLabel says a row has none, as in the rest of the picker.
     this.rowMenu = menu({ id: 'profile-menu', label: 'Palette profile', items: [
-      { label: 'Load into this project', icon: 'palette', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.load(this.menuFor); } },
-      { label: 'Save over…', icon: 'save', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.saveOver(this.menuFor); } },
-      { label: 'Rename…', icon: 'edit', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.rename(this.menuFor); } },
-      { label: 'Duplicate', icon: 'copy', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.duplicate(this.menuFor); } },
-      { label: 'Save as file…', icon: 'export', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.saveFile(this.menuFor); } },
+      { label: 'Load into this project', helpLabel: '', icon: 'palette', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.load(this.menuFor); } },
+      { label: 'Save over…', helpLabel: '', icon: 'save', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.saveOver(this.menuFor); } },
+      { label: 'Rename…', helpLabel: '', icon: 'edit', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.rename(this.menuFor); } },
+      { label: 'Duplicate', helpLabel: '', icon: 'copy', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.duplicate(this.menuFor); } },
+      { label: 'Save as file…', helpLabel: '', icon: 'export', disabled: () => !this.menuFor, action: () => { if (this.menuFor) this.saveFile(this.menuFor); } },
       'divider',
-      { label: 'Delete…', icon: 'trash', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.remove(this.menuFor); } },
+      { label: 'Delete…', helpLabel: '', icon: 'trash', disabled: () => !this.menuFor || isDefaultProfile(this.menuFor.name), action: () => { if (this.menuFor) this.remove(this.menuFor); } },
     ] });
     this.draw();
   }
