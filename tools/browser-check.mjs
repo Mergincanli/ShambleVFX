@@ -2089,6 +2089,50 @@ if (webgpu) {
       escaped.files === beforeEsc && escaped.names.includes('Night raid two') && again.open && !!again.value && !escaped.names.some((n) => n.toLowerCase() === again.value.toLowerCase()) && profileFiles().join() === beforeEsc,
       JSON.stringify({ escaped, again }));
 
+    // The line under the list speaks of what was just done: when the Palette tab shows again, its words go. A list that
+    // cannot be read (the store answers 500 here) says so in red; listed again, the red line goes (it stayed, under a list
+    // that was there, and so did "Loaded …: Ctrl+Z puts the old colours back" in another project). On a page of its own,
+    // whose errors may hold that 500 only; the profile it makes is deleted again there.
+    {
+      const g2 = await open(`${base}/?backend=webgl&project=projects/${proj}`, () => window.__vfx && window.__vfx.ready);
+      const p2 = g2.page;
+      const status2 = () => p2.evaluate(() => document.querySelector('.cpick .pf-status').textContent);
+      const rows2 = () => p2.evaluate(() => [...document.querySelectorAll('.cpick .pf-row .pf-name')].map((x) => x.textContent));
+      const reshow = async () => { await p2.locator('.cp-tab[data-tab="colour"]').click(); await p2.locator('.cp-tab[data-tab="palette"]').click(); };
+      await p2.evaluate(() => { window.__vfxManual = true; window.__vfx.app.pickEffect('board_beam'); });
+      await p2.locator('.inspector .edit-palette').click();
+      await p2.waitForFunction(() => document.querySelectorAll('.cpick .pf-row').length >= 2, null, { timeout: 10000 });
+      await p2.locator('.cpick button.pf-save-as').click();
+      await p2.waitForSelector('dialog[open] input.text');
+      await p2.fill('dialog input.text', 'Said before');
+      await p2.click('dialog >> text=OK');
+      await p2.waitForFunction(() => document.querySelector('.cpick .pf-status').textContent.startsWith('Saved'), null, { timeout: 10000 });
+      const saidBefore = await status2();
+      await reshow();
+      await p2.waitForFunction(() => document.querySelectorAll('.cpick .pf-row').length >= 3, null, { timeout: 10000 });
+      const reshown = { status: await status2(), rows: (await rows2()).includes('Said before') };
+      await p2.route('**/__vfx/api/profiles', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'The palettes folder cannot be read' }) }) : r.continue()));
+      await reshow();
+      await p2.waitForFunction(() => document.querySelector('.cpick .pf-status').classList.contains('bad'), null, { timeout: 10000 }).catch(() => {});
+      const unlisted = { status: await status2(), bad: await p2.evaluate(() => document.querySelector('.cpick .pf-status').classList.contains('bad')), list: await p2.evaluate(() => document.querySelector('.cpick .pf-list').textContent) };
+      await p2.unroute('**/__vfx/api/profiles');
+      await reshow();
+      await p2.waitForFunction(() => document.querySelectorAll('.cpick .pf-row').length >= 3, null, { timeout: 10000 });
+      const relisted = { status: await status2(), shown: await p2.evaluate(() => getComputedStyle(document.querySelector('.cpick .pf-status')).display !== 'none'), rows: (await rows2()).includes('Said before') };
+      // Delete it again (here, so the other page's list stays as it was).
+      await p2.locator('.cpick .pf-row', { has: p2.locator('.pf-name', { hasText: exactly('Said before') }) }).locator('button.more').click();
+      await p2.waitForSelector('#profile-menu:popover-open', { timeout: 5000 });
+      await menuRow(p2, 'profile-menu', 'Delete…').click();
+      await p2.waitForSelector('dialog[open]');
+      await p2.click('dialog button[data-answer="delete"]');
+      await p2.waitForFunction(() => document.querySelector('.cpick .pf-status').textContent.startsWith('Deleted'), null, { timeout: 10000 });
+      ok('the line under the list speaks of what was just done: when the Palette tab shows again its words go; a list that cannot be read says so in red, and once listed again the red line goes',
+        saidBefore === 'Saved this project\'s colours as Said before.' && reshown.status === '' && reshown.rows && unlisted.status === 'The palette profiles could not be listed: The palettes folder cannot be read'
+          && unlisted.bad && unlisted.list === 'The palette profiles could not be listed.' && relisted.status === '' && !relisted.shown && relisted.rows && fileOf('Said before') === null
+          && g2.errors.every((e) => /status of 500/.test(e)), JSON.stringify({ saidBefore, reshown, unlisted, relisted, errors: g2.errors.slice(0, 3) }));
+      await p2.close();
+    }
+
     // Clean up: every profile made here is deleted (through the store), so the two defaults are left, as found.
     for (const n of ['Built-in copy', 'Night raid two', 'Night raid two (1)', 'Thin colours']) {
       await menuOf(n);

@@ -270,7 +270,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (424 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (425 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -323,8 +323,9 @@ temporary palettes folder and a throwaway project: the list with the defaults lo
 tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
 asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
 that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
-as file, Import profile… numbering a taken name, Restore the default profiles, and Esc in a name box cancelling with
-the panel working on, the folder left as found; the
+as file, Import profile… numbering a taken name, Restore the default profiles, Esc in a name box cancelling with
+the panel working on, the line under the list starting empty each time the tab shows (a list that could not be read
+saying so in red until it is listed again), the folder left as found; the
 Gradients tab, its editor and ramp folding as the right panel's sections do, and Use on the selected … putting a gradient
 on smoke, a fire bed and a burst, one undo step each, its words following the selection), Fade
 other layers (the
@@ -1457,6 +1458,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     Save writes `project.json` when it changed. Rename and Delete change no project: its line keeps the name it had.
   - **One action at a time**: while one runs (a question open, the store answering), a click on Load, on a row's More or
     on a button under the list does nothing, so a double click on Load is one load.
+  - **The line under the list** says what the last action did ("Saved this project's colours as …", in red what went
+    wrong). It starts empty each time the Palette tab shows: its words were about an action of before, perhaps in another
+    project (a "Ctrl+Z puts the old colours back" stayed after another project opened, and a red "could not be listed"
+    under a list that was there again).
   - **The question dialog** (`ask`, as it was: its Enter handling waits for Mustafa) has two more ways in, Save as
     profile… and Rename…. Enter in the name box gives the name, and the same Enter then reaches the button the focus
     goes back to (Save as profile…, or the row's More); that click comes while the action still runs, so the panel does

@@ -73,8 +73,13 @@ export class ProfilePanel {
     this.draw();
   }
 
-  /** The Palette tab shows: list the profiles again (the local server makes the folder, with the two defaults, the first time). */
+  /**
+   * The Palette tab shows: list the profiles again (the local server makes the folder, with the two defaults, the first
+   * time). The line under the list starts empty: its words were about an action of before, perhaps in another project
+   * ("Loaded …: Ctrl+Z puts the old colours back"), or about a list that could not be read then.
+   */
   show(): void {
+    this.say([]);
     void this.list();
   }
 
