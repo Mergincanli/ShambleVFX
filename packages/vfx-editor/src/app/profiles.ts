@@ -230,8 +230,9 @@ export class ProfilePanel {
   }
 
   private saveAs(): void {
+    // It starts from a free name: the project's profile name (or the project's name), numbered when it is taken.
     this.run(() => this.askName('Save as profile', 'A name for a new palette profile with this project\'s colours. It is kept on this computer, for any project to load.',
-      this.app.paletteProfile() ?? this.app.projectName(), this.names(), async (name) => {
+      freeProfileName(this.app.paletteProfile() ?? this.app.projectName(), this.names()), this.names(), async (name) => {
         const s = await this.app.profiles().createProfile(name, this.app.palette);
         this.app.namePaletteProfile(s.name);
         await this.list();
@@ -367,6 +368,6 @@ function howMany(lines: LackingLine[]): string {
 function lackingList(lines: LackingLine[]): HTMLElement {
   return h('ul', { class: 'pf-lacking' }, ...lines.map((x) => h('li', {},
     h('code', { text: x.name }), x.kind === 'gradient' ? h('span', { class: 'meta', text: ' (gradient)' }) : null,
-    h('span', { class: x.kept ? 'pf-kept' : 'pf-lost', text: x.kept ? ' kept' : ' missing here too: those layers stay as they are' }),
+    h('span', { class: x.kept ? 'pf-kept' : 'pf-lost', text: x.kept ? ' kept' : ' missing here too: it stays missing' }),
     h('div', { class: 'meta', text: `Used by ${x.where}` }))));
 }

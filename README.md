@@ -270,7 +270,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (419 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (420 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -320,7 +320,8 @@ Revert and whose value it is, the main colour and the worked-out colour, each ch
 temporary palettes folder and a throwaway project: the list with the defaults locked, Save as profile… with a taken name
 asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
 that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
-as file, Import profile… numbering a taken name, and Restore the default profiles, the folder left as found; the
+as file, Import profile… numbering a taken name, Restore the default profiles, and Esc in a name box cancelling with
+the panel working on, the folder left as found; the
 Gradients tab, its editor and ramp folding as the right panel's sections do, and Use on the selected … putting a gradient
 on smoke, a fire bed and a burst, one undo step each, its words following the selection), Fade
 other layers (the
@@ -1373,77 +1374,86 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     label steps aside, so the header keeps one row down to the narrowest centre (640 px). The Look takes the preview's
     seed at the start of each of its own plays (a picture at once), so a new shot never changes a play half-way; before, a
     Fire changed the Look's play at once.
-- **The colour picker** (UI phase 7 of [docs/ui-redesign.md](docs/ui-redesign.md): the 272 px width, the place, the header,
-  the three tabs as a segmented control and what each holds are the brief's; the palette profiles' actions are the plan
-  Mustafa approved on 2026-11-15; these choices are ours, not Mustafa's or the brief's). Phase 7 came in three slices: the
-  frame and the tabs; the Palette tab with the profiles; the Gradients tab and "Use on the selected …":
+- **The colour picker** (UI phase 7 of [docs/ui-redesign.md](docs/ui-redesign.md): the 272 px width, the place, the
+  header, the three tabs as a segmented control and what each holds are the brief's; the palette profiles' actions are
+  the plan Mustafa approved on 2026-11-15; these choices are ours, not Mustafa's or the brief's). Phase 7 came in three
+  slices: the frame and the tabs; the Palette tab with the profiles; the Gradients tab and "Use on the selected …"; then
+  a fix (Esc in a name box):
   - **Tabs**: the chosen tab is the raised pill of every segmented control (4.6), not yellow: the brief calls the tabs a
     segmented control. ← and → (Home, End) move between them and show each at once, as in any group of tabs. Each tab's
     tooltip says what it holds; the Gradients tab's has the long words the Gradients title had.
-  - **The tab used last** is kept while the page is open (not in the browser's storage: a reload starts at Colour). Each of
-    the four ways in names its tab, so it only shows for an opening that names none (the picture tool's).
-  - **Ways in**: a colour in the colour list stays one (Mustafa's request of 2026-11-16), to the Colour tab, though the brief
-    said the swatch way in goes. A chip clicked on the Palette tab shows that colour on the Colour tab, the keyboard focus on
-    the wheel (its name says "Change …"). On the Colour tab the focus starts on the wheel, as before; on the other two, on
-    the tab.
-  - **The place**: its top is level with the top of the row that opened it (the Main colour row, a gradient choice's row),
-    or of the colour clicked in the list, or of Edit palette…. Where it would pass the window's bottom, it moves up as far
-    as it must: inside the window comes first. It is 8 px from the right panel and from the window's edges, and placed
-    again when it grows or shrinks (another tab, the exact values). A tab taller than the window scrolls under the header
-    and the tabs, which stay.
-  - **The header**: the colour (28 px), the role in Plex Mono 13 px, the scope in 11 px muted ("Changes with the faction:
-    Soviets", the brief's words; it said "Changes with the faction: this is the Soviets colour"), and Close.
-  - **The Colour tab**: the role's note from palette.json (what the colour is for) stays at its top, 11 px and muted. The
-    faction switch shows each faction's marking and colour dot (the brief's "markings and colour dots"), its name in the
-    tooltip and for screen readers: the names did not fit in 272 px. Darker, Lighter and Goes with it are 16 px strips,
-    their labels in a 48 px column; Goes with it's scheme select sits on its label's row, its five colours under the
-    strips. "Use as this effect's main colour" and Revert share a row (both fit with either of the first one's words, with
-    6 px inside the buttons, so the row keeps its height). The parts are 8 px apart. The tallest Colour tab is a colour
-    worked out from another, with the faction switch and a note of two lines: glow.hot, 629 px (the brief's limit: 640).
-    The status line under the source line ("Copied #FF2E63.") adds a line while it shows.
-  - **The Palette tab**: the chips are 22 px, ten a row. The palette profiles sit between the colours and New colour, so New
-    colour stays at the bottom, folded. Both are sections that fold, as the right panel's do, but not remembered: each time
-    the page opens, the profiles start open and New colour closed.
+  - **The tab used last** is kept while the page is open (not in the browser's storage: a reload starts at Colour). Each
+    of the four ways in names its tab, so it only shows for an opening that names none (the picture tool's).
+  - **Ways in**: a colour in the colour list stays one (Mustafa's request of 2026-11-16), to the Colour tab, though the
+    brief said the swatch way in goes. A chip clicked on the Palette tab shows that colour on the Colour tab, the
+    keyboard focus on the wheel (its name says "Change …"). On the Colour tab the focus starts on the wheel, as before;
+    on the other two, on the tab.
+  - **The place**: its top is level with the top of the row that opened it (the Main colour row, a gradient choice's
+    row), or of the colour clicked in the list, or of Edit palette…. Where it would pass the window's bottom, it moves
+    up as far as it must: inside the window comes first. It is 8 px from the right panel and from the window's edges,
+    and placed again when it grows or shrinks (another tab, the exact values). A tab taller than the window scrolls
+    under the header and the tabs, which stay.
+  - **The header**: the colour (28 px), the role in Plex Mono 13 px, the scope in 11 px muted ("Changes with the
+    faction: Soviets", the brief's words; it said "Changes with the faction: this is the Soviets colour"), and Close.
+  - **The Colour tab**: the role's note from palette.json (what the colour is for) stays at its top, 11 px and muted.
+    The faction switch shows each faction's marking and colour dot (the brief's "markings and colour dots"), its name in
+    the tooltip and for screen readers: the names did not fit in 272 px. Darker, Lighter and Goes with it are 16 px
+    strips, their labels in a 48 px column; Goes with it's scheme select sits on its label's row, its five colours under
+    the strips. "Use as this effect's main colour" and Revert share a row (both fit with either of the first one's
+    words, with 6 px inside the buttons, so the row keeps its height). The parts are 8 px apart. The tallest Colour tab
+    is a colour worked out from another, with the faction switch and a note of two lines: glow.hot, 629 px (the brief's
+    limit: 640). The status line under the source line ("Copied #FF2E63.") adds a line while it shows.
+  - **The Palette tab**: the chips are 22 px, ten a row. The palette profiles sit between the colours and New colour, so
+    New colour stays at the bottom, folded. Both are sections that fold, as the right panel's do, but not remembered:
+    each time the page opens, the profiles start open and New colour closed.
   - **The Gradients tab**: the gradient editor and its ramp fold as the right panel's sections do (the editor lost its
     striped-square icon: a fold's title has none), the editor closed when the page opens. The ready-made gradients are
     four a row.
-  - **"Use on the selected …"** (the brief: "use on the selected glow"): phase 6 gave smoke, a fire's bed and bursts their
-    own gradient choice, and the button puts the gradient into that same choice, in one undo step, so it works on a glow,
-    on smoke, on a fire bed or on a burst, its words naming the kind ("Use on the selected fire bed", the add menu's names). With
-    none of those selected it says "Use on the selected layer" and is off; its tooltip says what to select. It follows the
-    selection while the picker is open.
+  - **"Use on the selected …"** (the brief: "use on the selected glow"): phase 6 gave smoke, a fire's bed and bursts
+    their own gradient choice, and the button puts the gradient into that same choice, in one undo step, so it works on
+    a glow, on smoke, on a fire bed or on a burst, its words naming the kind ("Use on the selected fire bed", the add
+    menu's names). With none of those selected it says "Use on the selected layer" and is off; its tooltip says what to
+    select. It follows the selection while the picker is open.
   - **The palette profiles' list**: A to Z, as the store sorts them. A row: the name (a lock on a default), eight of its
-    colours as dots (each faction's team colour, then the first shared ones), how many gradients, **Load**, and **More**.
-    The profile this project's colours came from is marked as a stored choice (the field colour and a 1 px edge, as the
-    main colour in the colour list), not yellow; the line over the list says it in words, or that none is named.
-  - **Where each action sits**: Load on every row; Save as profile… and Import profile… under the list; a row's More: Load
-    into this project, Save over…, Rename…, Duplicate, Save as file…, Delete…. Restore the
-    default profiles shows under the list only while a default is missing, with which one. A file in the folder that
-    cannot be used is listed under them, its name in Plex Mono, with why, and Delete when the editor named it.
-  - **The defaults** ("Built-in", "Built-in with gradients", known by name, whatever the capitals): Save over, Rename and
-    Delete are off in their menu, and a lock with a tooltip says why. This is the editor only: the local server, which this
-    phase does not change, still lets them change (docs/colours.md said they were ordinary profiles: it says this now).
-  - **Load**: when the profile lacks colours or gradients the project's effects use, a question lists them first: each one
-    (Plex Mono), kept or "missing here too", and up to three places it is used ("and 2 more"); Load or Cancel. A profile
-    that lacks nothing loads at once. A colour the project has that no effect uses and the profile lacks goes (undo brings
-    it back). When the colour the picker shows is not in the new colours, it shows the effect's main colour.
+    colours as dots (each faction's team colour, then the first shared ones), how many gradients, **Load**, and
+    **More**. The profile this project's colours came from is marked as a stored choice (the field colour and a 1 px
+    edge, as the main colour in the colour list), not yellow; the line over the list says it in words, or that none is
+    named.
+  - **Where each action sits**: Load on every row; Save as profile… and Import profile… under the list; a row's More:
+    Load into this project, Save over…, Rename…, Duplicate, Save as file…, Delete…. Restore the default profiles shows
+    under the list only while a default is missing, with which one. A file in the folder that cannot be used is listed
+    under them, its name in Plex Mono, with why, and Delete when the editor named it.
+  - **The defaults** ("Built-in", "Built-in with gradients", known by name, whatever the capitals): Save over, Rename
+    and Delete are off in their menu, and a lock with a tooltip says why. This is the editor only: the local server,
+    which this phase does not change, still lets them change (docs/colours.md said they were ordinary profiles: it says
+    this now).
+  - **Load**: when the profile lacks colours or gradients the project's effects use, a question lists them first: each
+    one (Plex Mono), "kept" or "missing here too: it stays missing" (the project lacks it as well), and up to three
+    places it is used ("and 2 more"); Load or Cancel. A profile that lacks nothing loads at once. A colour the project
+    has that no effect uses and the profile lacks goes (undo brings it back). When the colour the picker shows is not in
+    the new colours, it shows the effect's main colour.
   - **Save over** asks first, since a profile's old colours cannot come back (the plan asks it only for Delete).
-  - **Names**: Save as profile… and Rename… ask in the question dialog (Save as profile… starts from the project's profile
-    name, else the project's name). A name the store's rule refuses, or one taken, asks again with the store's words. The
-    dialog takes 60 characters (the store, 64), as for classes.
-  - **Duplicate** makes "<name> copy" ("Built-in copy (1)" when taken) without asking. **Import profile…** keeps the file's
-    own name and adds a profile even when one with the very same colours is there (open question for Mustafa: importing an
-    export uses that profile instead; should a profile file do the same?). **Save as file** names the file after the
-    profile (`soviets-dark.json`); the browser puts it in its downloads.
-  - **The project's profile name** is part of the editor's document, as the budgets are: a load names it in the same undo
-    step as its colours; Save as profile… and Save over name it in an undo step of their own ("Palette profile"); Save
-    writes `project.json` when it changed. Rename and Delete change no project: its line keeps the name it had.
-  - **One action at a time**: while one runs (a question open, the store answering), a click on Load, on a row's More or on
-    a button under the list does nothing, so a double click on Load is one load.
-  - **The question dialog's Enter** (waiting for Mustafa) has two more ways in, Save as profile… and Rename…: Enter in the
-    name box gives the name, and the same Enter then reaches the button the focus goes back to (Save as profile…, or the
-    row's More). That click comes while the action still runs, so the panel does nothing with it: one action at a time.
-    The dialog is as it was; the browser check clicks OK.
+  - **Names**: Save as profile… and Rename… ask in the question dialog. Save as profile… starts from a free name: the
+    project's profile name, else the project's name, numbered when taken ("Built-in with gradients (1)" right after that
+    profile was loaded). A name the store's rule refuses, or one taken, asks again with the store's words. The dialog
+    takes 60 characters (the store, 64), as for classes.
+  - **Duplicate** makes "<name> copy" ("Built-in copy (1)" when taken) without asking. **Import profile…** keeps the
+    file's own name and adds a profile even when one with the very same colours is there (open question for Mustafa:
+    importing an export uses that profile instead; should a profile file do the same?). **Save as file** names the file
+    after the profile (`soviets-dark.json`); the browser puts it in its downloads.
+  - **The project's profile name** is part of the editor's document, as the budgets are: a load names it in the same
+    undo step as its colours; Save as profile… and Save over name it in an undo step of their own ("Palette profile");
+    Save writes `project.json` when it changed. Rename and Delete change no project: its line keeps the name it had.
+  - **One action at a time**: while one runs (a question open, the store answering), a click on Load, on a row's More or
+    on a button under the list does nothing, so a double click on Load is one load.
+  - **The question dialog** (`ask`, as it was: its Enter handling waits for Mustafa) has two more ways in, Save as
+    profile… and Rename…. Enter in the name box gives the name, and the same Enter then reaches the button the focus
+    goes back to (Save as profile…, or the row's More); that click comes while the action still runs, so the panel does
+    nothing with it (one action at a time). Esc closes the dialog with no answer of its own (for New project… and the
+    others too): here the closed dialog counts as Cancel, so nothing is made and the panel goes on working, and a late
+    answer (an Enter in a later dialog) is ignored. After any name dialog, Enter on the main button of a later question
+    (Save over, Delete, Load) closes that question as Cancel: the name dialog's Enter handler stays on the shared
+    dialog. A click works. The browser check clicks OK and Cancel, and tries Esc.
   - **The question before a load** is the shared question dialog with the list under its words; its main button is Load.
 
 ## Claude skills

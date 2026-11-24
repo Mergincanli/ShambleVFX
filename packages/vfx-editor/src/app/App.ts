@@ -424,7 +424,19 @@ export class App implements AppApi {
   }
 
   askName(title: string, text: string, value: string): Promise<string | null> {
-    return this.ask(title, text, value);
+    // The question dialog as it is (ask): it answers OK and Cancel, but Esc closes it with no answer, and its Enter handler
+    // stays on the shared dialog (its Enter handling waits for Mustafa). So the answer here is also null when the dialog
+    // closes with none, and a late answer (an Enter in a later dialog) is ignored: a cancelled name never comes back.
+    const d = this.els.dialog;
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (v: string | null) => { if (settled) return; settled = true; d.removeEventListener('close', closed); resolve(v); };
+      // The close event comes as a task, after OK's answer (a microtask): an answer given wins. A close event of an earlier
+      // question (the dialog is open again: a name asked again) is not this one's.
+      const closed = () => setTimeout(() => { if (!d.open) finish(null); });
+      d.addEventListener('close', closed);
+      void this.ask(title, text, value).then(finish);
+    });
   }
 
   askChoice(title: string, text: string, answers: [string, string][], body: HTMLElement[] = []): Promise<string | null> {

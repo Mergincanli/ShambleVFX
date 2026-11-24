@@ -1998,6 +1998,30 @@ if (webgpu) {
     ok('with a default missing, the Palette tab says so and offers Restore the default profiles, which brings it back',
       missing === 'A default profile is missing: Built-in.Restore the default profiles' && restored.status === 'Restored Built-in.' && !restored.shown && restored.file === 'built-in.json', JSON.stringify({ missing, restored }));
 
+    // Esc in a name box (Save as profile…, Rename…) cancels: nothing is made or renamed, and the panel goes on working (the
+    // question dialog closes with no answer of its own). Save as profile… starts from a free name.
+    const beforeEsc = profileFiles().join();
+    await pp.locator('.cpick button.pf-save-as').click();
+    await pp.waitForSelector('dialog[open] input.text');
+    await pp.keyboard.press('Escape');
+    await pp.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle();
+    await menuOf('Night raid two');
+    await chooseRow('Rename…');
+    await pp.waitForSelector('dialog[open] input.text');
+    await pp.keyboard.press('Escape');
+    await pp.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle();
+    const escaped = { files: profileFiles().join(), names: (await rows()).map((r) => r.name) };
+    await pp.locator('.cpick button.pf-save-as').click();
+    await pp.waitForSelector('dialog[open] input.text', { timeout: 5000 }).catch(() => {});
+    const again = await pp.evaluate(() => ({ open: !!document.querySelector('dialog[open] input.text'), value: document.querySelector('dialog[open] input.text')?.value ?? null }));
+    if (again.open) await pp.click('dialog >> text=Cancel');
+    await idle();
+    ok('Esc in the name box of Save as profile… or Rename… cancels: nothing is made or renamed, and the panel goes on working (Save as profile… asks again, from a free name)',
+      escaped.files === beforeEsc && escaped.names.includes('Night raid two') && again.open && !!again.value && !escaped.names.some((n) => n.toLowerCase() === again.value.toLowerCase()) && profileFiles().join() === beforeEsc,
+      JSON.stringify({ escaped, again }));
+
     // Clean up: every profile made here is deleted (through the store), so the two defaults are left, as found.
     for (const n of ['Built-in copy', 'Night raid two', 'Night raid two (1)', 'Thin colours']) {
       await menuOf(n);
