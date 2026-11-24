@@ -6,9 +6,12 @@
 //   node tools/ui-shots.mjs --fields out/ui/fields-before.json
 //        also writes the settings inventory: every section title and setting label of the right panel, for each effect
 //        of the two example projects and for each of their layers (phase 6 of the redesign compares against it)
-// It starts the editor's dev server the way tools/browser-check.mjs does, and draws with WebGL 2 (?backend=webgl).
-// Pictures and the inventory go to out/, which git ignores.
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+// It starts the editor's dev server the way tools/browser-check.mjs does, and draws with WebGL 2 (?backend=webgl). A state
+// with the colour picker open also gets a close crop of the picker: <state>-<theme>-<width>-crop.png.
+// Pictures and the inventory go to out/, which git ignores. The palette profiles the picker lists go to a temporary
+// palettes folder (VFX_PALETTES_DIR), deleted after, so the real palettes/ is never made or touched.
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
@@ -24,7 +27,7 @@ const SEED = 7;
 // The states. To add one, add an entry:
 //   effect and ms     the effect (by id) and the moment it is paused at: the same for every picture of the state
 //   layer             a layer id, or 'first:<type>' for the first layer of that type in the effect's file
-//   picker            true: the colour picker is open on the effect's main colour
+//   picker            true: the colour picker is open on the effect's main colour (at its Colour tab; act may show another)
 //   menu              true: a menu is open (act opens it: the main menu, a chip's, an effect row's, the add menu); the
 //                     picture is checked for it
 //   popover           true: the Distance popover is open (act opens it); the picture is checked for it
@@ -49,6 +52,36 @@ const STATES = [
   // layer the browser check uses, and a glow, so its gradient field is in the panel.
   { name: 'beam-layer', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow' },
   { name: 'picker', project: DEMO, effect: 'rifle_shot', ms: 20, picker: true },
+  // The colour picker's other tabs (UI phase 7). The Palette tab, from Edit palette…, with the palette profiles: one made in
+  // the temporary palettes folder first, and "Built-in with gradients" loaded, so the line over the list and the project's
+  // row show. The Gradients tab, from a glow's gradient pencil, with a gradient made in the page (never saved) open in the
+  // editor and its ramp open.
+  { name: 'picker-palette', project: DEMO, effect: 'board_beam', ms: 1000, picker: true, act: async (page) => {
+    await page.evaluate(async () => {
+      // One temporary folder serves every picture of the run: the profile is made for the first picture only.
+      const head = { 'X-Shamble-VFX': '1', 'Content-Type': 'application/json' };
+      const listed = await (await fetch('/__vfx/api/profiles', { headers: head })).json();
+      if (listed.profiles.some((p) => p.name === 'Night raid')) return;
+      const res = await fetch('/__vfx/api/profiles', { method: 'POST', headers: head, body: JSON.stringify({ name: 'Night raid', palette: window.__vfx.app.palette }) });
+      if (!res.ok) throw new Error(`could not make a palette profile: ${res.status}`);
+    });
+    await page.click('.inspector .edit-palette');
+    await page.waitForFunction(() => document.querySelectorAll('.cpick .pf-row').length === 3, null, { timeout: 10000 });
+    await page.locator('.cpick .pf-row', { has: page.locator('.pf-name', { hasText: /^Built-in with gradients$/ }) }).locator('button.pf-load').click();
+    await page.waitForFunction(() => window.__vfx.app.paletteProfile() === 'Built-in with gradients', null, { timeout: 10000 });
+  } },
+  { name: 'picker-gradients', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow', picker: true, act: async (page) => {
+    await page.evaluate(() => {
+      const a = window.__vfx.app;
+      a.setGradient('glow.soft', { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'glow.hot' }, { at: 0.5, role: 'glow', alpha: 0.8 }, { at: 1, role: 'glow', alpha: 0 }] });
+      a.commit();
+      a.editLayer(['shape', 'gradient'], 'glow.soft', { label: 'Gradient' });
+      a.commit();
+    });
+    await page.click('.inspector .gradient-field button.edit-gradient');
+    await page.waitForFunction(() => document.querySelector('.cpick .gr-editor')?.open, null, { timeout: 10000 });
+    await page.click('.cpick .gr-ramp > summary');
+  } },
   // A tooltip open: a field label's help text in the panel (the glow's Mixes), and a bar's button with its shortcut (Fire).
   { name: 'tooltip-label', project: DEMO, effect: 'board_beam', ms: 1000, layer: 'emitter_glow',
     hover: (page) => page.locator('.inspector details', { has: page.locator(':scope > summary', { hasText: /^Place$/ }) }).locator('.flab', { hasText: /^Mixes$/ }) },
@@ -152,6 +185,7 @@ const THEMES = [{ name: 'day', param: 'light' }, { name: 'night', param: 'dark' 
 const SIZES = [{ width: 2560, height: 1440 }, { width: 1920, height: 1080 }];
 // What the colour picker opens from: the first of these that exists. Since UI phase 6, the edit button next to the effect's
 // Main colour (as a click on it does); the main colour's swatch in the colour list, and the effect's settings, after it.
+// Opened so, with no tab named, the picker shows the tab used last: on a fresh page, its Colour tab.
 const PICKER_ANCHORS = ['.inspector .main-colour .edit-colour', '.inspector .swatch[aria-current="true"]', '.inspector .bigcontrols', '.inspector'];
 
 // ---------------------------------------------------------------- options
@@ -221,6 +255,8 @@ function describe() {
   return {
     effect: a.effect()?.id ?? null, effectName: a.effect()?.name ?? null, layer: a.layer()?.id ?? null, layerName: a.layer()?.name ?? null,
     theme: document.documentElement.dataset.theme, hints: document.documentElement.dataset.hints, pickerOpen: !!document.querySelector('.cpick')?.matches(':popover-open'),
+    pickerTab: document.querySelector('.cpick .cp-tab[aria-selected="true"]')?.dataset.tab ?? null,
+    picker: box(document.querySelector('.cpick:popover-open')),
     tooltipOpen: !!document.querySelector('.tooltip')?.matches(':popover-open'),
     menuOpen: !!document.querySelector('.menu:popover-open'),
     popoverOpen: !!document.querySelector('.popover:popover-open'),
@@ -367,6 +403,9 @@ const ABOUT = 'The settings inventory of the editor\'s right panel (the inspecto
 
 // ---------------------------------------------------------------- the dev server and the browser
 const failures = [];
+// The palette profiles go to a temporary folder (the server reads VFX_PALETTES_DIR when it starts), deleted at the end.
+const shotsTmp = mkdtempSync(join(tmpdir(), 'shamble-vfx-shots-'));
+process.env.VFX_PALETTES_DIR = join(shotsTmp, 'palettes');
 const server = await createServer({ root: join(repo, 'packages', 'vfx-editor'), configFile: join(repo, 'packages', 'vfx-editor', 'vite.config.ts'), logLevel: 'error', server: { port: 0, host: '127.0.0.1', open: false } });
 let browser;
 try {
@@ -493,13 +532,19 @@ try {
           if (!!state.menu !== got.menuOpen) wrong.push(`a menu is ${got.menuOpen ? 'open' : 'closed'}`);
           if (!!state.popover !== got.popoverOpen) wrong.push(`the Distance popover is ${got.popoverOpen ? 'open' : 'closed'}`);
           const png = PNG.sync.read(await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' }));
+          // A close crop of the colour picker, 8 px round it.
+          if (state.picker && got.picker) {
+            const x = Math.max(0, Math.floor(got.picker.x) - 8), y = Math.max(0, Math.floor(got.picker.y) - 8);
+            const w = Math.min(size.width - x, Math.ceil(got.picker.w) + 16), hgt = Math.min(size.height - y, Math.ceil(got.picker.h) + 16);
+            await page.screenshot({ path: file.replace(/\.png$/, '-crop.png'), clip: { x, y, width: w, height: hgt }, animations: 'disabled', caret: 'hide' });
+          }
           const blank = previewDrawn(png, got);
           if (blank) wrong.push(blank);
           // A state that scrolls the panel to a section further down may take the Look out of sight: only then is it not checked.
           if (state.layer && !(state.scrolls && !got.lookOnScreen)) { const look = lookDrawn(png, got); if (look) wrong.push(look); }
           if (png.width !== size.width || png.height !== size.height) wrong.push(`the picture is ${png.width} x ${png.height}`);
           if (!told) {
-            console.log(`${state.name}: ${got.effectName}${got.layer ? `, layer "${got.layerName}" (${got.layer})` : ', no layer'}${state.picker ? `, colour picker on ${got.role}` : ''}; ${state.ms} ms, seed ${SEED}`);
+            console.log(`${state.name}: ${got.effectName}${got.layer ? `, layer "${got.layerName}" (${got.layer})` : ', no layer'}${state.picker ? `, colour picker on ${got.role}, ${got.pickerTab} tab` : ''}; ${state.ms} ms, seed ${SEED}`);
             told = true;
           }
           if (errors.length) wrong.push(`the page reported errors: ${errors.slice(0, 2).join(' | ')}`);
@@ -547,6 +592,7 @@ try {
 } finally {
   await browser?.close();
   await server.close();
+  rmSync(shotsTmp, { recursive: true, force: true });
 }
 if (failures.length) {
   console.log(`\n${failures.length} problem${failures.length === 1 ? '' : 's'}:\n${failures.join('\n')}`);

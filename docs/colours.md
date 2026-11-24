@@ -78,13 +78,19 @@ of a newer version is never written over.
 
 ## Changing a colour
 
-Click a swatch under **Colour** in the right panel. The list there shows the colours of what is selected: the effect's (its
-main colour and every layer's), or one layer's, with the ones it draws without naming them (the ink outline, a star's white
-first step, your own team's broken edge, its gradient's stops); a projectile has no colours of its own and shows those of
-the layers riding it. **Show all** shows every colour, the selection's in bold. In the effect's own settings, **Main colour**
-(above the list) picks the main colour, and its edit button (the pencil) opens the picker on it; **Edit palette…** (under the
-list) opens the picker at its whole palette. The picker opens next to the right panel, and stays open while you play the
-effect or fire (Escape or Close puts it away). Keys pressed in it are its own; Ctrl+Z still undoes.
+Click a colour in the list under **Colour** in the right panel. The list shows the colours of what is selected: the
+effect's (its main colour and every layer's), or one layer's, with the ones it draws without naming them (the ink outline,
+a star's white first step, your own team's broken edge, its gradient's stops); a projectile has no colours of its own and
+shows those of the layers riding it. **Show all** shows every colour, the selection's in bold. In the effect's own settings,
+**Main colour** (above the list) picks the main colour, and its edit button (the pencil) opens the picker on it.
+
+The colour picker opens left of the right panel, level with what you clicked, and stays open while you play the effect or
+fire (Escape or Close puts it away). Its header shows the colour, its name and whether it changes with the faction. It has
+three tabs: **Colour**, **Palette** and **Gradients**; the ← and → keys move between them. A colour in the list and the
+main colour's pencil open it at the Colour tab; **Edit palette…** (under the list) at the Palette tab; a gradient choice's
+pencil at the Gradients tab. Keys pressed in it are its own; Ctrl+Z still undoes.
+
+On the **Colour** tab:
 
 - **The wheel**: drag the ring for the hue, the triangle for brightness and saturation. The arrow keys work too (←/→ hue,
   ↑/↓ brightness, Page Up/Down saturation).
@@ -92,14 +98,18 @@ effect or fire (Escape or Close puts it away). Keys pressed in it are its own; C
   green, blue).
 - **Darker** and **Lighter**: eight steps each. **Goes with it**: five colours by a classic scheme (neighbours, opposite, split
   opposite, three apart, four apart, one hue). All are worked out in OKLCH, so they step evenly to the eye. Click one to use it.
-- **Team colours** change per faction: the three buttons pick which faction's colour you change, and the preview switches to
-  that faction.
+- **Team colours** change per faction: the faction switch (each faction's marking and its colour) picks which faction's
+  colour you change, and the preview switches to that faction.
 - `team.dark` and `glow.hot` are **worked out** from `team` and `glow` (team × 0.7; glow mixed with 25 % white, as the drawing
   board does). Changing `team` does not change `team.dark` by itself: **Work it out again** does, when you ask.
 - **Use as this effect's main colour**: what a click on a swatch did before. Layers tinted `main` use it.
-- **Revert**: back to the colour, and whose value it was, when the picker opened.
-- **Palette**: every colour; click one to change it. **New colour**: a new role, one colour for every faction or one per
-  faction. A role cannot be renamed or removed: effects name it.
+- **Revert**: back to the colour, and whose value it was, when the picker opened. The line under it says whose value the
+  colour is.
+
+On the **Palette** tab: every colour as a chip, the team colours of the faction shown, then the shared ones (the main
+colour's chip has a dot; rest the pointer on a chip for its name). Click one to change it on the Colour tab. Under them, the
+palette profiles (above), and at the bottom **New colour**: a new role, one colour for every faction or one per faction. A
+role cannot be renamed or removed: effects name it.
 
 A colour you change becomes **yours** (`"from": "mustafa"` in `palette.json`). Every change can be undone; a whole drag is one
 undo step. Unsaved colours count as unsaved changes.
@@ -111,7 +121,7 @@ name, without a swatch.
 
 ## Gradients
 
-In the picker, **Gradients**:
+On the picker's **Gradients** tab:
 
 - **Ready-made**: nine ramps to start from (radial ramp, soft fade, hot core, banding, duotone, tricolor, landscape, ember,
   smoke). They are made of roles, so they follow the faction. Proposals.
@@ -119,9 +129,10 @@ In the picker, **Gradients**:
 - **Gradient editor** (it folds): **smooth** (blends from colour to colour) or **banded** (each colour holds to the next stop,
   hard edges, as comic shading does); the **stops**, each a role or a fixed colour, its place (0 = the middle, 100 = the rim)
   and how solid it is; **Make a ramp between two colours** (even steps to the eye; the ends stay roles); and **Use on the
-  selected glow**.
+  selected …**, which puts the gradient on the selected glow, smoke, fire bed or burst, in its own gradient choice (its
+  words name the kind; with another layer selected it is off).
 - A glow's form has **Gradient, middle to rim**: pick one, or none for one flat colour. The pencil next to it opens the
-  picker at **Gradients**, with the gradient chosen open in the editor.
+  picker at its **Gradients** tab, with the gradient chosen open in the editor.
 
 What the game can draw: a gradient is colours along one line, smooth or banded: rings from the middle out on a glow, bands
 from the middle out on the fire's bed, and colours over time on smoke and bursts. Blurred, mesh and image gradients (as in some
@@ -157,8 +168,8 @@ leaves outlined, empty lumps on a bed: for a bed, a darker rim works better than
 
 In the editor, a glow, smoke, the fire's bed and bursts each have a gradient choice in the layer's panel: "Gradient, middle
 to rim" for a glow and a bed, "Gradient over life" for smoke and bursts. It lists the palette's gradients; the pencil next to
-it opens the colour picker at its gradients, with the one chosen open in the gradient editor. Without a gradient each layer
-uses its own colours, as before.
+it opens the colour picker at its Gradients tab, with the one chosen open in the gradient editor. Without a gradient each
+layer uses its own colours, as before.
 The exact rules are in [format.md](format.md).
 
 ## The colours an effect uses

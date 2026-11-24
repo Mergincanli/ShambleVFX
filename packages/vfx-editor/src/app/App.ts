@@ -218,6 +218,8 @@ export class App implements AppApi {
     this.renderLayers();
     this.inspector.refresh();
     this.timelineView.refresh();
+    // The picker's "Use on the selected …" names the kind of the layer selected.
+    if (this.picker.isOpen) this.gradients.drawUse();
     // A new selection shows in the Layers list and on the timeline: each scrolled as little as needed to show its row.
     if (changed && id) this.showLayerRow(id);
   }
@@ -1245,6 +1247,7 @@ export class App implements AppApi {
     this.selEffect = id;
     this.selLayer = null;
     this.mainTime = 0;
+    if (this.picker?.isOpen) this.gradients.drawUse();
     const scene = this.sceneOf(id);
     if (this.preview && this.preview.scene.id !== scene) {
       this.preview.setScene(scene);

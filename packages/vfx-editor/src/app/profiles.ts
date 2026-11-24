@@ -93,7 +93,10 @@ export class ProfilePanel {
   }
 
   private drawFrom(): void {
-    const mine = this.app.paletteProfile();
+    // Only when its words change: the picker refreshes on every change of the document.
+    const mine = this.app.paletteProfile() ?? '';
+    if (this.parts.from.dataset.name === mine && this.parts.from.childNodes.length) return;
+    this.parts.from.dataset.name = mine;
     const words: Child[] = mine ? ['This project\'s colours came from ', h('b', { text: mine }), '.'] : ['This project\'s colours did not come from a profile.'];
     this.parts.from.replaceChildren(...words);
   }

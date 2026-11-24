@@ -1,16 +1,19 @@
 /**
- * Gradients, in the colour picker: ready-made ones to start from, the project's own, and a folding editor to make and
- * change them (stops, smooth or banded, and a ramp worked out between two colours, evenly to the eye). Gradients live in
- * the project's palette.json. A glow uses one from its middle to its rim. Only ramps the game can draw are offered: the
- * runtime draws rings of colour, so blurred, mesh and image gradients are not here.
+ * Gradients, on the colour picker's Gradients tab: ready-made ones to start from, the project's own, and a folding editor to
+ * make and change them (stops, smooth or banded, and a ramp worked out between two colours, evenly to the eye). Gradients
+ * live in the project's palette.json. A glow and the fire's bed use one from the middle to the rim, smoke and a burst over
+ * each puff's or piece's life; the editor's "Use on the selected …" puts the gradient on the selected layer of one of those
+ * kinds. Only ramps the game can draw are offered: blurred, mesh and image gradients are not here.
  */
 import { resolveGradient, resolveRole, roleNames } from '@shamble/vfx-format';
-import type { Gradient, GradientStop } from '@shamble/vfx-format';
+import type { Gradient, GradientStop, Layer } from '@shamble/vfx-format';
+import type { Path } from '../doc/edits';
 import { GRADIENT_PRESETS } from '../doc/gradient-presets';
 import type { GradientPreset as Preset } from '../doc/gradient-presets';
+import { SHAPE_TEXT } from '../doc/layer-info';
 import type { AppApi } from './api';
 import { ramp as makeRamp } from './colour';
-import { h, icon } from './dom';
+import { fold, h, icon } from './dom';
 
 /** Ready-made gradients (src/doc/gradient-presets.ts, shared with the default palette profiles). */
 export { GRADIENT_PRESETS };
@@ -19,6 +22,16 @@ const cssColour = (hex: string, alpha: number) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
+
+/**
+ * The layer a gradient can go on from the picker, and where: a glow, smoke or a fire bed (the shape's gradient) or a burst
+ * (its own), named as the add menu names it. Null for any other layer, or none.
+ */
+export function gradientTarget(l: Layer | undefined): { path: Path; what: string } | null {
+  if (l?.type === 'burst') return { path: ['gradient'], what: 'burst' };
+  if (l?.type === 'shape' && (l.shape.kind === 'glow' || l.shape.kind === 'smoke' || l.shape.kind === 'bed')) return { path: ['shape', 'gradient'], what: SHAPE_TEXT[l.shape.kind] };
+  return null;
+}
 
 /** A CSS gradient showing the stops (hard edges for bands). */
 function cssStops(stops: { at: number; hex: string; alpha: number }[], banded: boolean): string {
@@ -69,16 +82,24 @@ export class GradientPanel {
     p.disc.style.backgroundImage = `radial-gradient(circle closest-side, ${css}), repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%)`;
     for (const b of p.kind.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.kind === g.kind));
     this.drawStops(g);
-    const layer = this.app.layer();
-    const isGlow = layer?.type === 'shape' && layer.shape.kind === 'glow';
-    p.use.disabled = !isGlow;
-    p.use.title = isGlow ? `Colour the selected glow ("${layer!.name}") with ${this.editing}` : 'Select a glow layer first';
+    this.drawUse();
     const roleOpts = roleNames(pal);
     for (const sel of [p.rampFrom, p.rampTo]) {
       const keep = sel.value;
       sel.replaceChildren(...roleOpts.map((x) => h('option', { attrs: { value: x }, text: `${x} ${resolveRole(pal, x, this.app.faction)}` })));
       if (roleOpts.includes(keep)) sel.value = keep;
     }
+  }
+
+  /**
+   * "Use on the selected …": its words name the kind of the selected layer (a glow, smoke, a fire bed or a burst); with
+   * none of those selected it is off, and its tooltip says what to select. Called again when the selection changes.
+   */
+  drawUse(): void {
+    const use = this.parts.use, layer = this.app.layer(), t = gradientTarget(layer);
+    use.disabled = !t || !this.editing;
+    use.textContent = `Use on the selected ${t?.what ?? 'layer'}`;
+    use.title = t && layer ? `Colour the selected ${t.what} ("${layer.name}") with ${this.editing ?? 'the gradient'}` : 'Select a glow, smoke, a fire bed or a burst first';
   }
 
   // ---------------------------------------------------------------- building
@@ -99,21 +120,23 @@ export class GradientPanel {
     const disc = h('div', { class: 'gr-disc', attrs: { role: 'img', 'aria-label': 'The gradient as a glow draws it, middle to rim' } });
     const stops = h('div', { class: 'gr-stops' });
     const add = h('button', { class: 'mini', attrs: { type: 'button' }, on: { click: () => this.addStop() } }, icon('plus'), 'Add a stop');
-    const use = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Use on the selected glow', on: { click: () => this.useOnGlow() } }) as HTMLButtonElement;
+    const use = h('button', { class: 'tb gr-use', attrs: { type: 'button' }, text: 'Use on the selected layer', on: { click: () => this.useOnLayer() } }) as HTMLButtonElement;
     const rampFrom = h('select', { attrs: { 'aria-label': 'Ramp from' } }) as HTMLSelectElement;
     const rampTo = h('select', { attrs: { 'aria-label': 'Ramp to' } }) as HTMLSelectElement;
     const rampSteps = h('input', { class: 'num', attrs: { type: 'number', min: '2', max: '8', step: '1', value: '5', 'aria-label': 'Steps' } }) as HTMLInputElement;
     const body = h('div', { class: 'gr-body' },
       h('div', { class: 'gr-preview' }, disc, h('div', { class: 'gr-side' }, kind, bar)),
       h('div', { class: 'cp-label', text: 'Stops (0 = the middle, 100 = the rim)' }), stops, add,
-      h('details', { class: 'gr-ramp' }, h('summary', { text: 'Make a ramp between two colours', attrs: { 'data-tip': 'Even steps to the eye (OKLCH). The ends stay roles, so they follow the faction; the steps between are fixed colours, worked out for the faction shown.' } }),
+      tipped(fold('Make a ramp between two colours', [
         h('p', { class: 'hint', text: 'Even steps to the eye. The ends follow the faction; the steps between are fixed colours.' }),
         h('div', { class: 'gr-ramprow' }, h('label', {}, h('span', { text: 'From' }), rampFrom), h('label', {}, h('span', { text: 'To' }), rampTo), h('label', {}, h('span', { text: 'Steps' }), rampSteps)),
-        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Make the ramp', on: { click: () => this.makeRampStops() } })),
-      h('div', { class: 'cp-actions' }, use),
+        h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Make the ramp', on: { click: () => this.makeRampStops() } })], false, [], { className: 'gr-ramp', remember: false }),
+        'Even steps to the eye (OKLCH). The ends stay roles, so they follow the faction; the steps between are fixed colours, worked out for the faction shown.'),
+      h('div', { class: 'gr-actions' }, use),
       h('p', { class: 'hint', text: 'A gradient cannot be renamed or removed this round: effects use it by name.' }));
-    const editor = h('details', { class: 'gr-editor' }, h('summary', { attrs: { 'data-tip': 'A gradient cannot be renamed or removed this round: effects use it by name.' } }, icon('gradient'), h('span', { text: 'Gradient editor' })),
-      h('div', { class: 'gr-head' }, title), createRow, error, body) as HTMLDetailsElement;
+    // The editor: a section of the tab, as a section of the right panel folds (not remembered: closed when the page opens).
+    const editor = tipped(fold('Gradient editor', [h('div', { class: 'gr-head' }, title), createRow, error, body], false, [], { className: 'gr-editor', remember: false }),
+      'A gradient cannot be renamed or removed this round: effects use it by name.');
     // The colour picker's Gradients tab holds it (its tab's tooltip has the long words of the hint).
     const el = h('div', { class: 'gr' },
       h('p', { class: 'hint', text: 'Only ramps the game can draw: smooth or banded, from the middle out.' }),
@@ -221,10 +244,17 @@ export class GradientPanel {
     this.change((g) => ({ ...g, stops: hexes.map((hex, i) => (i === 0 ? { at: 0, role: from } : i === n - 1 ? { at: 1, role: to } : { at: Math.round((i / (n - 1)) * 100) / 100, hex })) }));
   }
 
-  private useOnGlow(): void {
-    const l = this.app.layer();
-    if (!this.editing || l?.type !== 'shape' || l.shape.kind !== 'glow') return;
-    this.app.editLayer(['shape', 'gradient'], this.editing, { label: 'Gradient' });
+  /** Use on the selected …: the gradient goes into the selected layer's own gradient choice, one undo step. */
+  private useOnLayer(): void {
+    const t = gradientTarget(this.app.layer());
+    if (!this.editing || !t) return;
+    this.app.editLayer(t.path, this.editing, { label: 'Gradient' });
     this.app.commit();
   }
+}
+
+/** A section's title tooltip: its long words (the picker's tooltips have no help texts, so its titles carry them). */
+function tipped(d: HTMLDetailsElement, words: string): HTMLDetailsElement {
+  d.querySelector(':scope > summary')!.setAttribute('data-tip', words);
+  return d;
 }

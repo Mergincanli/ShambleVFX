@@ -19,7 +19,7 @@
 //    drawn" warning), the colour picker (UI phase 7: its size and place, its three tabs and each way into them, the tab
 //    used last, its keys, the Colour tab under 640 px for every colour and each of its parts at work, the Palette tab's
 //    chips; the palette profiles there: list, load, save as new and over one, rename, delete, the defaults locked and
-//    restored, save as file and import, the project naming its profile), the
+//    restored, save as file and import, the project naming its profile; the Gradients tab and Use on the selected …), the
 //    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
@@ -2010,6 +2010,55 @@ if (webgpu) {
       `${g.errors.slice(0, 2).join(' | ')} ${profileFiles().join()}`);
     await pp.close();
     rmSync(projDir, { recursive: true, force: true });
+  }
+
+  // -- the colour picker's Gradients tab (UI phase 7): its hint, the ready-made gradients four a row, the project's, and the
+  // gradient editor and its ramp, which fold as the right panel's sections do (the editor closed at first). "Use on the
+  // selected …" puts the gradient being edited on the selected glow, smoke, fire bed or burst, in that layer's own gradient
+  // choice, one undo step each; its words name the kind and follow the selection while the picker is open; on another
+  // layer it says "Use on the selected layer", is off, and says what to select. On a page of its own; nothing is saved.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const gp = g.page;
+    await gp.evaluate(() => { window.__vfxManual = true; const a = window.__vfx.app; a.pickEffect('board_molotov'); a.selectLayer('smoke'); });
+    await gp.locator('.inspector .gradient-field button.edit-gradient').click();
+    await gp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'));
+    const tab = await gp.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick'), panel = c.querySelector('#cp-panel-gradients'), gr = panel.querySelector('.gr');
+      const tiles = [...gr.querySelectorAll('.gr-tiles')[0].querySelectorAll('.gr-tile')];
+      const top0 = Math.round(tiles[0].getBoundingClientRect().top);
+      const fold = (d) => d ? { fold: d.matches('details.fold'), chev: !!d.querySelector(':scope > summary > svg.fold-chev'), title: d.querySelector(':scope > summary > .fold-title')?.textContent ?? null, open: d.open,
+        tip: a.tipForChecks(d.querySelector(':scope > summary'))?.lines.join(' ') ?? '' } : null;
+      return { tab: c.querySelector('.cp-tab[aria-selected="true"]').dataset.tab, hint: gr.querySelector(':scope > .hint')?.textContent ?? null,
+        labels: [...gr.querySelectorAll(':scope > .cp-label')].map((x) => x.textContent).join('|'), tiles: tiles.length, perRow: tiles.filter((t) => Math.round(t.getBoundingClientRect().top) === top0).length,
+        editor: fold(gr.querySelector('details.gr-editor')), ramp: fold(gr.querySelector('details.gr-editor details.gr-ramp')), tabTip: a.tipForChecks(c.querySelector('.cp-tab[data-tab="gradients"]'))?.lines.join(' ') ?? '' };
+    });
+    ok('the Gradients tab: its hint, the ready-made gradients four a row, then the project\'s; the gradient editor (closed at first) and its ramp fold as the right panel\'s sections do, their long words in their tooltips, and the tab\'s',
+      tab.tab === 'gradients' && tab.hint === 'Only ramps the game can draw: smooth or banded, from the middle out.' && tab.labels === 'Ready-made|In this project' && tab.tiles === 9 && tab.perRow === 4
+        && tab.editor?.fold && tab.editor.chev && tab.editor.title === 'Gradient editor' && !tab.editor.open && /cannot be renamed or removed/.test(tab.editor.tip)
+        && tab.ramp?.fold && tab.ramp.chev && tab.ramp.title === 'Make a ramp between two colours' && /OKLCH/.test(tab.ramp.tip) && /Blurred, mesh and image gradients are not in/.test(tab.tabTip),
+      JSON.stringify(tab));
+
+    // A ready-made gradient, then "Use on the selected …" on smoke, a fire bed and a burst; and on another kind of layer.
+    await gp.locator('.gr-tile', { hasText: 'Soft fade' }).click();
+    const useNow = () => gp.evaluate(() => { const b = document.querySelector('.cpick .gr-use'); return { text: b.textContent, off: b.disabled, tip: window.__vfx.app.tipForChecks(b)?.lines.join(' ') ?? '' }; });
+    const used = {};
+    for (const [layer, kind] of [['smoke', 'smoke'], ['bed', 'fire bed'], ['sparks', 'burst']]) {
+      await gp.evaluate((l) => window.__vfx.app.selectLayer(l), layer);
+      const before = await useNow();
+      const n0 = await gp.evaluate(() => window.__vfx.app.history.past.length);
+      await gp.locator('.cpick .gr-use').click();
+      used[layer] = await gp.evaluate(({ n0 }) => { const a = window.__vfx.app, l = a.layer(); return { gradient: (l.type === 'burst' ? l.gradient : l.shape.gradient) ?? null, steps: a.history.past.length - n0, undo: a.history.undoLabel }; }, { n0 });
+      used[layer].before = before;
+      used[layer].want = `Use on the selected ${kind}`;
+    }
+    await gp.evaluate(() => window.__vfx.app.selectLayer('flames'));
+    const other = await useNow();
+    ok('"Use on the selected …" puts the gradient on the selected smoke, fire bed or burst, each in its own gradient choice, one undo step each; its words name the kind and follow the selection; on another layer it says "Use on the selected layer", is off, and its tooltip says what to select',
+      Object.values(used).every((u) => u.gradient === 'glow.fade' && u.steps === 1 && u.undo === 'Gradient' && u.before.text === u.want && !u.before.off)
+        && other.text === 'Use on the selected layer' && other.off && /Select a glow, smoke, a fire bed or a burst first/.test(other.tip), JSON.stringify({ used, other }));
+    ok('the Gradients tab\'s page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await gp.close();
   }
 
   // -- Part B in the right panel and the transport (UI phase 6, slices 5 and 6: the plan Mustafa approved on 2026-11-15): a

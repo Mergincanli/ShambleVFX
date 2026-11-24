@@ -112,6 +112,8 @@ export class ColourPicker {
     if (!this.isOpen) this.el.showPopover();
     this.show(role);
     this.showTab(tab);
+    // Each opening starts at the top of its tab.
+    this.parts.body.scrollTop = 0;
     this.place();
     this.focusIn();
   }
