@@ -383,7 +383,9 @@ export class ColourPicker {
     p.derived.hidden = !d;
     if (d) {
       const isDerived = entry?.from === 'derived';
-      p.derived.replaceChildren(h('span', { text: isDerived ? `Worked out from ${d.from}: ${d.text}.` : `Usually worked out from ${d.from} (${d.text}); now set by hand.` }),
+      // Set by hand, in as few words as worked out (no more lines): "Usually worked out from glow (glow mixed with 25 % white); now
+      // set by hand." took five lines beside the button, and glow.hot's tab to 661 px, over the brief's 640.
+      p.derived.replaceChildren(h('span', { text: isDerived ? `Worked out from ${d.from}: ${d.text}.` : `Set by hand. Usually ${d.text}.` }),
         h('button', { class: 'mini', attrs: { type: 'button' }, text: 'Work it out again', title: `Set it to ${d.text}, from the current ${d.from}`, on: { click: () => this.app.deriveColour(this.role, this.faction) } }));
     }
     const isMain = this.app.effect()?.controls.colour === this.role;

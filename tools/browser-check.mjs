@@ -1638,6 +1638,22 @@ if (webgpu) {
     const tallest = Object.entries(heights).sort((x, y) => y[1].h - x[1].h)[0];
     ok(`the Colour tab is under 640 px tall for every colour of the palette (${Object.keys(heights).length}), with the exact values closed and its status line empty, and does not scroll (the tallest: ${tallest[0]})`,
       Object.keys(heights).length >= 30 && Object.values(heights).every((x) => x.h < 640 && !x.scroll && !x.status && !x.exact && x.tab === 'colour'), JSON.stringify(Object.fromEntries(Object.entries(heights).map(([k, x]) => [k, x.h]))));
+    // The colours worked out from others once set by hand, as anyone who changes them sees them: their box's words then, and
+    // the tab still under 640 px (glow.hot, the tallest, was 661 px with the longer words it had).
+    const byHand = await cp.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick'), out = {};
+      for (const r of ['team.dark', 'glow.hot']) {
+        a.picker.show(r);
+        a.setColour(r, '#123456');
+        a.commit();
+        out[r] = { h: Math.round(c.getBoundingClientRect().height), words: c.querySelector('.cp-derived span').textContent, scroll: c.querySelector('.cp-body').scrollHeight > c.querySelector('.cp-body').clientHeight + 1 };
+        a.history.undo();
+      }
+      a.picker.show('glow');
+      return out;
+    });
+    ok('a colour worked out from another and set by hand ("Set by hand. Usually glow mixed with 25 % white.") still has a Colour tab under 640 px that does not scroll',
+      byHand['team.dark']?.words === 'Set by hand. Usually team × 0.7.' && byHand['glow.hot']?.words === 'Set by hand. Usually glow mixed with 25 % white.' && Object.values(byHand).every((x) => x.h < 640 && !x.scroll), JSON.stringify(byHand));
 
     // Its parts, in the brief's order, and each one at work.
     const order = await cp.evaluate(() => {
@@ -1740,8 +1756,8 @@ if (webgpu) {
       out.none = box();
       return out;
     });
-    ok('a colour worked out from another (team.dark) says so in its box ("Worked out from team: team × 0.7."), and that it is set by hand once you change it; Work it out again works it out again; a colour that is not worked out has no box',
-      derived.at === 'Worked out from team: team × 0.7.' && derived.source === 'Worked out from another colour by a formula.' && derived.byHand === 'Usually worked out from team (team × 0.7); now set by hand.'
+    ok('a colour worked out from another (team.dark) says so in its box ("Worked out from team: team × 0.7."), and that it is set by hand once you change it ("Set by hand. Usually team × 0.7."); Work it out again works it out again; a colour that is not worked out has no box',
+      derived.at === 'Worked out from team: team × 0.7.' && derived.source === 'Worked out from another colour by a formula.' && derived.byHand === 'Set by hand. Usually team × 0.7.'
         && derived.again === derived.at && derived.now.from === 'derived' && derived.now.hex === derived.was && derived.none === null, JSON.stringify(derived));
 
     // The status line speaks of the colour it was said for ("Copied #…"): another colour, another faction's colour or a new
