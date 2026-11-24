@@ -1,5 +1,6 @@
 /** What the panels may ask of the app. */
 import type { EffectFile, FactionId, Gradient, Layer, Palette, PaletteEntry, TierName } from '@shamble/vfx-format';
+import type { ProjectStore } from '../io/store';
 import type { Problem } from '@shamble/vfx-format/validate';
 import type { Timeline } from '@shamble/vfx-runtime';
 import type { Budgets, CostMetric, LimitsRef } from '../cost/budgets';
@@ -13,6 +14,9 @@ export interface EditOptions {
   /** Edits with the same key merge into one undo step until commit(). */
   mergeKey?: string;
 }
+
+/** The palette profiles' part of the editor's store (src/io/store.ts): the local server's palettes folder. */
+export type ProfileStore = Pick<ProjectStore, 'listProfiles' | 'readProfile' | 'createProfile' | 'saveProfile' | 'renameProfile' | 'deleteProfile' | 'restoreDefaultProfiles'>;
 
 export interface AppApi {
   palette: Palette;
@@ -104,6 +108,23 @@ export interface AppApi {
    * gradient editor when it is in the palette.
    */
   openGradients(role: string, anchor: HTMLElement, gradient?: string): void;
+
+  /** The palette profiles on this computer (the colour picker's Palette tab, UI phase 7). */
+  profiles(): ProfileStore;
+  /** The palette profile the project's colours came from (project.json "paletteProfile"), or undefined. */
+  paletteProfile(): string | undefined;
+  /** Every effect of the project: loading a profile keeps the colours they use. */
+  allEffects(): readonly EffectFile[];
+  /** The project's name (the name Save as profile… starts from). */
+  projectName(): string;
+  /** Take a profile's colours (as loadProfile made them) and name the profile: one undo step. */
+  loadPaletteProfile(palette: Palette, name: string): void;
+  /** Name the profile the project's colours are kept as (Save as profile…, Save over): one undo step, none when it is named so. */
+  namePaletteProfile(name: string): void;
+  /** The question dialog, as it is: the name typed, or null when cancelled (or nothing was typed). */
+  askName(title: string, text: string, value: string): Promise<string | null>;
+  /** A question with a few answers, the first the main one, and optional parts under its words; null when closed. */
+  askChoice(title: string, text: string, answers: [string, string][], body?: HTMLElement[]): Promise<string | null>;
 
   /** The quality tier the preview draws (Low, Medium or High). */
   previewTier(): TierName;

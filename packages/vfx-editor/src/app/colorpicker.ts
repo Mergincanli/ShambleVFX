@@ -12,11 +12,13 @@
  */
 import { FACTION_IDS, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { FactionId, PaletteEntry, PaletteSource } from '@shamble/vfx-format';
+import type { Palette } from '@shamble/vfx-format';
 import { DERIVED_ROLES, ROLE_NAME, isFactionRole, roleEntry } from '../doc/edits';
 import type { AppApi } from './api';
 import { HARMONIES, contrast, harmony, hexToRgb, hsvToRgb, parseHexInput, rgbToHex, rgbToHsv, shades, tints } from './colour';
 import type { Harmony } from './colour';
 import { fold, h, icon } from './dom';
+import { ProfilePanel } from './profiles';
 
 const SOURCE: Record<PaletteSource, string> = {
   mustafa: 'Yours: you chose it.',
@@ -55,6 +57,8 @@ export class ColourPicker {
   private gesture = 0;
   private harmonyKind: Harmony = 'analogous';
   private paletteKey = '';
+  /** The palette profiles, on the Palette tab. */
+  private profiles!: ProfilePanel;
   /** Where the row that opened the picker was, and the left edge of the right panel (the picker is placed by these). */
   private anchorRect: { left: number; top: number } | null = null;
   private panelLeft: number | null = null;
@@ -124,7 +128,10 @@ export class ColourPicker {
       this.parts.panels[t.id].hidden = !on;
     }
     if (changed) this.parts.body.scrollTop = 0;
-    if (this.isOpen) this.place();
+    if (!this.isOpen) return;
+    // The profiles are listed each time the Palette tab shows (never when the picker opens on another tab).
+    if (tab === 'palette') this.profiles.show();
+    this.place();
   }
 
   close(): void {
@@ -163,6 +170,16 @@ export class ColourPicker {
       this.shownHex = hex;
     }
     this.drawAll(hex);
+    this.profiles.refresh();
+  }
+
+  /** Before a profile is loaded: when the colour shown is not in the new colours, show the main colour (or the first). */
+  private keepRole(next: Palette): void {
+    const names = roleNames(next);
+    if (names.includes(this.role)) return;
+    const main = this.app.effect()?.controls.colour;
+    this.role = main && names.includes(main) ? main : names[0] ?? this.role;
+    this.shownHex = '';
   }
 
   // ---------------------------------------------------------------- building
@@ -247,7 +264,8 @@ export class ColourPicker {
       h('label', { class: 'check' }, newEach, h('span', { text: 'One colour per faction (like team)' })),
       newError, add], false, [], { className: 'cp-new', remember: false });
     newFold.querySelector(':scope > summary')!.setAttribute('data-tip', 'A new colour role, starting as the colour above. Effects name it; a role cannot be renamed or removed later.');
-    panels.palette.append(palette, newFold);
+    this.profiles = new ProfilePanel(this.app, (next) => this.keepRole(next));
+    panels.palette.append(palette, this.profiles.el, newFold);
 
     const body = h('div', { class: 'cp-body' }, panels.colour, panels.palette, panels.gradients);
     const el = h('div', { class: 'cpick', attrs: { popover: 'manual', role: 'dialog', 'aria-label': 'Colour picker' } },

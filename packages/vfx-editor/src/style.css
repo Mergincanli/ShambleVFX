@@ -65,6 +65,7 @@
   --h-strip: 16px;
   --w-strip-label: 48px;
   --chip-colour: 22px;
+  --pf-dot: 8px;       /* a palette profile's colours, as dots in its row */
   /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
      row (its 1 px line included), a bar in it; a bar's label inside it, from its left edge, or beside it, from its edge. */
   --tl-name: 176px;
@@ -1206,6 +1207,42 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .cp-new .tb { margin: 4px 0 0; }
 .cp-error { margin: 4px 0; color: var(--bad); }
 .cp-error:empty { display: none; }
+/* The palette profiles (Palette tab): the line saying which one this project's colours came from; a row per profile (its
+   name, a lock on a default; eight of its colours as dots and how many gradients; Load and More); the project's own
+   profile marked as a stored choice (the field colour and a 1 px edge, as the main colour in the colour list), not yellow. */
+.pf-from { margin: 0 0 8px; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+.pf-from b { color: var(--text); font-weight: 500; }
+.pf-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; }
+.pf-list > .state-line { margin: 0 4px; }
+.pf-row { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 8px; border-radius: var(--r-control); }
+.pf-row:hover { background: var(--bg-hover); }
+.pf-row.this { background: var(--bg-field); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.pf-main { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.pf-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pf-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pf-row.this .pf-name { font-weight: 500; }
+.pf-lock { display: inline-flex; flex: none; color: var(--text-muted); }
+.pf-dots { display: inline-flex; flex: none; gap: 2px; }
+.pf-dot { width: var(--pf-dot); height: var(--pf-dot); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+.pf-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pf-row > .mini { flex: none; }
+.pf-problems > .cp-label { margin-top: 8px; }
+.pf-problem { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.pf-problem-text { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.pf-problem-text code { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pf-restore { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 8px; }
+.pf-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pf-status { margin: 8px 0 0; color: var(--good); }
+.pf-status.bad { color: var(--bad); }
+.pf-status:empty { display: none; }
+.pf-status code { font-size: var(--fs-body); }
+.cp-profiles.busy .pf-list, .cp-profiles.busy .pf-buttons { cursor: progress; }
+/* The list a load shows first, in its question: each colour or gradient, kept or not, and where it is used. */
+.dlg .pf-lacking { max-height: 40vh; margin: 4px 0 0; padding: 0; overflow: auto; list-style: none; }
+.dlg .pf-lacking li { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.dlg .pf-lacking code { padding: 0; background: transparent; font-size: var(--fs-body); }
+.pf-kept { color: var(--good); }
+.pf-lost { color: var(--bad); }
 
 /* Gradients, in the colour picker's Gradients tab. */
 .gr > .hint { margin: 0 0 4px; }

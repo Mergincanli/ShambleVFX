@@ -201,7 +201,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (575): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (586): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -239,7 +239,9 @@ project with no palette profile names the one an import makes, after the project
 same colours, the two defaults, the folder made on first use, every route and store function, a profile file with a part
 missing or empty listed with why and deleted like any other, import adding or finding a profile, an import refusing an
 export whose palette.json has such a part, loading a profile keeping what the effects use, and the default bed gradient
-drawing the Molotov's bed as today); the status bar's cost (not measured, measuring, out of date, measured with no budget
+drawing the Molotov's bed as today); the palette profiles in the editor (the defaults known by their names whatever the
+capitals, a free name with " (1)", " (2)" for an import or a duplicate, within 64 characters, the file Save as file names,
+the list a load shows first, and a load naming the profile in the same undo step as its colours); the status bar's cost (not measured, measuring, out of date, measured with no budget
 on, within budget, how many numbers over, compared with the budgets that count), and the same words in Cost's header; the
 line saying which budgets count, and with none on how to switch on the level the boxes show or that its numbers are kept;
 the window's grid (the sidebars within
@@ -253,7 +255,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (403 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (416 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -299,7 +301,11 @@ window; its header and its three tabs as a segmented control; each way in openin
 until a reload, the keys on the tabs staying in the picker and Esc closing it; the Colour tab under 640 px for every
 colour, its parts in order, the faction switch, Copy, the exact values, Darker, Lighter, Goes with it and its scheme,
 Revert and whose value it is, the main colour and the worked-out colour, each change one undo step; the Palette tab's
-22 px chips, the main colour's dot, names in the tooltips and New colour folded), Fade
+22 px chips, the main colour's dot, names in the tooltips and New colour folded; the palette profiles there, in the
+temporary palettes folder and a throwaway project: the list with the defaults locked, Save as profile… with a taken name
+asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
+that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
+as file, Import profile… numbering a taken name, and Restore the default profiles, the folder left as found), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a

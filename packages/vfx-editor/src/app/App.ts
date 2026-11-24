@@ -27,6 +27,7 @@ import { History } from '../doc/history';
 import type { EditorDoc } from '../doc/history';
 import { SHAPE_TEXT } from '../doc/layer-info';
 import { notDrawnNotes, notDrawnReasons } from '../doc/not-drawn';
+import { withLoadedProfile, withProfileName } from '../doc/profiles';
 import type { NotDrawnNote, NotDrawnReason } from '../doc/not-drawn';
 import { newProjectFile } from '../io/project-file';
 import type { ProjectFile } from '../io/project-file';
@@ -35,7 +36,7 @@ import type { ExportResult, ExportSummary, ProjectContents, ProjectStore } from 
 import { makeGameCamera } from '../preview/camera';
 import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
-import type { AppApi, EditOptions } from './api';
+import type { AppApi, EditOptions, ProfileStore } from './api';
 import { ColourPicker } from './colorpicker';
 import type { PickerTab } from './colorpicker';
 import { GradientPanel } from './gradients';
@@ -159,6 +160,8 @@ export class App implements AppApi {
    * budget edit is undone like any edit; a save writes project.json again whenever they are not these.
    */
   private budgetsOnDisk: Budgets = NO_BUDGETS;
+  /** The palette profile's name project.json was last read or written with (the name itself is in the document). */
+  private profileOnDisk: string | undefined;
   private costReports = new Map<string, CostReport>();
   /** While measuring: what is being measured (the preview waits). */
   private measuring: string | null = null;
@@ -390,6 +393,40 @@ export class App implements AppApi {
   openGradients(role: string, anchor: HTMLElement, gradient?: string): void {
     this.openColourPicker(role, anchor, 'gradients');
     if (gradient && this.palette.gradients?.[gradient]) this.gradients.edit(gradient);
+  }
+
+  profiles(): ProfileStore {
+    return this.store;
+  }
+
+  paletteProfile(): string | undefined {
+    return this.history.doc.paletteProfile;
+  }
+
+  allEffects(): readonly EffectFile[] {
+    return this.history.doc.effects;
+  }
+
+  projectName(): string {
+    return this.projectFile.name || this.project?.name || 'My colours';
+  }
+
+  loadPaletteProfile(palette: Palette, name: string): void {
+    this.history.apply('Load palette profile', withLoadedProfile(this.history.doc, palette, name));
+    this.history.endGesture();
+  }
+
+  namePaletteProfile(name: string): void {
+    this.history.apply('Palette profile', withProfileName(this.history.doc, name));
+    this.history.endGesture();
+  }
+
+  askName(title: string, text: string, value: string): Promise<string | null> {
+    return this.ask(title, text, value);
+  }
+
+  askChoice(title: string, text: string, answers: [string, string][], body: HTMLElement[] = []): Promise<string | null> {
+    return this.choose(title, text, answers, body);
   }
 
   events(): string[] {
@@ -856,7 +893,8 @@ export class App implements AppApi {
     this.effectsOnDisk = new Set(effects.map((e) => e.id));
     this.fileEffectIds = new Set(effects.map((e) => e.id));
     this.copies.clear();
-    this.history.reset({ effects, palette: projectPalette, budgets: this.budgetsOnDisk });
+    const profile = this.projectFile.paletteProfile;
+    this.history.reset({ effects, palette: projectPalette, budgets: this.budgetsOnDisk, ...(profile !== undefined ? { paletteProfile: profile } : {}) });
     this.preview.vfx.palette = projectPalette;
     this.player.clear();
     this.selEffect = effects[0]?.id ?? null;
@@ -885,8 +923,9 @@ export class App implements AppApi {
       if (typeof scene === 'string' && SCENES.some((x) => x.id === scene)) this.previewScenes[fx] = scene;
     }
     this.eventsValue = readEvents(p.events);
-    // They go into the document when the project's effects do (openProject).
+    // They go into the document when the project's effects do (openProject), and so does the palette profile's name.
     this.budgetsOnDisk = p.budgets;
+    this.profileOnDisk = p.paletteProfile;
     this.costReports.clear();
     this.metaDirty = false;
   }
@@ -956,7 +995,7 @@ export class App implements AppApi {
       const ids = doc.effects.map((e) => e.id);
       const effectsChanged = ids.length !== this.fileEffectIds.size || ids.some((id) => !this.fileEffectIds.has(id));
       const budgets = doc.budgets ?? NO_BUDGETS;
-      if (this.metaDirty || this.projectFileOld || effectsChanged || budgets !== this.budgetsOnDisk || projectId !== this.project?.id) {
+      if (this.metaDirty || this.projectFileOld || effectsChanged || budgets !== this.budgetsOnDisk || doc.paletteProfile !== this.profileOnDisk || projectId !== this.project?.id) {
         const preview: Record<string, { scene: string }> = {};
         for (const fx of doc.effects) if (this.previewScenes[fx.id]) preview[fx.id] = { scene: this.previewScenes[fx.id]! };
         const events: Record<string, string[]> = {};
@@ -972,8 +1011,13 @@ export class App implements AppApi {
         // The events, scenes and budgets of effects that are gone are left out of the file. They stay here: undoing the
         // delete brings the effect back with them, and the next save writes them again (the effects differ once more).
         const file: ProjectFile = { ...base, ...(name ? { name } : {}), events, preview, budgets: dropMissingEffects(budgets, ids) };
+        // The palette profile the colours came from goes with the colours (palette.json above).
+        if (doc.paletteProfile !== undefined) file.paletteProfile = doc.paletteProfile;
+        else delete file.paletteProfile;
         await writeProject(this.store, projectId, file);
-        if (projectId === this.project?.id) { this.projectFile = file; this.projectFileOld = false; this.fileEffectIds = new Set(ids); this.budgetsOnDisk = budgets; }
+        if (projectId === this.project?.id) {
+          this.projectFile = file; this.projectFileOld = false; this.fileEffectIds = new Set(ids); this.budgetsOnDisk = budgets; this.profileOnDisk = doc.paletteProfile;
+        }
         this.metaDirty = false;
       }
       this.history.markSaved();
@@ -1150,13 +1194,13 @@ export class App implements AppApi {
     if (await this.openProject(r.project.id)) this.say(`Imported ${r.effects} effect${r.effects === 1 ? '' : 's'} and ${r.images} image${r.images === 1 ? '' : 's'} as "${r.project.name}".`);
   }
 
-  /** A question with a few answers; null when the dialog is closed. */
-  private choose(title: string, text: string, answers: [string, string][]): Promise<string | null> {
+  /** A question with a few answers (the first is the main one), and optional parts under its words; null when the dialog is closed. */
+  private choose(title: string, text: string, answers: [string, string][], body: HTMLElement[] = []): Promise<string | null> {
     const d = this.els.dialog;
     return new Promise((resolve) => {
       let done = false;
       const finish = (v: string | null) => { if (done) return; done = true; d.close(); resolve(v); };
-      d.replaceChildren(h('h2', { text: title }), h('p', { text }),
+      d.replaceChildren(h('h2', { text: title }), h('p', { text }), ...body,
         h('div', { class: 'dlg-buttons' }, ...answers.map(([v, label], i) => h('button', { class: i === 0 ? 'tb primary' : 'tb', attrs: { type: 'button', 'data-answer': v }, text: label, on: { click: () => finish(v) } }))));
       d.addEventListener('close', () => finish(null), { once: true });
       d.showModal();

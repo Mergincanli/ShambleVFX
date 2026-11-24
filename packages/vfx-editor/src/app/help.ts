@@ -90,7 +90,7 @@ export const HELP: Readonly<Record<string, string | HelpEntry>> = {
   'Folder': 'The folder the effect sits in, in the Effects list: the part of its name before " / ". New folder… makes one. A move is one undo step; the name and its folder have at most 80 characters together.',
   'Game events': 'The names the game starts this effect by, such as rifle.shot, with commas between. One event plays one effect; the names are proposals until the game settles them.',
   'Main colour': 'The effect\'s main colour: every layer whose colour is "main" takes it, and the dot by the effect\'s name shows it. The edit button opens the colour picker on it.',
-  'Edit palette…': 'Open the colour picker at the whole palette: the team colours of the faction shown, and the shared ones. Click a colour there to change it.',
+  'Edit palette…': 'Open the colour picker at its Palette tab: the whole palette (the team colours of the faction shown, and the shared ones; click a colour there to change it), and the palette profiles, named sets of colours to load, keep and send.',
   'Size': {
     text: 'How big it is, in the unit shown.',
     when: [

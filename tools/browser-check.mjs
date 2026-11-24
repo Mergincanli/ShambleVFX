@@ -18,7 +18,8 @@
 //    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
 //    drawn" warning), the colour picker (UI phase 7: its size and place, its three tabs and each way into them, the tab
 //    used last, its keys, the Colour tab under 640 px for every colour and each of its parts at work, the Palette tab's
-//    chips), the
+//    chips; the palette profiles there: list, load, save as new and over one, rename, delete, the defaults locked and
+//    restored, save as file and import, the project naming its profile), the
 //    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
@@ -26,7 +27,8 @@
 //    bars, the phases' names, the playhead and its head, the ruler staying at the top, clicks and scrubs, the selected, hovered
 //    and left-out rows, the edge round a label while a hover fades or the theme changes), Save as into projects/, Export
 //    and Import, and the palette profiles Import adds (everything made is deleted again after). Palette profiles go to a
-//    temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched.
+//    temporary folder (VFX_PALETTES_DIR), so the real palettes/ is never touched: the profile checks leave the two defaults
+//    there, as they found it.
 // 4. The game-side test page (packages/vfx-testpage), on WebGPU and on WebGL 2: it loads only vfx-runtime and an export
 //    folder and plays effects by event name. Its bundle must hold no checker (zod) and no editor code.
 // WebGPU is read back off-screen: this headless browser cannot show a WebGPU canvas, but renders WebGPU fine.
@@ -71,7 +73,8 @@ const note = (name, detail) => { results.push({ name, pass: true, detail, note: 
 const realPalettes = join(repo, 'palettes');
 const realPalettesBefore = existsSync(realPalettes) ? readdirSync(realPalettes).sort().join() : null;
 const checkTmp = mkdtempSync(join(tmpdir(), 'shamble-vfx-check-'));
-// Not made yet: the server makes it, with the two default profiles, the first time it is needed (here: at Import).
+// Not made yet: the server makes it, with the two default profiles, the first time it is needed (here: when the colour
+// picker's Palette tab first lists the profiles).
 const checkPalettes = join(checkTmp, 'palettes');
 process.env.VFX_PALETTES_DIR = checkPalettes;
 const server = await createServer({ root: join(repo, 'packages', 'vfx-editor'), configFile: join(repo, 'packages', 'vfx-editor', 'vite.config.ts'), logLevel: 'error', server: { port: 0, host: '127.0.0.1', open: false } });
@@ -1763,6 +1766,250 @@ if (webgpu) {
         && chips.mainDot === '""|6px' && chips.sel === 'glow|2px|true' && /^glow #[0-9A-F]{6}/.test(chips.glowTip ?? '') && chips.newLast && !chips.newOpen && chips.newTitle === 'New colour', JSON.stringify(chips));
     ok('the colour picker page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await cp.close();
+  }
+
+  // -- the palette profiles, on the colour picker's Palette tab (UI phase 7: the plan Mustafa approved on 2026-11-15), in the
+  // temporary palettes folder (VFX_PALETTES_DIR: the real palettes/ is not touched), on a throwaway copy of the demo project
+  // (projects/browser-check-*, deleted after): the list (each profile's name, its colours, how many gradients; a lock on the
+  // two defaults); the defaults locked (no Save over, Rename or Delete in their menu) but loaded, duplicated and saved as a
+  // file; Save as profile… (a taken name asked again) and Save over (it asks first); Load (one undo step, the colours and
+  // gradients the profile lacks that the effects use listed first and kept; nothing asked when it lacks nothing); the project
+  // naming its profile (the line over the list, the row marked, project.json after Save); Rename; Delete (it asks first);
+  // Save as file and Import profile… (a taken name gets " (1)", then " (2)"); Restore the default profiles. Everything made
+  // in the folder is deleted again, so the two defaults are left.
+  {
+    const proj = `browser-check-profiles-${Date.now()}`;
+    const projDir = join(repo, 'projects', proj);
+    const g0 = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const copied = await g0.page.evaluate(async (name) => {
+      const res = await fetch('/__vfx/api/copy', { method: 'POST', headers: { 'X-Shamble-VFX': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'examples/demo-project', root: 'projects', name }) });
+      return { status: res.status, body: await res.json() };
+    }, proj);
+    await g0.page.close();
+    const g = await open(`${base}/?backend=webgl&project=projects/${proj}`, () => window.__vfx && window.__vfx.ready);
+    const pp = g.page;
+    const profileFiles = () => (existsSync(checkPalettes) ? readdirSync(checkPalettes).filter((f) => f.endsWith('.json')).sort() : []);
+    const fileOf = (n) => profileFiles().map((f) => ({ f, j: JSON.parse(readFileSync(join(checkPalettes, f), 'utf8')) })).find((x) => x.j.name === n) ?? null;
+    /** The rows as they show: name, a lock, how many colour dots, the meta line, the project's mark. */
+    const rows = () => pp.evaluate(() => [...document.querySelectorAll('.cpick .pf-row')].map((r) => ({ name: r.querySelector('.pf-name').textContent, lock: !!r.querySelector('.pf-lock svg.icon-lock'),
+      dots: r.querySelectorAll('.pf-dot').length, meta: r.querySelector('.pf-meta').textContent, mine: r.classList.contains('this'), load: !!r.querySelector('button.pf-load'), more: !!r.querySelector('button.more') })));
+    const fromLine = () => pp.evaluate(() => document.querySelector('.cpick .pf-from').textContent);
+    const status = () => pp.evaluate(() => document.querySelector('.cpick .pf-status').textContent);
+    const idle = () => pp.waitForFunction(() => !document.querySelector('.cpick .cp-profiles').classList.contains('busy'), null, { timeout: 10000 });
+    const listed = (n) => pp.waitForFunction((n) => document.querySelectorAll('.cpick .pf-row').length === n, n, { timeout: 10000 });
+    const row = (n) => pp.locator('.cpick .pf-row', { has: pp.locator('.pf-name', { hasText: exactly(n) }) });
+    const menuOf = async (n) => {
+      await row(n).locator('button.more').click();
+      await pp.waitForSelector('#profile-menu:popover-open', { timeout: 5000 });
+      return pp.evaluate(() => [...document.querySelectorAll('#profile-menu .menu-item')].map((b) => `${b.querySelector('.menu-label').textContent}${b.disabled ? ' (off)' : ''}`));
+    };
+    const chooseRow = (label) => menuRow(pp, 'profile-menu', label).click();
+    const dialog = () => pp.evaluate(() => { const d = document.querySelector('dialog[open]'); return d ? { title: d.querySelector('h2').textContent, text: d.querySelector('p').textContent, items: [...d.querySelectorAll('.pf-lacking li')].map((li) => li.textContent) } : null; });
+    const answer = async (v) => { await pp.click(`dialog button[data-answer="${v}"]`); await pp.waitForFunction(() => !document.querySelector('dialog[open]')); };
+    const name = async (text) => { await pp.waitForSelector('dialog[open] input.text'); await pp.fill('dialog input.text', text); await pp.click('dialog >> text=OK'); };
+    const undoNow = () => pp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null }; });
+    const doc = () => pp.evaluate(() => { const a = window.__vfx.app; return { profile: a.paletteProfile() ?? null, gradients: Object.keys(a.palette.gradients ?? {}).length, heatRim: !!a.palette.roles['heat.rim'], ink: a.palette.roles.ink?.hex }; });
+
+    await pp.evaluate(() => { window.__vfxManual = true; window.__vfx.app.pickEffect('board_beam'); });
+    await pp.locator('.inspector .edit-palette').click();
+    await pp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'));
+    await listed(2);
+    const first = { rows: await rows(), from: await fromLine(), files: profileFiles(), order: await pp.evaluate(() => [...document.querySelector('#cp-panel-palette').children].map((x) => x.className.split(' ')[0] === 'cp-palette' ? 'colours' : x.matches('.cp-profiles') ? 'profiles' : x.matches('.cp-new') ? 'new colour' : x.className)) };
+    const lockTip = await pp.evaluate(() => window.__vfx.app.tipForChecks(document.querySelector('.cpick .pf-row .pf-lock'))?.lines.join(' ') ?? null);
+    ok('the Palette tab lists the palette profiles under the colours, New colour still at the bottom: each with its name, its colours, how many gradients, Load and More; the two defaults (made when the folder is first needed) with a lock; the line over the list says this project names no profile',
+      copied.status === 201 && first.order.join() === 'colours,profiles,new colour' && first.rows.map((r) => `${r.name}|${r.lock}|${r.dots}|${r.meta}|${r.load}|${r.more}|${r.mine}`).join()
+        === 'Built-in|true|8|No gradients|true|true|false,Built-in with gradients|true|8|12 gradients|true|true|false'
+        && first.from === 'This project\'s colours did not come from a profile.' && first.files.join() === 'built-in-with-gradients.json,built-in.json' && /cannot be changed, renamed or deleted/.test(lockTip ?? ''),
+      JSON.stringify({ copied: copied.status, ...first, lockTip }));
+
+    // The defaults are locked: their menu has Load, Duplicate and Save as file, not Save over, Rename or Delete.
+    const defMenu = await menuOf('Built-in');
+    await pp.keyboard.press('Escape');
+    ok('a default profile can be loaded, duplicated or saved as a file, but its menu offers no Save over, Rename or Delete (they are off)',
+      defMenu.join('|') === 'Load into this project|Save over… (off)|Rename… (off)|Duplicate|Save as file…|Delete… (off)', defMenu.join('|'));
+
+    // Save as profile…: a new profile with the project's colours; a taken name is asked for again; the project names it.
+    const u0 = await undoNow();
+    await pp.locator('.cpick button.pf-save-as').click();
+    await name('built-in');
+    await pp.waitForSelector('dialog[open] input.text');
+    const askedAgain = await dialog();
+    await name('Night raid');
+    await pp.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle();
+    await listed(3);
+    const saved = { rows: await rows(), from: await fromLine(), file: fileOf('Night raid'), status: await status(), undo: await undoNow(), palette: await pp.evaluate(() => JSON.stringify(window.__vfx.app.palette)) };
+    ok('Save as profile… keeps this project\'s colours as a new profile (a taken name, whatever its capitals, is asked for again in the dialog\'s words), and the project names it: the line over the list and the row\'s mark say so, in one undo step',
+      askedAgain?.title === 'Save as profile' && askedAgain.text === 'There is already a palette profile named "Built-in": pick another name.' && saved.rows.some((r) => r.name === 'Night raid' && r.mine && !r.lock)
+        && saved.from === 'This project\'s colours came from Night raid.' && saved.file?.f === 'night-raid.json' && JSON.stringify(saved.file.j.palette) === saved.palette
+        && saved.status === 'Saved this project\'s colours as Night raid.' && saved.undo.n === u0.n + 1 && saved.undo.label === 'Palette profile',
+      JSON.stringify({ askedAgain, rows: saved.rows.map((r) => `${r.name}${r.mine ? ' (this)' : ''}`), from: saved.from, file: saved.file?.f, status: saved.status, undo: saved.undo }));
+
+    // Save over: it asks first; Cancel changes nothing; Save over writes this project's colours into the profile.
+    await pp.evaluate(() => { const a = window.__vfx.app; a.setColour('ink', '#101820'); a.commit(); });
+    await menuOf('Night raid');
+    await chooseRow('Save over…');
+    await pp.waitForSelector('dialog[open]');
+    const overAsk = await dialog();
+    await answer('cancel');
+    await idle();
+    const notYet = fileOf('Night raid').j.palette.roles.ink.hex;
+    await menuOf('Night raid');
+    await chooseRow('Save over…');
+    await pp.waitForSelector('dialog[open]');
+    await answer('save');
+    await idle();
+    const over = fileOf('Night raid').j.palette.roles.ink.hex;
+    ok('Save over asks first ("Its old colours cannot be brought back."): Cancel leaves the profile as it was, Save over writes this project\'s colours into it',
+      overAsk?.title === 'Save over "Night raid"' && /cannot be brought back/.test(overAsk.text) && notYet !== '#101820' && over === '#101820' && (await status()) === 'Saved this project\'s colours over Night raid.',
+      JSON.stringify({ overAsk, notYet, over }));
+
+    // Load: a profile that lacks colours and a gradient the effects use lists them first (Cancel loads nothing); Load keeps
+    // them from this project's colours, in one undo step with the project's profile name; undo puts both back.
+    await pp.evaluate(() => { const a = window.__vfx.app; a.setGradient('glow.ramp', { kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'white' }, { at: 1, role: 'glow' }] }); a.commit(); a.selectLayer('emitter_glow'); a.editLayer(['shape', 'gradient'], 'glow.ramp', { label: 'Gradient' }); a.commit(); a.selectLayer(null); });
+    const thin = await pp.evaluate(async () => {
+      const p = structuredClone(window.__vfx.app.palette);
+      delete p.gradients['glow.ramp'];
+      delete p.roles['heat.rim'];
+      p.roles.ink = { hex: '#202020', from: 'mustafa' };
+      const res = await fetch('/__vfx/api/profiles', { method: 'POST', headers: { 'X-Shamble-VFX': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Thin colours', palette: p }) });
+      return res.status;
+    });
+    await pp.locator('.cp-tab[data-tab="colour"]').click();
+    await pp.locator('.cp-tab[data-tab="palette"]').click();
+    await listed(4);
+    const beforeLoad = { doc: await doc(), undo: await undoNow() };
+    await row('Thin colours').locator('button.pf-load').click();
+    await pp.waitForSelector('dialog[open]');
+    const lacking = await dialog();
+    await answer('cancel');
+    await idle();
+    const cancelled = { doc: await doc(), undo: await undoNow() };
+    await row('Thin colours').locator('button.pf-load').click();
+    await pp.waitForSelector('dialog[open]');
+    await answer('load');
+    await idle();
+    const loaded = { doc: await doc(), undo: await undoNow(), from: await fromLine(), mine: (await rows()).filter((r) => r.mine).map((r) => r.name), status: await status() };
+    await pp.keyboard.press('Control+z');
+    const undone = { doc: await doc(), from: await fromLine() };
+    await pp.keyboard.press('Control+Shift+z');
+    ok('Load lists first what the profile lacks that this project\'s effects use (a gradient and a colour, kept, and where they are used); Cancel loads nothing; Load takes the profile\'s colours, keeps those, and names the profile, in one undo step that undo takes back whole',
+      thin === 201 && lacking?.title === 'Load "Thin colours"' && /lacks a colour and a gradient this project's effects use\. Loading keeps this project's own, so no effect breaks:/.test(lacking.text)
+        && lacking.items.length === 2 && /^glow\.ramp \(gradient\) kept/.test(lacking.items[0]) && /Hammer leech beam \(board\): Emitter glow/.test(lacking.items[0]) && /^heat\.rim kept/.test(lacking.items[1])
+        && JSON.stringify(cancelled) === JSON.stringify(beforeLoad)
+        && loaded.doc.profile === 'Thin colours' && loaded.doc.ink === '#202020' && loaded.doc.heatRim && loaded.doc.gradients === 1 && loaded.undo.n === beforeLoad.undo.n + 1 && loaded.undo.label === 'Load palette profile'
+        && loaded.from === 'This project\'s colours came from Thin colours.' && loaded.mine.join() === 'Thin colours' && loaded.status === 'Loaded Thin colours. A colour and a gradient it lacked are kept from this project. Ctrl+Z puts the old colours back.'
+        && undone.doc.profile === 'Night raid' && undone.doc.ink === '#101820' && undone.from === 'This project\'s colours came from Night raid.',
+      JSON.stringify({ thin, lacking, beforeLoad, cancelled, loaded, undone }));
+
+    // A profile that lacks nothing loads at once; Save writes the profile's name into project.json, and the colours into
+    // palette.json.
+    await row('Built-in with gradients').locator('button.pf-load').click();
+    await idle();
+    const plain = { dialog: await dialog(), doc: await doc() };
+    await pp.keyboard.press('Control+s');
+    await pp.waitForFunction(() => !document.querySelector('.project-name')?.textContent?.includes('•'), null, { timeout: 15000 }).catch(() => {});
+    const meta = existsSync(join(projDir, 'project.json')) ? JSON.parse(readFileSync(join(projDir, 'project.json'), 'utf8')) : null;
+    const pal = existsSync(join(projDir, 'palette.json')) ? JSON.parse(readFileSync(join(projDir, 'palette.json'), 'utf8')) : null;
+    ok('a profile that lacks nothing the effects use loads at once, with no question; Save writes the profile\'s name into project.json (paletteProfile) and its colours into palette.json',
+      plain.dialog === null && plain.doc.profile === 'Built-in with gradients' && plain.doc.gradients === 12 && meta?.paletteProfile === 'Built-in with gradients' && Object.keys(pal?.gradients ?? {}).length === 12,
+      JSON.stringify({ plain, saved: meta?.paletteProfile, gradients: Object.keys(pal?.gradients ?? {}).length }));
+
+    // Rename (not a default): the profile's new name; no project changes (this one keeps the name it has).
+    await menuOf('Night raid');
+    await chooseRow('Rename…');
+    await pp.waitForSelector('dialog[open] input.text');
+    const renameAsk = await pp.evaluate(() => ({ ...(() => { const d = document.querySelector('dialog[open]'); return { title: d.querySelector('h2').textContent, value: d.querySelector('input.text').value }; })() }));
+    await name('Night raid two');
+    await pp.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle();
+    const renamed = { names: (await rows()).map((r) => r.name), file: fileOf('Night raid two')?.f ?? null, old: fileOf('Night raid'), profile: (await doc()).profile };
+    ok('Rename… asks for the new name (the old one in its box) and renames the profile, its file too; no project changes (this one still names the profile it loaded)',
+      renameAsk.title === 'Rename palette profile' && renameAsk.value === 'Night raid' && renamed.names.includes('Night raid two') && !renamed.names.includes('Night raid')
+        && renamed.file === 'night-raid-two.json' && renamed.old === null && renamed.profile === 'Built-in with gradients', JSON.stringify({ renameAsk, renamed }));
+
+    // Duplicate a default: "Built-in copy", which can change (no lock, its menu has Rename).
+    await menuOf('Built-in');
+    await chooseRow('Duplicate');
+    await idle();
+    await listed(5);
+    const copyMenu = await menuOf('Built-in copy');
+    await pp.keyboard.press('Escape');
+    const copyRow = (await rows()).find((r) => r.name === 'Built-in copy');
+    ok('Duplicate makes "Built-in copy" of a default, with its colours, which is not locked: its menu has Save over, Rename and Delete',
+      !!copyRow && !copyRow.lock && JSON.stringify(fileOf('Built-in copy')?.j.palette) === JSON.stringify(fileOf('Built-in')?.j.palette) && !copyMenu.some((x) => x.endsWith('(off)')), JSON.stringify({ copyRow, copyMenu }));
+
+    // Save as file: the profile's file to send; Import profile… reads it, numbered when its name is taken.
+    await menuOf('Night raid two');
+    const downloading = pp.waitForEvent('download', { timeout: 10000 });
+    await chooseRow('Save as file…');
+    const dl = await downloading;
+    const sent = join(checkTmp, dl.suggestedFilename());
+    await dl.saveAs(sent);
+    await idle();
+    const sentJson = JSON.parse(readFileSync(sent, 'utf8'));
+    const sentStatus = await pp.evaluate(() => ({ text: document.querySelector('.cpick .pf-status').textContent, mono: getComputedStyle(document.querySelector('.cpick .pf-status code')).fontFamily.split(',')[0].replace(/"/g, '') }));
+    ok('Save as file saves the profile\'s file to send ("night-raid-two.json": its format, version, name and colours), and says its name in Plex Mono',
+      dl.suggestedFilename() === 'night-raid-two.json' && sentJson.format === 'shamble-vfx-palette-profile' && sentJson.version === 1 && sentJson.name === 'Night raid two'
+        && JSON.stringify(sentJson.palette) === JSON.stringify(fileOf('Night raid two').j.palette) && /^Saved night-raid-two\.json in your downloads/.test(sentStatus.text) && sentStatus.mono === 'IBM Plex Mono',
+      JSON.stringify({ file: dl.suggestedFilename(), name: sentJson.name, status: sentStatus }));
+    const importIt = async () => {
+      const choosing = pp.waitForEvent('filechooser', { timeout: 10000 });
+      await pp.locator('.cpick button.pf-import').click();
+      await (await choosing).setFiles(sent);
+      await pp.waitForFunction(() => document.querySelector('.cpick .pf-status').textContent.startsWith('Imported'), null, { timeout: 10000 });
+      await idle();
+      return status();
+    };
+    const imp1 = await importIt();
+    const imp2 = await importIt();
+    ok('Import profile… reads a profile\'s file and keeps it under its own name; a taken name gets " (1)", then " (2)"',
+      imp1 === 'Imported Night raid two (1): "Night raid two" was taken.' && imp2 === 'Imported Night raid two (2): "Night raid two" was taken.'
+        && JSON.stringify(fileOf('Night raid two (2)')?.j.palette) === JSON.stringify(sentJson.palette) && (await rows()).length === 7, JSON.stringify({ imp1, imp2, files: profileFiles() }));
+
+    // Delete asks first: Cancel keeps it, Delete deletes it.
+    await menuOf('Night raid two (2)');
+    await chooseRow('Delete…');
+    await pp.waitForSelector('dialog[open]');
+    const delAsk = await dialog();
+    await answer('cancel');
+    await idle();
+    const kept = fileOf('Night raid two (2)') !== null;
+    await menuOf('Night raid two (2)');
+    await chooseRow('Delete…');
+    await pp.waitForSelector('dialog[open]');
+    await answer('delete');
+    await idle();
+    await listed(6);
+    ok('Delete… asks first (no project changes; it cannot be undone): Cancel keeps the profile, Delete deletes it and its file',
+      delAsk?.title === 'Delete palette profile' && /No project changes/.test(delAsk.text) && kept && fileOf('Night raid two (2)') === null && !(await rows()).some((r) => r.name === 'Night raid two (2)'),
+      JSON.stringify({ delAsk, kept }));
+
+    // Restore the default profiles: shown when one is missing (its file deleted here, in the temporary folder), it brings it back.
+    rmSync(join(checkPalettes, 'built-in.json'));
+    await pp.locator('.cp-tab[data-tab="colour"]').click();
+    await pp.locator('.cp-tab[data-tab="palette"]').click();
+    await listed(5);
+    const missing = await pp.evaluate(() => { const r = document.querySelector('.cpick .pf-restore'); return r.hidden ? null : r.textContent; });
+    await pp.locator('.cpick .pf-restore button').click();
+    await idle();
+    await listed(6);
+    const restored = { status: await status(), shown: await pp.evaluate(() => !document.querySelector('.cpick .pf-restore').hidden), file: fileOf('Built-in')?.f ?? null };
+    ok('with a default missing, the Palette tab says so and offers Restore the default profiles, which brings it back',
+      missing === 'A default profile is missing: Built-in.Restore the default profiles' && restored.status === 'Restored Built-in.' && !restored.shown && restored.file === 'built-in.json', JSON.stringify({ missing, restored }));
+
+    // Clean up: every profile made here is deleted (through the store), so the two defaults are left, as found.
+    for (const n of ['Built-in copy', 'Night raid two', 'Night raid two (1)', 'Thin colours']) {
+      await menuOf(n);
+      await chooseRow('Delete…');
+      await pp.waitForSelector('dialog[open]');
+      await answer('delete');
+      await idle();
+    }
+    ok('the profiles page has no errors, and the temporary palettes folder holds only the two defaults again', g.errors.length === 0 && profileFiles().join() === 'built-in-with-gradients.json,built-in.json',
+      `${g.errors.slice(0, 2).join(' | ')} ${profileFiles().join()}`);
+    await pp.close();
+    rmSync(projDir, { recursive: true, force: true });
   }
 
   // -- Part B in the right panel and the transport (UI phase 6, slices 5 and 6: the plan Mustafa approved on 2026-11-15): a

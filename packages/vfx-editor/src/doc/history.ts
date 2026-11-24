@@ -20,6 +20,11 @@ export interface EditorDoc {
    * brings an effect back with its budgets; saving leaves them out.
    */
   budgets?: Budgets;
+  /**
+   * The name of the palette profile the project's colours came from (project.json "paletteProfile"), or none. Loading a
+   * profile names it in the same undo step as its colours (UI phase 7), so undo puts both back; Save writes it.
+   */
+  paletteProfile?: string;
 }
 
 interface Command {

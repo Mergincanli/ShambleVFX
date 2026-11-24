@@ -29,15 +29,21 @@ Profiles live on this computer, not in a project, so one set of colours can go i
     the colour of its lit top. It uses colours only, no see-through: a see-through puff shows its rounds where they overlap.
     All proposals.
 
-  They are ordinary profiles: change them, rename them, delete them. A deleted default does not come back by itself:
-  **Restore the default profiles** adds back the ones whose name is missing, never twice, and leaves one that is there as
-  it is.
-- **Load a profile** into a project: the project takes the profile's colours. No effect breaks: every colour and gradient
-  the project's effects use that the profile lacks is kept from the project's own colours (a gradient's stops count too), and
-  the editor can say what it kept and which effect and layer needs it. Then the project names the profile in `project.json`
-  (`paletteProfile`), and Save writes the colours into its `palette.json`, as any colour change does.
-- **Save** the project's colours over a profile (its name stays), or **save them as a new profile** under a new name.
-- **Rename** and **delete** a profile.
+  In the editor they can be loaded, duplicated and saved as a file, but not changed, renamed or deleted: a lock on their
+  row says so. (The local server and the folder still let them change: a default deleted by hand, or by an older editor,
+  does not come back by itself.) **Restore the default profiles**, under the list while a default is missing, adds back the
+  ones whose name is missing, never twice, and leaves one that is there as it is.
+- **Load a profile** into a project: the project takes the profile's colours, as one undo step. No effect breaks: every
+  colour and gradient the project's effects use that the profile lacks is kept from the project's own colours (a gradient's
+  stops count too). Before loading, the editor lists them, with the effects and layers that use them, and asks; a profile
+  that lacks nothing loads at once. Then the project names the profile in `project.json` (`paletteProfile`), and Save
+  writes the colours into its `palette.json`, as any colour change does.
+- **Save** the project's colours over a profile (its name stays; the editor asks first, as its old colours cannot come
+  back), or **save them as a new profile** under a new name. Either way the project names that profile.
+- **Rename** and **delete** a profile (the editor asks before it deletes). Editing or deleting a profile changes no project
+  until it is loaded there: a project keeps its own copy of the colours, and the name of the profile they came from.
+- **Save as file**: the profile's file, to send to someone. **Import profile…** reads such a file and keeps it as a profile,
+  under its own name; when that name is taken, the new one gets " (1)", then " (2)", and so on.
 - **Names**: 1 to 64 characters, no tabs or line breaks, and each name only once, without regard to upper and lower case
   ("Soviets dark" and "soviets DARK" are the same name). When a name is taken, the editor asks for another.
 - **Import**: importing an export keeps the export's colours as a profile, named after the export's palette profile (in its
@@ -50,10 +56,15 @@ Profiles live on this computer, not in a project, so one set of colours can go i
 - A profile file with a part missing or empty (a faction without colours, a colour, gradient or stop that is empty) is
   listed with why, as any file the editor cannot use, and can be deleted; it never stops the other profiles or an import.
 
-The buttons for profiles come with the new editor UI. The editor's local server, its store (`src/io/store.ts`) and the load
-function (`loadProfile` in `src/doc/load-profile.ts`) already do the work behind them. One step comes with the buttons:
-naming the profile in the project (`paletteProfile`) when a profile is loaded, or when the project's colours are saved as
-one. Today only an import names it.
+### In the editor
+
+The profiles are on the colour picker's **Palette** tab, under the colours (**Edit palette…** in the effect's Colour
+section opens it there). A line over the list says which profile this project's colours came from. Each profile is a row:
+its name (a lock on a default), eight of its colours as dots, how many gradients it has, **Load**, and **More** (three
+dots), with Load into this project, Save this project's colours over it…, Rename…, Duplicate, Save as file… and Delete….
+Under the list: **Save as profile…** and **Import profile…**, and **Restore the default profiles** while a default is
+missing. A file in the folder that cannot be used is listed there too, with why, and can be deleted. The editor's local
+server and its store (`src/io/store.ts`) do the work; the load is `loadProfile` in `src/doc/load-profile.ts`.
 
 A profile file looks like this. The editor makes the file names itself (`soviets-dark.json`, then `soviets-dark-2.json`
 when that is taken):
