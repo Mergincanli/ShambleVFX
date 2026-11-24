@@ -137,7 +137,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     wheel, the hex value with Copy and the exact values, Darker, Lighter, Goes with it, how a worked-out colour is made,
     the main colour, Revert and whose value it is), **Palette** (every colour as a chip, the palette profiles (see 22),
     and New colour at the bottom) and **Gradients** (ready-made gradients, the project's own, and the gradient editor).
-    The ← and → keys move between the tabs; Esc or Close puts the picker away, and it stays open while the effect plays.
+    With the keyboard focus on a tab, ← and → move between the tabs (on the wheel, where the Colour tab starts, they turn
+    the hue); Esc or Close puts the picker away, and it stays open while the effect plays.
     The list under Colour shows the colours of what is selected: the effect's, or one layer's (with the ones it draws
     without naming them, such as the black ink outline); a projectile has none of its own and shows those of the layers
     riding it. **Show all** shows every colour, the selection's in bold. A glow, smoke, the fire's bed and bursts can use

@@ -61,7 +61,8 @@ Profiles live on this computer, not in a project, so one set of colours can go i
 The profiles are on the colour picker's **Palette** tab, under the colours (**Edit palette…** in the effect's Colour
 section opens it there). A line over the list says which profile this project's colours came from. Each profile is a row:
 its name (a lock on a default), eight of its colours as dots, how many gradients it has, **Load**, and **More** (three
-dots), with Load into this project, Save this project's colours over it…, Rename…, Duplicate, Save as file… and Delete….
+dots), with Load into this project, Save over… (this project's colours over it), Rename…, Duplicate, Save as file… and
+Delete….
 Under the list: **Save as profile…** and **Import profile…**, and **Restore the default profiles** while a default is
 missing. A file in the folder that cannot be used is listed there too, with why, and can be deleted. The editor's local
 server and its store (`src/io/store.ts`) do the work; the load is `loadProfile` in `src/doc/load-profile.ts`.
@@ -86,7 +87,8 @@ shows those of the layers riding it. **Show all** shows every colour, the select
 
 The colour picker opens left of the right panel, level with what you clicked, and stays open while you play the effect or
 fire (Escape or Close puts it away). Its header shows the colour, its name and whether it changes with the faction. It has
-three tabs: **Colour**, **Palette** and **Gradients**; the ← and → keys move between them. A colour in the list and the
+three tabs: **Colour**, **Palette** and **Gradients**; with the keyboard focus on a tab, the ← and → keys move between
+them (on the wheel they turn the hue). A colour in the list and the
 main colour's pencil open it at the Colour tab; **Edit palette…** (under the list) at the Palette tab; a gradient choice's
 pencil at the Gradients tab. Keys pressed in it are its own; Ctrl+Z still undoes.
 
