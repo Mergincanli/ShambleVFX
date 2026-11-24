@@ -243,19 +243,21 @@ export function checkField(o: { label: string; value: boolean; help?: string; on
  * open or closed state is remembered per title. `actions` sit on the right of its header row, outside the summary (a
  * control inside a summary would fold the section too), and show while it is open. `meta`: muted words at the right end of
  * the summary, which show open or closed (no control: a layer's kind). The title is the summary's .fold-title (the help
- * texts and the settings inventory read it).
+ * texts and the settings inventory read it). `remember: false`: open or closed is not remembered (the colour picker's
+ * sections start as they did each time the page opens).
  */
-export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = [], o: { meta?: HTMLElement; className?: string } = {}): HTMLDetailsElement {
+export function fold(title: string, children: Child[], openByDefault = false, actions: Child[] = [], o: { meta?: HTMLElement; className?: string; remember?: boolean } = {}): HTMLDetailsElement {
   const key = `vfx-fold:${title}`;
+  const remember = o.remember !== false;
   let open = openByDefault;
-  try { const s = localStorage.getItem(key); if (s !== null) open = s === '1'; } catch { /* storage may be blocked */ }
+  if (remember) try { const s = localStorage.getItem(key); if (s !== null) open = s === '1'; } catch { /* storage may be blocked */ }
   const chev = icon('chevron-right');
   chev.classList.add('fold-chev');
   const cls = ['fold', actions.length ? 'has-actions' : '', o.className ?? ''].filter(Boolean).join(' ');
   const d = h('details', { class: cls }, h('summary', {}, chev, h('span', { class: 'fold-title', text: title }), o.meta ?? null),
     actions.length ? h('div', { class: 'fold-actions' }, ...actions) : null, h('div', { class: 'foldbody' }, ...children));
   d.open = open;
-  d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ } });
+  if (remember) d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ } });
   return d;
 }
 

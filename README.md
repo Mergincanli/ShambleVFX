@@ -253,7 +253,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (390 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (403 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -279,21 +279,27 @@ problems banner only with problems, in both views, its count, its list, a path s
 these are fixed." only for problems that stop the preview, the status bar's Checks opening it and "All good" saying so;
 no Cost or Checks under a layer; the effect's sections in order, Cost closed at first; the Folder select (New folder… with
 the dialog's OK, and cancelled; a move past 80 characters refused) and the Name field keeping the folder; the Phases bar in
-proportion, in the phase colours, and empty at 0, 0, 0; Main colour's swatch, one undo step and its edit button; Edit
-palette… opening the picker at its palette; Cost's header words and Measure working while it is closed, the Budgets
+proportion, in the phase colours, and empty at 0, 0, 0; Main colour's swatch, one undo step and its edit button (the
+picker at its Colour tab); Edit palette… opening the picker at its Palette tab; Cost's header words and Measure working while it is closed, the Budgets
 toggle, the conditions in the info icon, the row names whole; a select or a text box too narrow for its value giving it
 in its tooltip; a layer's Layer section with its kind, what draws it, its name and Shows in as three chips with the tier icons,
 their see-through checkboxes over them taking Tab and Space (one undo step each) and the last tier kept; the Image section's
 rows in the brief's order, its picture as wide as the panel allows and at most 160 px tall, a click on it moving the pivot
 (one undo step); readouts at the end of their sections; a glow's gradient's edit button opening the picker at its
-gradients, with the gradient chosen in the editor; and phase 6's done-when at 1920 × 1080: a sprite's Look, Layer, Image
+Gradients tab, with the gradient chosen in the editor; and phase 6's done-when at 1920 × 1080: a sprite's Look, Layer, Image
 and Size and place, and the effect's Effect, Scale, Phases and Colour, without scrolling; and Part B: a word layer's words
 with their chances, a % box per word, Remove, Add word, "No word: 40 %", the red note over 100 %, the 1,000-shot line as the
 game's own pick counts it, capitals, one undo step per change, Tab through an empty box changing nothing, the focus kept
 in a renamed word's box through its first chance and moved to the next bin after Remove; a gradient
 picked on smoke, a fire's bed and a burst, drawn in the runtime's buffers and one undo step each, with a glow's edit button;
 the "not drawn" warning over the preview and under what draws a layer, for a layer the tier leaves out, an effect whose
-errors stop the preview and, on a throwaway project, an image that does not decode, also with Show hints off), Fade
+errors stop the preview and, on a throwaway project, an image that does not decode, also with Show hints off), the
+colour picker (UI phase 7: 272 px wide, left of the right panel, its top level with the row that opened it and inside the
+window; its header and its three tabs as a segmented control; each way in opening its tab, the tab used last remembered
+until a reload, the keys on the tabs staying in the picker and Esc closing it; the Colour tab under 640 px for every
+colour, its parts in order, the faction switch, Copy, the exact values, Darker, Lighter, Goes with it and its scheme,
+Revert and whose value it is, the main colour and the worked-out colour, each change one undo step; the Palette tab's
+22 px chips, the main colour's dot, names in the tooltips and New colour folded), Fade
 other layers (the
 toggle; the other layers at a quarter by blend group, read in the runtime's own buffers and, on both backends, in the
 picture; a projectile's riders kept; a row hovered in the Layers list or on the timeline, but not a scrub that starts on a

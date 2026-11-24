@@ -68,7 +68,7 @@ export function colourList(app: AppApi): ColourListView {
 
   const swatch = (role: string) => {
     const b = h('button', { class: 'swatch', attrs: { type: 'button', 'aria-haspopup': 'dialog', 'data-key': `role:${role}` },
-      on: { click: (e) => app.openColourPicker(role, e.currentTarget as HTMLElement) } },
+      on: { click: (e) => app.openColourPicker(role, e.currentTarget as HTMLElement, 'colour') } },
     h('span', { class: 'chip' }), h('span', { class: 'rname', text: role }));
     return b;
   };

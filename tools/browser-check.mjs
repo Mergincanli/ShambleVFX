@@ -16,7 +16,9 @@
 //    effect's sections: Folder, the Phases bar, Main colour and Edit palette…, Cost closed at first with its Budgets toggle;
 //    a layer's: the tier chips, the Image section, readouts, a glow's gradient edit button; the done-when at 1920; Part B:
 //    a word layer's words with their chances, gradients on smoke, the bed and bursts, the Budgets place in Cost, the "not
-//    drawn" warning), the
+//    drawn" warning), the colour picker (UI phase 7: its size and place, its three tabs and each way into them, the tab
+//    used last, its keys, the Colour tab under 640 px for every colour and each of its parts at work, the Palette tab's
+//    chips), the
 //    layer icons, the tooltips and their help texts, the shell (the grid's sizes, the splitters, the
 //    status bar, the main menu, the scale, typing a time), the effects list (folders, search, the rows' menus, renaming,
 //    Move to folder, Duplicate, Delete) and the layers list (the add menu, the rows' buttons and menus, renaming, drag to
@@ -1234,7 +1236,7 @@ if (webgpu) {
       JSON.stringify(phZero));
 
     // Colour: Main colour (the role's swatch, the role, an edit button that opens the picker on it); another role is one undo
-    // step and the header's dot follows; Edit palette… opens the picker at its palette.
+    // step and the header's dot follows; Edit palette… opens the picker at its Palette tab.
     await ep.evaluate(() => window.__vfx.app.pickEffect('board_beam'));
     const mainNow = () => ep.evaluate(() => {
       const a = window.__vfx.app, row = document.querySelector('.inspector .main-colour'), sel = row.querySelector('select'), edit = row.querySelector('button.edit-colour');
@@ -1248,25 +1250,26 @@ if (webgpu) {
     await ep.keyboard.press('Control+z');
     await ep.locator('.inspector .main-colour button.edit-colour').click();
     await ep.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
-    const picker1 = await ep.evaluate(() => ({ title: document.querySelector('.cpick .cp-title').textContent }));
+    const picker1 = await ep.evaluate(() => ({ title: document.querySelector('.cpick .cp-title').textContent, tab: document.querySelector('.cpick .cp-tab[aria-selected="true"]')?.dataset.tab ?? null }));
     await ep.locator('.cp-head button[aria-label="Close the colour picker"]').click();
     await ep.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
     await ep.locator('.inspector .edit-palette').click();
     await ep.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
     await ep.waitForTimeout(200);
     const picker2 = await ep.evaluate(() => {
-      const c = document.querySelector('.cpick'), sec = c.querySelector('details.cp-palette-section'), r = c.getBoundingClientRect(), s = sec.getBoundingClientRect();
-      return { title: c.querySelector('.cp-title').textContent, open: sec.open, focus: document.activeElement === sec.querySelector('summary'), inView: s.top >= r.top - 1 && s.top < r.bottom - 40,
-        chips: sec.querySelectorAll('.cp-pchip').length, icon: !!document.querySelector('.inspector .edit-palette svg.icon-palette') };
+      const c = document.querySelector('.cpick'), tab = c.querySelector('.cp-tab[aria-selected="true"]'), panel = c.querySelector(`#${tab.getAttribute('aria-controls')}`);
+      const r = c.getBoundingClientRect(), s = panel.getBoundingClientRect();
+      return { title: c.querySelector('.cp-title').textContent, tab: tab.dataset.tab, focus: document.activeElement === tab, inView: s.top >= r.top - 1 && s.top < r.bottom - 40,
+        chips: [...panel.querySelectorAll('.cp-pchip')].filter((x) => x.getClientRects().length > 0).length, icon: !!document.querySelector('.inspector .edit-palette svg.icon-palette') };
     });
     await ep.locator('.cp-head button[aria-label="Close the colour picker"]').click();
     await ep.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
-    ok('Main colour: the role\'s swatch, the role (Plex Mono) and an edit button; another role is one undo step and the header\'s dot follows; the edit button opens the colour picker on the main colour',
+    ok('Main colour: the role\'s swatch, the role (Plex Mono) and an edit button; another role is one undo step and the header\'s dot follows; the edit button opens the colour picker on the main colour, at its Colour tab',
       m0.role === m0.want && m0.role === 'glow' && m0.swatch === rgbOf(m0.hex) && m0.dot === m0.swatch && m0.font === 'IBM Plex Mono' && m0.edit === 'Edit the main colour|Edit the main colour|true'
-        && m1.want === 'team' && m1.role === 'team' && m1.swatch === rgbOf(m1.hex) && m1.dot === m1.swatch && m1.undo === 'Main colour' && m1.n === m0.n + 1 && picker1.title === 'glow',
+        && m1.want === 'team' && m1.role === 'team' && m1.swatch === rgbOf(m1.hex) && m1.dot === m1.swatch && m1.undo === 'Main colour' && m1.n === m0.n + 1 && picker1.title === 'glow' && picker1.tab === 'colour',
       JSON.stringify({ m0, m1, picker1 }));
-    ok('"Edit palette…" (the palette icon) opens the colour picker at its palette: the Palette section open, in view, with the keyboard focus on its title (the picker\'s tabs come in UI phase 7)',
-      picker2.title === 'glow' && picker2.open && picker2.focus && picker2.inView && picker2.chips > 10 && picker2.icon, JSON.stringify(picker2));
+    ok('"Edit palette…" (the palette icon) opens the colour picker at its Palette tab: the tab chosen, its colours in view, with the keyboard focus on the tab',
+      picker2.title === 'glow' && picker2.tab === 'palette' && picker2.focus && picker2.inView && picker2.chips > 10 && picker2.icon, JSON.stringify(picker2));
 
     // Cost: closed at first; its header says the state in the status bar's words ("Not measured", muted) and has the Measure
     // button, which works with the section closed and does not open it; the boxes show with Budgets on (remembered), and
@@ -1464,8 +1467,8 @@ if (webgpu) {
     await lp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
     await lp.waitForTimeout(200);
     const gradientsNow = () => lp.evaluate(() => {
-      const c = document.querySelector('.cpick'), sec = c.querySelector('details.gr'), r = c.getBoundingClientRect(), s = sec.getBoundingClientRect();
-      return { role: c.querySelector('.cp-title').textContent, open: sec.open, inView: s.top >= r.top - 1 && s.top < r.bottom - 40, focus: document.activeElement === sec.querySelector(':scope > summary'),
+      const c = document.querySelector('.cpick'), tab = c.querySelector('.cp-tab[aria-selected="true"]'), sec = c.querySelector('.gr'), r = c.getBoundingClientRect(), s = sec.getBoundingClientRect();
+      return { role: c.querySelector('.cp-title').textContent, tab: tab.dataset.tab, inView: s.top >= r.top - 1 && s.top < r.bottom - 40, focus: document.activeElement === tab,
         editor: c.querySelector('.gr-editor').open ? c.querySelector('.gr-title').textContent : null };
     });
     const gp0 = await gradientsNow();
@@ -1480,11 +1483,286 @@ if (webgpu) {
     const gp1 = await gradientsNow();
     const gradLayer = await lp.evaluate(() => window.__vfx.app.layer().shape.gradient ?? null);
     await lp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
-    ok('a glow\'s "Gradient, middle to rim" has an edit button that opens the colour picker at its gradients (on the glow\'s colour, the Gradients section open and in view); with a gradient chosen, that gradient is open in the editor (the picker\'s tabs come in UI phase 7)',
-      gradInfo === 'Edit the gradients|true|Gradient, middle to rim' && gp0.role === 'glow' && gp0.open && gp0.inView && gp0.focus && gradLayer === 'glow.ramp' && gp1.open && gp1.inView && gp1.editor === 'glow.ramp',
+    ok('a glow\'s "Gradient, middle to rim" has an edit button that opens the colour picker at its Gradients tab (on the glow\'s colour, the tab chosen, its gradients in view, the keyboard focus on the tab); with a gradient chosen, that gradient is open in the editor',
+      gradInfo === 'Edit the gradients|true|Gradient, middle to rim' && gp0.role === 'glow' && gp0.tab === 'gradients' && gp0.inView && gp0.focus && gradLayer === 'glow.ramp' && gp1.tab === 'gradients' && gp1.inView && gp1.editor === 'glow.ramp',
       JSON.stringify({ gradInfo, gp0, gp1, gradLayer }));
     ok('the layer\'s settings page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await lp.close();
+  }
+
+  // -- the colour picker (docs/ui-redesign.md 6.7, UI phase 7): 272 px wide, left of the right panel, its top level with the
+  // row that opened it, inside the window; a header (the colour, the role in Plex Mono 13 px, the scope, Close) over three
+  // tabs, a full-width segmented control: Colour, Palette, Gradients. Each way in opens its own tab (a colour in the colour
+  // list and the main colour's edit button the Colour tab, Edit palette… the Palette tab, a gradient's edit button the
+  // Gradients tab); an opening that names none takes the tab used last, while the page is open. Keys pressed in it stay in it
+  // (← and → move between the tabs) and Esc closes it. The Colour tab is under 640 px tall for every colour with the exact
+  // values closed, and every part of it works; the Palette tab's chips are 22 px, the main colour's with its dot, the names
+  // in their tooltips, New colour folded at the bottom. On a page of its own; nothing is saved.
+  {
+    const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
+    const cp = g.page;
+    await cp.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
+    const isOpen = () => cp.evaluate(() => document.querySelector('.cpick').matches(':popover-open'));
+    const opened = () => cp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
+    const closeIt = async () => {
+      await cp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
+      await cp.waitForFunction(() => !document.querySelector('.cpick').matches(':popover-open'));
+    };
+    /** The role shown, the tab chosen, the parts shown, and where the keyboard focus is. */
+    const pickerNow = () => cp.evaluate(() => {
+      const c = document.querySelector('.cpick'), tab = c.querySelector('.cp-tab[aria-selected="true"]'), f = document.activeElement;
+      return { role: c.querySelector('.cp-title').textContent, tab: tab?.dataset.tab ?? null, panels: [...c.querySelectorAll('.cp-panel')].filter((x) => !x.hidden).map((x) => x.id),
+        focus: f?.matches('.cp-tab') ? `tab:${f.dataset.tab}` : f?.matches('.cp-wheel') ? 'wheel' : f?.tagName ?? null };
+    });
+    const undoNow = () => cp.evaluate(() => { const h = window.__vfx.app.history; return { n: h.past.length, label: h.undoLabel ?? null }; });
+    const glowHex = () => cp.evaluate(() => window.__vfx.app.palette.factions.soviets.roles.glow);
+    await cp.evaluate(() => { window.__vfxManual = true; window.__vfx.app.pickEffect('board_beam'); });
+
+    // The look: the width, the header's parts and the tabs.
+    await cp.locator('.inspector .main-colour button.edit-colour').click();
+    await opened();
+    const look = await cp.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick'), title = c.querySelector('.cp-head .cp-title'), scope = c.querySelector('.cp-head .cp-scope');
+      const probe = (css) => { const s = document.createElement('span'); s.style.cssText = css; document.body.append(s); const v = getComputedStyle(s); const out = { color: v.color, bg: v.backgroundColor }; s.remove(); return out; };
+      const field = probe('background: var(--bg-field)'), pill = probe('background: var(--bg-panel); color: var(--text)'), muted = probe('color: var(--text-muted)');
+      const list = c.querySelector('.cp-top .cp-tabs'), tabs = [...list.querySelectorAll('[role="tab"]')], chosen = tabs.find((x) => x.getAttribute('aria-selected') === 'true');
+      const out = { width: c.getBoundingClientRect().width, swatch: getComputedStyle(c.querySelector('.cp-head .cp-chip')).backgroundColor, title: title.textContent,
+        font: getComputedStyle(title).fontFamily.split(',')[0].replace(/"/g, ''), size: getComputedStyle(title).fontSize, scope: scope.textContent,
+        close: !!c.querySelector('.cp-head button[aria-label="Close the colour picker"]'), tabs: tabs.map((x) => x.textContent).join(','), role: list.getAttribute('role'),
+        track: getComputedStyle(list).backgroundColor === field.bg, full: Math.abs(list.getBoundingClientRect().width - (c.clientWidth - 24)) <= 1,
+        chosen: !!chosen && getComputedStyle(chosen).backgroundColor === pill.bg && getComputedStyle(chosen).color === pill.color,
+        others: tabs.filter((x) => x !== chosen).every((x) => getComputedStyle(x).color === muted.color && getComputedStyle(x).backgroundColor === 'rgba(0, 0, 0, 0)'),
+        panels: tabs.every((x) => document.getElementById(x.getAttribute('aria-controls'))?.getAttribute('role') === 'tabpanel'),
+        glow: a.palette.factions.soviets.roles.glow.hex };
+      a.picker.show('dust');
+      out.shared = c.querySelector('.cp-head .cp-scope').textContent;
+      a.picker.show('glow');
+      return out;
+    });
+    const rgbHex = (hex) => `rgb(${[1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)).join(', ')})`;
+    ok('the colour picker is 272 px wide; its header shows the colour, the role\'s name in Plex Mono 13 px, the scope ("Changes with the faction: Soviets", or "One colour for every faction") and Close; under it three tabs, Colour, Palette and Gradients, as a full-width segmented control (the chosen one the raised pill, the others muted)',
+      look.width === 272 && look.swatch === rgbHex(look.glow) && look.title === 'glow' && look.font === 'IBM Plex Mono' && look.size === '13px' && look.scope === 'Changes with the faction: Soviets'
+        && look.shared === 'One colour for every faction' && look.close && look.tabs === 'Colour,Palette,Gradients' && look.role === 'tablist' && look.track && look.full && look.chosen && look.others && look.panels,
+      JSON.stringify(look));
+
+    // Where it opens: left of the right panel, its top level with the row that opened it, inside the window.
+    // (Measured once the picker has faded in: it comes in with a 2 px move.)
+    const placeNow = async (row) => {
+      await cp.waitForFunction(() => document.querySelector('.cpick').getAnimations().length === 0, null, { timeout: 5000 }).catch(() => {});
+      return cp.evaluate((row) => {
+        const c = document.querySelector('.cpick').getBoundingClientRect(), panel = document.querySelector('.right').getBoundingClientRect(), r = document.querySelector(row)?.getBoundingClientRect();
+        return { left: Math.round(c.left), right: Math.round(c.right), top: Math.round(c.top), bottom: Math.round(c.bottom), panelLeft: Math.round(panel.left), rowTop: r ? Math.round(r.top) : null, w: innerWidth, h: innerHeight };
+      }, row);
+    };
+    const low = await placeNow('.inspector .main-colour');
+    await closeIt();
+    await cp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
+    await cp.locator('.inspector .swatch[data-key="role:glow"]').click();
+    await opened();
+    const high = await placeNow('.inspector .swatch[data-key="role:glow"]');
+    const inside = (q) => q.left >= 7 && q.top >= 7 && q.right <= q.w - 7 && q.bottom <= q.h - 7;
+    ok('the picker opens left of the right panel (8 px from it), its top level with the row that opened it (a colour in a glow\'s list), always inside the window: opened from the main colour, low in the panel, it moves up as far as it must',
+      Math.abs(high.right - (high.panelLeft - 8)) <= 1 && Math.abs(high.top - high.rowTop) <= 1 && inside(high) && Math.abs(low.right - (low.panelLeft - 8)) <= 1 && inside(low) && low.top < low.rowTop
+        && Math.abs(low.bottom - (low.h - 8)) <= 1,
+      JSON.stringify({ high, low }));
+
+    // Each way in opens its own tab.
+    const ways = { swatch: await pickerNow() };
+    await closeIt();
+    await cp.locator('.inspector .gradient-field button.edit-gradient').click();
+    await opened();
+    ways.gradient = await pickerNow();
+    await closeIt();
+    await cp.evaluate(() => window.__vfx.app.selectLayer(null));
+    await cp.locator('.inspector .main-colour button.edit-colour').click();
+    await opened();
+    ways.main = await pickerNow();
+    await closeIt();
+    await cp.locator('.inspector .edit-palette').click();
+    await opened();
+    ways.palette = await pickerNow();
+    ok('each way in opens its own tab, and only that tab\'s part shows: a colour in the colour list and the main colour\'s edit button the Colour tab (the keyboard focus on the wheel), Edit palette… the Palette tab and a gradient\'s edit button the Gradients tab (the focus on the tab)',
+      ways.swatch.tab === 'colour' && ways.swatch.focus === 'wheel' && ways.main.tab === 'colour' && ways.main.focus === 'wheel' && ways.main.role === 'glow'
+        && ways.palette.tab === 'palette' && ways.palette.focus === 'tab:palette' && ways.gradient.tab === 'gradients' && ways.gradient.focus === 'tab:gradients'
+        && Object.values(ways).every((w) => w.panels.length === 1 && w.panels[0] === `cp-panel-${w.tab}`), JSON.stringify(ways));
+
+    // Keys pressed in it stay in it: ← and → move between the tabs (and the timeline does not step); Esc closes it, and only it.
+    await cp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
+    await cp.locator('.inspector .gradient-field button.edit-gradient').click();
+    await opened();
+    const time0 = await cp.evaluate(() => window.__vfx.app.debugState().mainTime);
+    const keyed = [];
+    for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft', 'Home', 'End']) { await cp.keyboard.press(key); keyed.push(await pickerNow()); }
+    const time1 = await cp.evaluate(() => window.__vfx.app.debugState().mainTime);
+    await cp.keyboard.press('Escape');
+    const escaped = { open: await isOpen(), layer: await cp.evaluate(() => window.__vfx.app.layer()?.id ?? null) };
+    ok('keys pressed in the picker stay in it: on the tabs, → and ← move to the next and the last tab (round from the end), Home and End to the ends, the focus with them, and the timeline does not step; Esc closes the picker, and only it (the layer stays selected)',
+      keyed.map((k) => k.tab).join() === 'colour,palette,colour,colour,gradients' && keyed.every((k) => k.focus === `tab:${k.tab}`) && time1 === time0 && !escaped.open && escaped.layer === 'emitter_glow',
+      JSON.stringify({ keyed: keyed.map((k) => `${k.tab}/${k.focus}`), time0, time1, escaped }));
+
+    // The tab used last is remembered while the page is open: an opening that names none takes it.
+    await cp.locator('.inspector .swatch[data-key="role:glow"]').click();
+    await opened();
+    await cp.locator('.cp-tab[data-tab="palette"]').click();
+    await closeIt();
+    const remembered = await cp.evaluate(() => { window.__vfx.app.openColourPicker('glow', document.querySelector('.inspector .swatch[data-key="role:glow"]')); return document.querySelector('.cpick .cp-tab[aria-selected="true"]').dataset.tab; });
+    await closeIt();
+    await cp.reload();
+    await cp.waitForFunction(() => window.__vfx && window.__vfx.ready, null, { timeout: 60000 });
+    const afterReload = await cp.evaluate(() => {
+      const a = window.__vfx.app;
+      window.__vfxManual = true;
+      a.pickEffect('board_beam');
+      a.openColourPicker('glow', document.querySelector('.inspector .main-colour button.edit-colour'));
+      return document.querySelector('.cpick .cp-tab[aria-selected="true"]').dataset.tab;
+    });
+    ok('the tab used last is remembered while the page is open: an opening that names no tab takes it (Palette, after a click on Palette); after a reload it starts at Colour again',
+      remembered === 'palette' && afterReload === 'colour', JSON.stringify({ remembered, afterReload }));
+
+    // The Colour tab: under 640 px tall for every colour, with the exact values closed and its status line empty.
+    const heights = await cp.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick'), body = c.querySelector('.cp-body');
+      const roles = [...new Set([...Object.keys(a.palette.factions[a.faction].roles), ...Object.keys(a.palette.roles)])];
+      const out = {};
+      for (const r of roles) {
+        a.picker.show(r);
+        out[r] = { h: Math.round(c.getBoundingClientRect().height), scroll: body.scrollHeight > body.clientHeight + 1, status: c.querySelector('.cp-status').textContent, exact: !c.querySelector('.cp-sliders').hidden,
+          tab: c.querySelector('.cp-tab[aria-selected="true"]').dataset.tab };
+      }
+      a.picker.show('glow');
+      return out;
+    });
+    const tallest = Object.entries(heights).sort((x, y) => y[1].h - x[1].h)[0];
+    ok(`the Colour tab is under 640 px tall for every colour of the palette (${Object.keys(heights).length}), with the exact values closed and its status line empty, and does not scroll (the tallest: ${tallest[0]})`,
+      Object.keys(heights).length >= 30 && Object.values(heights).every((x) => x.h < 640 && !x.scroll && !x.status && !x.exact && x.tab === 'colour'), JSON.stringify(Object.fromEntries(Object.entries(heights).map(([k, x]) => [k, x.h]))));
+
+    // Its parts, in the brief's order, and each one at work.
+    const order = await cp.evaluate(() => {
+      const c = document.querySelector('.cpick'), panel = c.querySelector('#cp-panel-colour');
+      const names = { 'cp-factions': 'factions', 'cp-wheel': 'wheel', 'cp-hexrow': 'hex', 'cp-sliders': 'exact', 'cp-strips': 'strips', 'cp-derived': 'derived', 'cp-actions': 'actions', 'cp-source': 'source' };
+      const seq = [...panel.children].map((x) => Object.entries(names).find(([k]) => x.classList.contains(k))?.[1]).filter(Boolean);
+      const strips = [...panel.querySelectorAll('.cp-strips > *')].map((x) => x.matches('.cp-strip-label') ? x.textContent : x.matches('.cp-goes') ? `[${x.textContent}]` : x.getAttribute('aria-label'));
+      const rows = [...panel.querySelectorAll('.cp-strips .cp-row')].map((x) => ({ n: x.children.length, h: Math.round(x.getBoundingClientRect().height) }));
+      const dark = panel.querySelector('.cp-strips .cp-row[aria-label="Darker"]').getBoundingClientRect(), label = panel.querySelector('.cp-strips .cp-strip-label').getBoundingClientRect();
+      const factions = [...panel.querySelectorAll('.cp-faction')].map((b) => `${b.getAttribute('aria-label').split(':')[0]}|${!!b.querySelector('svg')}|${!!b.querySelector('.cp-dot')}|${b.getAttribute('aria-pressed')}`);
+      const src = panel.querySelector('.cp-source');
+      return { seq: seq.join(','), strips, rows, labelLeft: label.right <= dark.left, factions, source: src.textContent, sourceSize: getComputedStyle(src).fontSize, mutedSource: getComputedStyle(src).color === getComputedStyle(panel.querySelector('.cp-strip-label')).color,
+        exactHidden: panel.querySelector('.cp-sliders').hidden };
+    });
+    ok('the Colour tab\'s parts, in the brief\'s order: the faction switch (each faction\'s marking and colour dot, the one shown pressed), the wheel, the hex row, the exact values (hidden until asked for), Darker and Lighter as two 16 px strips of 8 with their label on the left, Goes with it with its scheme and its 5 colours, the main colour and Revert, then whose value it is (11 px, muted)',
+      order.seq === 'factions,wheel,hex,exact,strips,derived,actions,source' && order.exactHidden && order.strips.join('|') === 'Darker|Darker|Lighter|Lighter|[Goes with itNeighboursOppositeSplit oppositeThree apartFour apartOne hue]|Colours that go with it'
+        && order.rows.map((r) => `${r.n}/${r.h}`).join() === '8/16,8/16,5/16' && order.labelLeft && order.factions.join() === 'Soviets|true|true|true,Allies|true|true|false,Empire|true|true|false'
+        && order.source === 'The Art lead\'s working value (2026-11-14).' && order.sourceSize === '11px' && order.mutedSource, JSON.stringify(order));
+
+    // The faction switch, the hex value and Copy, the exact values.
+    const factionPress = await cp.evaluate(async () => {
+      const a = window.__vfx.app;
+      document.querySelector('.cpick .cp-faction[aria-label^="Allies:"]').click();
+      const out = { faction: a.faction, pressed: document.querySelector('.cpick .cp-faction[aria-pressed="true"]').getAttribute('aria-label').split(':')[0], scope: document.querySelector('.cpick .cp-scope').textContent, hex: document.querySelector('.cpick .cp-hex').value };
+      document.querySelector('.cpick .cp-faction[aria-label^="Soviets:"]').click();
+      out.back = a.faction;
+      out.want = a.palette.factions.allies.roles.glow.hex;
+      return out;
+    });
+    await cp.locator('.cpick .cp-hexrow button[aria-label="Copy the hex value"]').click();
+    await cp.waitForFunction(() => document.querySelector('.cpick .cp-status').textContent !== '', null, { timeout: 5000 }).catch(() => {});
+    const copied = await cp.evaluate(async () => ({ status: document.querySelector('.cpick .cp-status').textContent, clip: await navigator.clipboard.readText().catch((e) => `(${e.message})`), hex: document.querySelector('.cpick .cp-hex').value }));
+    const u0 = await undoNow();
+    await cp.locator('.cpick .cp-hexrow button[aria-label="Exact values"]').click();
+    const exactOpen = await cp.evaluate(() => ({ shown: !document.querySelector('.cpick .cp-sliders').hidden, pressed: document.querySelector('.cpick .cp-hexrow button[aria-label="Exact values"]').getAttribute('aria-pressed'),
+      boxes: [...document.querySelectorAll('.cpick .cp-sliders input')].map((x) => x.getAttribute('aria-label')).join() }));
+    await cp.locator('.cpick .cp-rgb input[aria-label="Green"]').fill('0');
+    await cp.locator('.cpick .cp-rgb input[aria-label="Green"]').press('Tab');
+    const green = await glowHex();
+    const u1 = await undoNow();
+    await cp.locator('.cpick .cp-hexrow button[aria-label="Exact values"]').click();
+    const exactShut = await cp.evaluate(() => document.querySelector('.cpick .cp-sliders').hidden);
+    ok('the faction switch changes which faction\'s colour the picker edits, and the preview\'s faction; Copy puts the hex value on the clipboard and says so; the exact values open and close (hue, saturation, brightness, red, green, blue), and a green typed there is one undo step',
+      factionPress.faction === 'allies' && factionPress.pressed === 'Allies' && factionPress.scope === 'Changes with the faction: Allies' && factionPress.hex === factionPress.want && factionPress.back === 'soviets'
+        && copied.status === `Copied ${copied.hex}.` && copied.clip === copied.hex && exactOpen.shown && exactOpen.pressed === 'true' && exactOpen.boxes === 'Hue,Saturation,Brightness,Red,Green,Blue'
+        && green.hex === `${look.glow.slice(0, 3)}00${look.glow.slice(5)}` && green.from === 'mustafa' && u1.n === u0.n + 1 && u1.label === 'Colour glow' && exactShut, JSON.stringify({ factionPress, copied, exactOpen, green, u0, u1, exactShut }));
+
+    // Darker, Lighter, Goes with it: a click uses that colour, one undo step each; the scheme changes the five colours.
+    const useStrip = async (sel, k) => {
+      const want = await cp.locator(sel).nth(k).getAttribute('aria-label');
+      const before = await undoNow();
+      await cp.locator(sel).nth(k).click();
+      return { want: want.split(': ')[1], got: (await glowHex()).hex, n: (await undoNow()).n - before.n };
+    };
+    const darker = await useStrip('.cpick .cp-row[aria-label="Darker"] .cp-swatch', 3);
+    const lighter = await useStrip('.cpick .cp-row[aria-label="Lighter"] .cp-swatch', 2);
+    const schemeBefore = await cp.evaluate(() => [...document.querySelectorAll('.cpick .cp-row5 .cp-swatch')].map((x) => x.getAttribute('aria-label')).join());
+    await cp.locator('.cpick .cp-goes select').selectOption('complementary');
+    const schemeAfter = await cp.evaluate(() => [...document.querySelectorAll('.cpick .cp-row5 .cp-swatch')].map((x) => x.getAttribute('aria-label')).join());
+    const goes = await useStrip('.cpick .cp-row5 .cp-swatch', 4);
+    ok('a click on a Darker, a Lighter or a Goes with it colour uses it, one undo step each; another scheme ("Opposite") gives five other colours',
+      [darker, lighter, goes].every((x) => x.got.toUpperCase() === x.want.toUpperCase() && x.n === 1) && schemeAfter !== schemeBefore && schemeAfter.split(',').length === 5, JSON.stringify({ darker, lighter, goes, schemeBefore, schemeAfter }));
+
+    // Revert, whose value it is, and the main colour.
+    const revert = await cp.evaluate(async () => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick'), btn = [...c.querySelectorAll('.cp-actions button')].find((x) => x.textContent === 'Revert');
+      const out = { enabled: !btn.disabled, source: c.querySelector('.cp-source').textContent };
+      btn.click();
+      out.after = { ...a.palette.factions.soviets.roles.glow };
+      out.source2 = c.querySelector('.cp-source').textContent;
+      out.disabled = btn.disabled;
+      return out;
+    });
+    const mainBefore = await cp.evaluate(() => { const a = window.__vfx.app; a.picker.show('team'); const b = document.querySelector('.cpick .cp-actions button'); return { text: b.textContent, pressed: b.getAttribute('aria-pressed'), main: a.effect().controls.colour }; });
+    await cp.locator('.cpick .cp-actions button', { hasText: 'Use as this effect\'s main colour' }).click();
+    const mainAfter = await cp.evaluate(() => { const a = window.__vfx.app, b = document.querySelector('.cpick .cp-actions button'), box = b.getBoundingClientRect(), rv = document.querySelector('.cpick .cp-actions button:last-child').getBoundingClientRect();
+      return { text: b.textContent, pressed: b.getAttribute('aria-pressed'), main: a.effect().controls.colour, undo: a.history.undoLabel, oneRow: Math.abs(box.top - rv.top) < 1 }; });
+    await cp.keyboard.press('Control+z');
+    const mainUndone = await cp.evaluate(() => window.__vfx.app.effect().controls.colour);
+    ok('Revert puts the colour back as it was when the picker opened, and whose value it was (the source line follows: "Yours: you chose it.", then the Art lead\'s again); "Use as this effect\'s main colour" makes it the main colour in one undo step, and then says "This effect\'s main colour", on one row with Revert',
+      revert.enabled && revert.source === 'Yours: you chose it.' && revert.after.hex === look.glow && revert.after.from === 'art-lead' && revert.source2 === 'The Art lead\'s working value (2026-11-14).' && revert.disabled
+        && mainBefore.text === 'Use as this effect\'s main colour' && mainBefore.pressed === 'false' && mainBefore.main === 'glow'
+        && mainAfter.text === 'This effect\'s main colour' && mainAfter.pressed === 'true' && mainAfter.main === 'team' && mainAfter.undo === 'Main colour' && mainAfter.oneRow && mainUndone === 'glow',
+      JSON.stringify({ revert, mainBefore, mainAfter, mainUndone }));
+
+    // A colour worked out from another: the box says how, and Work it out again does it.
+    const derived = await cp.evaluate(() => {
+      const a = window.__vfx.app, c = document.querySelector('.cpick');
+      a.picker.show('team.dark');
+      const box = () => (c.querySelector('.cp-derived').hidden ? null : c.querySelector('.cp-derived span').textContent);
+      const out = { at: box(), source: c.querySelector('.cp-source').textContent, was: a.palette.factions.soviets.roles['team.dark'].hex };
+      const hex = c.querySelector('.cp-hex');
+      hex.value = '#123456';
+      hex.dispatchEvent(new Event('change'));
+      out.byHand = box();
+      c.querySelector('.cp-derived button').click();
+      out.again = box();
+      out.now = { ...a.palette.factions.soviets.roles['team.dark'] };
+      a.picker.show('glow');
+      out.none = box();
+      return out;
+    });
+    ok('a colour worked out from another (team.dark) says so in its box ("Worked out from team: team × 0.7."), and that it is set by hand once you change it; Work it out again works it out again; a colour that is not worked out has no box',
+      derived.at === 'Worked out from team: team × 0.7.' && derived.source === 'Worked out from another colour by a formula.' && derived.byHand === 'Usually worked out from team (team × 0.7); now set by hand.'
+        && derived.again === derived.at && derived.now.from === 'derived' && derived.now.hex === derived.was && derived.none === null, JSON.stringify(derived));
+
+    // The Palette tab: 22 px chips (the team colours of the faction shown, then the shared ones), the main colour's with its
+    // dot, the chosen one outlined, the names in their tooltips; New colour folded at the bottom.
+    await cp.locator('.cp-tab[data-tab="palette"]').click();
+    const chips = await cp.evaluate(() => {
+      const a = window.__vfx.app, panel = document.querySelector('#cp-panel-palette'), list = [...panel.querySelectorAll('.cp-pchip')];
+      const accent = (() => { const s = document.createElement('span'); s.style.color = 'var(--accent-ink)'; document.body.append(s); const v = getComputedStyle(s).color; s.remove(); return v; })();
+      const main = list.find((x) => x.classList.contains('main')), sel = list.find((x) => x.classList.contains('sel'));
+      const dot = main ? getComputedStyle(main, '::after') : null;
+      const tip = (x) => a.tipForChecks(x)?.lines.join(' ') ?? '';
+      const glow = list.find((x) => tip(x).startsWith('glow '));
+      const kids = [...panel.children];
+      return { n: list.length, sizes: [...new Set(list.map((x) => `${Math.round(x.getBoundingClientRect().width)}x${Math.round(x.getBoundingClientRect().height)}`))].join(),
+        want: Object.keys(a.palette.roles).length + Object.keys(a.palette.factions[a.faction].roles).length, labels: [...panel.querySelectorAll('.cp-palette > .cp-label')].map((x) => x.textContent).join('|'),
+        main: main ? tip(main) : null, mainDot: dot ? `${dot.content}|${dot.width}` : null, sel: sel ? `${tip(sel).split(' ')[0]}|${getComputedStyle(sel).outlineWidth}|${getComputedStyle(sel).outlineColor === accent}` : null,
+        glowTip: glow ? tip(glow) : null, newLast: kids.at(-1)?.matches('details.cp-new') ?? false, newOpen: panel.querySelector('details.cp-new').open,
+        newTitle: panel.querySelector('details.cp-new > summary').textContent };
+    });
+    ok('the Palette tab: 22 px chips, the team colours of the faction shown and the shared colours; the main colour\'s chip keeps its dot, the chosen one has its 2 px outline in --accent-ink, and each chip\'s name and hex are in its tooltip; New colour at the bottom, folded',
+      chips.n === chips.want && chips.sizes === '22x22' && chips.labels === 'Team colours (Soviets)|Shared colours' && /^glow #[0-9A-F]{6} · this effect's main colour$/.test(chips.main ?? '')
+        && chips.mainDot === '""|6px' && chips.sel === 'glow|2px|true' && /^glow #[0-9A-F]{6}/.test(chips.glowTip ?? '') && chips.newLast && !chips.newOpen && chips.newTitle === 'New colour', JSON.stringify(chips));
+    ok('the colour picker page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
+    await cp.close();
   }
 
   // -- Part B in the right panel and the transport (UI phase 6, slices 5 and 6: the plan Mustafa approved on 2026-11-15): a
@@ -1649,10 +1927,10 @@ if (webgpu) {
     await bp.locator('.inspector .gradient-field button.edit-gradient').click();
     await bp.waitForFunction(() => document.querySelector('.cpick').matches(':popover-open'), null, { timeout: 5000 });
     await bp.waitForTimeout(200);
-    const smokePicker = await bp.evaluate(() => { const c = document.querySelector('.cpick'), sec = c.querySelector('details.gr'); return { role: c.querySelector('.cp-title').textContent, open: sec.open, editor: c.querySelector('.gr-editor').open ? c.querySelector('.gr-title').textContent : null }; });
+    const smokePicker = await bp.evaluate(() => { const c = document.querySelector('.cpick'); return { role: c.querySelector('.cp-title').textContent, tab: c.querySelector('.cp-tab[aria-selected="true"]')?.dataset.tab ?? null, editor: c.querySelector('.gr-editor').open ? c.querySelector('.gr-title').textContent : null }; });
     await bp.locator('.cp-head button[aria-label="Close the colour picker"]').click();
-    ok('the smoke\'s gradient edit button opens the colour picker at its gradients, on the smoke\'s colour, with its gradient open in the editor',
-      smokePicker.role === 'fire.smoke' && smokePicker.open && smokePicker.editor === 'check.green', JSON.stringify(smokePicker));
+    ok('the smoke\'s gradient edit button opens the colour picker at its Gradients tab, on the smoke\'s colour, with its gradient open in the editor',
+      smokePicker.role === 'fire.smoke' && smokePicker.tab === 'gradients' && smokePicker.editor === 'check.green', JSON.stringify(smokePicker));
     for (let k = 0; k < 4; k++) await bp.keyboard.press('Control+z');
     const gradsBack = await bp.evaluate(() => { const a = window.__vfx.app, fx = a.effect(); return { names: Object.keys(a.palette.gradients ?? {}), any: fx.layers.some((l) => l.gradient || l.shape?.gradient) }; });
     ok('undo takes the three gradients and the gradient made for the check away again', gradsBack.names.length === 0 && !gradsBack.any, JSON.stringify(gradsBack));
@@ -2122,6 +2400,8 @@ if (webgpu) {
   await p.locator('.cp-hex').press('Enter');
   const dust = await p.evaluate(() => window.__vfx.app.palette.roles.dust);
   ok('a palette swatch opens the colour picker, and a typed colour changes the role as yours', pickerOpen && dust.hex === '#3A7BFF' && dust.from === 'mustafa', JSON.stringify(dust));
+  // The colours are on the Palette tab; a click on one shows it on the Colour tab.
+  await p.locator('.cp-tab[data-tab="palette"]').click();
   await p.locator('.cp-pchip[aria-label^="Change glow ("]').first().click();
   // The picker grows (a faction row) and may move to stay in the window: measure the wheel once it has settled.
   let wheel = await p.locator('.cp-wheel').boundingBox();
@@ -2161,6 +2441,7 @@ if (webgpu) {
   ok('the picker stays open while you play the effect, and Escape closes it (only it: the layer stays selected)', stillOpen && closedByEscape && layerKept === 'emitter_glow',
     `open after Play: ${stillOpen}, closed by Escape: ${closedByEscape}, layer: ${layerKept}`);
   await p.locator('.swatch', { hasText: /^glow$/ }).first().click();
+  await p.locator('.cp-tab[data-tab="palette"]').click();
   await p.locator('.cp-new summary').click();
   await p.locator('.cp-new input.text').fill('fire.blue');
   await p.locator('.cp-new button', { hasText: 'Add colour' }).click();
@@ -2168,7 +2449,7 @@ if (webgpu) {
   ok('New colour adds a role every colour list offers', !!newRole.role && newRole.role.from === 'mustafa' && newRole.inList, JSON.stringify(newRole));
 
   // -- gradients: a ready-made one, put on a glow
-  await p.locator('.cp-section.gr > summary').click();
+  await p.locator('.cp-tab[data-tab="gradients"]').click();
   await p.locator('.gr-tile', { hasText: 'Radial ramp' }).click();
   await p.locator('.gr-body button', { hasText: 'Use on the selected glow' }).click();
   // Close it with its own button (Escape depends on where the focus is).
@@ -2648,7 +2929,7 @@ if (webgpu) {
       out.layerColour = words(find('.inspector details > summary', 'Colour'));
       a.selectLayer(null);
       out.newColour = words(find('.cpick summary', 'New colour'));
-      out.gradients = words(find('.cpick summary', 'Gradients'));
+      out.gradients = words(document.querySelector('.cpick .cp-tab[data-tab="gradients"]'));
       out.ramp = words(find('.cpick summary', 'Make a ramp between two colours'));
       out.editor = words(document.querySelector('.cpick .gr-editor > summary'));
       return out;

@@ -114,7 +114,8 @@ export class GradientPanel {
       h('p', { class: 'hint', text: 'A gradient cannot be renamed or removed this round: effects use it by name.' }));
     const editor = h('details', { class: 'gr-editor' }, h('summary', { attrs: { 'data-tip': 'A gradient cannot be renamed or removed this round: effects use it by name.' } }, icon('gradient'), h('span', { text: 'Gradient editor' })),
       h('div', { class: 'gr-head' }, title), createRow, error, body) as HTMLDetailsElement;
-    const el = h('details', { class: 'cp-section gr' }, h('summary', { text: 'Gradients', attrs: { 'data-tip': 'Only ramps the game can draw: smooth or banded, from the middle out. Blurred, mesh and image gradients are not in.' } }),
+    // The colour picker's Gradients tab holds it (its tab's tooltip has the long words of the hint).
+    const el = h('div', { class: 'gr' },
       h('p', { class: 'hint', text: 'Only ramps the game can draw: smooth or banded, from the middle out.' }),
       h('div', { class: 'cp-label', text: 'Ready-made' }), presets,
       h('div', { class: 'cp-label', text: 'In this project' }), mine,

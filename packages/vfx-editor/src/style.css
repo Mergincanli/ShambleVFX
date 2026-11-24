@@ -57,6 +57,14 @@
   --tip-w: 280px;         /* a tooltip's widest */
   --look-h: 144px;   /* the Look: a live picture of the selected layer, as wide as the panel */
   --h-thumb: 160px;  /* a sprite's image under Image: as wide as the panel allows, at most this tall */
+  /* The colour picker (6.7): its width, the colour in its header, the wheel, a strip of colours (Darker, Lighter, Goes with
+     it) and the room for a strip's label, a colour chip on the Palette tab. */
+  --w-picker: 272px;
+  --h-cp-chip: 28px;
+  --wheel: 200px;
+  --h-strip: 16px;
+  --w-strip-label: 48px;
+  --chip-colour: 22px;
   /* The timeline (6.5): its names column (200 px in a window 2200 px wide or more, below), the ruler, the phase strip, a
      row (its 1 px line included), a bar in it; a bar's label inside it, from its left edge, or beside it, from its edge. */
   --tl-name: 176px;
@@ -331,12 +339,12 @@ input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 1px var(
 .icon-insignia, .icon-faction-soviets, .icon-faction-allies, .icon-faction-empire { overflow: visible; }
 
 /* ---------------------------------------------------------------- folds */
-.fold > summary, .cp-section > summary, .gr-editor > summary, .gr-ramp > summary {
+.fold > summary, .gr-editor > summary, .gr-ramp > summary {
   display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; user-select: none; color: var(--text);
 }
 summary::-webkit-details-marker { display: none; }
 /* The colour picker's chevron: points right when closed, down when open. */
-.cp-section > summary::before, .gr-editor > summary::before, .gr-ramp > summary::before {
+.gr-editor > summary::before, .gr-ramp > summary::before {
   content: ''; flex: none; width: 6px; height: 6px; margin: 0 4px 0 2px;
   border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); transform: rotate(-45deg);
 }
@@ -1118,53 +1126,70 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .tooltip p { margin: 2px 0 0; }
 .tooltip kbd { flex: none; padding: 0 4px; border: 1px solid var(--tip-kbd-edge); border-radius: var(--r-segment); background: transparent; color: var(--text-tooltip-muted); font-size: var(--fs-small); line-height: var(--lh-body); }
 
-/* ---------------------------------------------------------------- the colour picker */
-.cpick { position: fixed; inset: auto; width: 336px; max-height: calc(100vh - 16px); margin: 0; padding: 12px; overflow: auto;
+/* ---------------------------------------------------------------- the colour picker (6.7) */
+/* A popover left of the right panel: its own background, an edge and the raised shadow, 8 px corners. Its header and tabs
+   stay at its top, over a 1 px line; the tab shown scrolls under them when the picker is taller than the window. */
+.cpick { position: fixed; inset: auto; width: var(--w-picker); max-height: calc(100vh - 16px); margin: 0; padding: 0; overflow: hidden;
   border: 1px solid var(--line-strong); border-radius: var(--r-popover); background: var(--bg-popover); color: var(--text); box-shadow: var(--shadow-raised); }
+.cpick:popover-open { display: flex; flex-direction: column; }
 .cpick::backdrop { background: transparent; }
+.cp-top { flex: none; padding: var(--pad-panel) var(--pad-panel) 8px; border-bottom: 1px solid var(--line); }
+.cp-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; padding: 0 var(--pad-panel) var(--pad-panel); }
 .cp-head { display: flex; align-items: center; gap: 8px; }
-.cp-chip { width: 32px; height: 32px; flex: none; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+.cp-chip { width: var(--h-cp-chip); height: var(--h-cp-chip); flex: none; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .cp-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.cp-title { font-family: var(--mono); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 500; }
-.cp-scope { font-size: var(--fs-small); color: var(--text-muted); }
-.cp-note { margin: 8px 0 0; color: var(--text-muted); }
-.cp-source { margin: 8px 0 0; font-size: var(--fs-small); color: var(--text-muted); }
+.cp-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 500; }
+.cp-scope { font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
+/* The tabs: a full-width segmented control (4.6). The chosen tab is the raised pill, as the chosen segment everywhere. */
+.cp-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin-top: 8px; padding: 2px; border-radius: var(--r-control); background: var(--bg-field); }
+.cp-tab { min-width: 0; height: var(--h-segment); padding: 0 8px; overflow: hidden; border: 1px solid transparent; border-radius: var(--r-segment);
+  background: transparent; color: var(--text-muted); white-space: nowrap; text-overflow: ellipsis; }
+.cp-tab:hover:not([aria-selected="true"]) { color: var(--text); }
+.cp-tab[aria-selected="true"] { border-color: var(--line); background: var(--bg-panel); color: var(--text); }
+.cp-panel { padding-top: var(--pad-panel); }
+/* The Colour tab: one column, 8 px between its parts (a part that is hidden takes no room). */
+.cp-panel-colour { display: flex; flex-direction: column; gap: 8px; }
+.cp-note, .cp-source { margin: 0; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 /* The faction switch: a segmented control. */
-.cp-factions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin-top: 12px; padding: 2px; border-radius: var(--r-control); background: var(--bg-field); }
-.cp-faction { display: inline-flex; align-items: center; gap: 4px; min-width: 0; height: var(--h-segment); padding: 0 6px; border: 1px solid transparent; border-radius: var(--r-segment); background: transparent; color: var(--text-muted); }
+.cp-factions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: var(--r-control); background: var(--bg-field); }
+.cp-faction { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: var(--h-segment); padding: 0 6px; border: 1px solid transparent; border-radius: var(--r-segment); background: transparent; color: var(--text-muted); }
 .cp-faction:hover:not([aria-pressed="true"]) { color: var(--text); }
 .cp-faction[aria-pressed="true"] { border-color: var(--line); background: var(--bg-panel); color: var(--text); }
-.cp-faction span:not(.cp-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cp-dot { width: 10px; height: 10px; flex: none; margin-left: auto; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--swatch-edge); }
-.cp-wheel { display: block; width: 224px; height: 224px; margin: 12px auto 4px; border-radius: 50%; cursor: crosshair; touch-action: none; }
-.cp-hexrow { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.cp-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+.cp-wheel { display: block; align-self: center; width: var(--wheel); height: var(--wheel); border-radius: 50%; cursor: crosshair; touch-action: none; }
+.cp-hexrow { display: flex; align-items: center; gap: 4px; }
 .cp-hexrow .cp-hex { font-family: var(--mono); }
-.cp-sliders { display: grid; gap: 8px; margin-top: 8px; }
+.cp-sliders { display: grid; gap: 8px; }
 .cp-slider { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 8px; color: var(--text-muted); }
 .cp-rgb { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .cp-rgb label { display: flex; align-items: center; gap: 4px; color: var(--text-muted); }
 .cp-rgb input.num { width: 100%; }
-.cp-label { margin: 12px 0 4px; color: var(--text-muted); font-weight: 500; }
-.cp-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.cp-label-row select { width: auto; }
+/* Darker and Lighter: two strips, a short label on their left; Goes with it: its label and scheme, its strip under them. */
+.cp-strips { display: grid; grid-template-columns: var(--w-strip-label) minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; }
+.cp-strip-label { overflow: hidden; color: var(--text-muted); white-space: nowrap; text-overflow: ellipsis; }
+.cp-goes { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-goes .cp-strip-label { flex: 1 1 auto; }
+.cp-goes select { flex: none; width: auto; }
 .cp-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
-.cp-row5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.cp-swatch { position: relative; height: 22px; padding: 0; border: 0; }
+.cp-row5 { grid-column: 2; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.cp-swatch { position: relative; height: var(--h-strip); padding: 0; border: 0; }
 .cp-swatch:first-child { border-radius: var(--r-control) 0 0 var(--r-control); }
 .cp-swatch:last-child { border-radius: 0 var(--r-control) var(--r-control) 0; }
 .cp-swatch:hover { z-index: 1; box-shadow: inset 0 0 0 1px var(--handle-edge), inset 0 0 0 2px var(--handle-fill); }
 .cp-swatch:focus-visible { z-index: 1; }
-.cp-derived { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 4px 4px 4px 8px; border-radius: var(--r-control); background: var(--bg-field); }
-.cp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.cp-derived { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 8px; border-radius: var(--r-control); background: var(--bg-field); }
+/* The main colour and Revert on one row: both fit with either of the first one's words, so the row keeps its height. */
+.cp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cp-actions .tb { padding: 0 6px; }
 /* "This effect's main colour" is a state, not a toggle: an accent edge, never accent text. */
 .cp-actions .tb[aria-pressed="true"] { border-color: var(--accent-ink); }
-.cp-status { margin: 8px 0 0; color: var(--good); }
+.cp-status { margin: 0; color: var(--good); }
 .cp-status:empty { display: none; }
-.cp-section { margin: 12px -12px 0; padding: 0 12px; border-top: 1px solid var(--line); }
-.cp-section > summary { min-height: var(--h-section); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
-.cp-section > .hint { margin-bottom: 8px; }
-.cp-pgrid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
-.cp-pchip { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
+/* The Palette tab: the chips, then New colour at the bottom, folded (a section, as in the right panel). */
+.cp-label { margin: 12px 0 4px; color: var(--text-muted); font-weight: 500; }
+.cp-panel > :first-child > .cp-label:first-child, .cp-panel > .cp-label:first-child { margin-top: 0; }
+.cp-pgrid { display: grid; grid-template-columns: repeat(10, var(--chip-colour)); justify-content: space-between; row-gap: 4px; }
+.cp-pchip { position: relative; width: var(--chip-colour); height: var(--chip-colour); padding: 0; border: 0; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--swatch-edge); }
 .cp-pchip:hover { box-shadow: inset 0 0 0 1px var(--handle-edge), inset 0 0 0 2px var(--handle-fill); }
 .cp-pchip.sel { outline: 2px solid var(--accent-ink); outline-offset: 1px; }
 .cp-pchip.main::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--on, var(--text-tooltip)); }
@@ -1173,13 +1198,17 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .cp-pchip:hover:focus-visible, .cp-swatch:hover:focus-visible { box-shadow: inset 0 0 0 1px var(--handle-edge), inset 0 0 0 2px var(--handle-fill), 0 0 0 3px var(--focus-ring); }
 /* The chosen chip's outline is already the focus colour, so focus draws a band inside it instead (README, Assumptions). */
 .cp-pchip.sel:focus-visible { box-shadow: inset 0 0 0 2px var(--bg-popover), inset 0 0 0 3px var(--focus); }
+.cp-panel > .fold { margin-top: 12px; }
+.cp-panel > .fold:last-child > .foldbody { padding-bottom: 0; }
+.cp-new .hint { margin-bottom: 4px; }
 .cp-new input.text { margin: 4px 0; font-family: var(--mono); }
 .cp-new .check { margin: 4px 0; }
-.cp-new .tb { margin: 4px 0 12px; }
+.cp-new .tb { margin: 4px 0 0; }
 .cp-error { margin: 4px 0; color: var(--bad); }
 .cp-error:empty { display: none; }
 
-/* Gradients, in the colour picker. */
+/* Gradients, in the colour picker's Gradients tab. */
+.gr > .hint { margin: 0 0 4px; }
 .gr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
 .gr-tiles > .state-line { grid-column: 1 / -1; }
 .gr-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 4px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); }

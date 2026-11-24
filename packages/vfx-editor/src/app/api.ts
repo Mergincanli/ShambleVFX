@@ -6,6 +6,7 @@ import type { Budgets, CostMetric, LimitsRef } from '../cost/budgets';
 import type { CostReport } from '../cost/measure';
 import type { Path } from '../doc/edits';
 import type { NotDrawnNote, NotDrawnReason } from '../doc/not-drawn';
+import type { PickerTab } from './colorpicker';
 
 export interface EditOptions {
   label?: string;
@@ -91,16 +92,16 @@ export interface AppApi {
   setGradient(name: string, g: Gradient, opts?: { mergeKey?: string }): void;
   /** Make a role the current effect's main colour. */
   setMainColour(role: string): void;
-  /** Open the colour picker on a role, next to a swatch. */
-  openColourPicker(role: string, anchor: HTMLElement): void;
   /**
-   * "Edit palette…": the colour picker on a role, scrolled to its palette (its Palette section, opened). The picker's tabs
-   * come in UI phase 7; this then opens its Palette tab.
+   * Open the colour picker on a role, left of the right panel and level with the row of `anchor` (a colour in the colour
+   * list, the main colour's edit button), at a tab: the Colour tab for those two; with none, the tab used last.
    */
+  openColourPicker(role: string, anchor: HTMLElement, tab?: PickerTab): void;
+  /** "Edit palette…": the colour picker on a role, at its Palette tab. */
   openPalette(role: string, anchor: HTMLElement): void;
   /**
-   * A gradient field's edit button: the colour picker on a role, scrolled to its Gradients section (opened), with the
-   * gradient named open in the gradient editor when it is in the palette. UI phase 7 points this at the Gradients tab.
+   * A gradient field's edit button: the colour picker on a role, at its Gradients tab, with the gradient named open in the
+   * gradient editor when it is in the palette.
    */
   openGradients(role: string, anchor: HTMLElement, gradient?: string): void;
 

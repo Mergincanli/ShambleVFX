@@ -379,7 +379,7 @@ function phasesFold(app: AppApi, parts: Refresher[]): HTMLElement {
 function effectColourFold(app: AppApi, parts: Refresher[], colours: ColourListView): HTMLElement {
   const role = () => app.effect()!.controls.colour;
   const roles = () => roleNames(app.palette).map((r) => ({ value: r, label: r }));
-  const edit: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Edit the main colour', className: 'mini edit-colour', onClick: () => app.openColourPicker(role(), edit) });
+  const edit: HTMLButtonElement = iconButton({ icon: 'edit', label: 'Edit the main colour', className: 'mini edit-colour', onClick: () => app.openColourPicker(role(), edit, 'colour') });
   edit.setAttribute('aria-haspopup', 'dialog');
   const main = selectField({ label: 'Main colour', options: roles(), value: role(), swatch: roleHex(app), extra: edit, onChange: (v) => app.setMainColour(v) });
   main.el.classList.add('main-colour');

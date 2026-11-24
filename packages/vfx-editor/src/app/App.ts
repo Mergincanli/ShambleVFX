@@ -37,6 +37,7 @@ import { Preview, SCENES } from '../preview/Preview';
 import type { ViewMode } from '../preview/Preview';
 import type { AppApi, EditOptions } from './api';
 import { ColourPicker } from './colorpicker';
+import type { PickerTab } from './colorpicker';
 import { GradientPanel } from './gradients';
 import { costSummary } from './costcard';
 import { buildEffectsList } from './effects-list';
@@ -377,20 +378,18 @@ export class App implements AppApi {
     this.commit();
   }
 
-  openColourPicker(role: string, anchor: HTMLElement): void {
-    this.picker.open(role, anchor);
+  openColourPicker(role: string, anchor: HTMLElement, tab?: PickerTab): void {
+    this.picker.open(role, anchor, tab);
     this.gradients.refresh();
   }
 
   openPalette(role: string, anchor: HTMLElement): void {
-    this.openColourPicker(role, anchor);
-    this.picker.showPart('palette');
+    this.openColourPicker(role, anchor, 'palette');
   }
 
   openGradients(role: string, anchor: HTMLElement, gradient?: string): void {
-    this.openColourPicker(role, anchor);
+    this.openColourPicker(role, anchor, 'gradients');
     if (gradient && this.palette.gradients?.[gradient]) this.gradients.edit(gradient);
-    this.picker.showPart('gradients');
   }
 
   events(): string[] {
@@ -592,7 +591,7 @@ export class App implements AppApi {
       : 'Drawing with the WebGL 2 fallback of the WebGPU renderer.';
     this.picker = new ColourPicker(this);
     this.gradients = new GradientPanel(this);
-    this.picker.extraSlot.append(this.gradients.el);
+    this.picker.gradientSlot.append(this.gradients.el);
     this.inspector = buildInspector(this);
     root.querySelector('.right')!.append(this.inspector.el);
     this.timelineView = buildTimeline(this, (ms, done) => this.scrub(ms, done));

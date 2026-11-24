@@ -1,8 +1,14 @@
 /**
- * The colour picker: opens over a palette swatch and edits that colour role in the project's palette.json.
- * A hue ring with a brightness and saturation triangle, the hex value, sliders, darker and lighter steps, five colours that
- * go with it, the whole palette (click one to edit it), and a form to add a colour. Every change is an undoable edit;
- * one drag is one undo step. It lives outside the inspector, so the swatches can be redrawn while it is open.
+ * The colour picker (docs/ui-redesign.md 6.7): a popover left of the right panel that edits a colour role in the project's
+ * palette.json. Its header shows the colour, the role's name, whether it changes with the faction, and Close. Under it, three
+ * tabs:
+ *   - Colour: the faction switch (for a colour per faction), a hue ring with a brightness and saturation triangle, the hex
+ *     value with Copy and the exact values, darker and lighter steps, five colours that go with it, how the colour is worked
+ *     out from another, the effect's main colour and Revert, and whose value it is;
+ *   - Palette: every colour of the palette as a chip (click one to change it), the palette profiles, and New colour;
+ *   - Gradients: the ready-made gradients, the project's and the gradient editor (gradients.ts puts them in its slot).
+ * Each way in opens its own tab; an opening that names none takes the tab used last. Every change is an undoable edit; one
+ * drag is one undo step. It lives outside the inspector, so the swatches can be redrawn while it is open.
  */
 import { FACTION_IDS, resolveRole, roleNames } from '@shamble/vfx-format';
 import type { FactionId, PaletteEntry, PaletteSource } from '@shamble/vfx-format';
@@ -10,7 +16,7 @@ import { DERIVED_ROLES, ROLE_NAME, isFactionRole, roleEntry } from '../doc/edits
 import type { AppApi } from './api';
 import { HARMONIES, contrast, harmony, hexToRgb, hsvToRgb, parseHexInput, rgbToHex, rgbToHsv, shades, tints } from './colour';
 import type { Harmony } from './colour';
-import { h, icon } from './dom';
+import { fold, h, icon } from './dom';
 
 const SOURCE: Record<PaletteSource, string> = {
   mustafa: 'Yours: you chose it.',
@@ -19,13 +25,28 @@ const SOURCE: Record<PaletteSource, string> = {
   derived: 'Worked out from another colour by a formula.',
   assumed: "Shamble VFX's guess, waiting for a decision.",
 };
-const SIZE = 224;
-const RING = 18;
+
+/** The picker's tabs. */
+export type PickerTab = 'colour' | 'palette' | 'gradients';
+const TABS: readonly { id: PickerTab; label: string; tip: string }[] = [
+  { id: 'colour', label: 'Colour', tip: 'Change this colour: the wheel, the hex value, darker and lighter steps, and colours that go with it.' },
+  { id: 'palette', label: 'Palette', tip: 'Every colour of the project: click one to change it. Palette profiles keep and load whole sets of colours.' },
+  { id: 'gradients', label: 'Gradients', tip: 'Only ramps the game can draw: smooth or banded, from the middle out. Blurred, mesh and image gradients are not in.' },
+];
+/** The tab used last: an opening that names no tab opens on it. Kept while the page is open, not after a reload. */
+let lastTab: PickerTab = 'colour';
+
+/** The wheel's size and its hue ring's width, in CSS pixels. */
+const SIZE = 200;
+const RING = 16;
+/** Room between the picker and the right panel, and the window's edges. */
+const GAP = 8;
 
 export class ColourPicker {
   readonly el: HTMLElement;
   private role = '';
   private faction: FactionId = 'soviets';
+  private tab: PickerTab = lastTab;
   private hsv: [number, number, number] = [0, 0, 0];
   private shownHex = '';
   /** Each colour as it was when the picker first showed it (for Revert). */
@@ -34,10 +55,10 @@ export class ColourPicker {
   private gesture = 0;
   private harmonyKind: Harmony = 'analogous';
   private paletteKey = '';
-  /** Where the swatch was when the picker opened, and the left edge of the right panel (the picker is placed by these). */
+  /** Where the row that opened the picker was, and the left edge of the right panel (the picker is placed by these). */
   private anchorRect: { left: number; top: number } | null = null;
   private panelLeft: number | null = null;
-  /** The swatch that opened the picker: the focus goes back to it when the picker closes. */
+  /** The swatch or button that opened the picker: the focus goes back to it when the picker closes. */
   private opener: HTMLElement | null = null;
   private parts!: {
     chip: HTMLElement; title: HTMLElement; scope: HTMLElement; note: HTMLElement; source: HTMLElement; factions: HTMLElement;
@@ -45,12 +66,14 @@ export class ColourPicker {
     hue: HTMLInputElement; sat: HTMLInputElement; val: HTMLInputElement; r: HTMLInputElement; g: HTMLInputElement; b: HTMLInputElement;
     shades: HTMLElement; tints: HTMLElement; harmony: HTMLElement; harmonySel: HTMLSelectElement; derived: HTMLElement;
     main: HTMLButtonElement; revert: HTMLButtonElement; palette: HTMLElement; status: HTMLElement;
-    newName: HTMLInputElement; newEach: HTMLInputElement; newError: HTMLElement; extra: HTMLElement;
+    newName: HTMLInputElement; newEach: HTMLInputElement; newError: HTMLElement;
+    body: HTMLElement; tabs: Record<PickerTab, HTMLButtonElement>; panels: Record<PickerTab, HTMLElement>;
   };
 
   constructor(private readonly app: AppApi) {
     this.el = this.build();
     document.body.append(this.el);
+    this.showTab(this.tab);
   }
 
   get isOpen(): boolean {
@@ -61,35 +84,47 @@ export class ColourPicker {
     return this.isOpen ? { role: this.role, faction: this.faction } : null;
   }
 
-  /** A place for more panels (the gradients). */
-  get extraSlot(): HTMLElement {
-    return this.parts.extra;
+  /** The tab shown. */
+  get shownTab(): PickerTab {
+    return this.tab;
   }
 
-  /** Open on a role, next to the swatch that was clicked. */
-  open(role: string, anchor: HTMLElement): void {
-    const a = anchor.getBoundingClientRect();
+  /** The Gradients tab's slot (gradients.ts). */
+  get gradientSlot(): HTMLElement {
+    return this.parts.panels.gradients;
+  }
+
+  /**
+   * Open on a role, next to the row that was clicked, at a tab: the Colour tab for a colour (the main colour's edit button, a
+   * colour in the colour list), the Palette tab for "Edit palette…", the Gradients tab for a gradient's edit button. With
+   * no tab, the one used last.
+   */
+  open(role: string, anchor: HTMLElement, tab: PickerTab = lastTab): void {
+    const row = anchor.closest<HTMLElement>('.prop') ?? anchor;
+    const a = row.getBoundingClientRect();
     this.anchorRect = { left: a.left, top: a.top };
     this.panelLeft = anchor.closest('.right')?.getBoundingClientRect().left ?? null;
     this.opener = anchor;
     if (!this.isOpen) this.el.showPopover();
     this.show(role);
+    this.showTab(tab);
     this.place();
-    this.parts.canvas.focus({ preventScroll: true });
+    this.focusIn();
   }
 
-  /**
-   * Show one of its parts, opened: the whole palette, or the gradients (the panel in its extra slot). Its title comes to the
-   * top of the picker (which scrolls when it is taller than the window) and takes the keyboard focus. Until UI phase 7 gives
-   * the picker its tabs, "Edit palette…" and a gradient field's edit button open it this way.
-   */
-  showPart(part: 'palette' | 'gradients'): void {
-    if (!this.isOpen) return;
-    const sec = part === 'palette' ? this.el.querySelector<HTMLDetailsElement>(':scope > details.cp-palette-section') : this.parts.extra.querySelector<HTMLDetailsElement>('details.gr');
-    if (!sec) return;
-    sec.open = true;
-    this.el.scrollTop = sec.offsetTop - parseFloat(getComputedStyle(this.el).paddingTop);
-    sec.querySelector<HTMLElement>(':scope > summary')?.focus({ preventScroll: true });
+  /** Show a tab: it becomes the one used last. The Colour tab's keys are the wheel's; the others start at their tab. */
+  showTab(tab: PickerTab): void {
+    const changed = tab !== this.tab;
+    this.tab = tab;
+    lastTab = tab;
+    for (const t of TABS) {
+      const on = t.id === tab;
+      this.parts.tabs[t.id].setAttribute('aria-selected', String(on));
+      this.parts.tabs[t.id].tabIndex = on ? 0 : -1;
+      this.parts.panels[t.id].hidden = !on;
+    }
+    if (changed) this.parts.body.scrollTop = 0;
+    if (this.isOpen) this.place();
   }
 
   close(): void {
@@ -137,6 +172,31 @@ export class ColourPicker {
     const title = h('code', { class: 'cp-title' });
     const scope = h('span', { class: 'cp-scope' });
     const closeBtn = h('button', { class: 'mini icon-only', attrs: { type: 'button', 'aria-label': 'Close the colour picker' }, title: 'Close (Esc)', on: { click: () => this.close() } }, icon('close'));
+
+    // The tabs: a full-width segmented control. ← and → (Home, End) move between them, as in any group of tabs.
+    const tabList = h('div', { class: 'cp-tabs', attrs: { role: 'tablist', 'aria-label': 'Colour picker' } });
+    const tabs = {} as Record<PickerTab, HTMLButtonElement>;
+    const panels = {} as Record<PickerTab, HTMLElement>;
+    for (const t of TABS) {
+      tabs[t.id] = h('button', {
+        class: 'cp-tab', title: t.tip, text: t.label,
+        attrs: { type: 'button', role: 'tab', id: `cp-tab-${t.id}`, 'aria-controls': `cp-panel-${t.id}`, 'aria-selected': 'false', tabindex: '-1', 'data-tab': t.id },
+        on: { click: () => this.showTab(t.id) },
+      }) as HTMLButtonElement;
+      panels[t.id] = h('div', { class: `cp-panel cp-panel-${t.id}`, attrs: { role: 'tabpanel', id: `cp-panel-${t.id}`, 'aria-labelledby': `cp-tab-${t.id}`, hidden: '' } });
+      tabList.append(tabs[t.id]);
+    }
+    tabList.addEventListener('keydown', (e) => {
+      const i = TABS.findIndex((t) => t.id === this.tab);
+      const n = TABS.length;
+      const to = e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+      if (to < 0) return;
+      e.preventDefault();
+      this.showTab(TABS[to]!.id);
+      tabs[TABS[to]!.id].focus({ preventScroll: true });
+    });
+
+    // ---- the Colour tab
     const note = h('p', { class: 'cp-note' });
     const source = h('p', { class: 'cp-source' });
     const factions = h('div', { class: 'cp-factions', attrs: { role: 'group', 'aria-label': 'Which faction\'s colour to change' } });
@@ -161,36 +221,40 @@ export class ColourPicker {
     const derived = h('div', { class: 'cp-derived' });
     const main = h('button', { class: 'tb', attrs: { type: 'button', 'aria-pressed': 'false' }, on: { click: () => this.app.setMainColour(this.role) } }) as HTMLButtonElement;
     const revert = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Revert', title: 'Back to the colour it had when you opened it', on: { click: () => this.revert() } }) as HTMLButtonElement;
-    const palette = h('div', { class: 'cp-palette' });
     const status = h('p', { class: 'cp-status', attrs: { role: 'status', 'aria-live': 'polite' } });
+    panels.colour.append(note, factions, canvas,
+      h('div', { class: 'cp-hexrow' }, hex, copy, slidersBtn), sliders,
+      // Darker and Lighter: two strips with a short label on the left; Goes with it: its scheme, then its strip under them.
+      h('div', { class: 'cp-strips' },
+        h('span', { class: 'cp-strip-label', text: 'Darker' }), shadesRow,
+        h('span', { class: 'cp-strip-label', text: 'Lighter' }), tintsRow,
+        h('div', { class: 'cp-goes' }, h('span', { class: 'cp-strip-label', text: 'Goes with it' }), harmonySel), harmonyRow),
+      derived,
+      h('div', { class: 'cp-actions' }, main, revert),
+      source, status);
+
+    // ---- the Palette tab: the chips, then New colour at the bottom, folded
+    const palette = h('div', { class: 'cp-palette' });
     const newName = h('input', { class: 'text', attrs: { type: 'text', placeholder: 'such as fire.blue', 'aria-label': 'New colour name', spellcheck: 'false', autocomplete: 'off' } }) as HTMLInputElement;
     const newShared = h('input', { attrs: { type: 'radio', name: 'cp-new-kind', checked: '' } }) as HTMLInputElement;
     const newEach = h('input', { attrs: { type: 'radio', name: 'cp-new-kind' } }) as HTMLInputElement;
     const newError = h('p', { class: 'cp-error', attrs: { role: 'alert' } });
     const add = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Add colour', on: { click: () => this.addColour() } });
-    const extra = h('div', { class: 'cp-extra' });
-    void newShared;
+    const newFold = fold('New colour', [
+      h('p', { class: 'hint', text: 'A new role, starting as the colour above. It cannot be renamed or removed later.' }),
+      newName,
+      h('label', { class: 'check' }, newShared, h('span', { text: 'One colour for every faction' })),
+      h('label', { class: 'check' }, newEach, h('span', { text: 'One colour per faction (like team)' })),
+      newError, add], false, [], { className: 'cp-new', remember: false });
+    newFold.querySelector(':scope > summary')!.setAttribute('data-tip', 'A new colour role, starting as the colour above. Effects name it; a role cannot be renamed or removed later.');
+    panels.palette.append(palette, newFold);
 
-    const el = h('div', { class: 'cpick', attrs: { popover: 'manual', role: 'dialog', 'aria-label': 'Colour' } },
-      h('div', { class: 'cp-head' }, chip, h('div', { class: 'cp-name' }, title, scope), closeBtn),
-      note, factions, canvas,
-      h('div', { class: 'cp-hexrow' }, hex, copy, slidersBtn), sliders,
-      h('div', { class: 'cp-label', text: 'Darker' }), shadesRow,
-      h('div', { class: 'cp-label', text: 'Lighter' }), tintsRow,
-      h('div', { class: 'cp-label cp-label-row' }, h('span', { text: 'Goes with it' }), harmonySel), harmonyRow,
-      derived,
-      h('div', { class: 'cp-actions' }, main, revert),
-      source, status,
-      h('details', { class: 'cp-section cp-palette-section', attrs: { open: '' } }, h('summary', { text: 'Palette' }), palette),
-      h('details', { class: 'cp-section cp-new' }, h('summary', { text: 'New colour', attrs: { 'data-tip': 'A new colour role, starting as the colour above. Effects name it; a role cannot be renamed or removed later.' } }),
-        h('p', { class: 'hint', text: 'A new role, starting as the colour above. It cannot be renamed or removed later.' }),
-        newName,
-        h('label', { class: 'check' }, newShared, h('span', { text: 'One colour for every faction' })),
-        h('label', { class: 'check' }, newEach, h('span', { text: 'One colour per faction (like team)' })),
-        newError, add),
-      extra);
+    const body = h('div', { class: 'cp-body' }, panels.colour, panels.palette, panels.gradients);
+    const el = h('div', { class: 'cpick', attrs: { popover: 'manual', role: 'dialog', 'aria-label': 'Colour picker' } },
+      h('div', { class: 'cp-top' }, h('div', { class: 'cp-head' }, chip, h('div', { class: 'cp-name' }, title, scope), closeBtn), tabList),
+      body);
     this.parts = { chip, title, scope, note, source, factions, canvas, hex, slidersBtn, sliders, hue, sat, val, r, g, b, shades: shadesRow, tints: tintsRow,
-      harmony: harmonyRow, harmonySel, derived, main, revert, palette, status, newName, newEach, newError, extra };
+      harmony: harmonyRow, harmonySel, derived, main, revert, palette, status, newName, newEach, newError, body, tabs, panels };
 
     // The wheel: drag the ring for the hue, the triangle for brightness and saturation.
     canvas.addEventListener('pointerdown', (e) => {
@@ -233,7 +297,7 @@ export class ColourPicker {
     newName.addEventListener('input', () => { this.parts.newError.textContent = this.nameProblem(newName.value.trim()) ?? ''; });
     newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.addColour(); } });
     window.addEventListener('resize', () => { if (this.isOpen) this.place(); });
-    // When a section opens or closes, keep the whole picker inside the window.
+    // When a tab or a section opens or closes, keep the whole picker inside the window.
     new ResizeObserver(() => { if (this.isOpen) this.place(); }).observe(el);
     // Revert goes back to the colours as they were when the picker opened this time.
     el.addEventListener('toggle', (e) => { if ((e as ToggleEvent).newState === 'closed') { this.openedWith.clear(); this.dragging = null; } });
@@ -246,25 +310,33 @@ export class ColourPicker {
     return resolveRole(this.app.palette, this.role, this.faction);
   }
 
+  /** The keyboard focus into the tab shown: the wheel on the Colour tab (its arrow keys change the colour), else the tab. */
+  private focusIn(): void {
+    if (this.tab === 'colour') this.parts.canvas.focus({ preventScroll: true });
+    else this.parts.tabs[this.tab].focus({ preventScroll: true });
+  }
+
   private drawAll(hex: string): void {
     const p = this.parts, pal = this.app.palette;
     const faction = isFactionRole(pal, this.role);
     const entry = roleEntry(pal, this.role, this.faction);
     p.chip.style.background = hex;
     p.title.textContent = this.role;
-    p.scope.textContent = faction ? `Changes with the faction: this is the ${pal.factions[this.faction].name} colour` : 'One colour for every faction';
+    p.scope.textContent = faction ? `Changes with the faction: ${pal.factions[this.faction].name}` : 'One colour for every faction';
     p.note.textContent = entry?.note ?? '';
     p.note.hidden = !entry?.note;
     p.source.textContent = entry ? SOURCE[entry.from] ?? '' : '';
-    // The faction switch, for colours that change with the faction.
+    // The faction switch, for colours that change with the faction: each faction's marking and its colour (its name in the
+    // tooltip and for screen readers).
     p.factions.hidden = !faction;
     if (faction) {
       p.factions.replaceChildren(...FACTION_IDS.map((f) => {
         const v = resolveRole(pal, this.role, f)!;
-        return h('button', { class: 'cp-faction', attrs: { type: 'button', 'aria-pressed': String(f === this.faction), 'aria-label': `${pal.factions[f].name}: ${v}` },
-          title: `Change the ${pal.factions[f].name} colour (the preview switches to ${pal.factions[f].name})`,
+        const name = pal.factions[f].name;
+        return h('button', { class: 'cp-faction', attrs: { type: 'button', 'aria-pressed': String(f === this.faction), 'aria-label': `${name}: ${v}` },
+          title: `${name}: change the ${name} colour (the preview switches to ${name})`,
           on: { click: () => { this.app.setFaction(f); this.show(this.role, f); } } },
-        icon(`faction-${f}`), h('span', { text: pal.factions[f].name }), h('span', { class: 'cp-dot', style: `background:${v}` }));
+        icon(`faction-${f}`), h('span', { class: 'cp-dot', style: `background:${v}` }));
       }));
     }
     this.drawWheel();
@@ -298,6 +370,7 @@ export class ColourPicker {
     this.drawPalette();
   }
 
+  /** The Palette tab's chips: the team colours of the faction shown, then the shared ones, A to Z; names in their tooltips. */
   private drawPalette(): void {
     const pal = this.app.palette;
     const key = `${roleNames(pal).join(',')}|${this.role}|${this.faction}|${roleNames(pal).map((r) => resolveRole(pal, r, this.faction)).join('')}|${this.app.effect()?.controls.colour}`;
@@ -309,21 +382,31 @@ export class ColourPicker {
       const main = this.app.effect()?.controls.colour === r;
       return h('button', { class: `cp-pchip${r === this.role ? ' sel' : ''}${main ? ' main' : ''}`, style: `background:${v};--on:${contrast(v, '#FFFFFF') > 3 ? '#FFFFFF' : '#11121A'}`,
         attrs: { type: 'button', 'aria-label': `Change ${r} (${v})${main ? ", this effect's main colour" : ''}`, 'aria-current': String(r === this.role) },
-        title: `${r} ${v}${main ? " · this effect's main colour" : ''}`, on: { click: () => this.show(r) } });
+        title: `${r} ${v}${main ? " · this effect's main colour" : ''}`, on: { click: () => this.pick(r) } });
     };
     this.parts.palette.replaceChildren(
       h('div', { class: 'cp-label', text: `Team colours (${pal.factions[this.faction].name})` }), h('div', { class: 'cp-pgrid' }, ...team.map(chip)),
       h('div', { class: 'cp-label', text: 'Shared colours' }), h('div', { class: 'cp-pgrid' }, ...shared.map(chip)));
   }
 
-  /** Put the picker next to the swatch, left of the right panel, inside the window. */
+  /** A chip clicked in the Palette tab: change that colour, on the Colour tab. */
+  private pick(role: string): void {
+    this.show(role);
+    this.showTab('colour');
+    this.parts.canvas.focus({ preventScroll: true });
+  }
+
+  /**
+   * Put the picker left of the right panel, its top level with the row that opened it, and the whole of it inside the window
+   * (it moves up when it would pass the bottom; a picker taller than the window scrolls inside).
+   */
   private place(): void {
     const a = this.anchorRect;
     if (!a) return;
     const w = this.el.offsetWidth, hh = this.el.offsetHeight;
-    let left = (this.panelLeft ?? a.left) - w - 10;
-    if (left < 8) left = Math.min(window.innerWidth - w - 8, a.left);
-    const top = Math.max(8, Math.min(window.innerHeight - hh - 8, a.top - 120));
+    let left = (this.panelLeft ?? a.left) - w - GAP;
+    if (left < GAP) left = Math.max(GAP, Math.min(window.innerWidth - w - GAP, a.left));
+    const top = Math.max(GAP, Math.min(window.innerHeight - hh - GAP, a.top));
     this.el.style.left = `${Math.round(left)}px`;
     this.el.style.top = `${Math.round(top)}px`;
   }
@@ -392,9 +475,8 @@ export class ColourPicker {
     // Handles: on the ring, and in the triangle.
     const a = ((this.hsv[0] + 30) * Math.PI) / 180, rm = (R0 + R1) / 2;
     this.handle(g, c + rm * Math.cos(a), c - rm * Math.sin(a), RING / 2 - 1);
-    const [h0, s, v] = this.hsv;
+    const [, s, v] = this.hsv;
     const bH = s * v, bW = (1 - s) * v, bK = 1 - v;
-    void h0;
     this.handle(g, hx * bH + wx * bW + kx * bK, hy * bH + wy * bW + ky * bK, 7);
   }
 
