@@ -72,7 +72,7 @@ export class ColourPicker {
     hue: HTMLInputElement; sat: HTMLInputElement; val: HTMLInputElement; r: HTMLInputElement; g: HTMLInputElement; b: HTMLInputElement;
     shades: HTMLElement; tints: HTMLElement; harmony: HTMLElement; harmonySel: HTMLSelectElement; derived: HTMLElement;
     main: HTMLButtonElement; revert: HTMLButtonElement; palette: HTMLElement; status: HTMLElement;
-    newName: HTMLInputElement; newEach: HTMLInputElement; newError: HTMLElement;
+    newName: HTMLInputElement; newEach: HTMLInputElement; newError: HTMLElement; newSaid: HTMLElement;
     body: HTMLElement; tabs: Record<PickerTab, HTMLButtonElement>; panels: Record<PickerTab, HTMLElement>;
   };
 
@@ -260,13 +260,15 @@ export class ColourPicker {
     const newShared = h('input', { attrs: { type: 'radio', name: 'cp-new-kind', checked: '' } }) as HTMLInputElement;
     const newEach = h('input', { attrs: { type: 'radio', name: 'cp-new-kind' } }) as HTMLInputElement;
     const newError = h('p', { class: 'cp-error', attrs: { role: 'alert' } });
+    // What Add colour did, said here on the Palette tab (the status line is on the Colour tab, which does not show then).
+    const newSaid = h('p', { class: 'cp-new-said', attrs: { role: 'status', 'aria-live': 'polite' } });
     const add = h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Add colour', on: { click: () => this.addColour() } });
     const newFold = fold('New colour', [
       h('p', { class: 'hint', text: 'A new role, starting as the colour above. It cannot be renamed or removed later.' }),
       newName,
       h('label', { class: 'check' }, newShared, h('span', { text: 'One colour for every faction' })),
       h('label', { class: 'check' }, newEach, h('span', { text: 'One colour per faction (like team)' })),
-      newError, add], false, [], { className: 'cp-new', remember: false });
+      newError, add, newSaid], false, [], { className: 'cp-new', remember: false });
     newFold.querySelector(':scope > summary')!.setAttribute('data-tip', 'A new colour role, starting as the colour above. Effects name it; a role cannot be renamed or removed later.');
     this.profiles = new ProfilePanel(this.app, (next) => this.keepRole(next));
     panels.palette.append(palette, this.profiles.el, newFold);
@@ -276,7 +278,7 @@ export class ColourPicker {
       h('div', { class: 'cp-top' }, h('div', { class: 'cp-head' }, chip, h('div', { class: 'cp-name' }, title, scope), closeBtn), tabList),
       body);
     this.parts = { chip, title, scope, note, source, factions, canvas, hex, slidersBtn, sliders, hue, sat, val, r, g, b, shades: shadesRow, tints: tintsRow,
-      harmony: harmonyRow, harmonySel, derived, main, revert, palette, status, newName, newEach, newError, body, tabs, panels };
+      harmony: harmonyRow, harmonySel, derived, main, revert, palette, status, newName, newEach, newError, newSaid, body, tabs, panels };
 
     // The wheel: drag the ring for the hue, the triangle for brightness and saturation.
     canvas.addEventListener('pointerdown', (e) => {
@@ -316,13 +318,13 @@ export class ColourPicker {
       });
     }
     harmonySel.addEventListener('change', () => { this.harmonyKind = harmonySel.value as Harmony; this.drawAll(this.currentHex()!); });
-    newName.addEventListener('input', () => { this.parts.newError.textContent = this.nameProblem(newName.value.trim()) ?? ''; });
+    newName.addEventListener('input', () => { this.parts.newError.textContent = this.nameProblem(newName.value.trim()) ?? ''; this.parts.newSaid.textContent = ''; });
     newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.addColour(); } });
     window.addEventListener('resize', () => { if (this.isOpen) this.place(); });
     // When a tab or a section opens or closes, keep the whole picker inside the window.
     new ResizeObserver(() => { if (this.isOpen) this.place(); }).observe(el);
     // Revert goes back to the colours as they were when the picker opened this time; the status line's words go with it.
-    el.addEventListener('toggle', (e) => { if ((e as ToggleEvent).newState === 'closed') { this.openedWith.clear(); this.dragging = null; this.say(''); } });
+    el.addEventListener('toggle', (e) => { if ((e as ToggleEvent).newState === 'closed') { this.openedWith.clear(); this.dragging = null; this.say(''); this.parts.newSaid.textContent = ''; } });
     return el;
   }
 
@@ -604,14 +606,13 @@ export class ColourPicker {
   private addColour(): void {
     const name = this.parts.newName.value.trim();
     const problem = name ? this.nameProblem(name) : 'Give the colour a name first.';
-    if (problem) { this.parts.newError.textContent = problem; return; }
+    if (problem) { this.parts.newError.textContent = problem; this.parts.newSaid.textContent = ''; return; }
     const err = this.app.addColour(name, this.parts.newEach.checked, this.currentHex() ?? '#FFFFFF');
-    if (err) { this.parts.newError.textContent = err; return; }
+    if (err) { this.parts.newError.textContent = err; this.parts.newSaid.textContent = ''; return; }
     this.parts.newName.value = '';
     this.parts.newError.textContent = '';
-    // The new colour first: the words are about it.
     this.show(name);
-    this.say(`Added ${name}. Effects can use it now; Save keeps it in the project's palette.json.`);
+    this.parts.newSaid.textContent = `Added ${name}. Effects can use it now; Save keeps it in the project's palette.json.`;
   }
 
   /** The status line, under the source line: words about the colour shown (empty words clear it). */

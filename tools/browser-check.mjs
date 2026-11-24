@@ -1811,6 +1811,21 @@ if (webgpu) {
     ok('the Palette tab: 22 px chips, the team colours of the faction shown and the shared colours; the main colour\'s chip keeps its dot, the chosen one has its 2 px outline in --accent-ink, and each chip\'s name and hex are in its tooltip; New colour at the bottom, folded',
       chips.n === chips.want && chips.sizes === '22x22' && chips.labels === 'Team colours (Soviets)|Shared colours' && /^glow #[0-9A-F]{6} · this effect's main colour$/.test(chips.main ?? '')
         && chips.mainDot === '""|6px' && chips.sel === 'glow|2px|true' && /^glow #[0-9A-F]{6}/.test(chips.glowTip ?? '') && chips.newLast && !chips.newOpen && chips.newTitle === 'New colour', JSON.stringify(chips));
+
+    // New colour, on the Palette tab, says what it did there, under Add colour (its words went to the Colour tab's status
+    // line, which does not show on the Palette tab); typing the next name takes them away.
+    await cp.locator('.cpick details.cp-new > summary').click();
+    await cp.locator('.cpick .cp-new input.text').fill('fire.teal');
+    await cp.locator('.cpick .cp-new button', { hasText: 'Add colour' }).click();
+    const addedNow = () => cp.evaluate(() => { const said = document.querySelector('.cpick .cp-new .cp-new-said'); return { tab: document.querySelector('.cpick .cp-tab[aria-selected="true"]').dataset.tab, said: said?.textContent ?? null, shown: !!said?.getClientRects().length,
+      role: !!window.__vfx.app.palette.roles['fire.teal'], status: document.querySelector('.cpick .cp-status').textContent }; });
+    const added = await addedNow();
+    await cp.locator('.cpick .cp-new input.text').fill('fire.t');
+    const typingNext = await addedNow();
+    await cp.locator('.cpick .cp-new input.text').fill('');
+    ok('New colour, on the Palette tab, says there what it did ("Added fire.teal. Effects can use it now; …"), under Add colour, not in the Colour tab\'s status line; the next name typed takes the words away',
+      added.tab === 'palette' && added.role && added.shown && /^Added fire\.teal\. Effects can use it now; Save keeps it in the project's palette\.json\.$/.test(added.said ?? '') && added.status === ''
+        && typingNext.said === '' && !typingNext.shown, JSON.stringify({ added, typingNext }));
     ok('the colour picker page has no errors', g.errors.length === 0, g.errors.slice(0, 2).join(' | '));
     await cp.close();
   }

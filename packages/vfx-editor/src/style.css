@@ -1201,6 +1201,9 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .cp-new .tb { margin: 4px 0 0; }
 .cp-error { margin: 4px 0; color: var(--bad); }
 .cp-error:empty { display: none; }
+/* What Add colour did, under it on the Palette tab (the status line is on the Colour tab). */
+.cp-new-said { margin: 4px 0 0; color: var(--good); }
+.cp-new-said:empty { display: none; }
 /* The palette profiles (Palette tab): the line saying which one this project's colours came from; a row per profile (its
    name, a lock on a default; eight of its colours as dots and how many gradients; Load and More); the project's own
    profile marked as a stored choice (the field colour and a 1 px edge, as the main colour in the colour list), not yellow. */

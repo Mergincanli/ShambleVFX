@@ -270,7 +270,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (423 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (424 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -317,7 +317,8 @@ until a reload, the keys on the tabs staying in the picker and Esc closing it; t
 colour, and for the two worked out from others once set by hand, its parts in order, the faction switch, Copy, the
 exact values, Darker, Lighter, Goes with it and its scheme, Revert and whose value it is, the main colour and the
 worked-out colour, each change one undo step, and the status line's words ("Copied #…") going when another colour,
-faction or value shows and when the picker closes; the Palette tab's 22 px chips, the main colour's dot, names in the tooltips and New colour folded; the palette profiles there, in the
+faction or value shows and when the picker closes; the Palette tab's 22 px chips, the main colour's dot, names in the
+tooltips, New colour folded and saying what it did under Add colour; the palette profiles there, in the
 temporary palettes folder and a throwaway project: the list with the defaults locked, the rows of a profile's menu with no
 tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
 asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
@@ -1413,7 +1414,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     after).
   - **The Palette tab**: the chips are 22 px, ten a row. The palette profiles sit between the colours and New colour, so
     New colour stays at the bottom, folded. Both are sections that fold, as the right panel's do, but not remembered:
-    each time the page opens, the profiles start open and New colour closed.
+    each time the page opens, the profiles start open and New colour closed. Add colour says what it did under itself
+    ("Added fire.blue. …"), in green; the next name typed, or closing the picker, takes the words away (they went to
+    the Colour tab's status line, which does not show on the Palette tab).
   - **The Gradients tab**: the gradient editor and its ramp fold as the right panel's sections do (the editor lost its
     striped-square icon: a fold's title has none), the editor closed when the page opens. The ready-made gradients are
     four a row.
