@@ -25,7 +25,7 @@ import type { Path } from '../doc/edits';
 import { allFolders } from '../doc/folders';
 import { History } from '../doc/history';
 import type { EditorDoc } from '../doc/history';
-import { SHAPE_TEXT } from '../doc/layer-info';
+import { shapeLabel } from '../doc/layer-info';
 import { notDrawnNotes, notDrawnReasons } from '../doc/not-drawn';
 import { withLoadedProfile, withProfileName } from '../doc/profiles';
 import type { NotDrawnNote, NotDrawnReason } from '../doc/not-drawn';
@@ -1358,7 +1358,7 @@ export class App implements AppApi {
     else if (kind.startsWith('shape:')) {
       const k = kind.slice(6) as ShapeKind;
       const id = freeLayerId(fx, k);
-      layer = newShapeLayer(id, SHAPE_TEXT[k].replace(/^./, (c) => c.toUpperCase()), k);
+      layer = newShapeLayer(id, shapeLabel(k), k);
       // A trail rides a projectile: on the newest one, or a new one made for it.
       if (k === 'trail') {
         let p: Layer | undefined = [...fx.layers].reverse().find((l) => l.type === 'projectile');
@@ -1965,7 +1965,7 @@ export class App implements AppApi {
   }
 
   /** For the browser check: what an element's tooltip says (its lines and its shortcut), as it would show it; or null. */
-  tipForChecks(el: Element): { lines: string[]; key?: string } | null {
+  tipForChecks(el: Element): { lines: string[]; key?: string; file?: string } | null {
     return tipContent(el);
   }
 

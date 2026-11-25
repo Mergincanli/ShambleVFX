@@ -10,14 +10,14 @@ import { MAIN_ROLE, PHASE_NAMES, TIER_NAMES, isArrivalStart, isInputAnchor, reso
 import type { InputAnchor, Layer, PhaseName, ProjectileLayer, SpriteLayer, TierName, Vec3, VisibleLayer } from '@shamble/vfx-format';
 import type { Problem } from '@shamble/vfx-format/validate';
 import { FOLDER_SEP, NAME_MAX, folderOf, splitName } from '../doc/folders';
-import { riderLine, ridersOf, whatDraws } from '../doc/layer-info';
+import { riderLine, ridersOf, shapeTitle, whatDraws } from '../doc/layer-info';
 import type { WhatDraws } from '../doc/layer-info';
 import type { AppApi } from './api';
 import { colourList } from './colourlist';
 import type { ColourListView } from './colourlist';
 import { costCard } from './costcard';
 import type { SegmentOption } from './dom';
-import { checkField, fold, h, icon, iconButton, menu, numberBox, numberField, numberGroup, segmented, selectField, slider, textField, tip } from './dom';
+import { checkField, fold, h, icon, iconButton, menu, numberBox, numberField, numberGroup, segmented, selectField, slider, textField, tip, tipFile } from './dom';
 import { NEW_THIS_ROUND } from './help';
 import { layerGlyph, layerGlyphKey } from './layer-icons';
 import { LookView } from './look';
@@ -551,8 +551,13 @@ function layerDetails(app: AppApi, layer: Layer, parts: Refresher[], colours: Co
   else if (layer.type === 'projectile') box.append(ridersFold(app, parts), colourFold(colours), ...projectileFields(app, parts));
   else {
     box.append(colourFold(colours), placeFields(app, parts));
-    if (layer.type === 'shape') box.append(fold(`Shape: ${layer.shape.kind}`, specForm(app, parts, ['shape'], layer.shape.kind, ['kind']), true));
-    else box.append(fold(layer.type === 'burst' ? 'Pieces' : 'Word', specForm(app, parts, [], layer.type, COMMON_KEYS), true));
+    if (layer.type === 'shape') {
+      // The shape by its plain name ("Shape: beam"); its tooltip gives the shape's help text (by its kind) and, last, the name
+      // in the file (Mustafa's decision of 2026-11-25: plain names everywhere).
+      const shape = fold(shapeTitle(layer.shape.kind), specForm(app, parts, ['shape'], layer.shape.kind, ['kind']), true);
+      tipFile(shape.querySelector(':scope > summary')!, layer.shape.kind);
+      box.append(shape);
+    } else box.append(fold(layer.type === 'burst' ? 'Pieces' : 'Word', specForm(app, parts, [], layer.type, COMMON_KEYS), true));
     box.append(fold('Animation', specForm(app, parts, [], 'anim', Object.keys(layer).filter((k) => k !== 'scale' && k !== 'alpha')), false));
     box.append(fold('Seed', specForm(app, parts, [], 'seed', ALL_BUT_SEED(layer)), false));
   }

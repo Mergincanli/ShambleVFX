@@ -110,7 +110,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    1,000 shots with the game's own pick ("In 1,000 shots: BOOM 498, BANG 502"). Smoke, the fire's bed and bursts have a
    **gradient** choice, as a glow has (see 12).
 7. The **+** in the Layers header adds a layer of any kind, just above the selected one: Sprite, Projectile, one of the 14
-   shapes (its plain name, and on the right, muted, the name in the file, which the list's tag shows), Burst or Word. The
+   shapes by its plain name ("Beam", "Flame tongues"; the name in the file, "band", "flames", is in its tooltip), Burst or
+   Word. Shapes show these plain names everywhere: in the Layers list's tags and in the right panel ("Shape: beam"). The
    **+** in the Effects header makes a **New effect**, or copies one of the ready-made effects into your project (**From
    preset…**). Each layer has an icon for its kind, in the Layers list, on the timeline and in its panel's header: a shape
    by its kind (a ring, a smoke cloud, flames…), a burst by the look of its pieces (sparks, chips, puffs…), a word, a
@@ -272,7 +273,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (432 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (435 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -387,8 +388,11 @@ an empty name and a click elsewhere, and another row's More clicked meanwhile, w
 folder, No folder, New folder… with the dialog's OK and with Enter in its box), Duplicate (its name, folder, scene, own budgets and no events; one
 undo with nothing unsaved left, redo, project.json after saving) and Delete with its question, each one undo step; the
 main-colour dot and its edge, following the faction; a project with no effects, its "No effects yet." and Make an
-effect), the layers list (the add menu's groups and the 14 shapes with their names, a new layer above the selected one
-and selected; a row's buttons in its tag's place on hover and on the selected row, their tooltips and keys, its menu by
+effect), the layers list (the add menu's groups and the 14 shapes by their plain names, each row's tooltip ending with
+the name in the file in Plex Mono, a new layer above the selected one and selected; the tags with the shapes' plain names
+in Plex Sans, a row's tooltip saying its shape whole, and in the narrowest sidebar "beads along a beam" cut with an
+ellipsis inside its 28 px row; each of the 14 shapes' section titles in the right panel with its plain name, its tooltip
+keeping its help text and ending with the name in the file; a row's buttons in its tag's place on hover and on the selected row, their tooltips and keys, its menu by
 More and by a right-click, the buttons staying while it is open, and Esc closing only the menu; Move up, Move down,
 Duplicate and Delete, each one undo step; renaming in place, and another row's More clicked meanwhile, whose menu
 opens below it; a press of less than 4 px a click, a drag with its 2 px line in one undo step, and Esc cancelling it
@@ -794,8 +798,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     is first drawn. Section 4.6 of the brief says nothing else animates; this is the one Mustafa asked for.
   - What draws a layer: "Image: <file>" for a sprite and a burst of image pieces, "Drawn in code, no image" for shapes,
     words and other bursts, and "An invisible path: it draws nothing itself" for a projectile. A rider's line in its
-    projectile's panel names its kind in the add menu's words ("Shape: trail behind a projectile, drawn in code, no
-    image"). Riders are listed as in the Layers list, top of the drawing order first.
+    projectile's panel names its kind by its plain name, as everywhere ("Shape: trail behind a projectile, drawn in code,
+    no image"). Riders are listed as in the Layers list, top of the drawing order first.
   - In the Layers list "rides Bullet" takes the place of a rider's usual tag (its image, shape or words), in Plex Sans; the
     row's tooltip says it too. A rider the tier leaves out says "not in Low" instead, like every row the tier leaves out.
 - **Seeing what is selected** (Mustafa's feedback of 2026-11-16: the other layers fade in the preview, and a live picture
@@ -850,8 +854,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   ask; these details are ours):
   - A tooltip says, in order: the element's own words (what its title said, such as a row's full name or "Undo Size"; an
     icon-only button with none is named by its aria-label), then the help text for its label, then its shortcut in a muted
-    kbd on the first line. A label cut short with an ellipsis shows its whole text first. With more than one line, the first
-    is semibold. A shortcut written at the end of a title, "(Esc)", moves into the kbd: only a key combination or a named key
+    kbd on the first line, and last, where the editor shows a plain name for what a file names otherwise, the name in the
+    file ("In the file: band", the name in Plex Mono; see "Shape names" under "The lists"). Own words may hold more than one
+    line (a shape's row in the Layers list). A label cut short with an ellipsis shows its whole text first. With more than
+    one line, the first is semibold; the name in the file is a footnote and does not count, so a help text above it keeps
+    its own weight. A shortcut written at the end of a title, "(Esc)", moves into the kbd: only a key combination or a named key
     (Esc, Del, Space, F2, an arrow…), so a name in a title keeps its brackets ("Smoke (2)" is not "Smoke" with the key 2).
   - The help text is looked up when the tooltip is about to show, by the label's words and where they are: the sections
     round it (as the settings inventory names them), the layer type and the shape kind; in the bars, the bar. So "Save as…"
@@ -1035,10 +1042,29 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
 - **The lists** (UI phase 4 of [docs/ui-redesign.md](docs/ui-redesign.md): folders from " / " in effect names, the search,
   the rows' menus, the add menu, renaming in place, drag to reorder, the empty states, the sync with the timeline and the
   keys are the brief's; these choices are ours, not Mustafa's or the brief's):
-  - **Two names for one shape.** The add menu shows each shape's plain name ("Beam", "Star of shards", "Flame tongues") and,
-    on the right, muted, the name in the file ("band", "shards", "flames"): the word the list's tag shows (in Plex Sans, as
-    the tag), so the two are tied together where a layer is made. Nothing else is renamed; choosing one set of names is
-    Mustafa's.
+  - **Shape names: plain names everywhere** (Mustafa's decision of 2026-11-25: "'Beam', 'Flame tongues' everywhere; the
+    file's name stays in the tooltip"; the details here are ours). Each shape shows its plain name (`SHAPE_TEXT`): the add
+    menu's rows ("Beam", "Star of shards"; the name in the file no longer shows on their right), the Layers list's tags
+    ("beam", "star of shards"), the right panel's section title ("Shape: beam") and a rider's line. The name in the file
+    ("band", "shards") is the last line of the tooltips of the add menu's row, the section title and the Layers list's
+    row: "In the file: band", the words muted and the name in Plex Mono, as what is typed into files. Effect files, the
+    examples and the format keep the kinds; only what is shown changed.
+    - Case: a plain name that starts a label is in sentence case ("Beam"); after "Shape: " it is in lower case ("Shape:
+      beam"), as `layerKind` words it; a tag is in lower case, as the other tags are ("rides Bullet", "9 × spark").
+    - A long tag ("beads along a beam", "trail behind a projectile") is cut with an ellipsis, as the other tags are. Since
+      the tag hides on hover, the row's tooltip says the shape whole, on its second line ("Shape: beads along a beam"),
+      after the layer's name. The timeline's names column shows no tag, so its tooltip stays the name. The longest
+      section title, "Shape: trail behind a projectile", fits whole even in the narrowest right panel (260 px).
+    - Help texts are looked up by the shape's kind, which the panel gives, so each title's tooltip says what it said
+      before; the add menu still names its rows by the kind for the help texts ("Shape: band", not shown).
+    - A section remembers open or closed by its title. So a renamed shape section forgets that you had closed it, and
+      starts open, as a shape section does at first.
+    - The settings inventory shows the renamed section titles, and the sections inside them with them ("Shape: beam >
+      From"): Shape: shards is **Shape: star of shards**, Shape: flash **Shape: muzzle flash**, Shape: cloud **Shape:
+      cloud blast**, Shape: dots **Shape: halftone dots**, Shape: scorch **Shape: scorch mark**, Shape: lines **Shape:
+      speed lines**, Shape: trail **Shape: trail behind a projectile**, Shape: band **Shape: beam**, Shape: beads
+      **Shape: beads along a beam**, Shape: flames **Shape: flame tongues** and Shape: bed **Shape: fire bed**. Shape:
+      glow, Shape: ring and Shape: smoke stay as they were. Nothing else in the inventory changed.
   - **Folders.** Each level is indented 20 px (a folder's chevron and the gap after it), so an effect's dot sits under its
     folder's icon and its name under the folder's name. A folder's count is every effect inside it, those in its folders
     too; while a search is on, the effects in it that match. Folder names are exact: "Weapons" and "weapons" are two folders.

@@ -11,11 +11,25 @@ import type { ColourUse } from '@shamble/vfx-format/validate';
 /** The 14 shape kinds, in the order of the add menu. */
 export const SHAPE_KINDS: ShapeKind[] = ['shards', 'flash', 'cloud', 'smoke', 'ring', 'dots', 'scorch', 'lines', 'glow', 'trail', 'band', 'beads', 'flames', 'bed'];
 
-/** Each shape kind in plain words: the add menu's names. */
+/**
+ * Each shape kind in plain words: the names the editor shows everywhere (Mustafa's decision of 2026-11-25). The files keep
+ * the kinds ("band"); the tooltips say them.
+ */
 export const SHAPE_TEXT: Record<ShapeKind, string> = {
   shards: 'star of shards', flash: 'muzzle flash', cloud: 'cloud blast', smoke: 'smoke', ring: 'ring', dots: 'halftone dots', scorch: 'scorch mark',
   lines: 'speed lines', glow: 'glow', trail: 'trail behind a projectile', band: 'beam', beads: 'beads along a beam', flames: 'flame tongues', bed: 'fire bed',
 };
+
+/** A shape's plain name where it starts a label, in sentence case: "Beam", "Star of shards" (the add menu, a new layer). */
+export function shapeLabel(kind: ShapeKind): string {
+  const t = SHAPE_TEXT[kind];
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** A shape's section title in the right panel, worded as layerKind words it: "Shape: beam". */
+export function shapeTitle(kind: ShapeKind): string {
+  return `Shape: ${SHAPE_TEXT[kind]}`;
+}
 
 /** What draws a layer: its image (the file name, for Plex Mono), or code. A projectile draws nothing. */
 export interface WhatDraws {
@@ -37,7 +51,7 @@ export function layerKind(l: Layer): string {
   switch (l.type) {
     case 'sprite': return 'Sprite';
     case 'projectile': return 'Projectile';
-    case 'shape': return `Shape: ${SHAPE_TEXT[l.shape.kind]}`;
+    case 'shape': return shapeTitle(l.shape.kind);
     case 'burst': return `Burst: ${l.count} × ${l.look.kind === 'image' ? 'image piece' : l.look.kind}`;
     case 'word': return `Word: ${l.words.map((w) => w.text).join(' / ')}`;
   }

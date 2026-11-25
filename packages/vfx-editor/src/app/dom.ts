@@ -275,11 +275,13 @@ export function fold(title: string, children: Child[], openByDefault = false, ac
  *   - its own words: data-tip. Every title turns into data-tip the first time the pointer or the focus comes to it (or as
  *     soon as code sets it again), so the browser's own tooltip never shows as well; a shortcut at the end of a title,
  *     "(Ctrl+Z)", goes into the kbd. Code can set the words with tip(). An icon-only button with no words of its own is
- *     named by its aria-label;
+ *     named by its aria-label. A line break in the words starts a line of its own;
  *   - the help text for its label where it is shown, from the lookup given to installTooltips (src/app/helptips.ts),
  *     asked for each time it shows, so a label that changes or comes later gets its text;
  *   - its full text first, when it is cut short with an ellipsis (or a chip's value is);
- *   - a shortcut (data-tip-key, or the lookup's) in a muted kbd.
+ *   - a shortcut (data-tip-key, or the lookup's) in a muted kbd;
+ *   - last, the name a file uses for it (data-tip-file, set with tipFile()): "In the file: band", the name in Plex Mono, as
+ *     what is typed into files is (a shape shows its plain name everywhere else: Mustafa's decision of 2026-11-25).
  * The element is a manual popover appended to document.body: it draws over the colour picker and dialogs too, and never
  * takes the pointer. Nothing here changes an element's name for screen readers; a tooltip shown for the keyboard focus
  * describes the focused element (aria-describedby) while it shows.
@@ -337,6 +339,15 @@ export function tip(el: Element, text: string | null, key?: string): void {
   if (text) el.setAttribute('data-tip', text); else el.removeAttribute('data-tip');
   if (key) el.setAttribute('data-tip-key', key); else el.removeAttribute('data-tip-key');
   el.removeAttribute('data-tip-key-from-title');
+  if (el === shown) showTip(el, shownByFocus, focusedFor ?? undefined);
+}
+
+/**
+ * Give an element's tooltip a last line with the name a file uses for it ("In the file: band"), or take it away (null). The
+ * element needs a tooltip of its own as well (its words or a help text): the line only ends it.
+ */
+export function tipFile(el: Element, file: string | null): void {
+  if (file) el.setAttribute('data-tip-file', file); else el.removeAttribute('data-tip-file');
   if (el === shown) showTip(el, shownByFocus, focusedFor ?? undefined);
 }
 
@@ -418,10 +429,15 @@ function tipOfFocus(el: Element): Element | null {
 
 const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
-/** What the tooltip says for an element: its lines, and its shortcut. Null when it has nothing to say. */
-export function tipContent(el: Element): { lines: string[]; key?: string } | null {
+/**
+ * What the tooltip says for an element: its lines, its shortcut, and the name in the file (its last line). Null when it has
+ * nothing to say.
+ */
+export function tipContent(el: Element): { lines: string[]; key?: string; file?: string } | null {
   takeTitle(el);
-  const own = flat(ownWords(el));
+  // Its own words: a line each where they hold a line break.
+  const ownLines = ownWords(el).split('\n').map(flat).filter(Boolean);
+  const own = ownLines.join(' ');
   const help = helpOf(el);
   const lines: string[] = [];
   const he = el as HTMLElement;
@@ -431,7 +447,7 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   const value = he.querySelector<HTMLElement>(':scope > .chip-value, :scope > .check-text');
   const full = cut(he) ? flat(he.textContent) : cut(value) ? flat(value!.textContent) : '';
   if (full && !own.includes(full)) lines.push(full);
-  if (own) lines.push(own);
+  lines.push(...ownLines);
   if (help?.text && flat(help.text) !== own) lines.push(help.text);
   // A select or a text box too narrow for its words: those words, then the help text of its row's label (what the label's
   // own tooltip says), so the keyboard's focus on it still explains the setting.
@@ -446,7 +462,8 @@ export function tipContent(el: Element): { lines: string[]; key?: string } | nul
   }
   const key = el.getAttribute('data-tip-key') ?? help?.key;
   if (!lines.length && key) lines.push(flat(he.textContent) || flat(el.getAttribute('aria-label')));
-  return lines.length ? { lines, ...(key ? { key } : {}) } : null;
+  const file = el.getAttribute('data-tip-file');
+  return lines.length ? { lines, ...(key ? { key } : {}), ...(file ? { file } : {}) } : null;
 }
 
 function tipElement(): HTMLElement {
@@ -465,7 +482,10 @@ function showTip(anchor: Element, byFocus: boolean, focused?: Element): void {
   const [first, ...more] = c.lines;
   el.replaceChildren(
     h('div', { class: more.length ? 'tip-first lead' : 'tip-first' }, h('span', { text: first ?? '' }), c.key ? h('kbd', { text: c.key }) : null),
-    ...more.map((line) => h('p', { text: line })));
+    ...more.map((line) => h('p', { text: line })),
+    // The name in the file, last: in Plex Mono, as what is typed into files. A footnote: it does not make the first line
+    // semibold (a help text stays in its own weight).
+    ...(c.file ? [h('p', { class: 'tip-file' }, 'In the file: ', h('code', { text: c.file }))] : []));
   // Shown again each time, so it is on top of a picker or a dialog opened since.
   if (isOpen(el)) el.hidePopover();
   el.showPopover();
@@ -680,6 +700,8 @@ export interface MenuItem {
   disabled?: () => boolean;
   /** The name help.ts knows the row by, when it is not its label. */
   helpLabel?: string;
+  /** The name the file uses for this choice, when it is not its label: the last line of the row's tooltip ("In the file: band"). */
+  file?: string;
   action(): void;
 }
 /** A 1 px line between rows; or a heading over the rows after it (up to the next line or heading), which make a group. */
@@ -755,7 +777,7 @@ export function menu(o: {
     const desc = typeof item.description === 'function' ? item.description() : item.description ? h('span', { class: 'menu-desc', text: item.description }) : null;
     const btn = h('button', {
       class: 'menu-item',
-      attrs: { type: 'button', role, tabindex: '-1', 'data-help-label': item.helpLabel ?? item.label, ...(item.ariaKeys ? { 'aria-keyshortcuts': item.ariaKeys } : {}) },
+      attrs: { type: 'button', role, tabindex: '-1', 'data-help-label': item.helpLabel ?? item.label, ...(item.ariaKeys ? { 'aria-keyshortcuts': item.ariaKeys } : {}), ...(item.file ? { 'data-tip-file': item.file } : {}) },
       on: { click: () => { close(true); item.action(); } },
     },
     marks ? h('span', { class: 'menu-mark', attrs: { 'aria-hidden': 'true' } }) : null,

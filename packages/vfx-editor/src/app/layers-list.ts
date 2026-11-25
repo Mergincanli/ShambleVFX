@@ -3,7 +3,9 @@
  * (Sprite, Projectile, the 14 shapes, Burst, Word), then the selected effect's layers, top of the drawing order first.
  *
  * A row: the layer's icon (a sprite: its own image), its name, and a muted tag on the right (its image, its flight, its
- * shape, its pieces or words; "rides Bullet" for a layer riding a projectile; "not in Low" for one the tier leaves out). On
+ * shape's plain name, its pieces or words; "rides Bullet" for a layer riding a projectile; "not in Low" for one the tier
+ * leaves out). A shape's row tooltip says its plain name whole and, last, the name in the file (Mustafa's decision of
+ * 2026-11-25: plain names everywhere). On
  * hover, on the selected row and while it has the keyboard focus, Move up, Move down and More take the tag's place; More
  * and a right-click open the row's menu (Rename, Duplicate, Move up, Move down, Delete). A double-click renames it in place.
  * A drag moves a layer: a 2 px line shows where it lands, and the move is one undo step. One menu serves every row.
@@ -13,8 +15,8 @@
  * of the row. The app keeps the layers and does the edits (the actions).
  */
 import type { EffectFile, Layer, TierName } from '@shamble/vfx-format';
-import { SHAPE_KINDS, SHAPE_TEXT, ridingOn } from '../doc/layer-info';
-import { contextMenu, h, iconButton, menu, renameBox, reorderDrag, scrollNearest, tip } from './dom';
+import { SHAPE_KINDS, SHAPE_TEXT, layerKind, ridingOn, shapeLabel } from '../doc/layer-info';
+import { contextMenu, h, iconButton, menu, renameBox, reorderDrag, scrollNearest, tip, tipFile } from './dom';
 import type { RenameBox } from './dom';
 import { NEW_THIS_ROUND } from './help';
 import { SHAPE_ICON, layerGlyph } from './layer-icons';
@@ -53,7 +55,6 @@ export interface LayersListView {
 
 /** A tier's name, as the Tier chip and the Shows in boxes say it. */
 export const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * A layer row's tooltip, in the Layers list and on the timeline's names column: the full name (a long one ends in an
@@ -65,12 +66,15 @@ export function layerRowTip(fx: EffectFile, l: Layer, tier: TierName): string {
   return `${l.name}${hidden ? `: not drawn in the ${TIER_LABEL[tier]} tier` : ''}${rides ? `${hidden ? ';' : ':'} rides ${rides.name}` : ''}`;
 }
 
-/** A few words after a layer's name in the list: its image, its flight, its shape, its word. */
+/**
+ * A few words after a layer's name in the list: its image, its flight, its shape's plain name ("beam", in lower case as the
+ * other tags), its word.
+ */
 export function layerTag(l: Layer): string {
   switch (l.type) {
     case 'sprite': return l.image.replace(/\.png$/, '');
     case 'projectile': return l.flight.mode === 'speed' ? `${l.flight.mps} m/s` : l.flight.mode === 'time' ? `${l.flight.ms} ms` : `${l.flight.phase}`;
-    case 'shape': return l.shape.kind;
+    case 'shape': return SHAPE_TEXT[l.shape.kind];
     case 'burst': return `${l.count} × ${l.look.kind}`;
     case 'word': return l.words.map((w) => w.text).join(' / ');
   }
@@ -80,14 +84,14 @@ export function buildLayersList(act: LayersListActions): LayersListView {
   // ------------------------------------------------ the header: "Layers" (top of the list draws on top), the count, +
   const count = h('span', { class: 'list-count' });
   const add = iconButton({ icon: 'plus', label: 'Add a layer', className: 'mini add-layer', onClick: () => { /* the menu opens itself: its button is its invoker */ } });
-  // The add menu: each kind with its icon. A shape shows its plain name and, on the right, muted, the name in the file: the
-  // word its tag will show in the list.
+  // The add menu: each kind with its icon. A shape shows its plain name; its tooltip gives, last, the name in the file
+  // ("In the file: band"). The help texts know a shape by its kind.
   const addMenu = menu({ opener: add, id: 'add-layer-menu', label: 'Add a layer', helpSection: 'Layers', items: [
     { label: 'Sprite', icon: 'sprite', description: 'an image', helpLabel: 'Sprite layer', action: () => act.add('sprite') },
     { label: 'Projectile', icon: 'projectile', description: 'a path in flight', helpLabel: 'Projectile layer', action: () => act.add('projectile') },
     'divider',
     { heading: 'Shapes', helpLabel: 'Shape layer' },
-    ...SHAPE_KINDS.map((k) => ({ label: cap(SHAPE_TEXT[k]), icon: SHAPE_ICON[k], description: k, helpLabel: `Shape: ${k}`, action: () => act.add(`shape:${k}`) })),
+    ...SHAPE_KINDS.map((k) => ({ label: shapeLabel(k), icon: SHAPE_ICON[k], helpLabel: `Shape: ${k}`, file: k, action: () => act.add(`shape:${k}`) })),
     'divider',
     { label: 'Burst', icon: 'burst', description: 'pieces thrown out', helpLabel: 'Burst layer', action: () => act.add('burst') },
     { label: 'Word', icon: 'word', description: 'a comic sound', helpLabel: 'Word layer', action: () => act.add('word') },
@@ -186,9 +190,11 @@ export function buildLayersList(act: LayersListActions): LayersListView {
     if (rides && !hidden) tip(code, NEW_THIS_ROUND.ridesTag(rides.name));
     const row = h('div', {
       class: `item layer-item type-${l.type}${sel ? ' sel' : ''}${hidden ? ' off' : ''}${act.hovered() === l.id ? ' hovered' : ''}`, attrs: { 'data-layer': l.id },
-      // The full name, since a long one ends in an ellipsis in the row.
-      title: layerRowTip(fx, l, tier),
+      // The full name, since a long one ends in an ellipsis in the row. A shape's plain name follows whole on a line of its
+      // own ("Shape: beads along a beam"): its tag may cut it, and hides on hover.
+      title: `${layerRowTip(fx, l, tier)}${l.type === 'shape' ? `\n${layerKind(l)}` : ''}`,
     });
+    if (l.type === 'shape') tipFile(row, l.shape.kind);
     const glyph = layerGlyph(l, (n) => act.imageUrl(n));
     if (renaming?.id === l.id) {
       renaming.box?.dispose();

@@ -1119,6 +1119,9 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .tip-first > span { flex: 1 1 auto; min-width: 0; }
 .tip-first.lead > span { font-weight: 600; }
 .tooltip p { margin: 2px 0 0; }
+/* Its last line, the name a file uses ("In the file: band"): the words muted, the name in Plex Mono (code), as typed. */
+.tooltip .tip-file { color: var(--text-tooltip-muted); }
+.tooltip .tip-file code { color: var(--text-tooltip); }
 .tooltip kbd { flex: none; padding: 0 4px; border: 1px solid var(--tip-kbd-edge); border-radius: var(--r-segment); background: transparent; color: var(--text-tooltip-muted); font-size: var(--fs-small); line-height: var(--lh-body); }
 
 /* ---------------------------------------------------------------- the colour picker (6.7) */

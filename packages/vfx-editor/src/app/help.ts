@@ -17,6 +17,9 @@
  *   ("Pieces > Speed streak") or a list. Only the innermost title is matched; a "Shape: <kind>" title anywhere in the path
  *   also gives the shape kind. For a section's own title (the summary of a fold), pass `title: true`, and as `section`
  *   the sections around it (its parents), not the title itself.
+ * - A shape's section shows its plain name ("Shape: beam", Mustafa's decision of 2026-11-25), but its text is keyed by its
+ *   kind ("Shape: band"): with `kind` given, any "Shape: …" label is looked up as "Shape: <kind>". The panel gives the
+ *   kind (data-help-kind); the add menu names its rows "Shape: <kind>".
  * - Labels are matched exactly, case included ("Life" is a piece's life, "life" the curve under Animation). The
  *   settings inventory's names for the second and third box of a pair or three ("Width (2)") give the first box's
  *   text, which covers every box of the row: the editor shows those boxes with "…" or no label, so ask with the first.
@@ -928,7 +931,9 @@ export function helpKey(label: string): string {
 
 /** The text for a label where it is shown, with which entry and variant gave it; undefined when the label has none. */
 export function pickHelp(label: string, where: HelpWhere = {}): HelpPick | undefined {
-  const key = helpKey(label);
+  const shown = helpKey(label);
+  // A shape's title as shown ("Shape: beam") is looked up by its kind ("Shape: band").
+  const key = where.kind !== undefined && /^Shape: /.test(shown) ? `Shape: ${where.kind}` : shown;
   const budget = /^Budget: (.+), (Low|Medium|High)$/.exec(key);
   if (budget) {
     const make = BUDGET_TEXT[budget[1]!];

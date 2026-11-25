@@ -763,7 +763,7 @@ if (webgpu) {
     await select('board_muzzle', 'hit');
     await rp.waitForTimeout(400);
     const p0 = await layerNow(['shape', 'points']);
-    await dragBy(row('Shape: shards', 'Points').locator('.flab'), 8);
+    await dragBy(row('Shape: star of shards', 'Points').locator('.flab'), 8);
     const points = { value: await layerNow(['shape', 'points']), problems: await rp.evaluate(() => window.__vfx.app.problems().length) };
     await rp.keyboard.press('Control+z');
     ok('a whole number of the file (How many, Points, Teeth, Seed…) goes in whole steps: a 16 px drag on its name adds 4 (one undo step), ↑ adds 1, a typed 7,5 keeps 8; the checker finds no problem',
@@ -4937,8 +4937,9 @@ if (webgpu) {
     }
   }
 
-  // -- the Layers list (docs/ui-redesign.md 6.2, 6.10, 6.11): the + menu that adds a layer (its groups, the 14 shapes with
-  // their plain names and the names in the file), the new layer above the selected one and selected; a row's buttons (Move
+  // -- the Layers list (docs/ui-redesign.md 6.2, 6.10, 6.11): the + menu that adds a layer (its groups, the 14 shapes by
+  // their plain names, the names in the file in their tooltips), the new layer above the selected one and selected; the
+  // shapes' plain names in the tags and the section titles; a row's buttons (Move
   // up, Move down, More) in its tag's place on hover and on the selected row, and its menu by More and by a right-click;
   // Rename, Duplicate, Move up, Move down and Delete, each one undo step; renaming in place; drag to reorder (the landing
   // line, one undo step, Esc cancels); the empty state; the hover highlight both ways with the timeline; the selection
@@ -4962,9 +4963,9 @@ if (webgpu) {
     const layerRowOf = (id) => lp.locator(`.layers-list .layer-item[data-layer="${id}"]`);
     const start = await layersNow();
 
-    // The + menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds (shape icon, plain name, the
-    // name in the file on the right), then Burst (pieces thrown out) and Word (a comic sound). The new layer goes above the
-    // selected one and is selected.
+    // The + menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds (shape icon and plain name;
+    // nothing on the right: the name in the file is in the row's tooltip), then Burst (pieces thrown out) and Word (a comic
+    // sound). The new layer goes above the selected one and is selected.
     await lp.click('.layers-section .add-layer');
     await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
     await lp.waitForFunction(() => document.activeElement?.closest('#add-layer-menu'), null, { timeout: 5000 }).catch(() => {});
@@ -4980,13 +4981,90 @@ if (webgpu) {
     await lp.keyboard.press('Control+z');
     // Undo took the selected layer away: select the glow again.
     await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
-    const shapeParts = info.SHAPE_KINDS.map((k) => `shape-${k}: ${info.SHAPE_TEXT[k].charAt(0).toUpperCase()}${info.SHAPE_TEXT[k].slice(1)} (${k})`);
-    ok('the Layers header\'s + opens the add menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds with their icons, plain names and the names in the file, then Burst and Word',
+    const shapeParts = info.SHAPE_KINDS.map((k) => `shape-${k}: ${info.SHAPE_TEXT[k].charAt(0).toUpperCase()}${info.SHAPE_TEXT[k].slice(1)} ()`);
+    ok('the Layers header\'s + opens the add menu: Sprite (an image), Projectile (a path in flight), under "Shapes" the 14 kinds with their icons and plain names (nothing on the right), then Burst and Word',
       JSON.stringify(addMenu.parts) === JSON.stringify(['sprite: Sprite (an image)', 'projectile: Projectile (a path in flight)', '—', '# Shapes', ...shapeParts, '—', 'burst: Burst (pieces thrown out)', 'word: Word (a comic sound)'])
         && addMenu.focus === 'Sprite', JSON.stringify(addMenu));
     ok('a layer added from the menu goes above the selected one, and is selected', added.n === start.n + 1 && added.sel === 'dots' && added.order.indexOf('dots') === start.order.indexOf('emitter_glow')
       && added.order.indexOf('emitter_glow') === start.order.indexOf('emitter_glow') + 1 && addedLayer.type === 'shape' && addedLayer.kind === 'dots' && added.undo === 'Add shape' && added.count === String(start.n + 1),
       JSON.stringify({ added: { n: added.n, sel: added.sel, at: added.order.indexOf('dots') }, was: start.order.indexOf('emitter_glow'), addedLayer, undo: added.undo }));
+
+    // Plain shape names everywhere (Mustafa's decision of 2026-11-25); the name in the file stays in the tooltips, last, in
+    // Plex Mono ("In the file: band"). The add menu: each shape row's tooltip gives its help text (by its kind), then the
+    // name in the file; one is shown, for its look.
+    await lp.click('.layers-section .add-layer');
+    await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+    const shapeRowTips = await lp.evaluate((kinds) => kinds.map((k) => {
+      const b = [...document.querySelectorAll('#add-layer-menu .menu-item')].find((x) => x.dataset.helpLabel === `Shape: ${k}`), t = b ? window.__vfx.app.tipForChecks(b) : null;
+      return { k, label: b?.querySelector('.menu-label').textContent ?? null, help: t?.lines.join(' | ') ?? null, file: t?.file ?? null };
+    }), info.SHAPE_KINDS);
+    await lp.mouse.move(5, 5);
+    await lp.waitForTimeout(700);
+    await menuRow(lp, 'add-layer-menu', 'Beam').hover();
+    await lp.waitForFunction(() => document.querySelector('.tooltip')?.matches(':popover-open') && document.querySelector('.tooltip .tip-file'), null, { timeout: 5000 }).catch(() => {});
+    const beamTip = await lp.evaluate(() => {
+      const f = document.querySelector('.tooltip:popover-open .tip-file'), font = (el) => getComputedStyle(el).fontFamily.split(',')[0].replace(/"/g, '');
+      return f ? { text: f.textContent, name: font(f.querySelector('code')), words: font(f), lead: document.querySelector('.tooltip .tip-first')?.classList.contains('lead') ?? false } : null;
+    });
+    await lp.keyboard.press('Escape');
+    await lp.evaluate(() => document.querySelector('#add-layer-menu:popover-open')?.hidePopover());
+    ok('the add menu shows each shape by its plain name only; its tooltip gives the help text of its kind (in its usual weight), then the name in the file in Plex Mono ("In the file: band")',
+      shapeRowTips.length === 14 && shapeRowTips.every((r) => r.label === `${info.SHAPE_TEXT[r.k].charAt(0).toUpperCase()}${info.SHAPE_TEXT[r.k].slice(1)}` && r.file === r.k && r.help === help.helpFor(`Shape: ${r.k}`, { section: 'Layers' }))
+        && beamTip?.text === 'In the file: band' && beamTip.name === 'IBM Plex Mono' && beamTip.words === 'IBM Plex Sans' && beamTip.lead === false, JSON.stringify({ shapeRowTips, beamTip }));
+
+    // The Layers list's tags: each shape's plain name ("beam", "star of shards"), in Plex Sans, and the row's tooltip says it
+    // whole on its second line ("Shape: beads along a beam"), then the name in the file. In the narrowest left sidebar
+    // (200 px) the longest, "beads along a beam", is cut with an ellipsis as the other tags are, the row staying 28 px.
+    const kindOf = await lp.evaluate(() => Object.fromEntries(window.__vfx.app.effect().layers.filter((l) => l.type === 'shape').map((l) => [l.id, l.shape.kind])));
+    const shapeTags = () => lp.evaluate(() => {
+      const font = (el) => getComputedStyle(el).fontFamily.split(',')[0].replace(/"/g, '');
+      return Object.fromEntries([...document.querySelectorAll('.layers-list .layer-item.type-shape')].map((r) => {
+        const c = r.querySelector(':scope > code'), t = window.__vfx.app.tipForChecks(r);
+        return [r.dataset.layer, { tag: c.textContent, font: font(c), shown: getComputedStyle(c).display !== 'none', cut: c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).textOverflow === 'ellipsis',
+          inRow: c.getBoundingClientRect().right <= r.getBoundingClientRect().right + 0.5, h: Math.round(r.getBoundingClientRect().height), tip: t?.lines ?? null, file: t?.file ?? null }];
+      }));
+    });
+    await lp.mouse.move(5, 5);
+    const tagsWide = await shapeTags();
+    const lsp = await lp.locator('.split-left').boundingBox();
+    await lp.mouse.move(lsp.x + lsp.width / 2, lsp.y + 300);
+    await lp.mouse.down();
+    await lp.mouse.move(lsp.x + lsp.width / 2 - 400, lsp.y + 300, { steps: 6 });
+    await lp.mouse.up();
+    await lp.mouse.move(900, 300);
+    const leftNarrow = await lp.evaluate(() => Math.round(document.querySelector('.left').getBoundingClientRect().width));
+    const tagsNarrow = await shapeTags();
+    await lp.locator('.split-left').dblclick();
+    await lp.mouse.move(900, 300);
+    const layerNames = await lp.evaluate(() => Object.fromEntries(window.__vfx.app.effect().layers.map((l) => [l.id, l.name])));
+    const tagWant = (id, t) => t.tag === info.SHAPE_TEXT[kindOf[id]] && t.font === 'IBM Plex Sans' && t.tip?.[0] === layerNames[id] && t.tip?.[1] === `Shape: ${info.SHAPE_TEXT[kindOf[id]]}` && t.file === kindOf[id];
+    ok('the Layers list\'s tags show the shapes\' plain names ("beam", "star of shards", "beads along a beam"), in Plex Sans; a row\'s tooltip says it whole ("Shape: beads along a beam"), then the name in the file; in the narrowest sidebar the longest tag is cut with an ellipsis inside its 28 px row',
+      Object.keys(tagsWide).length === Object.keys(kindOf).length && Object.entries(tagsWide).every(([id, t]) => tagWant(id, t)) && tagsWide.spot_star.tag === 'star of shards' && tagsWide.beam_glow.tag === 'beam'
+        && tagsWide.beads.tag === 'beads along a beam' && tagsWide.beads.shown && leftNarrow === 200 && Object.entries(tagsNarrow).every(([id, t]) => tagWant(id, t) && t.h === 28 && (!t.shown || t.inRow))
+        && tagsNarrow.beads.shown && tagsNarrow.beads.cut && tagsNarrow.beads.tip?.[1] === 'Shape: beads along a beam', JSON.stringify({ leftNarrow, wide: tagsWide.beads, narrow: tagsNarrow.beads, star: tagsWide.spot_star }));
+
+    // A shape's section title in the right panel says its plain name ("Shape: beam"), for each of the 14 shapes (each added
+    // from the menu, then undone); its tooltip still says what that shape does (its kind's help text), then the name in the
+    // file.
+    const stepsBefore = await lp.evaluate(() => window.__vfx.app.history.past.length);
+    const shapeTitles = [];
+    for (const k of info.SHAPE_KINDS) {
+      await lp.click('.layers-section .add-layer');
+      await lp.waitForSelector('#add-layer-menu:popover-open', { timeout: 5000 });
+      await menuRow(lp, 'add-layer-menu', `${info.SHAPE_TEXT[k].charAt(0).toUpperCase()}${info.SHAPE_TEXT[k].slice(1)}`).click();
+      shapeTitles.push(await lp.evaluate((k) => {
+        const a = window.__vfx.app, font = (el) => getComputedStyle(el).fontFamily.split(',')[0].replace(/"/g, '');
+        const s = [...document.querySelectorAll('.inspector details > summary')].find((x) => x.querySelector(':scope > .fold-title')?.textContent.startsWith('Shape: '));
+        const t = s ? a.tipForChecks(s) : null;
+        return { k, kind: a.layer()?.shape?.kind ?? null, title: s?.querySelector('.fold-title').textContent ?? null, font: s ? font(s.querySelector('.fold-title')) : null, help: t?.lines.join(' | ') ?? null, file: t?.file ?? null };
+      }, k));
+      for (let i = 0; i < 3 && (await lp.evaluate(() => window.__vfx.app.history.past.length)) > stepsBefore; i++) await lp.keyboard.press('Control+z');
+    }
+    await lp.evaluate(() => window.__vfx.app.selectLayer('emitter_glow'));
+    const titlesUndone = await lp.evaluate(() => ({ n: window.__vfx.app.history.past.length, layers: window.__vfx.app.effect().layers.length }));
+    ok('a shape\'s section title says its plain name for each of the 14 shapes ("Shape: beam", "Shape: star of shards"), in Plex Sans; its tooltip still says what the shape does (its kind\'s help text), then the name in the file',
+      shapeTitles.length === 14 && shapeTitles.every((t) => t.kind === t.k && t.title === `Shape: ${info.SHAPE_TEXT[t.k]}` && t.font === 'IBM Plex Sans' && t.help === help.helpFor(`Shape: ${t.k}`) && t.file === t.k)
+        && titlesUndone.n === stepsBefore && titlesUndone.layers === start.n, JSON.stringify({ shapeTitles, titlesUndone, stepsBefore }));
 
     // A menu taller than the window (here the add menu, in a window 480 px tall; Move to folder… in a project with many
     // folders) stays inside the window and scrolls, and the row that takes the focus is scrolled into view (End, Home).
@@ -5050,8 +5128,8 @@ if (webgpu) {
     await lp.keyboard.press('Escape');
     const beadsAt = start.order.indexOf('beads');
     ok('a layer\'s row is its icon, its name and its tag, 28 px; on hover and on the selected row, Move up, Move down and More take the tag\'s place (the tag is hidden, still in the page)',
-      restRow.tools.length === 0 && restRow.tag !== 'none' && restRow.tagText === 'beads' && restRow.span === 'Beads' && restRow.glyph && restRow.h === 28
-        && selRow.tools.join() === 'Move up,Move down,More' && selRow.tag === 'none' && hoverRow.tools.join() === 'Move up,Move down,More' && hoverRow.tag === 'none' && hoverRow.tagText === 'beads',
+      restRow.tools.length === 0 && restRow.tag !== 'none' && restRow.tagText === 'beads along a beam' && restRow.span === 'Beads' && restRow.glyph && restRow.h === 28
+        && selRow.tools.join() === 'Move up,Move down,More' && selRow.tag === 'none' && hoverRow.tools.join() === 'Move up,Move down,More' && hoverRow.tag === 'none' && hoverRow.tagText === 'beads along a beam',
       JSON.stringify({ restRow, selRow, hoverRow }));
     ok('the row\'s buttons are named in their tooltips with their help texts and keys: Move up (Ctrl+]), Move down (Ctrl+[), More',
       tips[0]?.lines[0] === 'Move up' && tips[0]?.lines[1] === help.helpFor('Move up', { section: 'Layers' }) && tips[0]?.key === 'Ctrl+]'
