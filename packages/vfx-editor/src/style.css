@@ -1178,8 +1178,12 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .cp-actions .tb { padding: 0 6px; }
 /* "This effect's main colour" is a state, not a toggle: an accent edge, never accent text. */
 .cp-actions .tb[aria-pressed="true"] { border-color: var(--accent-ink); }
-.cp-status { margin: 0; color: var(--good); }
+/* A message about the colour shown ("Copied #FF2E63."; a value that is not a colour, in red) takes the source line's place
+   while it shows, in its size, so the Colour tab does not grow: it stays under the brief's 640 px. */
+.cp-status { margin: 0; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--good); }
+.cp-status.bad { color: var(--bad); }
 .cp-status:empty { display: none; }
+.cp-panel-colour:has(> .cp-status:not(:empty)) > .cp-source { display: none; }
 /* The Palette tab: the chips, then New colour at the bottom, folded (a section, as in the right panel). */
 .cp-label { margin: 12px 0 4px; color: var(--text-muted); font-weight: 500; }
 .cp-panel > :first-child > .cp-label:first-child, .cp-panel > .cp-label:first-child { margin-top: 0; }

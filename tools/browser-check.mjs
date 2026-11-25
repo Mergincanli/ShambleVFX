@@ -1791,6 +1791,33 @@ if (webgpu) {
         && /^Copied/.test(said.soviets.text) && said.newValue.text === '' && /^Copied/.test(said.beforeClose.text) && said.reopened.text === '' && said.reopened.role === 'glow'
         && said.hotAfter.text === '' && said.hotAfter.h < 640, JSON.stringify(said));
 
+    // A message takes the source line's place while it shows, in its size, so the Colour tab does not grow: glow.hot (the
+    // tallest) keeps its height after Copy (green) and after a value that is not a colour (red), each on one line; the source
+    // line comes back when the message goes.
+    const fitNow = () => cp.evaluate(() => {
+      const c = document.querySelector('.cpick'), s = c.querySelector('.cp-status'), src = c.querySelector('.cp-source');
+      const tone = (v) => { const x = document.createElement('span'); x.style.color = `var(${v})`; c.append(x); const t = getComputedStyle(x).color; x.remove(); return t; };
+      const colour = getComputedStyle(s).color;
+      return { text: s.textContent, h: Math.round(c.getBoundingClientRect().height), lines: s.textContent ? Math.round(s.getBoundingClientRect().height / parseFloat(getComputedStyle(s).lineHeight)) : 0,
+        size: getComputedStyle(s).fontSize, source: getComputedStyle(src).display !== 'none', tone: colour === tone('--bad') ? 'bad' : colour === tone('--good') ? 'good' : colour };
+    });
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow.hot'));
+    const fit = { before: await fitNow() };
+    await cp.locator('.cpick .cp-hexrow button[aria-label="Copy the hex value"]').click();
+    await cp.waitForFunction(() => document.querySelector('.cpick .cp-status').textContent !== '', null, { timeout: 5000 }).catch(() => {});
+    fit.copied = await fitNow();
+    await cp.locator('.cpick .cp-hex').fill('nope');
+    await cp.locator('.cpick .cp-hex').press('Enter');
+    fit.bad = await fitNow();
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow'));
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow.hot'));
+    fit.after = await fitNow();
+    await cp.evaluate(() => window.__vfx.app.picker.show('glow'));
+    ok('a message takes the source line\'s place while it shows, in its 11 px, so glow.hot\'s Colour tab keeps its height under 640 px: "Copied #…" in green, a value that is not a colour in red, each on one line; the source line comes back after',
+      fit.before.text === '' && fit.before.source && fit.before.h < 640
+        && /^Copied #[0-9A-F]{6}\.$/.test(fit.copied.text) && fit.copied.lines === 1 && !fit.copied.source && fit.copied.tone === 'good' && fit.copied.size === '11px' && fit.copied.h === fit.before.h
+        && fit.bad.text === 'Not a colour: type #RRGGBB, such as #F47A1C.' && fit.bad.lines === 1 && !fit.bad.source && fit.bad.tone === 'bad' && fit.bad.h === fit.before.h
+        && fit.after.text === '' && fit.after.source && fit.after.h === fit.before.h, JSON.stringify(fit));
 
     // A click right after a colour typed in the hex box with Enter (the keyboard and the mouse, for real) does what it says:
     // the box's change event comes again as it loses the focus, and the picker drew itself again then, between the press and

@@ -272,7 +272,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (427 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (428 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -319,7 +319,8 @@ until a reload, the keys on the tabs staying in the picker and Esc closing it; t
 colour, and for the two worked out from others once set by hand, its parts in order, the faction switch, Copy, the
 exact values, Darker, Lighter, Goes with it and its scheme, Revert and whose value it is, the main colour and the
 worked-out colour, each change one undo step, a click right after a colour typed with Enter doing what it says, and the
-status line's words ("Copied #…") going when another colour, faction or value shows and when the picker closes; the Palette tab's 22 px chips, the main colour's dot, names in the
+status line's words ("Copied #…") going when another colour, faction or value shows and when the picker closes, and taking
+the source line's place, so glow.hot keeps its height after Copy and after a value that is not a colour; the Palette tab's 22 px chips, the main colour's dot, names in the
 tooltips, New colour folded and saying what it did under Add colour; the palette profiles there, in the
 temporary palettes folder and a throwaway project: the list with the defaults locked, the rows of a profile's menu with no
 tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
@@ -1411,9 +1412,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     is a colour worked out from another, with the faction switch and a note of two lines: glow.hot, 629 px (the brief's
     limit: 640), also once set by hand: its box then says "Set by hand. Usually glow mixed with 25 % white." in as
     many lines as "Worked out from glow: …" (it said "Usually worked out from glow (glow mixed with 25 % white); now set by
-    hand.", five lines beside Work it out again, and the tab was 661 px). The status line under the source line
-    ("Copied #FF2E63.") adds a line while it shows (glow.hot is then 653 px, or 669 px with a message of two lines: over
-    640 for that time). Its words are about the colour they were said for: another colour, another faction's colour or
+    hand.", five lines beside Work it out again, and the tab was 661 px). A message ("Copied #FF2E63.", or "Not a colour:
+    type #RRGGBB, such as #F47A1C." in red) takes the source line's place while it shows, in its 11 px and on one line,
+    so the tab keeps its height (it added a line under the source line, and glow.hot was then 653 or 669 px; the
+    message for a value that is not a colour said "That is not a colour: use #RRGGBB, such as #F47A1C.", two lines, and
+    was green). Its words are about the colour they were said for: another colour, another faction's colour or
     a new value takes them away, and so does closing the picker (they used to stay for good, under every colour shown
     after).
   - **The Palette tab**: the chips are 22 px, ten a row. The palette profiles sit between the colours and New colour, so

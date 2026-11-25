@@ -580,7 +580,8 @@ export class ColourPicker {
 
   private typedHex(): void {
     const v = parseHexInput(this.parts.hex.value);
-    if (!v) { this.say('That is not a colour: use #RRGGBB, such as #F47A1C.'); this.parts.hex.value = this.currentHex() ?? ''; return; }
+    // One line, as the source line whose place it takes (the tab stays under 640 px); red, as it says what went wrong.
+    if (!v) { this.say('Not a colour: type #RRGGBB, such as #F47A1C.', true); this.parts.hex.value = this.currentHex() ?? ''; return; }
     // As the picker writes it (#RRGGBB), also when it is the colour already and nothing is drawn again.
     this.parts.hex.value = v;
     this.useHex(v);
@@ -624,9 +625,13 @@ export class ColourPicker {
     this.parts.newSaid.textContent = `Added ${name}. Effects can use it now; Save keeps it in the project's palette.json.`;
   }
 
-  /** The status line, under the source line: words about the colour shown (empty words clear it). */
-  private say(text: string): void {
+  /**
+   * The status line: words about the colour shown, in the source line's place while they show (empty words clear it, and
+   * the source line shows again); `bad` when they say what went wrong (red).
+   */
+  private say(text: string, bad = false): void {
     this.parts.status.textContent = text;
+    this.parts.status.classList.toggle('bad', bad && !!text);
     this.saidFor = text ? `${this.role}|${this.faction}|${this.currentHex() ?? ''}` : '';
   }
 }
