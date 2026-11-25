@@ -1238,6 +1238,8 @@ table.cost.unmeasured .cv { color: var(--text-faint); }
 .dlg .pf-lacking { max-height: 40vh; margin: 4px 0 0; padding: 0; overflow: auto; list-style: none; }
 .dlg .pf-lacking li { padding: 4px 0; border-bottom: 1px solid var(--line); }
 .dlg .pf-lacking code { padding: 0; background: transparent; font-size: var(--fs-body); }
+/* What the load takes out (no effect uses it), under its own words: shorter, so both lists fit the window. */
+.dlg .pf-going { max-height: 24vh; }
 .pf-kept { color: var(--good); }
 .pf-lost { color: var(--bad); }
 

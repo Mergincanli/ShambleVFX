@@ -7,9 +7,11 @@
  *   - An imported profile keeps its name; a taken name gets " (1)", " (2)" and so on. A duplicate is "<name> copy", numbered
  *     the same way when taken.
  *   - Before a load, the colours and gradients the project's effects use that the profile lacks are listed in plain words,
- *     with where they are used.
+ *     with where they are used. So are the ones the load takes out: this project has them, no effect uses them, and the
+ *     profile lacks them (our choice: a load still takes them out, but never without saying so first).
  *   - A load is one undo step: the colours and the profile's name together; Save as profile and Save over name it too.
  */
+import { roleNames } from '@shamble/vfx-format';
 import type { EffectFile, Palette } from '@shamble/vfx-format';
 import { BUILT_IN_GRADIENTS_PROFILE, BUILT_IN_PROFILE, PROFILE_NAME_MAX, nameBase, numberedName, profileName, sameName } from '../io/palette-profile';
 import type { EditorDoc } from './history';
@@ -90,6 +92,27 @@ export function lackingLines(load: Pick<ProfileLoad, 'colours' | 'gradients'>, e
   return [
     ...load.gradients.map((g) => ({ name: g.name, kind: 'gradient' as const, kept: g.kept, where: where(g.uses) })),
     ...load.colours.map((c) => ({ name: c.role, kind: 'colour' as const, kept: c.kept, where: where(c.uses) })),
+  ];
+}
+
+/** A colour or gradient a load takes out of the project: the project has it, no effect uses it, and the profile lacks it. */
+export interface GoingLine {
+  /** The role or the gradient's name. */
+  name: string;
+  kind: 'colour' | 'gradient';
+}
+
+/**
+ * What a load takes out: the colours and gradients of the project's palette (`current`) that the palette the load gives
+ * (`next`, loadProfile's result) lacks. The load keeps every one an effect uses, so none of these is used. A colour or
+ * gradient both have is not listed, even when its value changes. Gradients first, as in lackingLines; each A to Z.
+ */
+export function goingLines(current: Palette, next: Palette): GoingLine[] {
+  const nextRoles = new Set(roleNames(next));
+  const nextGradients = new Set(Object.keys(next.gradients ?? {}));
+  return [
+    ...Object.keys(current.gradients ?? {}).filter((g) => !nextGradients.has(g)).sort().map((name) => ({ name, kind: 'gradient' as const })),
+    ...roleNames(current).filter((r) => !nextRoles.has(r)).map((name) => ({ name, kind: 'colour' as const })),
   ];
 }
 

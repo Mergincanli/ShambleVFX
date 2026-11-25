@@ -35,8 +35,10 @@ Profiles live on this computer, not in a project, so one set of colours can go i
   ones whose name is missing, never twice, and leaves one that is there as it is.
 - **Load a profile** into a project: the project takes the profile's colours, as one undo step. No effect breaks: every
   colour and gradient the project's effects use that the profile lacks is kept from the project's own colours (a gradient's
-  stops count too). Before loading, the editor lists them, with the effects and layers that use them, and asks; a profile
-  that lacks nothing loads at once. Then the project names the profile in `project.json` (`paletteProfile`), and Save
+  stops count too). Before loading, the editor lists them, with the effects and layers that use them, and asks. A colour
+  or gradient the project has that no effect uses and the profile lacks goes with the load: the same question lists those
+  first too ("taken out"; Ctrl+Z brings them back until the project is saved and opened again). A profile that lacks
+  nothing and takes nothing out loads at once. Then the project names the profile in `project.json` (`paletteProfile`), and Save
   writes the colours into its `palette.json`, as any colour change does.
 - **Save** the project's colours over a profile (its name stays; the editor asks first, as its old colours cannot come
   back), or **save them as a new profile** under a new name. Either way the project names that profile.

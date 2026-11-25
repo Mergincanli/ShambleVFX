@@ -16,8 +16,8 @@
  */
 import type { Palette } from '@shamble/vfx-format';
 import { loadProfile } from '../doc/load-profile';
-import { copyName, freeProfileName, isDefaultProfile, lackingLines, missingDefaults, profileFileName } from '../doc/profiles';
-import type { LackingLine } from '../doc/profiles';
+import { copyName, freeProfileName, goingLines, isDefaultProfile, lackingLines, missingDefaults, profileFileName } from '../doc/profiles';
+import type { GoingLine, LackingLine } from '../doc/profiles';
 import { PROFILE_ID, profileNameProblem, readProfileFile, sameColours, sameName, toProfileJson } from '../io/palette-profile';
 import type { ProfileListing, ProfileSummary } from '../io/palette-profile';
 import { StoreError } from '../io/store';
@@ -222,17 +222,24 @@ export class ProfilePanel {
       const effects = this.app.allEffects();
       const result = loadProfile(prof.palette, this.app.palette, effects);
       const lacking = lackingLines(result, effects);
-      if (lacking.length) {
-        const answer = await this.app.askChoice(`Load "${prof.name}"`, `"${prof.name}" lacks ${howMany(lacking)} this project's effects use. Loading keeps this project's own, so no effect breaks:`,
-          [['load', 'Load'], ['cancel', 'Cancel']], [lackingList(lacking)]);
+      // What the load takes out (the project has it, no effect uses it, the profile lacks it) is said first too: the load
+      // still takes it out, but never without a word (after Save, undo can no longer bring it back).
+      const going = goingLines(this.app.palette, result.palette);
+      if (lacking.length || going.length) {
+        const them = going.length === 1 ? 'it' : 'them';
+        const goingWords = `"${prof.name}" lacks ${howMany(going)} this project has that no effect uses. Loading takes ${them} out of this project:`;
+        const text = lacking.length ? `"${prof.name}" lacks ${howMany(lacking)} this project's effects use. Loading keeps this project's own, so no effect breaks:` : goingWords;
+        const body = lacking.length ? [lackingList(lacking), ...(going.length ? [h('p', { text: goingWords }), goingList(going)] : [])] : [goingList(going)];
+        const answer = await this.app.askChoice(`Load "${prof.name}"`, text, [['load', 'Load'], ['cancel', 'Cancel']], body);
         if (answer !== 'load') return;
       }
       if (sameColours(result.palette, this.app.palette) && this.app.paletteProfile() === prof.name) { this.say(['This project has the colours of ', h('b', { text: prof.name }), ' already.']); return; }
       this.keepRole(result.palette);
       this.app.loadPaletteProfile(result.palette, prof.name);
       const kept = lacking.filter((x) => x.kept);
-      const keptWords = howMany(kept);
-      this.say(['Loaded ', h('b', { text: prof.name }), '.', kept.length ? ` ${keptWords.charAt(0).toUpperCase()}${keptWords.slice(1)} it lacked ${kept.length === 1 ? 'is' : 'are'} kept from this project.` : '', ' Ctrl+Z puts the old colours back.']);
+      const keptWords = howMany(kept), goneWords = howMany(going);
+      this.say(['Loaded ', h('b', { text: prof.name }), '.', kept.length ? ` ${keptWords.charAt(0).toUpperCase()}${keptWords.slice(1)} it lacked ${kept.length === 1 ? 'is' : 'are'} kept from this project.` : '',
+        going.length ? ` ${goneWords.charAt(0).toUpperCase()}${goneWords.slice(1)} no effect used ${going.length === 1 ? 'is' : 'are'} taken out.` : '', ' Ctrl+Z puts the old colours back.']);
     });
   }
 
@@ -366,9 +373,16 @@ export class ProfilePanel {
 }
 
 /** "2 colours", "a colour and a gradient", "3 colours and 2 gradients". */
-function howMany(lines: LackingLine[]): string {
+function howMany(lines: readonly { kind: LackingLine['kind'] }[]): string {
   const count = (kind: LackingLine['kind'], one: string, many: string) => { const n = lines.filter((x) => x.kind === kind).length; return n === 0 ? '' : n === 1 ? one : `${n} ${many}`; };
   return [count('colour', 'a colour', 'colours'), count('gradient', 'a gradient', 'gradients')].filter(Boolean).join(' and ');
+}
+
+/** What a load takes out, listed in its question: each colour or gradient by its name (no effect uses them). */
+function goingList(lines: GoingLine[]): HTMLElement {
+  return h('ul', { class: 'pf-lacking pf-going' }, ...lines.map((x) => h('li', {},
+    h('code', { text: x.name }), x.kind === 'gradient' ? h('span', { class: 'meta', text: ' (gradient)' }) : null,
+    h('span', { class: 'pf-lost', text: ' taken out' }))));
 }
 
 /** The list a load shows first: each colour or gradient, whether it is kept, and where it is used. */

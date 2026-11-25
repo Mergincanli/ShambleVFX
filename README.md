@@ -185,7 +185,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
 22. **Palette profiles**, on the colour picker's Palette tab: named sets of colours on this computer, for any project. The
     line over the list says which profile this project's colours came from. **Load** copies a profile's colours into the
     project, as one undo step; first it lists the colours and gradients the profile lacks that the effects use, and keeps
-    them, so no effect breaks. **Save as profile…** keeps the project's colours as a new profile. A row's **More** (three
+    them, so no effect breaks, and the ones it takes out (this project has them, no effect uses them, the profile lacks
+    them). **Save as profile…** keeps the project's colours as a new profile. A row's **More** (three
     dots) saves the project's colours over that profile (it asks first), renames it, duplicates it, saves it as a file to
     send, or deletes it (it asks first). **Import profile…** reads such a file; a taken name gets " (1)", " (2)" and so on.
     The two defaults, **Built-in** and **Built-in with gradients**, have a lock: load them or duplicate them, but they
@@ -217,7 +218,7 @@ The effect file format is described in plain words in [docs/format.md](docs/form
 npm test
 ```
 
-The unit tests (586): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
+The unit tests (590): the format, the checker and the upgrades from versions 1, 2, 3, 4 and 5 (5 to 6 changes only the
 number: a bed keeps its gradient name); every example effect byte for byte as the editor saves it; word chances (the
 four rules, the checker's warnings, a total just over 100 % shown with the decimals that say so, and the word each play
 shows: what is drawn, and the same as version 4 for every seed when no word has a chance); the word odds over 1,000
@@ -257,7 +258,7 @@ missing or empty listed with why and deleted like any other, import adding or fi
 export whose palette.json has such a part, loading a profile keeping what the effects use, and the default bed gradient
 drawing the Molotov's bed as today); the palette profiles in the editor (the defaults known by their names whatever the
 capitals, a free name with " (1)", " (2)" for an import or a duplicate, within 64 characters, the file Save as file names,
-the list a load shows first, and a load naming the profile in the same undo step as its colours); the status bar's cost (not measured, measuring, out of date, measured with no budget
+the list a load shows first, what a load takes out, and a load naming the profile in the same undo step as its colours); the status bar's cost (not measured, measuring, out of date, measured with no budget
 on, within budget, how many numbers over, compared with the budgets that count), and the same words in Cost's header; the
 line saying which budgets count, and with none on how to switch on the level the boxes show or that its numbers are kept;
 the window's grid (the sidebars within
@@ -271,7 +272,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (426 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (427 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -322,8 +323,9 @@ status line's words ("Copied #…") going when another colour, faction or value 
 tooltips, New colour folded and saying what it did under Add colour; the palette profiles there, in the
 temporary palettes folder and a throwaway project: the list with the defaults locked, the rows of a profile's menu with no
 tooltip of the lists' rows (its Duplicate is not a layer's), Save as profile… with a taken name
-asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, a profile
-that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
+asked again, Save over and Delete asking first, Load listing what a profile lacks and keeping it in one undo step, Load
+listing what it takes out (a colour and gradients no effect uses) with Cancel keeping them and one Ctrl+Z putting them
+back, a profile that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
 as file, Import profile… numbering a taken name, Restore the default profiles, Esc in a name box cancelling with
 the panel working on, the line under the list starting empty each time the tab shows (a list that could not be read
 saying so in red until it is listed again), the folder left as found; the
@@ -1442,9 +1444,12 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     this now).
   - **Load**: when the profile lacks colours or gradients the project's effects use, a question lists them first: each
     one (Plex Mono), "kept" or "missing here too: it stays missing" (the project lacks it as well), and up to three
-    places it is used ("and 2 more"); Load or Cancel. A profile that lacks nothing loads at once. A colour the project
-    has that no effect uses and the profile lacks goes (undo brings it back). When the colour the picker shows is not in
-    the new colours, it shows the effect's main colour.
+    places it is used ("and 2 more"); Load or Cancel. A colour or gradient the project has that no effect uses and the
+    profile lacks goes with the load (undo brings it back, until the project is saved and opened again): the
+    same question lists those too, under their own words, each "taken out", and asks even when the profile lacks
+    nothing the effects use. Saying so first is our choice; whether a load should keep them instead is Mustafa's. A
+    profile that lacks nothing and takes nothing out loads at once. When the colour the picker shows is not in the new
+    colours, it shows the effect's main colour.
   - **Save over** asks first, since a profile's old colours cannot come back (the plan asks it only for Delete).
   - **Names**: Save as profile… and Rename… ask in the question dialog. Save as profile… starts from a free name: the
     project's profile name, else the project's name, numbered when taken ("Built-in with gradients (1)" right after that

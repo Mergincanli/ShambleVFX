@@ -1791,6 +1791,7 @@ if (webgpu) {
         && /^Copied/.test(said.soviets.text) && said.newValue.text === '' && /^Copied/.test(said.beforeClose.text) && said.reopened.text === '' && said.reopened.role === 'glow'
         && said.hotAfter.text === '' && said.hotAfter.h < 640, JSON.stringify(said));
 
+
     // A click right after a colour typed in the hex box with Enter (the keyboard and the mouse, for real) does what it says:
     // the box's change event comes again as it loses the focus, and the picker drew itself again then, between the press and
     // the release, so the faction switch and Work it out again did nothing. The typed colour is one undo step.
@@ -2004,6 +2005,43 @@ if (webgpu) {
     ok('a profile that lacks nothing the effects use loads at once, with no question; Save writes the profile\'s name into project.json (paletteProfile) and its colours into palette.json',
       plain.dialog === null && plain.doc.profile === 'Built-in with gradients' && plain.doc.gradients === 12 && meta?.paletteProfile === 'Built-in with gradients' && Object.keys(pal?.gradients ?? {}).length === 12,
       JSON.stringify({ plain, saved: meta?.paletteProfile, gradients: Object.keys(pal?.gradients ?? {}).length }));
+
+    // What a load takes out is said first too: a colour this project has that no effect uses, and the gradients of "Built-in
+    // with gradients" that no effect uses, which "Built-in" lacks (glow.ramp, which the Emitter glow uses, is kept). Cancel
+    // keeps them; Load takes them out and says so; one Ctrl+Z puts them back. A second Ctrl+Z takes the new colour away too,
+    // back to the project as saved.
+    const savedUndo = await undoNow();
+    await pp.evaluate(() => window.__vfx.app.addColour('probe.unused', false, '#123456'));
+    const has = () => pp.evaluate(() => { const a = window.__vfx.app; return { colour: !!a.palette.roles['probe.unused'], gradients: Object.keys(a.palette.gradients ?? {}).length, profile: a.paletteProfile() ?? null }; });
+    const goingDialog = () => pp.evaluate(() => { const d = document.querySelector('dialog[open]'); return d ? { title: d.querySelector('h2').textContent, texts: [...d.querySelectorAll('p')].map((p) => p.textContent),
+      kept: [...d.querySelectorAll('.pf-lacking:not(.pf-going) li')].map((li) => li.textContent), going: [...d.querySelectorAll('.pf-going li')].map((li) => li.textContent) } : null; });
+    const goingBefore = await has();
+    await row('Built-in').locator('button.pf-load').click();
+    await pp.waitForSelector('dialog[open]');
+    const goingAsk = await goingDialog();
+    await answer('cancel');
+    await idle();
+    const goingCancelled = await has();
+    await row('Built-in').locator('button.pf-load').click();
+    await pp.waitForSelector('dialog[open]');
+    await answer('load');
+    await idle();
+    const goingLoaded = { ...(await has()), status: await status() };
+    await pp.keyboard.press('Control+z');
+    const goingUndone = await has();
+    await pp.keyboard.press('Control+z');
+    const backToSaved = { ...(await has()), undo: await undoNow() };
+    ok('Load also lists first what it takes out (a colour and gradients this project has that no effect uses and the profile lacks); Cancel keeps them, Load takes them out and says so, and one Ctrl+Z puts them back',
+      goingBefore.colour && goingBefore.gradients === 12 && goingAsk?.title === 'Load "Built-in"' && goingAsk.texts.length === 2
+        && goingAsk.texts[0] === '"Built-in" lacks a gradient this project\'s effects use. Loading keeps this project\'s own, so no effect breaks:'
+        && goingAsk.kept.length === 1 && /^glow\.ramp \(gradient\) kept/.test(goingAsk.kept[0])
+        && goingAsk.texts[1] === '"Built-in" lacks a colour and 11 gradients this project has that no effect uses. Loading takes them out of this project:'
+        && goingAsk.going.length === 12 && goingAsk.going.filter((x) => / \(gradient\) taken out$/.test(x)).length === 11 && goingAsk.going.includes('probe.unused taken out')
+        && JSON.stringify(goingCancelled) === JSON.stringify(goingBefore)
+        && !goingLoaded.colour && goingLoaded.gradients === 1 && goingLoaded.profile === 'Built-in'
+        && goingLoaded.status === 'Loaded Built-in. A gradient it lacked is kept from this project. A colour and 11 gradients no effect used are taken out. Ctrl+Z puts the old colours back.'
+        && JSON.stringify(goingUndone) === JSON.stringify(goingBefore) && !backToSaved.colour && backToSaved.gradients === 12 && backToSaved.profile === 'Built-in with gradients' && backToSaved.undo.n === savedUndo.n,
+      JSON.stringify({ goingBefore, goingAsk, goingCancelled, goingLoaded, goingUndone, backToSaved }));
 
     // Rename (not a default): the profile's new name; no project changes (this one keeps the name it has).
     await menuOf('Night raid');

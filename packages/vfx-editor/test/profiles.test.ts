@@ -7,11 +7,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import paletteJson from '@shamble/vfx-format/palette.json';
-import type { EffectFile, Palette } from '@shamble/vfx-format';
+import type { EffectFile, Gradient, Palette } from '@shamble/vfx-format';
 import { checkEffect } from '@shamble/vfx-format/validate';
 import { History } from '../src/doc/history';
 import { loadProfile } from '../src/doc/load-profile';
-import { copyName, freeProfileName, isDefaultProfile, lackingLines, missingDefaults, profileFileName, withLoadedProfile, withProfileName } from '../src/doc/profiles';
+import { copyName, freeProfileName, goingLines, isDefaultProfile, lackingLines, missingDefaults, profileFileName, withLoadedProfile, withProfileName } from '../src/doc/profiles';
 import { PROFILE_NAME_MAX, defaultProfiles, profileNameProblem } from '../src/io/palette-profile';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
@@ -102,6 +102,54 @@ describe('the list a load shows first', () => {
   it('is empty when the profile has everything the effects use', () => {
     const effects = examples('hits-collection');
     expect(lackingLines(loadProfile(structuredClone(builtIn), structuredClone(builtIn), effects), effects)).toEqual([]);
+  });
+});
+
+describe('what a load takes out, listed in its question too', () => {
+  const ramp = (role: string): Gradient => ({ kind: 'smooth', from: 'mustafa', stops: [{ at: 0, role: 'white' }, { at: 1, role }] });
+
+  it('names the colours and gradients this project has that no effect uses and the profile lacks: gradients first, each A to Z', () => {
+    const effects = examples('demo-project');
+    const current: Palette = structuredClone(builtIn);
+    current.roles['zz.unused'] = { hex: '#123456', from: 'mustafa' };
+    current.roles['aa.unused'] = { hex: '#654321', from: 'mustafa' };
+    for (const f of ['soviets', 'allies', 'empire'] as const) current.factions[f].roles['team.spare'] = { hex: '#336699', from: 'mustafa' };
+    current.gradients = { 'smoke.spare': ramp('glow'), 'glow.spare': ramp('team') };
+    const result = loadProfile(structuredClone(builtIn), current, effects);
+    expect(goingLines(current, result.palette)).toEqual([
+      { name: 'glow.spare', kind: 'gradient' }, { name: 'smoke.spare', kind: 'gradient' },
+      { name: 'aa.unused', kind: 'colour' }, { name: 'team.spare', kind: 'colour' }, { name: 'zz.unused', kind: 'colour' },
+    ]);
+    // The load really takes them out, as the list says.
+    expect(result.palette.roles['aa.unused']).toBeUndefined();
+    expect(result.palette.gradients['glow.spare']).toBeUndefined();
+  });
+
+  it('leaves out what the load keeps (an effect uses it) and what both have, even with another value', () => {
+    const effects = structuredClone(examples('demo-project'));
+    const glow = effects.find((e) => e.id === 'board_beam')!.layers.find((l) => l.id === 'emitter_glow')!;
+    if (glow.type === 'shape' && glow.shape.kind === 'glow') glow.shape.gradient = 'glow.ramp';
+    const current: Palette = { ...structuredClone(builtIn), gradients: { 'glow.ramp': ramp('glow') } };
+    const profile = structuredClone(builtIn);
+    profile.roles.ink = { hex: '#202020', from: 'mustafa' };
+    const result = loadProfile(profile, current, effects);
+    expect(lackingLines(result, effects).map((l) => l.name)).toEqual(['glow.ramp']);
+    expect(goingLines(current, result.palette)).toEqual([]);
+  });
+
+  it('is empty for either default loaded into either example project (their colours are the built-in ones)', () => {
+    for (const project of ['demo-project', 'hits-collection']) {
+      const effects = examples(project);
+      for (const d of defaultProfiles(builtIn)) expect(goingLines(builtIn, loadProfile(d.palette, builtIn, effects).palette)).toEqual([]);
+    }
+  });
+
+  it('names the unused gradients of "Built-in with gradients" when "Built-in" is loaded after it', () => {
+    const [plain, withGradients] = defaultProfiles(builtIn);
+    const effects = examples('hits-collection');
+    const going = goingLines(withGradients!.palette, loadProfile(plain!.palette, withGradients!.palette, effects).palette);
+    expect(going.length).toBe(Object.keys(withGradients!.palette.gradients).length);
+    expect(going.every((g) => g.kind === 'gradient')).toBe(true);
   });
 });
 
