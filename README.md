@@ -55,7 +55,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
    - **Made by**: an **enemy**, **your team** or **you**. An enemy's effects get solid ink edges; your team's get thin
      broken ones; a gun's sound word shows only to the one who fired.
    - **Distance from you** ("4.0 m"): drag the chip sideways to change it (0.1 m for every 4 px, 1 m with Shift), or click
-     it for a slider and a box to type in ("0,5" works as well as "0.5"). Comic words shrink with it, each by its own curve
+     it for a slider and a box to type in ("0,5" works as well as "0.5"). The box and the chip take any distance; the
+     slider goes from 0 to 50 m. Comic words shrink with it, each by its own curve
      (a new word: full size to 2 m, 60 % from 5 to 8 m, gone at 11 m). In the tank shell's scene it moves the landing point
      away from you.
    - **Tier**: see 8.
@@ -274,7 +275,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (438 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (439 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -372,10 +373,11 @@ screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920
 two rows at 1280, with Fade other layers and View side by side; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
 chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
-a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, up to 50 m, its
-popover's slider keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box and slider
-showing what the chip shows, ↑ and ↓ stepping from there, PageUp and PageDown 5 m, End 50 m and Home 0, past 50 m the box
-showing what the chip shows with ↓ going to 49.9 m, a typed 20 m taken and the chip's drag going on from it; a right-click menu staying inside the window, and a menu taller than the window
+a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, from 0 m up with no
+end (60 m), its popover's slider keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its
+box and slider showing what the chip shows, ↑ and ↓ stepping from there, PageUp and PageDown 5 m, End 50 m and Home 0,
+past the slider's 50 m the box showing what the chip shows and its ↑ and ↓ stepping from there, a typed 20 m and a typed
+75 m taken and the chip's drag going on from each; a right-click menu staying inside the window, and a menu taller than the window
 scrolling inside it, with the row that takes the focus in view; a right-click menu opened while nothing had the focus
 letting go of it as Esc closes it, so Space right after opens no rename box; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
@@ -971,9 +973,11 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Fade other layers** sits in the toolbar as an icon toggle just left of the View chip: the brief came before it, and
     6.3 does not place it. Its icon and what it does are as before.
   - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars and its longest
-    values (the longest scene name, Your team, 50.0 m, Medium) it stays one row down to a window 1486 px wide in Whole
-    screen, 1476 px in Game size and 1469 px in Close-up. In a narrower window it wraps onto a second row (65 px): nothing
-    is cut, the controls keep their order, and Fade other layers and View wrap together, side by side.
+    values (the longest scene name, Your team, a distance under 100 m such as 50.0 m, Medium) it stays one row down to a
+    window 1486 px wide in Whole screen, 1476 px in Game size and 1469 px in Close-up. Each digit more in the distance
+    (500.0 m, 5000.0 m) makes the chip about 7 px wider, so the toolbar wraps a little sooner. In a narrower window it
+    wraps onto a second row (65 px): nothing is cut, the controls keep their order, and Fade other layers and View wrap
+    together, side by side.
   - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
     the browser check tries it; since phase 4 the lists' rows have their menus there. While the button is still down (Linux and macOS
     ask for the menu on the press), the menu opens when it is let go: the browser closes a menu opened on the press when
@@ -990,21 +994,22 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the rows show those keys. In the other menus the editor's keys wait: F, L, 1, 2, 3, ← → and Space do nothing while a
     menu or the Distance popover is open (a letter goes to type-ahead). In the main menu ? and the letters do what they did,
     apart from type-ahead.
-  - **Distance**: the box, the chip's drag, the keys and the slider take 0 to 50 m. Going past 14 m, the old slider's end,
-    is Mustafa's decision of 2026-11-25 ("The box takes any distance the target drag can give"): before, you could drag the
-    target further (the chip then said, say, 15.8 m), but typing 14 or more did nothing and a drag on the chip jumped back
-    to 14 m. The 50 m is ours: the target drag has no limit of its own. Measured in the tank shell's scene, a drag to the
-    preview's far corner in Whole screen gives 24 m at 1920 × 1080 and 25 m at 2560 × 1440 with the default sizes, and 36
-    to 37 m with the sidebars at their narrowest and the timeline at its tallest (48 m in a 3440 px wide window). The game
-    screen's far corner is about 21.4 m from you. Game size and Close-up centre again after each drag, so drags one after
-    another go further (14, 24, then 32 m at 1920). 50.0 m is also as wide as 14.0 m in the chip. Past 50 m it is as it was past 14 m: the box shows what the chip shows and the slider stays at its
-    end; ↓ goes to 49.9 m, ↑ or Enter in the untouched box and typing 50 or more change nothing, and a drag on the chip goes
-    to 50 m at once. Whether the target drag should stop at 50 m is a question for Mustafa. A press that
-    moves less than 3 px is a click. The popover opens with the focus on the slider, whose keys do what they did: ← and →
-    (and ↑ ↓) step 0.1 m, PageUp and PageDown 5 m (a tenth of the slider, as before), Home and End go to 0 and 50 m. Tab
-    goes on to the number box; Tab from there, or Shift+Tab from the slider, closes the popover and gives the focus back to
-    the chip, as Esc does. Enter in the box sets the number and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m
-    with Shift).
+  - **Distance**: the box, the chip's drag and the box's ↑ and ↓ take any distance from 0 m up. That is Mustafa's decision
+    of 2026-11-25 ("The box takes any distance the target drag can give"): before, they stopped at the old slider's 14 m.
+    You could drag the target further (the chip then said, say, 15.8 m), but typing 14 or more did nothing and a drag on
+    the chip jumped back to 14 m. The target drag has no end of its own: Game size and Close-up centre again after each
+    drag, so drags one after another go further (14, 24, then 32 m at 1920). So the box has no end either.
+  - **The slider's end** is ours: 50 m, further than one drag to the preview's far corner in Whole screen. Measured in the
+    tank shell's scene, that drag gives 24 m at 1920 × 1080 and 25 m at 2560 × 1440 with the default sizes, and 36 to 37 m
+    with the sidebars at their narrowest and the timeline at its tallest (48 m in a 3440 px wide window); the game screen's
+    far corner is about 21.4 m from you. Past 50 m the slider stays at its end, and its own keys start from there (↓ gives
+    49.9 m); the box shows what the chip shows, and its ↑ and ↓ and a drag on the chip go on from the distance. A distance
+    of 5000 m or even 10 000 000 000 m shows and plays with no error; the target is then far outside the preview.
+  - **Distance's keys**: a press that moves less than 3 px is a click. The popover opens with the focus on the slider,
+    whose keys do what they did: ← and → (and ↑ ↓) step 0.1 m, PageUp and PageDown 5 m (a tenth of the slider, as before),
+    Home and End go to 0 and 50 m. Tab goes on to the number box; Tab from there, or Shift+Tab from the slider, closes the
+    popover and gives the focus back to the chip, as Esc does. Enter in the box sets the number and keeps the popover
+    open; ↑ and ↓ in the box step 0.1 m (1 m with Shift).
   - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
     your team's: `core/draw.ts`), so its row says "thin broken edges, your own words show", the same words as Your team's row (the brief: "your own words
     show").

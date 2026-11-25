@@ -23,7 +23,7 @@ export interface ToolbarActions {
   scene(id: string): void;
   faction(f: FactionId): void;
   relation(r: Relation): void;
-  /** The distance from you, while it is dragged or typed (0 to 50 m). */
+  /** The distance from you, while it is dragged or typed (0 m or more). */
   distance(m: number): void;
   tier(t: TierName): void;
   view(v: ViewMode): void;
@@ -53,14 +53,18 @@ export interface ToolbarView {
 }
 
 /**
- * The distance's limits and step, for the box, the chip's drag, the slider and its keys: 0 to 50 m in 0.1 m. They stopped at
- * the old slider's 14 m, though dragging the target goes further; Mustafa's decision of 2026-11-25 is that the box takes any
- * distance the target drag gives. The drag has no limit of its own, so 50 m is ours: in the tank shell's scene a drag to
- * the far corner of Whole screen gives up to 36 or 37 m from you with the splitters at their limits (48 m in a 3440 px wide
- * window), and "50.0 m" is as wide as "14.0 m" in the chip. Past 50 m the box shows what the chip shows (scrubNumber), as it
- * did past 14 m.
+ * The distance: 0 m or more, in 0.1 m steps. The box, the chip's drag and the box's ↑ ↓ take any distance: Mustafa's
+ * decision of 2026-11-25 is that the box takes any distance the target drag gives, and the drag has no end of its own (Game
+ * size and Close-up centre again after each drag, so drags one after another go further). They stopped at the old
+ * slider's 14 m.
  */
-export const DISTANCE = { min: 0, max: 50, step: 0.1, digits: 1 } as const;
+export const DISTANCE = { min: 0, step: 0.1, digits: 1 } as const;
+
+/**
+ * The slider's end (ours): 50 m, past any one drag to the preview's far corner in Whole screen (36 to 37 m with the
+ * splitters at their limits, 48 m in a 3440 px wide window). Past it the slider stays at its end and the box goes on.
+ */
+export const DISTANCE_SLIDER_MAX = 50;
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const RELATIONS: { value: Relation; label: string; icon: IconName; changes: string; help: string }[] = [
@@ -119,11 +123,11 @@ export function buildToolbar(o: { factions: Palette['factions']; state: ToolbarS
 
   // Distance: a chip that opens a small popover, or is dragged sideways (0.1 m for 4 px, Shift: ten times that).
   const distanceChip = chip({ label: 'Distance from you', icon: 'distance', value: distanceText(s.distance), className: 'distance-chip' });
-  const range = h('input', { attrs: { type: 'range', min: String(DISTANCE.min), max: String(DISTANCE.max), step: String(DISTANCE.step), 'aria-label': 'Distance from you' } });
+  const range = h('input', { attrs: { type: 'range', min: String(DISTANCE.min), max: String(DISTANCE_SLIDER_MAX), step: String(DISTANCE.step), 'aria-label': 'Distance from you' } });
   const fit = (m: number) => fitValue(m, DISTANCE);
-  /** A distance chosen here: shown everywhere at once, then told to the app. */
-  const choose = (m: number) => { const v = fit(m); if (v === s.distance) return; showDistance(v); act.distance(v); };
-  const number = scrubNumber({ label: 'Distance from you, in metres', value: s.distance, step: DISTANCE.step, digits: DISTANCE.digits, min: DISTANCE.min, max: DISTANCE.max, unit: 'm',
+  /** A distance chosen here: shown everywhere at once, then told to the app (a number too big to be one is left alone). */
+  const choose = (m: number) => { const v = fit(m); if (!Number.isFinite(v) || v === s.distance) return; showDistance(v); act.distance(v); };
+  const number = scrubNumber({ label: 'Distance from you, in metres', value: s.distance, step: DISTANCE.step, digits: DISTANCE.digits, min: DISTANCE.min, unit: 'm',
     onInput: (v) => choose(v) });
   range.addEventListener('input', () => choose(+range.value));
   const popTitle = h('div', { class: 'pop-title', attrs: { 'aria-hidden': 'true', 'data-help-label': 'Distance from you' }, text: 'Distance from you' });
@@ -182,7 +186,7 @@ export function buildToolbar(o: { factions: Palette['factions']; state: ToolbarS
   const showDistance = (m: number) => {
     s.distance = m;
     distanceChip.set(distanceText(m));
-    range.value = String(Math.min(DISTANCE.max, Math.max(DISTANCE.min, m)));
+    range.value = String(Math.min(DISTANCE_SLIDER_MAX, Math.max(DISTANCE.min, m)));
     number.set(m);
   };
   const set = <K extends keyof ToolbarState>(k: K, v: ToolbarState[K], c: ChipView, value: string, glyph?: IconName | Element) => { s[k] = v; c.set(value, glyph); };

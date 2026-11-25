@@ -4047,9 +4047,10 @@ if (webgpu) {
   // its widest values; Fire's and each chip's tooltip; each chip's menu by mouse and by keyboard (below the chip, the focus on
   // the chosen row; the arrows, Home and End, type-ahead, Enter choosing what the old control chose, Esc giving the focus
   // back); the editor's keys waiting while a menu is open (L in the Tier menu goes to Low, and Loop stays); the View menu's
-  // 1, 2 and 3; F firing from a closed chip; Distance: its drag (0.1 m per 4 px, Shift ten times that, 0 to 50 m), its
-  // popover (the slider's arrow keys as before, a typed "0,5"; past 14 m the box, the slider and their keys going on, and a
-  // typed 20 m taken); a menu opened at a point staying inside the window; tooltips at once on
+  // 1, 2 and 3; F firing from a closed chip; Distance: its drag (0.1 m per 4 px, Shift ten times that, from 0 m up), its
+  // popover (the slider's arrow keys as before, a typed "0,5"; past 14 m the box, the slider and their keys going on, past
+  // the slider's 50 m the box and its keys, and a typed 20 m and 75 m taken); a menu opened at a point staying inside the
+  // window; tooltips at once on
   // keyboard focus, a number box and a select too, and none after a click into a number box.
   {
     const g = await open(`${base}/?backend=webgl&project=examples/demo-project`, () => window.__vfx && window.__vfx.ready);
@@ -4230,9 +4231,10 @@ if (webgpu) {
         && firedAfter.fired === firedBefore + 1 && spaced.playing && !spaced.menu && !spacedBack.playing,
       JSON.stringify({ view3: view3.view, closeOn: target.closeOn, key1: [key1.view, key1.chip], key2: [key2.view, key2.chip], fired: [firedBefore, firedAfter.fired], spaced: [spaced.playing, spaced.menu], spacedBack: spacedBack.playing }));
 
-    // Distance: drag the chip sideways, 0.1 m for every 4 px, ten times that with Shift, within 0 to 50 m; a drag opens no
-    // popover. A click opens it below the chip with the focus on the slider: ← and → step 0.1 m as the slider did, and the
-    // timeline does not step; a typed "0,5" or "2.5" in its number box sets the distance; Esc gives the focus back.
+    // Distance: drag the chip sideways, 0.1 m for every 4 px, ten times that with Shift, from 0 m up with no end (Mustafa's
+    // decision of 2026-11-25: here to 60 m, past the slider's 50 m); a drag opens no popover. A click opens it below the
+    // chip with the focus on the slider: ← and → step 0.1 m as the slider did, and the timeline does not step; a typed "0,5"
+    // or "2.5" in its number box sets the distance; Esc gives the focus back.
     await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'rifle_shot', scene: 'street', distance: 4 }); await a.showAt(100, 7); });
     const chipBox = await tp.locator('.vbar .distance-chip').boundingBox();
     const dragChip = async (dx, shift = false) => {
@@ -4266,8 +4268,8 @@ if (webgpu) {
     const dot = { ...(await state()), chip: await chipText('.distance-chip') };
     await press('Escape');
     const popClosed = await menuOf('.distance-chip');
-    ok('Distance: dragging the chip sideways changes it, 0.1 m for every 4 px and ten times that with Shift, within 0 to 50 m, and opens no popover',
-      d40.distance === 5 && d40.chip === '5.0 m' && !d40.popover && dShift.distance === 7 && dShift.chip === '7.0 m' && dLow.distance === 0 && dLow.chip === '0.0 m' && dHigh.distance === 50 && dHigh.chip === '50.0 m' && !dHigh.popover,
+    ok('Distance: dragging the chip sideways changes it, 0.1 m for every 4 px and ten times that with Shift, from 0 m up with no end (60 m, past the slider\'s 50 m), and opens no popover',
+      d40.distance === 5 && d40.chip === '5.0 m' && !d40.popover && dShift.distance === 7 && dShift.chip === '7.0 m' && dLow.distance === 0 && dLow.chip === '0.0 m' && dHigh.distance === 60 && dHigh.chip === '60.0 m' && !dHigh.popover,
       JSON.stringify({ d40, dShift, dLow, dHigh }));
     ok('Distance: a click opens its popover below the chip, the focus on the slider; ← and → step 0.1 m as the slider did (the timeline does not step); its number box takes "0,5" and "2.5"; Esc closes it and gives the focus back to the chip',
       popOpen.open && popOpen.role === 'dialog' && popOpen.haspopup === 'dialog' && popOpen.expanded === 'true' && popOpen.below >= 0 && popOpen.below <= 8 && popOpen.title === 'Distance from you' && popOpen.focus === 'Distance from you'
@@ -4278,11 +4280,11 @@ if (webgpu) {
     // the old slider's 14 m): the target dragged far in the tank shell's scene, which has you in it (to 15.8 m). The
     // popover's number box and its slider show what the chip shows; Enter in the untouched box changes nothing; ↑ and ↓ step
     // 0.1 m from there; on the slider PageUp and PageDown step a tenth of its 50 m, End goes to 50 m and Home to 0. Past
-    // 50 m, the box's new end, it is as it was past 14 m: the box shows what the chip shows and the slider stays at its end;
-    // Enter in the untouched box and ↑ change nothing, ↓ goes to 49.9 m (the distance is set from outside, as the target
-    // drag sets it: the drag has no end of its own, and Game size, which centres again after each drag, gets there in a few
-    // drags). Then a distance typed past 14 m (20 m, which the drag reaches: the game screen's far corner is about 21.4 m
-    // from you) is taken, and a drag on the chip goes on from it. Then the scene and the distance go back.
+    // 50 m, the slider's end, the slider stays at its end and the box goes on: it shows what the chip shows, Enter in the
+    // untouched box changes nothing, ↑ and ↓ step 0.1 m from there (the distance is set from outside, as the target drag
+    // sets it: the drag has no end of its own, and Game size and Close-up centre again after each drag). Then a distance
+    // typed past 14 m (20 m, which the drag reaches: the game screen's far corner is about 21.4 m from you) is taken, and a
+    // drag on the chip goes on from it; so is one typed past 50 m (75 m). Then the scene and the distance go back.
     await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'board_shell', scene: 'board-shell', distance: 4 }); await a.showAt(300, 7); });
     const tgt = await tp.evaluate(() => { const pv = window.__vfx.app.previewForChecks; const r = document.querySelector('.viewport').getBoundingClientRect(); const [x, y] = pv.toCanvas(pv.target); return { x: r.x + x, y: r.y + y, top: r.y }; });
     await tp.mouse.move(tgt.x, tgt.y);
@@ -4328,19 +4330,36 @@ if (webgpu) {
     await tp.mouse.move(chipNow.x + chipNow.width / 2 + 40, chipNow.y + chipNow.height / 2, { steps: 10 });
     await tp.mouse.up();
     const draggedOn = await farNow();
+    // Past the slider's 50 m: 75 m typed, then a drag on the chip on from it.
+    await tp.click('.vbar .distance-chip');
+    await tp.waitForFunction(() => document.activeElement?.closest('.popover'), null, { timeout: 5000 }).catch(() => {});
+    await tp.locator('.distance-pop input.num').fill('75');
+    await press('Enter');
+    const typedBeyond = await farNow();
+    await press('Escape');
+    const chipThen = await tp.locator('.vbar .distance-chip').boundingBox();
+    await tp.mouse.move(chipThen.x + chipThen.width / 2, chipThen.y + chipThen.height / 2);
+    await tp.mouse.down();
+    await tp.mouse.move(chipThen.x + chipThen.width / 2 + 40, chipThen.y + chipThen.height / 2, { steps: 10 });
+    await tp.mouse.up();
+    const draggedBeyond = await farNow();
     await tp.evaluate(async () => { const a = window.__vfx.app; await a.setupForChecks({ effect: 'board_shell', scene: 'board-shell', distance: 4 }); await a.setupForChecks({ effect: 'rifle_shot', scene: 'street', distance: 4 }); await a.showAt(100, 7); });
     const plus = (d, k) => +(d + k).toFixed(1);
-    ok('Distance past 14 m (the target dragged far in the tank shell\'s scene): the popover\'s number box and its slider show what the chip shows; Enter in the untouched box changes nothing, ↑ and ↓ step 0.1 m from there; on the slider PageUp and PageDown step 5 m, End goes to 50 m and Home to 0; past 50 m the box shows what the chip shows and the slider stays at its end, Enter in the untouched box and ↑ change nothing, ↓ goes to 49.9 m',
+    ok('Distance past 14 m (the target dragged far in the tank shell\'s scene): the popover\'s number box and its slider show what the chip shows; Enter in the untouched box changes nothing, ↑ and ↓ step 0.1 m from there; on the slider PageUp and PageDown step 5 m, End goes to 50 m and Home to 0; past 50 m the box shows what the chip shows and the slider stays at its end, Enter in the untouched box changes nothing, ↑ and ↓ step 0.1 m from there',
       far.distance > 14 && far.distance < 50 && far.open && far.box === far.chip.replace(' m', '') && far.slider === String(far.distance) && farEnter.distance === far.distance && farEnter.box === far.box
         && farUp.distance === plus(far.distance, 0.1) && farUp.box === farUp.chip.replace(' m', '') && farUp.slider === String(farUp.distance) && farDown.distance === far.distance && farDown.box === far.box
         && farPageUp.distance === plus(far.distance, 5) && farPageUp.chip === `${plus(far.distance, 5).toFixed(1)} m` && farPageDown.distance === far.distance && farEnd.distance === 50 && farEnd.chip === '50.0 m'
         && farEnd.box === '50.0' && farHome.distance === 0 && farHome.chip === '0.0 m'
         && beyond.distance === 63.2 && beyond.chip === '63.2 m' && beyond.box === '63.2' && beyond.slider === '50' && beyond.open && beyondEnter.distance === 63.2 && beyondEnter.box === '63.2'
-        && beyondUp.distance === 63.2 && beyondUp.box === '63.2' && beyondDown.distance === 49.9 && beyondDown.box === '49.9' && beyondDown.chip === '49.9 m',
+        && beyondUp.distance === 63.3 && beyondUp.box === '63.3' && beyondUp.chip === '63.3 m' && beyondUp.slider === '50' && beyondDown.distance === 63.2 && beyondDown.box === '63.2' && beyondDown.chip === '63.2 m',
       JSON.stringify({ far, farEnter, farUp, farDown, farPageUp, farPageDown, farEnd, farHome, beyond, beyondEnter, beyondUp, beyondDown }));
     ok('a distance typed past 14 m (20 m, which the target drag reaches) is taken: the chip, the box and the slider say 20 and the target is 20 m from you; a drag on the chip goes on from it (1 m for 40 px), with no jump back to 14 m',
       typedFar.distance === 20 && typedFar.chip === '20.0 m' && typedFar.box === '20.0' && typedFar.slider === '20' && typedFar.open && draggedOn.distance === 21 && draggedOn.chip === '21.0 m' && draggedOn.box === '21.0',
       JSON.stringify({ typedFar, draggedOn }));
+    ok('a distance typed past the slider\'s 50 m (75 m) is taken: the chip and the box say 75, the slider stays at its end and the target is 75 m from you; a drag on the chip goes on from it (1 m for 40 px), with no jump back to 50 m',
+      typedBeyond.distance === 75 && typedBeyond.chip === '75.0 m' && typedBeyond.box === '75.0' && typedBeyond.slider === '50' && typedBeyond.open
+        && draggedBeyond.distance === 76 && draggedBeyond.chip === '76.0 m' && draggedBeyond.box === '76.0',
+      JSON.stringify({ typedBeyond, draggedBeyond }));
 
     // A menu opened at a point (a right-click; phase 4 gives the lists' rows theirs): near the window's corner it turns left
     // and up, so it stays inside the window, open after the button is let go, the focus on its first row; Esc closes it.
