@@ -424,9 +424,9 @@ export class App implements AppApi {
   }
 
   askName(title: string, text: string, value: string): Promise<string | null> {
-    // The question dialog as it is (ask): it answers OK and Cancel, but Esc closes it with no answer, and its Enter handler
-    // stays on the shared dialog (its Enter handling waits for Mustafa). So the answer here is also null when the dialog
-    // closes with none, and a late answer (an Enter in a later dialog) is ignored: a cancelled name never comes back.
+    // The question dialog (ask): OK, Enter in the box and Cancel answer it, but Esc closes it with no answer of its own. So
+    // the answer here is also null when the dialog closes with none: a cancelled name never comes back. An answer that came
+    // later still would be ignored.
     const d = this.els.dialog;
     return new Promise((resolve) => {
       let settled = false;
@@ -1230,7 +1230,17 @@ export class App implements AppApi {
         h('div', { class: 'dlg-buttons' },
           h('button', { class: 'tb primary', attrs: { type: 'button' }, text: 'OK', on: { click: () => done(input.value.trim() || null) } }),
           h('button', { class: 'tb', attrs: { type: 'button' }, text: 'Cancel', on: { click: () => done(null) } })));
-      d.onkeydown = (e) => { if (e.key === 'Enter') done(input.value.trim() || null); };
+      // Enter in the box answers OK; on a button, the button answers (Mustafa's decision of 2026-11-25). The handler stays on
+      // the dialog, which the next question reuses: it must answer nothing there. It closed a later question as Cancel when
+      // Enter pressed that question's main button (Load, Delete…, Save over…), ran a command cancelled with Esc when Enter
+      // closed the next dialog, and ran the command for Enter on Cancel. The key stops here: the dialog closes on keydown
+      // and gives the focus back to the button that opened it, which the same Enter clicked (a second Save as, the main menu
+      // again).
+      d.onkeydown = (e) => {
+        if (e.key !== 'Enter' || e.target !== input) return;
+        e.preventDefault();
+        done(input.value.trim() || null);
+      };
       d.showModal();
       input.select();
     });

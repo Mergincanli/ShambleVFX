@@ -272,7 +272,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (428 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (432 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -328,7 +328,8 @@ asked again, Save over and Delete asking first, Load listing what a profile lack
 listing what it takes out (a colour and gradients no effect uses) with Cancel keeping them and one Ctrl+Z putting them
 back, a profile that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
 as file, Import profile… numbering a taken name, Restore the default profiles, Esc in a name box cancelling with
-the panel working on, the line under the list starting empty each time the tab shows (a list that could not be read
+the panel working on, Enter in a name box giving the name once and, after it, Enter on a later question's focused main
+button (Save over…, Delete…, Load) confirming it, Enter on its Cancel and Esc cancelling, the line under the list starting empty each time the tab shows (a list that could not be read
 saying so in red until it is listed again), the folder left as found; the
 Gradients tab, its editor and ramp folding as the right panel's sections do, and Use on the selected … putting a gradient
 on smoke, a fire bed and a burst, one undo step each, its words following the selection), Fade
@@ -349,7 +350,8 @@ the right panel one line, two at most, at the default width; the full words of e
 it explains; the Game events hint in its tooltip's words), the add menu,
 phase starts, New from preset, tiers, game events (unsaved ones are asked about before leaving), the cost panel and budgets (a typed number switches on its level, and the card
 says which level counts, in one or two lines even for a class with a long name), the Budgets place on a throwaway project
-(each level on and off, numbers at each level, a class picked, made with New class…, renamed and deleted, which level
+(each level on and off, numbers at each level, a class picked, made with New class… (OK, and Enter in its box), renamed
+and deleted, which level
 counts, every change one undo step, saved in project.json; a budget box taking "0,5" as a half and ↑ stepping it; in
 the narrowest panel an empty budget box's word ending in an ellipsis), saving after deleting an effect (its
 budgets leave project.json, and come back with undo and the next save), the preview drawn once per screen frame, the
@@ -360,7 +362,8 @@ the sizes remembered after a reload, a double-click putting the default back, th
 size while one is dragged, the Look following; the status bar: the checks and a click
 opening the problems banner, the triangles and draw calls, the cost's states, the renderer, the hint over the preview, messages above it; the
 main menu: below the logo, its keys, Esc giving the focus back, Tab too (with no error), a second click and a click outside
-closing it, every row; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
+closing it, every row; a question such as New project… or Save as… running its command once for OK or Enter in its box,
+nothing else opening, and nothing after Esc or for Enter on Cancel; the ? key, not while typing; the scale in the View chip; typing a time in the timeline's
 header, and the time's focus ring clear of the text after it; `?frame=1` showing nothing of the editor round the game
 screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920 and 2560 px with long values, and
 two rows at 1280, with Fade other layers and View side by side; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
@@ -381,7 +384,7 @@ again but the selected effect's staying open, Esc and a second Esc, / and not wh
 selected row, its menu and a second click closing it, the button staying and looking open while its menu is, a right-click;
 renaming in place by a double-click and F2, Enter, Esc,
 an empty name and a click elsewhere, and another row's More clicked meanwhile, whose menu opens below it; Move to folder (a
-folder, No folder, New folder… with the dialog's OK), Duplicate (its name, folder, scene, own budgets and no events; one
+folder, No folder, New folder… with the dialog's OK and with Enter in its box), Duplicate (its name, folder, scene, own budgets and no events; one
 undo with nothing unsaved left, redo, project.json after saving) and Delete with its question, each one undo step; the
 main-colour dot and its edge, following the faction; a project with no effects, its "No effects yet." and Make an
 effect), the layers list (the add menu's groups and the 14 shapes with their names, a new layer above the selected one
@@ -1362,8 +1365,8 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     class…), and Its own budgets. The boxes show the numbers of the level that counts at first (the project's when none
     does); a choice made in Boxes show is kept for that effect while the editor runs, not after a reload. Class is off in
     Boxes show while the effect has no class. The pencil after Class renames the effect's class and the bin deletes it
-    (after asking; undo brings it back); New class… asks for a name in the question dialog, as New folder… does (a third
-    way into the dialog's Enter question that waits for Mustafa), and puts the effect in the new class. A class name is 1
+    (after asking; undo brings it back); New class… asks for a name in the question dialog, as New folder… does (OK, or
+    Enter in its box: see "The question dialog" under "The colour picker"), and puts the effect in the new class. A class name is 1
     to 64 characters, unique whatever its capitals; the dialog takes 60. With no level on, the line under the place says how
     to switch on the level the boxes show ("Type a number to switch on class budgets.") or that its numbers are kept but
     off.
@@ -1471,15 +1474,19 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     wrong). It starts empty each time the Palette tab shows: its words were about an action of before, perhaps in another
     project (a "Ctrl+Z puts the old colours back" stayed after another project opened, and a red "could not be listed"
     under a list that was there again).
-  - **The question dialog** (`ask`, as it was: its Enter handling waits for Mustafa) has two more ways in, Save as
-    profile… and Rename…. Enter in the name box gives the name, and the same Enter then reaches the button the focus
-    goes back to (Save as profile…, or the row's More); that click comes while the action still runs, so the panel does
-    nothing with it (one action at a time). Esc closes the dialog with no answer of its own (for New project… and the
-    others too): here the closed dialog counts as Cancel, so nothing is made and the panel goes on working, and a late
-    answer (an Enter in a later dialog) is ignored. After any name dialog, Enter on the main button of a later question
-    (Save over, Delete, Load) closes that question as Cancel: the name dialog's Enter handler stays on the shared
-    dialog. A click works. The browser check clicks OK and Cancel, and tries Esc.
+  - **The question dialog** (`ask`) has two more ways in, Save as profile… and Rename…. Its Enter is Mustafa's decision
+    of 2026-11-25: in a name box Enter gives the name once, and anywhere else in the dialog it presses the button that has
+    the focus. So after a name dialog, Enter on the main button of a later question (Save over…, Delete…, the Load
+    question) confirms it, and Enter on Cancel cancels. Before, the name dialog's Enter handler stayed on the shared dialog:
+    it closed such a question as Cancel, and the same Enter in a name box also reached the button the focus went back to
+    (Save as profile…, a row's More, the main menu). Every name box works so: New project…, Save as…, the name for an
+    import, New folder…, New class…, Rename class, Save as profile… and Rename…. Esc closes the dialog with no answer of its
+    own (for New project… and the others too): here the closed dialog counts as Cancel, so nothing is made and the panel
+    goes on working. The browser check presses Enter in the box, on a later question's main button and on its Cancel,
+    clicks OK and Cancel, and tries Esc.
   - **The question before a load** is the shared question dialog with the list under its words; its main button is Load.
+    A list taller than its room (often the one of what a load takes out) takes the keyboard focus first, so the arrow keys
+    can scroll it; Tab goes on to Load, and Enter there loads.
 
 ## Claude skills
 

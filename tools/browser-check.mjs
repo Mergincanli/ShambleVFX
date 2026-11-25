@@ -2177,6 +2177,82 @@ if (webgpu) {
       escaped.files === beforeEsc && escaped.names.includes('Night raid two') && again.open && !!again.value && !escaped.names.some((n) => n.toLowerCase() === again.value.toLowerCase()) && profileFiles().join() === beforeEsc,
       JSON.stringify({ escaped, again }));
 
+    // Enter (Mustafa's decision of 2026-11-25): in a name box (Save as profile…, Rename…) it gives the name once, and nothing
+    // else opens. After a name dialog, Enter on the focused main button of a later question (Save over…, Delete…, the Load
+    // question) confirms it: it closed the question as Cancel, since the name dialog's Enter handler stayed on the shared
+    // dialog. Enter on its Cancel cancels, and so does Esc. The Load question's list of what it takes out is taller than its
+    // room, so it takes the focus first (the keys scroll it): Tab goes on to Load. What is made here is deleted again here,
+    // also when a step fails.
+    const filesBeforeEnter = profileFiles().join(), countBeforeEnter = profileFiles().length;
+    /** The open question: its title, and the answer of the button with the focus (else the focused element's tag and class). */
+    const focusedAnswer = () => pp.evaluate(() => {
+      const d = document.querySelector('dialog[open]'), f = document.activeElement;
+      return d ? { title: d.querySelector('h2').textContent, focus: f?.closest('dialog') === d ? f.dataset.answer ?? `${f.tagName.toLowerCase()}.${f.className}` : null } : null;
+    });
+    /** Press a key in the open dialog, then wait until it has closed (a dialog still open after 5 s is closed: Cancel) and the panel is idle. */
+    const pressInDialog = async (key) => {
+      await pp.keyboard.press(key);
+      await pp.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 5000 }).catch(() => {});
+      await pp.evaluate(() => document.querySelector('dialog[open]')?.close());
+      await idle();
+    };
+    await pp.locator('.cpick button.pf-save-as').click();
+    await pp.waitForSelector('dialog[open] input.text');
+    await pp.fill('dialog input.text', 'Enter keys');
+    await pressInDialog('Enter');
+    await pp.waitForTimeout(200);
+    const enterMade = { file: fileOf('Enter keys')?.f ?? null, made: profileFiles().length - countBeforeEnter, dialog: await dialog(), status: await status() };
+    await pp.evaluate(() => { const a = window.__vfx.app; a.setColour('ink', '#203040'); a.commit(); });
+    await menuOf('Enter keys');
+    await chooseRow('Save over…');
+    await pp.waitForSelector('dialog[open]');
+    const overOn = await focusedAnswer();
+    await pressInDialog('Enter');
+    const overDone = { ink: fileOf('Enter keys')?.j.palette.roles.ink.hex ?? null, status: await status() };
+    await pp.keyboard.press('Control+z');
+    await menuOf('Enter keys');
+    await chooseRow('Rename…');
+    await pp.waitForSelector('dialog[open] input.text');
+    await pp.fill('dialog input.text', 'Enter keys two');
+    await pressInDialog('Enter');
+    await pp.waitForTimeout(200);
+    const enterRenamed = { file: fileOf('Enter keys two')?.f ?? null, old: fileOf('Enter keys'), dialog: await dialog() };
+    // A press on a row's More less than 100 ms after its menu closed counts as the second click that closes it (dom.ts, the
+    // menus' openBelow): asked again from the same More, a question first waits a moment, as a person would.
+    const deleteAsk = async () => { await pp.waitForTimeout(200); await menuOf('Enter keys two'); await chooseRow('Delete…'); await pp.waitForSelector('dialog[open]'); };
+    await deleteAsk();
+    const delOn = await focusedAnswer();
+    await pp.keyboard.press('Tab');
+    const delCancelOn = await focusedAnswer();
+    await pressInDialog('Enter');
+    const keptByCancel = fileOf('Enter keys two') !== null;
+    await deleteAsk();
+    await pressInDialog('Escape');
+    const keptByEsc = fileOf('Enter keys two') !== null;
+    const loadBefore = { doc: await doc(), undo: await undoNow() };
+    await row('Thin colours').locator('button.pf-load').click();
+    await pp.waitForSelector('dialog[open]');
+    const loadFirst = await focusedAnswer();
+    for (let k = 0; k < 4 && (await focusedAnswer())?.focus !== 'load'; k++) await pp.keyboard.press('Tab');
+    const loadOn = await focusedAnswer();
+    await pressInDialog('Enter');
+    const loadDone = { doc: await doc(), undo: await undoNow() };
+    await pp.keyboard.press('Control+z');
+    const loadUndone = await doc();
+    await deleteAsk();
+    const delAgainOn = await focusedAnswer();
+    await pressInDialog('Enter');
+    const deletedByEnter = fileOf('Enter keys two') === null;
+    for (const n of ['Enter keys', 'Enter keys two']) if (fileOf(n)) { await pp.waitForTimeout(200); await menuOf(n); await chooseRow('Delete…'); await pp.waitForSelector('dialog[open]'); await answer('delete'); await idle(); }
+    ok('Enter in the name box of Save as profile… or Rename… gives the name once, and nothing else opens; after it, Enter on the focused main button of a later question confirms it (Save over…, the Load question, Delete…), Enter on its Cancel cancels, and so does Esc',
+      enterMade.file === 'enter-keys.json' && enterMade.made === 1 && enterMade.dialog === null && enterMade.status === 'Saved this project\'s colours as Enter keys.'
+        && overOn?.title === 'Save over "Enter keys"' && overOn.focus === 'save' && overDone.ink === '#203040' && overDone.status === 'Saved this project\'s colours over Enter keys.'
+        && enterRenamed.file === 'enter-keys-two.json' && enterRenamed.old === null && enterRenamed.dialog === null
+        && delOn?.title === 'Delete palette profile' && delOn.focus === 'delete' && delCancelOn?.focus === 'cancel' && keptByCancel && keptByEsc
+        && loadOn?.title === 'Load "Thin colours"' && loadOn.focus === 'load' && loadDone.doc.profile === 'Thin colours' && loadDone.undo.n === loadBefore.undo.n + 1 && loadDone.undo.label === 'Load palette profile'
+        && JSON.stringify(loadUndone) === JSON.stringify(loadBefore.doc) && delAgainOn?.focus === 'delete' && deletedByEnter && profileFiles().join() === filesBeforeEnter,
+      JSON.stringify({ enterMade, overOn, overDone, enterRenamed, delOn, delCancelOn, keptByCancel, keptByEsc, loadFirst, loadOn, loadDone, loadUndone, delAgainOn, deletedByEnter, files: profileFiles() }));
+
     // The line under the list speaks of what was just done: when the Palette tab shows again, its words go. A list that
     // cannot be read (the store answers 500 here) says so in red; listed again, the red line goes (it stayed, under a list
     // that was there, and so did "Loaded …: Ctrl+Z puts the old colours back" in another project). On a page of its own,
@@ -3812,6 +3888,70 @@ if (webgpu) {
         && checkedRow === 'true' && nightOff === 'light', JSON.stringify({ keysTitle, keysRows, projTitle, importTitle, importShown, newTitle, saveAsTitle, saveTitle, exportTitle, nightOn, checkedRow, nightOff }));
     ok('the Keyboard shortcuts dialog lists the keys of the lists: F2, Ctrl+D, Ctrl+] / Ctrl+[ and /, and Esc still', ['F2', 'Ctrl+D', 'Ctrl+] / Ctrl+[', '/', 'Esc', 'Delete'].every((k) => keysRows.includes(k)),
       JSON.stringify(keysRows));
+    // A question (New project…, Save as…) runs its command once, for OK or Enter in its box (Mustafa's decision of
+    // 2026-11-25). Esc runs nothing, also later: Enter in the next dialog in the same element (Keyboard shortcuts) ran the
+    // cancelled command, a new project or a copy, and Enter on Cancel ran it too. Enter in the box also clicked the button the
+    // focus went back to: a second Save as from the top bar, the main menu open again. The store's create and copy are
+    // stubbed here, so nothing is written whatever happens, and each try starts with no menu and no dialog open, so a
+    // regression fails here instead of stopping the check.
+    await sp.evaluate(() => {
+      const s = window.__vfx.app.store;
+      window.__asked = [];
+      for (const k of ['create', 'copy']) s[k] = (...args) => { window.__asked.push(`${k} ${args.at(-1)}`); return Promise.reject(new Error('stopped by the browser check')); };
+    });
+    const askedNow = () => sp.evaluate(() => { const a = [...window.__asked]; window.__asked.length = 0; return a; });
+    const shownNow = () => sp.evaluate(() => ({ dialog: document.querySelector('dialog[open] h2')?.textContent ?? null, menu: !!document.querySelector('.menu:popover-open') }));
+    const fresh = async () => {
+      await sp.evaluate(() => { document.querySelector('.menu:popover-open')?.hidePopover(); document.querySelector('dialog[open]')?.close(); });
+      await askedNow();
+    };
+    const keysThenEnter = async () => {
+      await sp.keyboard.press('?');
+      await sp.waitForFunction(() => document.querySelector('dialog[open] .keys'), null, { timeout: 5000 }).catch(() => {});
+      await sp.keyboard.press('Enter');
+      await sp.waitForTimeout(300);
+    };
+    const asks = {};
+    for (const row of ['New project…', 'Save as…']) {
+      await fresh();
+      await chooseRow(row);
+      await dialogTitle();
+      await sp.keyboard.press('Escape');
+      await keysThenEnter();
+      asks[`Esc on ${row}, then Enter in Keyboard shortcuts`] = { ran: await askedNow(), ...(await shownNow()) };
+    }
+    await fresh();
+    await chooseRow('New project…');
+    await dialogTitle();
+    await sp.keyboard.press('Tab');
+    await sp.keyboard.press('Tab');
+    const onCancel = await sp.evaluate(() => document.activeElement?.textContent);
+    await sp.keyboard.press('Enter');
+    await sp.waitForTimeout(300);
+    asks['Enter on Cancel'] = { on: onCancel, ran: await askedNow(), ...(await shownNow()) };
+    await fresh();
+    await chooseRow('New project…');
+    await dialogTitle();
+    await sp.locator('dialog[open] input.text').fill('Typed name');
+    await sp.keyboard.press('Enter');
+    await sp.waitForTimeout(300);
+    asks['Enter in the box, from the main menu'] = { ran: await askedNow(), ...(await shownNow()), focus: await sp.evaluate(() => document.activeElement?.dataset.helpLabel ?? null) };
+    await fresh();
+    await sp.locator('.topbar .save').click();
+    await dialogTitle();
+    await sp.locator('dialog[open] input.text').fill('Typed copy');
+    await sp.keyboard.press('Enter');
+    await sp.waitForTimeout(300);
+    asks['Enter in the box, from the top bar\'s Save as…'] = { ran: await askedNow(), ...(await shownNow()) };
+    await fresh();
+    await sp.evaluate(() => { const s = window.__vfx.app.store; delete s.create; delete s.copy; });
+    const storeBack = await sp.evaluate(() => { const s = window.__vfx.app.store; return !Object.hasOwn(s, 'create') && !Object.hasOwn(s, 'copy') && typeof s.create === 'function' && typeof s.copy === 'function'; });
+    await sp.locator('.topbar .logo').focus();
+    const quiet = (x) => !x.dialog && !x.menu;
+    ok('a question (New project…, Save as…) runs its command once for Enter in its box, and nothing else opens; it runs nothing after Esc, even when Enter closes the next dialog (Keyboard shortcuts), nor for Enter on Cancel',
+      Object.entries(asks).every(([k, x]) => quiet(x) && (k.startsWith('Enter in the box') ? x.ran.length === 1 : x.ran.length === 0)) && asks['Enter on Cancel'].on === 'Cancel'
+        && asks['Enter in the box, from the main menu'].ran[0] === 'create Typed name' && asks['Enter in the box, from the main menu'].focus === 'Main menu'
+        && asks['Enter in the box, from the top bar\'s Save as…'].ran[0] === 'copy Typed copy' && storeBack, JSON.stringify({ asks, storeBack }));
     // The ? key opens the keyboard shortcuts (the focus is on the logo now, as the menu left it), but not while typing in a
     // field (the time readout's box, below).
     await sp.keyboard.press('?');
@@ -4600,8 +4740,8 @@ if (webgpu) {
           && searchEsc1.search === '' && searchEsc1.layer === 'flash' && searchEsc2.focus !== 'search' && searchEsc2.layer === 'flash' && searchEsc3.layer === null,
         JSON.stringify({ inSearch, searchValue, esc: [searchEsc1.search, searchEsc1.layer, searchEsc2.focus, searchEsc2.layer, searchEsc3.layer] }));
 
-      // Move to folder…: a menu of the folders there are, No folder and New folder… (the question dialog; its OK button is
-      // clicked, so this holds with or without the change to Enter that waits for Mustafa). Each move is one undo step.
+      // Move to folder…: a menu of the folders there are, No folder and New folder… (the question dialog: its OK button
+      // clicked, then Enter in its box). Each move is one undo step.
       const folderMenuNow = () => lp.evaluate(() => {
         const m = document.getElementById('folder-menu');
         return { open: !!m?.matches(':popover-open'), title: m?.querySelector('.menu-title')?.textContent ?? null,
@@ -4641,6 +4781,24 @@ if (webgpu) {
       ok('New folder… asks for the folder\'s name (the question dialog, its OK button clicked) and moves the effect into the new folder, which starts open, in one undo step',
         askTitle === 'New folder' && freshName === 'Fresh / Arrow' && fresh.rows.includes('+ Fresh (1)') && fresh.rows.some((r) => r.startsWith('  - Arrow')) && fresh.undo === 'Move to folder'
           && freshUndone.arrow === 'Arrow' && !freshUndone.rows.some((r) => r.includes('Fresh')), JSON.stringify({ askTitle, freshName, fresh: fresh.rows, freshUndone: freshUndone.arrow }));
+      // Enter in its box works too (Mustafa's decision of 2026-11-25): the effect moves once, in one undo step, and the same
+      // Enter clicks nothing more (it opened the effect's menu again from the More button the focus went back to).
+      await effectMenu(lp, 'Arrow', 'Move to folder…');
+      await lp.waitForSelector('#folder-menu:popover-open', { timeout: 5000 });
+      const stepsBeforeTyped = await lp.evaluate(() => window.__vfx.app.history.past.length);
+      await menuRow(lp, 'folder-menu', 'New folder…').click();
+      await lp.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+      await lp.locator('dialog[open] input.text').fill('Typed');
+      await lp.keyboard.press('Enter');
+      await lp.waitForTimeout(300);
+      const typedFolder = { name: await nameOf('arrow'), undo: (await listNow()).undo, steps: (await lp.evaluate(() => window.__vfx.app.history.past.length)) - stepsBeforeTyped,
+        ...(await lp.evaluate(() => ({ dialog: !!document.querySelector('dialog[open]'), menu: !!document.querySelector('.menu:popover-open') }))) };
+      await lp.evaluate(() => { document.querySelector('.menu:popover-open')?.hidePopover(); document.querySelector('dialog[open]')?.close(); });
+      await lp.keyboard.press('Control+z');
+      const typedUndone = await nameOf('arrow');
+      ok('New folder… takes Enter in its box too: the effect moves into the new folder once, in one undo step, and no menu or dialog opens again',
+        typedFolder.name === 'Typed / Arrow' && typedFolder.undo === 'Move to folder' && typedFolder.steps === 1 && !typedFolder.dialog && !typedFolder.menu && typedUndone === 'Arrow',
+        JSON.stringify({ typedFolder, typedUndone }));
 
       // Duplicate: "<name> copy", in its folder, selected, with the source's scene and own budgets but no game events. One undo
       // takes away the copy, its scene and its budgets (no unsaved dot left), and redo brings all back; project.json follows.
@@ -5919,6 +6077,22 @@ if (webgpu) {
         effects: { board_beam: { class: 'huge', limits: { low: { draws: 2 } } } } };
       ok('saved, project.json holds the budgets at their three levels: the project\'s (on, 5 draws in High), the classes (Big\'s 9000 triangles, Massive made here; class budgets off) and the effect\'s (in Massive, its own 2 draws in Low, off)',
         JSON.stringify(savedPlace) === JSON.stringify(wantPlace), JSON.stringify(savedPlace));
+      // New class… takes Enter in its box too (Mustafa's decision of 2026-11-25): one class made, the effect in it, in one undo
+      // step, and no dialog left open. Undone again, so the place is as saved.
+      const pTyped0 = await placeNow();
+      await pg.locator('.inspector .budget-class select').selectOption({ label: 'New class…' });
+      await pg.waitForSelector('dialog[open] input.text', { timeout: 5000 });
+      await pg.locator('dialog[open] input.text').fill('Typed');
+      await pg.keyboard.press('Enter');
+      await pg.waitForTimeout(300);
+      const pTyped = { ...(await placeNow()), dialog: await pg.evaluate(() => !!document.querySelector('dialog[open]')) };
+      await pg.evaluate(() => document.querySelector('dialog[open]')?.close());
+      await pg.keyboard.press('Control+z');
+      const pTypedUndone = await placeNow();
+      ok('New class… takes Enter in its box too: it makes one class and puts the effect in it, in one undo step, and no dialog is left open',
+        pTyped.budgets.classes.list.length === pTyped0.budgets.classes.list.length + 1 && pTyped.budgets.classes.list.at(-1)?.name === 'Typed' && pTyped.cls === pTyped.budgets.classes.list.at(-1)?.id
+          && pTyped.undo === 'New class' && pTyped.n === pTyped0.n + 1 && !pTyped.dialog && JSON.stringify(pTypedUndone.budgets) === JSON.stringify(pTyped0.budgets) && pTypedUndone.cls === pTyped0.cls,
+        JSON.stringify({ before: [pTyped0.budgets.classes.list.length, pTyped0.cls, pTyped0.n], typed: [pTyped.budgets.classes.list.at(-1), pTyped.cls, pTyped.undo, pTyped.n, pTyped.dialog], undone: [pTypedUndone.budgets.classes.list.length, pTypedUndone.cls] }));
       // In the narrowest right panel (260 px) every segmented row keeps one 28 px row: as a flipbook's Grid does, its buttons
       // start left of the control column where they need the room, clear of the label's words, and end where the column ends;
       // at 1920 they keep to the column. (Before, Boxes show, a projectile's From and To, and its Flight broke onto two lines
