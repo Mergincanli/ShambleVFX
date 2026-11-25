@@ -273,7 +273,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (435 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (436 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -370,9 +370,10 @@ screen, every menu and popover too), the viewport toolbar (one 36 px row at 1920
 two rows at 1280, with Fade other layers and View side by side; Fire's and the chips' tooltips; each chip's menu by mouse and by keyboard, choosing what the old control
 chose, a scene remembered for its effect; the arrows, Home, End, type-ahead, Enter and Esc in a menu; the editor's keys
 waiting while a menu is open, so L in the Tier menu goes to Low and Loop stays; the View menu's 1, 2 and 3; F firing from
-a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, its popover's slider
-keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box showing what the chip shows,
-the keys working from 14 m as before; a right-click menu staying inside the window, and a menu taller than the window
+a closed chip and Space playing; Distance dragged in 0.1 m steps for 4 px, ten times that with Shift, up to 50 m, its
+popover's slider keys and a typed "0,5", and past 14 m (the target dragged in the tank shell's scene) its box and slider
+showing what the chip shows, ↑ and ↓ stepping from there, PageUp and PageDown 5 m, End 50 m and Home 0, past 50 m the box
+showing what the chip shows with ↓ going to 49.9 m, a typed 20 m taken and the chip's drag going on from it; a right-click menu staying inside the window, and a menu taller than the window
 scrolling inside it, with the row that takes the focus in view; a right-click menu opened while nothing had the focus
 letting go of it as Esc closes it, so Space right after opens no rename box; tooltips at once when Tab brings the focus to a number
 box or a select, and none after a click into a box), Show hints (on at first; the light bulb and the main menu's row hiding
@@ -966,7 +967,7 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
   - **Fade other layers** sits in the toolbar as an icon toggle just left of the View chip: the brief came before it, and
     6.3 does not place it. Its icon and what it does are as before.
   - **Narrow windows**: the toolbar is one 36 px row at 2560 and at 1920 px. With the default sidebars and its longest
-    values (the longest scene name, Your team, 14.0 m, Medium) it stays one row down to a window 1486 px wide in Whole
+    values (the longest scene name, Your team, 50.0 m, Medium) it stays one row down to a window 1486 px wide in Whole
     screen, 1476 px in Game size and 1469 px in Close-up. In a narrower window it wraps onto a second row (65 px): nothing
     is cut, the controls keep their order, and Fade other layers and View wrap together, side by side.
   - **Right-click** is built into the menu part now (`menu()` opens at a point, `contextMenu()` wires an element to it), and
@@ -985,15 +986,21 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     the rows show those keys. In the other menus the editor's keys wait: F, L, 1, 2, 3, ← → and Space do nothing while a
     menu or the Distance popover is open (a letter goes to type-ahead). In the main menu ? and the letters do what they did,
     apart from type-ahead.
-  - **Distance**: dragging the chip and typing a number both stay within the slider's 0 to 14 m (dragging the target in the
-    tank shell's scene can still take it further, as before). A press that moves less than 3 px is a click. The popover
-    opens with the focus on the slider, whose keys do what they did on the old slider: ← and → (and ↑ ↓) step 0.1 m,
-    PageUp and PageDown 1.4 m, Home and End go to 0 and 14 m. Tab goes on to the number box; Tab from there, or Shift+Tab
-    from the slider, closes the popover and gives the focus back to the chip, as Esc does. Enter in the box sets the number
-    and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m with Shift). Past 14 m (the target dragged further in
-    the tank shell's scene) the box shows the distance as the chip does, and the slider stays at its end. The keys still
-    work from 14 m, as before: ↓ goes to 13.9 m, and ↑ or Enter in the untouched box change nothing. Typing 14 or more
-    changes nothing either (the box shows the distance again), and a drag on the chip goes to 14 m at once, either way.
+  - **Distance**: the box, the chip's drag, the keys and the slider take 0 to 50 m. Going past 14 m, the old slider's end,
+    is Mustafa's decision of 2026-11-25 ("The box takes any distance the target drag can give"): before, you could drag the
+    target further (the chip then said, say, 15.8 m), but typing 14 or more did nothing and a drag on the chip jumped back
+    to 14 m. The 50 m is ours: the target drag has no limit of its own. Measured in the tank shell's scene, a drag to the
+    preview's far corner in Whole screen gives 24 m at 1920 × 1080 and 25 m at 2560 × 1440 with the default sizes, and 36
+    to 37 m with the sidebars at their narrowest and the timeline at its tallest (48 m in a 3440 px wide window). The game
+    screen's far corner is about 21.4 m from you. Game size and Close-up centre again after each drag, so drags one after
+    another go further (14, 24, then 32 m at 1920). 50.0 m is also as wide as 14.0 m in the chip. Past 50 m it is as it was past 14 m: the box shows what the chip shows and the slider stays at its
+    end; ↓ goes to 49.9 m, ↑ or Enter in the untouched box and typing 50 or more change nothing, and a drag on the chip goes
+    to 50 m at once. Whether the target drag should stop at 50 m is a question for Mustafa. A press that
+    moves less than 3 px is a click. The popover opens with the focus on the slider, whose keys do what they did: ← and →
+    (and ↑ ↓) step 0.1 m, PageUp and PageDown 5 m (a tenth of the slider, as before), Home and End go to 0 and 50 m. Tab
+    goes on to the number box; Tab from there, or Shift+Tab from the slider, closes the popover and gives the focus back to
+    the chip, as Esc does. Enter in the box sets the number and keeps the popover open; ↑ and ↓ in the box step 0.1 m (1 m
+    with Shift).
   - Words checked against the code: Made by's "You" also gives broken edges (the runtime draws your own effect's edges as
     your team's: `core/draw.ts`), so its row says "thin broken edges, your own words show", the same words as Your team's row (the brief: "your own words
     show").

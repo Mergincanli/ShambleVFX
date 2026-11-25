@@ -23,7 +23,7 @@ export interface ToolbarActions {
   scene(id: string): void;
   faction(f: FactionId): void;
   relation(r: Relation): void;
-  /** The distance from you, while it is dragged or typed (0 to 14 m). */
+  /** The distance from you, while it is dragged or typed (0 to 50 m). */
   distance(m: number): void;
   tier(t: TierName): void;
   view(v: ViewMode): void;
@@ -52,8 +52,15 @@ export interface ToolbarView {
   popupOpen(): boolean;
 }
 
-/** The distance's limits and step: the slider's, as before (0 to 14 m in 0.1 m). */
-export const DISTANCE = { min: 0, max: 14, step: 0.1, digits: 1 } as const;
+/**
+ * The distance's limits and step, for the box, the chip's drag, the slider and its keys: 0 to 50 m in 0.1 m. They stopped at
+ * the old slider's 14 m, though dragging the target goes further; Mustafa's decision of 2026-11-25 is that the box takes any
+ * distance the target drag gives. The drag has no limit of its own, so 50 m is ours: in the tank shell's scene a drag to
+ * the far corner of Whole screen gives up to 36 or 37 m from you with the splitters at their limits (48 m in a 3440 px wide
+ * window), and "50.0 m" is as wide as "14.0 m" in the chip. Past 50 m the box shows what the chip shows (scrubNumber), as it
+ * did past 14 m.
+ */
+export const DISTANCE = { min: 0, max: 50, step: 0.1, digits: 1 } as const;
 
 const TIER_LABEL: Record<TierName, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const RELATIONS: { value: Relation; label: string; icon: IconName; changes: string; help: string }[] = [
