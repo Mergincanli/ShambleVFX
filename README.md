@@ -176,7 +176,8 @@ It opens at http://127.0.0.1:5174. See [docs/export.md](docs/export.md).
     effect's main colour. Rest the pointer on a row, or select it, for its **More** button (three dots): **Rename** (F2),
     **Duplicate** (Ctrl+D), **Move to folder…** and **Delete**. A right-click on a row opens the same menu, and a
     double-click on its name renames it in place: Enter keeps the new name, Esc keeps the old one. Duplicate makes "… copy",
-    with the same scene and its own budgets, but no game events (one event plays one effect).
+    with the same scene and its own budgets, but no game events (one event plays one effect). Deleting an effect you have
+    not selected keeps your selection.
 21. **The layers list** (bottom left), the top of the drawing order first. Rest the pointer on a row, or select it: **Move
     up**, **Move down** and **More** take the place of its tag. More, or a right-click on the row, has **Rename** (F2),
     **Duplicate** (Ctrl+D), **Move up** (Ctrl+]), **Move down** (Ctrl+[) and **Delete** (Del). Drag a row up or down to move
@@ -273,7 +274,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (436 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (437 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -387,7 +388,9 @@ selected row, its menu and a second click closing it, the button staying and loo
 renaming in place by a double-click and F2, Enter, Esc,
 an empty name and a click elsewhere, and another row's More clicked meanwhile, whose menu opens below it; Move to folder (a
 folder, No folder, New folder… with the dialog's OK and with Enter in its box), Duplicate (its name, folder, scene, own budgets and no events; one
-undo with nothing unsaved left, redo, project.json after saving) and Delete with its question, each one undo step; the
+undo with nothing unsaved left, redo, project.json after saving) and Delete with its question, each one undo step;
+deleting an effect that is not selected, from its More or a right-click, keeping the selected effect and layer, the time
+and the panel's scroll, also after undo, and deleting the selected one selecting the first effect; the
 main-colour dot and its edge, following the faction; a project with no effects, its "No effects yet." and Make an
 effect), the layers list (the add menu's groups and the 14 shapes by their plain names, each row's tooltip ending with
 the name in the file in Plex Mono, a new layer above the selected one and selected; the tags with the shapes' plain names
@@ -1077,10 +1080,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     too; while a search is on, the effects in it that match. Folder names are exact: "Weapons" and "weapons" are two folders.
   - **Open or closed.** Remembered per project in `localStorage`, as `vfx-folders:<project>`, the list of closed folders, so
     a folder never seen before starts open. When an effect is selected another way than a click on its row (Duplicate, New
-    effect, From preset…, undo, a delete, the right panel's name), or moves to another folder (Move to folder, or a rename
-    that adds a folder), its folders open and its row scrolls into view; a moved effect does so even when it is not
-    selected. Opening a project leaves its folders as they were left: its first effect may sit in a closed folder, whose
-    name then shows in the selected row's weight (not in yellow: the folder is not the selection).
+    effect, From preset…, undo, deleting the selected effect, the right panel's name), or moves to another folder (Move to
+    folder, or a rename that adds a folder), its folders open and its row scrolls into view; a moved effect does so even
+    when it is not selected. Opening a project leaves its folders as they were left: its first effect may sit in a closed
+    folder, whose name then shows in the selected row's weight (not in yellow: the folder is not the selection).
   - **Search.** Every word typed must be found, in any case, in the effect's name (its folder is part of it), its file
     (`rifle_shot.vfx.json`) or one of its game events. While a search is on, the header's count says "3 of 16"; folders with
     matches show open, and a click opens or closes them for that search only; when the search is cleared, the folders it
@@ -1121,7 +1124,10 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     field colour, the icon in `--accent-ink`. So does a header's + while its menu is open.
   - **A row's menu acts on its own row**, in both lists: More or a right-click on a row that is not selected leaves the
     selection as it is. While the menu is open, only More's open look shows which row it is for; a right-clicked row is not
-    marked.
+    marked. Deleting an effect that is not selected keeps the selection, as the Layers list does: Mustafa's decision of
+    2026-11-25 (before, the selection jumped to the first effect of the project). The selected effect, its selected layer,
+    the time and the right panel's scroll stay, and undo brings the deleted effect back without changing the selection.
+    Deleting the selected effect still selects the first effect, with no layer.
   - **The tag on hover.** On hover, and on the selected row, the buttons take the tag's place (the tag stays in the page,
     hidden). So a rider's "rides Bullet" is said in the row's own tooltip ("Tracer: rides Bullet") rather than in the tag's.
     A row both selected and left out of the tier shows its buttons in place of "not in Low": its icon and name stay faded,

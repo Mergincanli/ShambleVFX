@@ -1485,7 +1485,12 @@ export class App implements AppApi {
 
   deleteEffect(id: string): void {
     if (!confirm('Delete this effect? (Undo brings it back until you leave.)')) return;
+    // Deleting another effect keeps the selection, as the Layers list does (Mustafa's decision of 2026-11-25): the effect and
+    // the layer selected, the time and the scroll stay (the edit's own render is enough), and so does undo. Deleting the
+    // selected effect selects the first one, as before.
+    const wasSelected = id === this.selEffect;
     this.history.apply('Delete effect', removeEffect(this.history.doc, id));
+    if (!wasSelected) return;
     this.selEffect = this.history.doc.effects[0]?.id ?? null;
     this.selLayer = null;
     this.renderAll();

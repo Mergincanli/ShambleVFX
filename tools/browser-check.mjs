@@ -4511,7 +4511,8 @@ if (webgpu) {
   // -- the Effects list (docs/ui-redesign.md 6.2, 6.10, 6.11): folders from the names (" / "), nested, folders first, each
   // A to Z with numbers in order, counts of all inside; open or closed remembered per project; the search (name, folder,
   // file, game events), Esc and /; the row's menu by its More button and by a right-click; renaming in place; Move to
-  // folder (a folder there is, No folder, New folder…), Duplicate and Delete, each one undo step; the keys /, F2 and
+  // folder (a folder there is, No folder, New folder…), Duplicate and Delete (deleting another effect keeps the selection),
+  // each one undo step; the keys /, F2 and
   // Ctrl+D, none while typing or with a menu open; inside the rename and search boxes the editor's keys only type. On a
   // throwaway project (projects/browser-check-folders-…), deleted after.
   {
@@ -4909,6 +4910,48 @@ if (webgpu) {
       ok('Delete in an effect\'s menu asks first, deletes it, and undo brings it back',
         confirms === confirmsBefore + 1 && deleted.n === 8 && !deleted.rows.some((r) => r.includes('Shot 10')) && deleteUndone.n === 9 && deleteUndone.rows.includes('    - Shot 10'),
         JSON.stringify({ confirms: confirms - confirmsBefore, deleted: deleted.n, deleteUndone: deleteUndone.n }));
+
+      // Deleting an effect that is not selected keeps the selection, as the Layers list does (Mustafa's decision of
+      // 2026-11-25; it jumped to the first effect): from its row's More and from a right-click, the effect and the layer
+      // selected, the time and the right panel's scroll stay, and undo brings the effect back and keeps them. Deleting the
+      // selected effect still selects the first effect, with no layer, and its undo keeps that.
+      const kept0 = await lp.evaluate(async () => {
+        const a = window.__vfx.app, first = a.history.doc.effects[0].id;
+        const id = ['board_beam', 'board_muzzle'].find((x) => x !== first);
+        a.pickEffect(id);
+        a.selectLayer(a.effect().layers[0].id);
+        await a.showAt(640, 7);
+        return { id, first, name: a.effect().name.split(' / ').at(-1) };
+      });
+      await lp.evaluate(() => { document.querySelector('.right').scrollTop = 150; });
+      const keptNow = () => lp.evaluate(() => {
+        const a = window.__vfx.app;
+        return { sel: a.effect()?.id ?? null, layer: a.layer()?.id ?? null, time: a.debugState().mainTime, n: a.debugState().effects.length, panel: Math.round(document.querySelector('.right').scrollTop),
+          title: document.querySelector('.inspector .insp-title')?.textContent ?? null, undo: a.history.undoLabel ?? null };
+      });
+      const keptBefore = await keptNow();
+      const confirmsKept = confirms;
+      await effectMenu(lp, 'Shot 10', 'Delete');
+      const keptByMore = await keptNow();
+      await lp.keyboard.press('Control+z');
+      const keptByMoreBack = await keptNow();
+      await effectRow(lp, 'Shot 2').click({ button: 'right' });
+      await lp.waitForSelector('#effect-menu:popover-open', { timeout: 5000 });
+      await menuRow(lp, 'effect-menu', 'Delete').click();
+      const keptByRight = await keptNow();
+      await lp.keyboard.press('Control+z');
+      const keptByRightBack = await keptNow();
+      await effectMenu(lp, kept0.name, 'Delete');
+      const selectedGone = { ...(await keptNow()), first: await lp.evaluate(() => window.__vfx.app.history.doc.effects[0]?.id ?? null) };
+      await lp.keyboard.press('Control+z');
+      const selectedBack = await keptNow();
+      const same = (x) => x.sel === keptBefore.sel && x.layer === keptBefore.layer && x.time === keptBefore.time && x.panel === keptBefore.panel && x.title === keptBefore.title;
+      ok('deleting an effect that is not selected keeps the selection, from its row\'s More and from a right-click: the effect and layer selected, the time and the right panel\'s scroll stay, and undo brings the effect back and keeps them; deleting the selected effect still selects the first effect',
+        keptBefore.sel === kept0.id && keptBefore.sel !== kept0.first && !!keptBefore.layer && keptBefore.time === 640 && keptBefore.panel === 150 && confirms === confirmsKept + 3
+          && same(keptByMore) && keptByMore.n === keptBefore.n - 1 && keptByMore.undo === 'Delete effect' && same(keptByMoreBack) && keptByMoreBack.n === keptBefore.n
+          && same(keptByRight) && keptByRight.n === keptBefore.n - 1 && same(keptByRightBack) && keptByRightBack.n === keptBefore.n
+          && selectedGone.n === keptBefore.n - 1 && selectedGone.sel === selectedGone.first && selectedGone.layer === null && selectedBack.n === keptBefore.n && selectedBack.sel === selectedGone.first && selectedBack.layer === null,
+        JSON.stringify({ kept0, keptBefore, keptByMore, keptByMoreBack, keptByRight, keptByRightBack, selectedGone, selectedBack }));
 
       // Each row's dot: 10 px, the effect's main colour for the faction shown, with a 1 px edge in --text-faint (so a dark colour
       // shows in Night); it follows the faction.
