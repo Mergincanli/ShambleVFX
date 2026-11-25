@@ -332,8 +332,8 @@ listing what it takes out (a colour and gradients no effect uses) with Cancel ke
 back, a profile that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
 as file, Import profile… numbering a taken name, Restore the default profiles, Esc in a name box cancelling with
 the panel working on, Enter in a name box giving the name once and, after it, Enter on a later question's focused main
-button (Save over…, Delete…, Load) confirming it, each question opening with the focus on its main button (the Load
-question too, with a list long enough to scroll), Enter on its Cancel and Esc cancelling, the line under the list starting empty each time the tab shows (a list that could not be read
+button (Save over…, Delete…, Load) confirming it, each of these questions opening with the focus on its main button (the
+Load question too, with a list long enough to scroll), Enter on its Cancel and Esc cancelling, the line under the list starting empty each time the tab shows (a list that could not be read
 saying so in red until it is listed again), the folder left as found; the
 Gradients tab, its editor and ramp folding as the right panel's sections do, and Use on the selected … putting a gradient
 on smoke, a fire bed and a burst, one undo step each, its words following the selection), Fade
@@ -999,7 +999,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     You could drag the target further (the chip then said, say, 15.8 m), but typing 14 or more did nothing and a drag on
     the chip jumped back to 14 m. The target drag has no end of its own: Game size and Close-up centre again after each
     drag, so drags one after another go further (14, 24, then 32 m at 1920). So the box has no end either.
-  - **The slider's end** is ours: 50 m, further than one drag to the preview's far corner in Whole screen. Measured in the
+  - **The slider's end** is ours: 50 m (it was 14 m before 2026-11-25), further than one drag to the preview's far corner
+    in Whole screen. It costs some fineness: about 0.34 m for each pixel the thumb moves, and the usual 4 m sits near the
+    left end; the box, its ↑ and ↓ and the chip's drag still step 0.1 m. Measured in the
     tank shell's scene, that drag gives 24 m at 1920 × 1080 and 25 m at 2560 × 1440 with the default sizes, and 36 to 37 m
     with the sidebars at their narrowest and the timeline at its tallest (48 m in a 3440 px wide window); the game screen's
     far corner is about 21.4 m from you. Past 50 m the slider stays at its end, and its own keys start from there (↓ gives
@@ -1530,9 +1532,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     goes on working. The browser check presses Enter in the box, on a later question's main button and on its Cancel,
     clicks OK and Cancel, and tries Esc.
   - **The question before a load** is the shared question dialog with the list under its words; its main button is Load.
-    Every question opens with the focus on its main button (ours), so here Enter loads at once. By the browser's own rule a
-    list long enough to scroll (often the one of what a load takes out) took the focus first, and Enter did nothing until
-    Tab.
+    A question with buttons only (Load, Save over…, Delete…, Export) opens with the focus on its main button (ours), so
+    here Enter loads at once; a name question still opens with the focus in its box. By the browser's own rule a list long
+    enough to scroll (often the one of what a load takes out) took the focus first, and Enter did nothing until Tab.
 
 ## Claude skills
 
