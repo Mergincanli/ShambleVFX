@@ -1218,6 +1218,9 @@ export class App implements AppApi {
         h('div', { class: 'dlg-buttons' }, ...answers.map(([v, label], i) => h('button', { class: i === 0 ? 'tb primary' : 'tb', attrs: { type: 'button', 'data-answer': v }, text: label, on: { click: () => finish(v) } }))));
       d.addEventListener('close', () => finish(null), { once: true });
       d.showModal();
+      // The main button has the focus, so Enter answers it (ours). By the browser's own rule a list long enough to scroll
+      // took the focus first (the Load question's), and Enter did nothing there until Tab.
+      d.querySelector<HTMLButtonElement>('.dlg-buttons > button.primary')?.focus();
     });
   }
 

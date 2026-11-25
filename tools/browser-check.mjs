@@ -2180,9 +2180,9 @@ if (webgpu) {
     // Enter (Mustafa's decision of 2026-11-25): in a name box (Save as profile…, Rename…) it gives the name once, and nothing
     // else opens. After a name dialog, Enter on the focused main button of a later question (Save over…, Delete…, the Load
     // question) confirms it: it closed the question as Cancel, since the name dialog's Enter handler stayed on the shared
-    // dialog. Enter on its Cancel cancels, and so does Esc. The Load question's list of what it takes out is taller than its
-    // room, so it takes the focus first (the keys scroll it): Tab goes on to Load. What is made here is deleted again here,
-    // also when a step fails.
+    // dialog. Enter on its Cancel cancels, and so does Esc. A question opens with the focus on its main button (ours): the
+    // Load question too, whose list of what it takes out is long enough to scroll. By the browser's own rule that list took
+    // the focus first, and Enter did nothing there until Tab. What is made here is deleted again here, also when a step fails.
     const filesBeforeEnter = profileFiles().join(), countBeforeEnter = profileFiles().length;
     /** The open question: its title, and the answer of the button with the focus (else the focused element's tag and class). */
     const focusedAnswer = () => pp.evaluate(() => {
@@ -2232,9 +2232,8 @@ if (webgpu) {
     const loadBefore = { doc: await doc(), undo: await undoNow() };
     await row('Thin colours').locator('button.pf-load').click();
     await pp.waitForSelector('dialog[open]');
-    const loadFirst = await focusedAnswer();
-    for (let k = 0; k < 4 && (await focusedAnswer())?.focus !== 'load'; k++) await pp.keyboard.press('Tab');
     const loadOn = await focusedAnswer();
+    const loadListScrolls = await pp.evaluate(() => [...document.querySelectorAll('dialog[open] ul')].some((u) => u.scrollHeight > u.clientHeight + 1));
     await pressInDialog('Enter');
     const loadDone = { doc: await doc(), undo: await undoNow() };
     await pp.keyboard.press('Control+z');
@@ -2251,7 +2250,10 @@ if (webgpu) {
         && delOn?.title === 'Delete palette profile' && delOn.focus === 'delete' && delCancelOn?.focus === 'cancel' && keptByCancel && keptByEsc
         && loadOn?.title === 'Load "Thin colours"' && loadOn.focus === 'load' && loadDone.doc.profile === 'Thin colours' && loadDone.undo.n === loadBefore.undo.n + 1 && loadDone.undo.label === 'Load palette profile'
         && JSON.stringify(loadUndone) === JSON.stringify(loadBefore.doc) && delAgainOn?.focus === 'delete' && deletedByEnter && profileFiles().join() === filesBeforeEnter,
-      JSON.stringify({ enterMade, overOn, overDone, enterRenamed, delOn, delCancelOn, keptByCancel, keptByEsc, loadFirst, loadOn, loadDone, loadUndone, delAgainOn, deletedByEnter, files: profileFiles() }));
+      JSON.stringify({ enterMade, overOn, overDone, enterRenamed, delOn, delCancelOn, keptByCancel, keptByEsc, loadOn, loadDone, loadUndone, delAgainOn, deletedByEnter, files: profileFiles() }));
+    ok('a question opens with the focus on its main button, so Enter answers it: Save over…, Delete…, and the Load question with a list of what it takes out long enough to scroll (that list took the focus first, and Enter did nothing)',
+      overOn?.focus === 'save' && delOn?.focus === 'delete' && loadOn?.title === 'Load "Thin colours"' && loadOn.focus === 'load' && loadListScrolls,
+      JSON.stringify({ overOn, delOn, loadOn, loadListScrolls }));
 
     // The line under the list speaks of what was just done: when the Palette tab shows again, its words go. A list that
     // cannot be read (the store answers 500 here) says so in red; listed again, the red line goes (it stayed, under a list

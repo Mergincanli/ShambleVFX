@@ -274,7 +274,7 @@ measurement.
 npm run check:browser
 ```
 
-A headless browser check on WebGPU and WebGL 2 (437 checks): palette colours read back exactly; the ground and walls cut
+A headless browser check on WebGPU and WebGL 2 (438 checks): palette colours read back exactly; the ground and walls cut
 what they should; the board presets look the same on WebGPU as on WebGL 2; the editor's transport (and New shot each loop: right after Loop,
 on at first, a new seed each loop, the same shot with it off, a new one from Fire either way; "New shot" in the narrowest
 centre, the header still one row), undo, Fire, dragging,
@@ -331,7 +331,8 @@ listing what it takes out (a colour and gradients no effect uses) with Cancel ke
 back, a profile that lacks nothing loading at once, the project naming its profile in project.json after Save, Rename, Duplicate, Save
 as file, Import profile… numbering a taken name, Restore the default profiles, Esc in a name box cancelling with
 the panel working on, Enter in a name box giving the name once and, after it, Enter on a later question's focused main
-button (Save over…, Delete…, Load) confirming it, Enter on its Cancel and Esc cancelling, the line under the list starting empty each time the tab shows (a list that could not be read
+button (Save over…, Delete…, Load) confirming it, each question opening with the focus on its main button (the Load
+question too, with a list long enough to scroll), Enter on its Cancel and Esc cancelling, the line under the list starting empty each time the tab shows (a list that could not be read
 saying so in red until it is listed again), the folder left as found; the
 Gradients tab, its editor and ramp folding as the right panel's sections do, and Use on the selected … putting a gradient
 on smoke, a fire bed and a burst, one undo step each, its words following the selection), Fade
@@ -1524,8 +1525,9 @@ These are Shamble VFX's own guesses, not Mustafa's decisions. Tell us if one is 
     goes on working. The browser check presses Enter in the box, on a later question's main button and on its Cancel,
     clicks OK and Cancel, and tries Esc.
   - **The question before a load** is the shared question dialog with the list under its words; its main button is Load.
-    A list taller than its room (often the one of what a load takes out) takes the keyboard focus first, so the arrow keys
-    can scroll it; Tab goes on to Load, and Enter there loads.
+    Every question opens with the focus on its main button (ours), so here Enter loads at once. By the browser's own rule a
+    list long enough to scroll (often the one of what a load takes out) took the focus first, and Enter did nothing until
+    Tab.
 
 ## Claude skills
 
